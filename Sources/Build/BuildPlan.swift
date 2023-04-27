@@ -30,6 +30,59 @@ extension String {
     }
 }
 
+extension Array where Element == String {
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCCompilerFlags() -> Self {
+        self.flatMap { ["-Xcc", $0] }
+    }
+
+    /// Converts a set of C++ compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCXXCompilerFlags() -> Self {
+        _ = self.flatMap { ["-Xcxx", $0] }
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Remove fatal error when downstream support arrives.
+        fatalError("swiftc does support -Xcxx flags yet.")
+    }
+
+    /// Converts a set of linker flags into an equivalent set to be indirected
+    /// through the Swift compiler instead.
+    ///
+    /// Some arguments can be passed directly to the Swift compiler. We omit
+    /// prefixing these arguments (in both the "-option value" and
+    /// "-option[=]value" forms) with "-Xlinker". All other arguments are
+    /// prefixed with "-Xlinker".
+    func asSwiftcLinkerFlags() -> Self {
+        // Arguments that can be passed directly to the Swift compiler and
+        // doesn't require -Xlinker prefix.
+        //
+        // We do this to avoid sending flags like linker search path at the end
+        // of the search list.
+        let directSwiftLinkerArgs = ["-L"]
+
+        var flags: [String] = []
+        var it = self.makeIterator()
+        while let flag = it.next() {
+            if directSwiftLinkerArgs.contains(flag) {
+                // `<option> <value>` variant.
+                flags.append(flag)
+                guard let nextFlag = it.next() else {
+                    // We expected a flag but don't have one.
+                    continue
+                }
+                flags.append(nextFlag)
+            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
+                // `<option>[=]<value>` variant.
+                flags.append(flag)
+            } else {
+                flags += ["-Xlinker", flag]
+            }
+        }
+        return flags
+    }
+}
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -41,46 +94,6 @@ extension BuildParameters {
             }
             return buildPath.appending("ModuleCache")
         }
-    }
-
-    /// Extra flags to pass to Swift compiler.
-    public var swiftCompilerFlags: [String] {
-        var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
-        flags += self.flags.swiftCompilerFlags
-        if self.verboseOutput {
-            flags.append("-v")
-        }
-        return flags
-    }
-
-    /// Extra flags to pass to linker.
-    public var linkerFlags: [String] {
-        // Arguments that can be passed directly to the Swift compiler and
-        // doesn't require -Xlinker prefix.
-        //
-        // We do this to avoid sending flags like linker search path at the end
-        // of the search list.
-        let directSwiftLinkerArgs = ["-L"]
-
-        var flags: [String] = []
-        var it = self.flags.linkerFlags.makeIterator()
-        while let flag = it.next() {
-            if directSwiftLinkerArgs.contains(flag) {
-                // `-L <value>` variant.
-                flags.append(flag)
-                guard let nextFlag = it.next() else {
-                    // We expected a flag but don't have one.
-                    continue
-                }
-                flags.append(nextFlag)
-            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
-                // `-L<value>` variant.
-                flags.append(flag)
-            } else {
-                flags += ["-Xlinker", flag]
-            }
-        }
-        return flags
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
@@ -135,7 +148,7 @@ extension BuildParameters {
         else {
             return nil
         }
-        return args.flatMap { ["-Xlinker", $0] }
+        return args.asSwiftcLinkerFlags()
     }
 
     /// Returns the scoped view of build settings for a given target.

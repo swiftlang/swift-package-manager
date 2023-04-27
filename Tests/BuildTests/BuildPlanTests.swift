@@ -3487,7 +3487,166 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(exe, ["-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-swift-flag-from-json", "-Xcc", "-clang-command-line-flag", "-swift-command-line-flag"])
+        XCTAssertMatch(exe, ["-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-swift-flag-from-json", "-swift-command-line-flag", .anySequence, "-Xcc", "-clang-flag-from-json", "-Xcc", "-clang-command-line-flag"])
+    }
+
+    func testUserToolchainWithToolsetCompileFlags() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/cLib/cLib.c",
+            "/Pkg/Sources/cLib/include/cLib.h",
+            "/Pkg/Sources/cxxLib/cxxLib.c",
+            "/Pkg/Sources/cxxLib/include/cxxLib.h"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["cLib", "cxxLib"]),
+                        TargetDescription(name: "cLib", dependencies: []),
+                        TargetDescription(name: "cxxLib", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        func jsonFlag(tool: Toolset.KnownTool) -> String { "-\(tool)-flag-from-json" }
+        func jsonFlag(tool: Toolset.KnownTool) -> StringPattern { .equal(jsonFlag(tool: tool)) }
+        func cliFlag(tool: Toolset.KnownTool) -> String { "-\(tool)-flag-from-cli" }
+        func cliFlag(tool: Toolset.KnownTool) -> StringPattern { .equal(cliFlag(tool: tool)) }
+
+        let toolSet = Toolset(
+            knownTools: [
+                .cCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cCompiler)]),
+                .cxxCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cxxCompiler)]),
+                .swiftCompiler: .init(extraCLIOptions: [jsonFlag(tool: .swiftCompiler)]),
+                .linker: .init(extraCLIOptions: [jsonFlag(tool: .linker)]),
+            ],
+            rootPaths: try UserToolchain.default.destination.toolset.rootPaths)
+        let runtimeTriple = try Triple("armv7em-unknown-none-macho")
+        let destination = try Destination(
+            runTimeTriple: runtimeTriple,
+            properties: .init(
+                sdkRootPath: "/fake/sdk",
+                swiftStaticResourcesPath: "/usr/lib/swift_static/none",
+                includeSearchPaths: ["/usr/lib/swift_static/none"],
+                librarySearchPaths: ["/usr/lib/swift_static/none"],
+                toolsetPaths: []),
+            toolset: toolSet,
+            destinationDirectory: nil)
+        let toolchain = try UserToolchain(destination: destination)
+        let buildParameters = mockBuildParameters(
+            toolchain: toolchain,
+            flags: BuildFlags(
+                cCompilerFlags: [cliFlag(tool: .cCompiler)],
+                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
+                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
+                linkerFlags: [cliFlag(tool: .linker)]),
+            destinationTriple: runtimeTriple)
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(3)
+
+        func XCTAssertCount<S>(
+            _ expectedCount: Int,
+            _ sequence: S,
+            _ element: S.Element,
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) where S: Sequence, S.Element: Equatable {
+            let actualCount = sequence.filter({ $0 == element }).count
+            guard actualCount != expectedCount else { return }
+            XCTFail(
+                """
+                Failed to find expected element '\(element)' in \
+                '\(sequence)' \(expectedCount) time(s) but found element \
+                \(actualCount) time(s).
+                """,
+                file: file,
+                line: line)
+        }
+
+        // Compile C Target
+        let cLibCompileArguments = try result.target(for: "cLib").clangTarget().basicArguments(isCXX: false)
+        let cLibCompileArgumentsPattern: [StringPattern] = [
+            jsonFlag(tool: .cCompiler), cliFlag(tool: .cCompiler),
+        ]
+        XCTAssertMatch(cLibCompileArguments, cLibCompileArgumentsPattern)
+        XCTAssertCount(0, cLibCompileArguments, jsonFlag(tool: .swiftCompiler))
+        XCTAssertCount(0, cLibCompileArguments, cliFlag(tool: .swiftCompiler))
+        XCTAssertCount(1, cLibCompileArguments, jsonFlag(tool: .cCompiler))
+        XCTAssertCount(1, cLibCompileArguments, cliFlag(tool: .cCompiler))
+        XCTAssertCount(0, cLibCompileArguments, jsonFlag(tool: .cxxCompiler))
+        XCTAssertCount(0, cLibCompileArguments, cliFlag(tool: .cxxCompiler))
+        XCTAssertCount(0, cLibCompileArguments, jsonFlag(tool: .linker))
+        XCTAssertCount(0, cLibCompileArguments, cliFlag(tool: .linker))
+
+        // Compile Cxx Target
+        let cxxLibCompileArguments = try result.target(for: "cxxLib").clangTarget().basicArguments(isCXX: true)
+        let cxxLibCompileArgumentsPattern: [StringPattern] = [
+            jsonFlag(tool: .cCompiler), cliFlag(tool: .cCompiler),
+            .anySequence,
+            jsonFlag(tool: .cxxCompiler), cliFlag(tool: .cxxCompiler)
+        ]
+        XCTAssertMatch(cxxLibCompileArguments, cxxLibCompileArgumentsPattern)
+        XCTAssertCount(0, cxxLibCompileArguments, jsonFlag(tool: .swiftCompiler))
+        XCTAssertCount(0, cxxLibCompileArguments, cliFlag(tool: .swiftCompiler))
+        XCTAssertCount(1, cxxLibCompileArguments, jsonFlag(tool: .cCompiler))
+        XCTAssertCount(1, cxxLibCompileArguments, cliFlag(tool: .cCompiler))
+        XCTAssertCount(1, cxxLibCompileArguments, jsonFlag(tool: .cxxCompiler))
+        XCTAssertCount(1, cxxLibCompileArguments, cliFlag(tool: .cxxCompiler))
+        XCTAssertCount(0, cxxLibCompileArguments, jsonFlag(tool: .linker))
+        XCTAssertCount(0, cxxLibCompileArguments, cliFlag(tool: .linker))
+
+        // Compile Swift Target
+        let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
+        let exeCompileArgumentsPattern: [StringPattern] = [
+            jsonFlag(tool: .swiftCompiler), cliFlag(tool: .swiftCompiler),
+            .anySequence,
+            "-Xcc", jsonFlag(tool: .cCompiler), "-Xcc", cliFlag(tool: .cCompiler),
+            // TODO: Pass -Xcxx flags to swiftc (#6491)
+            // Uncomment when downstream support arrives.
+            // .anySequence,
+            // "-Xcxx", jsonFlag(tool: .cxxCompiler), "-Xcxx", cliFlag(tool: .cxxCompiler),
+        ]
+        XCTAssertMatch(exeCompileArguments, exeCompileArgumentsPattern)
+        XCTAssertCount(1, exeCompileArguments, jsonFlag(tool: .swiftCompiler))
+        XCTAssertCount(1, exeCompileArguments, cliFlag(tool: .swiftCompiler))
+        XCTAssertCount(1, exeCompileArguments, jsonFlag(tool: .cCompiler))
+        XCTAssertCount(1, exeCompileArguments, cliFlag(tool: .cCompiler))
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Change 0 to 1 when downstream support arrives.
+        XCTAssertCount(0, exeCompileArguments, jsonFlag(tool: .cxxCompiler))
+        XCTAssertCount(0, exeCompileArguments, cliFlag(tool: .cxxCompiler))
+        XCTAssertCount(0, exeCompileArguments, jsonFlag(tool: .linker))
+        XCTAssertCount(0, exeCompileArguments, cliFlag(tool: .linker))
+
+        // Link Product
+        let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
+        let exeLinkArgumentsPattern: [StringPattern] = [
+            jsonFlag(tool: .swiftCompiler), cliFlag(tool: .swiftCompiler),
+            .anySequence,
+            "-Xlinker", jsonFlag(tool: .linker), "-Xlinker", cliFlag(tool: .linker),
+        ]
+        XCTAssertMatch(exeLinkArguments, exeLinkArgumentsPattern)
+        XCTAssertCount(1, exeLinkArguments, jsonFlag(tool: .swiftCompiler))
+        XCTAssertCount(1, exeLinkArguments, cliFlag(tool: .swiftCompiler))
+        XCTAssertCount(0, exeLinkArguments, jsonFlag(tool: .cCompiler))
+        XCTAssertCount(0, exeLinkArguments, cliFlag(tool: .cCompiler))
+        XCTAssertCount(0, exeLinkArguments, jsonFlag(tool: .cxxCompiler))
+        XCTAssertCount(0, exeLinkArguments, cliFlag(tool: .cxxCompiler))
+        XCTAssertCount(1, exeLinkArguments, jsonFlag(tool: .linker))
+        XCTAssertCount(1, exeLinkArguments, cliFlag(tool: .linker))
     }
 
     func testExecBuildTimeDependency() throws {
