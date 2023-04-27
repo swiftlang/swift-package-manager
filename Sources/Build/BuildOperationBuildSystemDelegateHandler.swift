@@ -158,7 +158,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
             public func __allDiscoveredTests() -> [XCTestCaseEntry] {
                 \#(testsKeyword) tests = [XCTestCaseEntry]()
 
-                \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: ",\n    "))
+                \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))
 
                 return tests
             }
