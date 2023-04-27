@@ -648,7 +648,9 @@ final class PackageToolTests: CommandsTestCase {
             let dep = tmpPath.appending(components: "dep")
 
             // Create root package.
-            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift"), string: "")
+            let mainFilePath = root.appending(components: "Sources", "root", "main.swift")
+            try fs.createDirectory(mainFilePath.parentDirectory, recursive: true)
+            try fs.writeFileContents(mainFilePath, string: "")
             try fs.writeFileContents(root.appending("Package.swift")) {
                 $0.send(
                     """
