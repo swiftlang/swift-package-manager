@@ -10827,6 +10827,7 @@ final class WorkspaceTests: XCTestCase {
 
             let foo = path.appending("foo")
 
+            try fs.createDirectory(foo)
             try fs.writeFileContents(
                 foo.appending("Package.swift"),
                 string: """
