@@ -215,6 +215,7 @@ final class WorkspaceTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let pkgDir = path.appending("MyPkg")
+            try localFileSystem.createDirectory(pkgDir)
             try localFileSystem.writeFileContents(
                 pkgDir.appending("Package.swift"),
                 string: """

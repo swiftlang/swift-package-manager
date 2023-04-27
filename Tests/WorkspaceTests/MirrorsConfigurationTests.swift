@@ -23,6 +23,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
+        try fs.createDirectory(configFile.parentDirectory)
         try fs.writeFileContents(
             configFile,
             string: """

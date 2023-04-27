@@ -76,7 +76,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         // Contents with invalid tools version specification (ignoring the validity of the version specifier).
         stream = BufferedOutputByteStream()
         stream.send("""
-            // swift-tools-version:3.1.2
+            // swift-tool-version:3.1.2
             ...
             """
         )
@@ -115,7 +115,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         
         stream = BufferedOutputByteStream()
         stream.send("let package = ... \n")
-        
+
         rewriteToolsVersionSpecificationToDefaultManifest(
             stream: stream,
             version: toolsVersion
