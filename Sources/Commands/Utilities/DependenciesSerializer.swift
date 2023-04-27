@@ -55,7 +55,7 @@ final class FlatListDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
-                stream.send("\(package.identity.description)\n")
+                stream.send(package.identity.description).send("\n")
                 if !package.dependencies.isEmpty {
                     recursiveWalk(packages: package.dependencies)
                 }
@@ -74,7 +74,7 @@ final class DotDumper: DependenciesDumper {
             let url = package.manifest.packageLocation
             if nodesAlreadyPrinted.contains(url) { return }
             let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            stream.send(#""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]\n"#)
+            stream.send(#""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"#).send("\n")
             nodesAlreadyPrinted.insert(url)
         }
 
@@ -92,7 +92,7 @@ final class DotDumper: DependenciesDumper {
                 if dependenciesAlreadyPrinted.contains(urlPair) { continue }
 
                 printNode(dependency)
-                stream.send(#""\#(rootURL)" -> "\#(dependencyURL)"\n"#)
+                stream.send(#""\#(rootURL)" -> "\#(dependencyURL)""#).send("\n")
                 dependenciesAlreadyPrinted.insert(urlPair)
 
                 if !dependency.dependencies.isEmpty {
