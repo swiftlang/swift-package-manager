@@ -179,8 +179,9 @@ class PluginTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             let manifestFile = packageDir.appending("Package.swift")
             try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(manifestFile) {
-                """
+            try localFileSystem.writeFileContents(
+                manifestFile,
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -223,18 +224,20 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
+            )
             let librarySourceFile = packageDir.appending(components: "Sources", "MyLibrary", "library.swift")
             try localFileSystem.createDirectory(librarySourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(librarySourceFile) {
-                """
+            try localFileSystem.writeFileContents(
+                librarySourceFile,
+                string: """
                 public func Foo() { }
                 """
-            }
+            )
             let printingPluginSourceFile = packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")
             try localFileSystem.createDirectory(printingPluginSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(printingPluginSourceFile) {
-                """
+            try localFileSystem.writeFileContents(
+                printingPluginSourceFile,
+                string: """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -250,11 +253,12 @@ class PluginTests: XCTestCase {
                     }
                 }
                 """
-            }
+            )
             let pluginFailingWithErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithError", "plugin.swift")
             try localFileSystem.createDirectory(pluginFailingWithErrorSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(pluginFailingWithErrorSourceFile) {
-                """
+            try localFileSystem.writeFileContents(
+                pluginFailingWithErrorSourceFile,
+                string: """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -270,11 +274,12 @@ class PluginTests: XCTestCase {
                 }
                 extension String: Error { }
                 """
-            }
+            )
             let pluginFailingWithoutErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithoutError", "plugin.swift")
             try localFileSystem.createDirectory(pluginFailingWithoutErrorSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(pluginFailingWithoutErrorSourceFile) {
-                """
+            try localFileSystem.writeFileContents(
+                pluginFailingWithoutErrorSourceFile,
+                string: """
                 import PackagePlugin
                 import Foundation
                 @main struct MyCommandPlugin: CommandPlugin {
@@ -291,11 +296,12 @@ class PluginTests: XCTestCase {
                 }
                 extension String: Error { }
                 """
-            }
+            )
             let neverendingPluginSourceFile = packageDir.appending(components: "Plugins", "NeverendingPlugin", "plugin.swift")
             try localFileSystem.createDirectory(neverendingPluginSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(neverendingPluginSourceFile) {
-                """
+            try localFileSystem.writeFileContents(
+                neverendingPluginSourceFile,
+                string: """
                 import PackagePlugin
                 import Foundation
                 @main struct MyCommandPlugin: CommandPlugin {
@@ -312,13 +318,14 @@ class PluginTests: XCTestCase {
                 }
                 extension String: Error { }
                 """
-            }
+            )
 
             // Create the sample vendored dependency package.
             let library1Path = packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")
             try localFileSystem.createDirectory(library1Path.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(library1Path) {
-                """
+            try localFileSystem.writeFileContents(
+                library1Path,
+                string: """
                 // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
@@ -336,15 +343,16 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
+            )
 
             let library2Path = packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")
             try localFileSystem.createDirectory(library2Path.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(library2Path) {
-                """
+            try localFileSystem.writeFileContents(
+                library2Path,
+                string: """
                 public func Bar() { }
                 """
-            }
+            )
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
@@ -568,8 +576,9 @@ class PluginTests: XCTestCase {
             // Create a sample package with a couple of plugins a other targets and products.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -593,18 +602,20 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
+            )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                myLibraryTargetDir.appending("library.swift"),
+                string: """
                 public func GetGreeting() -> String { return "Hello" }
                 """
-            }
+            )
             let neverendingPluginTargetDir = packageDir.appending(components: "Plugins", "NeverendingPlugin")
             try localFileSystem.createDirectory(neverendingPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(neverendingPluginTargetDir.appending("plugin.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                neverendingPluginTargetDir.appending("plugin.swift"),
+                string: """
                 import PackagePlugin
                 import Foundation
                 @main struct NeverendingPlugin: CommandPlugin {
@@ -620,7 +631,7 @@ class PluginTests: XCTestCase {
                     }
                 }
                 """
-            }
+            )
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
@@ -779,8 +790,9 @@ class PluginTests: XCTestCase {
             // Create a sample package that uses three packages that vend plugins.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending("Package.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                packageDir.appending("Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -801,18 +813,20 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending("Library.swift")) {
-                """
+            )
+            try localFileSystem.writeFileContents(
+                packageDir.appending("Library.swift"),
+                string: """
                 public var Foo: String
                 """
-            }
+            )
 
             // Create the depended-upon package that vends a build tool plugin that is used by the main package.
             let buildToolPluginPackageDir = packageDir.appending(components: "VendoredDependencies", "BuildToolPluginPackage")
             try localFileSystem.createDirectory(buildToolPluginPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(buildToolPluginPackageDir.appending("Package.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                buildToolPluginPackageDir.appending("Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -830,9 +844,10 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(buildToolPluginPackageDir.appending("Plugin.swift")) {
-                """
+            )
+            try localFileSystem.writeFileContents(
+                buildToolPluginPackageDir.appending("Plugin.swift"),
+                string: """
                 import PackagePlugin
                 @main struct MyPlugin: BuildToolPlugin {
                     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
@@ -840,13 +855,14 @@ class PluginTests: XCTestCase {
                     }
                 }
                 """
-            }
+            )
 
             // Create the depended-upon package that vends a build tool plugin that is not used by the main package.
             let unusedBuildToolPluginPackageDir = packageDir.appending(components: "VendoredDependencies", "UnusedBuildToolPluginPackage")
             try localFileSystem.createDirectory(unusedBuildToolPluginPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(unusedBuildToolPluginPackageDir.appending("Package.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                unusedBuildToolPluginPackageDir.appending("Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -864,9 +880,10 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(unusedBuildToolPluginPackageDir.appending("Plugin.swift")) {
-                """
+            )
+            try localFileSystem.writeFileContents(
+                unusedBuildToolPluginPackageDir.appending("Plugin.swift"),
+                string: """
                 import PackagePlugin
                 @main struct MyPlugin: BuildToolPlugin {
                     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
@@ -874,13 +891,14 @@ class PluginTests: XCTestCase {
                     }
                 }
                 """
-            }
+            )
 
             // Create the depended-upon package that vends a command plugin.
             let commandPluginPackageDir = packageDir.appending(components: "VendoredDependencies", "CommandPluginPackage")
             try localFileSystem.createDirectory(commandPluginPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(commandPluginPackageDir.appending("Package.swift")) {
-                """
+            try localFileSystem.writeFileContents(
+                commandPluginPackageDir.appending("Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -898,16 +916,17 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(commandPluginPackageDir.appending("Plugin.swift")) {
-                """
+            )
+            try localFileSystem.writeFileContents(
+                commandPluginPackageDir.appending("Plugin.swift"),
+                string: """
                 import PackagePlugin
                 @main struct MyPlugin: CommandPlugin {
                     func performCommand(context: PluginContext, targets: [Target], arguments: [String]) throws {
                     }
                 }
                 """
-            }
+            )
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()

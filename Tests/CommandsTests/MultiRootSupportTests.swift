@@ -26,7 +26,8 @@ final class MultiRootSupportTests: CommandsTestCase {
         ])
         let path = AbsolutePath("/tmp/test/Workspace.xcworkspace")
         try fs.writeFileContents(path.appending("contents.xcworkspacedata")) {
-            $0 <<< """
+            $0.send(
+                """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Workspace
                 version = "1.0">
@@ -38,6 +39,7 @@ final class MultiRootSupportTests: CommandsTestCase {
                 </FileRef>
                 </Workspace>
                 """
+            )
         }
 
         let observability = ObservabilitySystem.makeForTesting()

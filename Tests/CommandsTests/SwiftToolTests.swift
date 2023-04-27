@@ -162,9 +162,10 @@ final class SwiftToolTests: CommandsTestCase {
             // custom .netrc file
             do {
                 let customPath = try fs.tempDirectory.appending(component: UUID().uuidString)
-                try fs.writeFileContents(customPath) {
-                    "machine mymachine.labkey.org login custom@labkey.org password custom"
-                }
+                try fs.writeFileContents(
+                    customPath,
+                    string: "machine mymachine.labkey.org login custom@labkey.org password custom"
+                )
 
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool.createSwiftToolForTest(options: options)
@@ -196,9 +197,10 @@ final class SwiftToolTests: CommandsTestCase {
             // custom .netrc file
             do {
                 let customPath = try fs.tempDirectory.appending(component: UUID().uuidString)
-                try fs.writeFileContents(customPath) {
-                    "machine mymachine.labkey.org login custom@labkey.org password custom"
-                }
+                try fs.writeFileContents(
+                    customPath,
+                    string: "machine mymachine.labkey.org login custom@labkey.org password custom"
+                )
 
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool.createSwiftToolForTest(options: options)

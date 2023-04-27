@@ -219,7 +219,7 @@ class MiscellaneousTestCase: XCTestCase {
             let pcFile = fixturePath.appending("libSystemModule.pc")
 
             let stream = BufferedOutputByteStream()
-            stream <<< """
+            stream.send("""
                 prefix=\(systemModule.pathString)
                 exec_prefix=${prefix}
                 libdir=${exec_prefix}
@@ -232,6 +232,7 @@ class MiscellaneousTestCase: XCTestCase {
                 Libs: -L${libdir} -lSystemModule
 
                 """
+            )
             try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")

@@ -571,8 +571,10 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Trivial",
@@ -583,7 +585,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         ]
                     )
                     """
-            }
+            )
 
             let delegate = ManifestTestDelegate()
 
@@ -631,8 +633,10 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Trivial",
@@ -643,7 +647,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         ]
                     )
                     """
-            }
+            )
 
             let delegate = ManifestTestDelegate()
 
@@ -673,8 +677,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 check(loader: manifestLoader, expectCached: true)
             }
 
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                     import PackageDescription
 
                     let package = Package(
@@ -688,7 +693,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     )
 
                     """
-            }
+            )
 
             check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
@@ -711,7 +716,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     func testContentBasedCaching() throws {
         try testWithTemporaryDirectory { path in
             let stream = BufferedOutputByteStream()
-            stream <<< """
+            stream.send("""
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -720,6 +725,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     ]
                 )
                 """
+            )
 
             let delegate = ManifestTestDelegate()
 
@@ -759,7 +765,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             do {
-                stream <<< "\n\n"
+                stream.send("\n\n")
                 delegate.prepare()
                 try check(loader: manifestLoader)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
@@ -799,8 +805,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let total = 1000
             let manifestPath = path.appending(components: "pkg", "Package.swift")
             try localFileSystem.createDirectory(manifestPath.parentDirectory)
-            try localFileSystem.writeFileContents(manifestPath) {
-                """
+            try localFileSystem.writeFileContents(
+                manifestPath,
+                string: """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -811,7 +818,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     ]
                 )
                 """
-            }
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
@@ -905,8 +912,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
                 if !localFileSystem.exists(manifestPath) {
                     try localFileSystem.createDirectory(manifestPath.parentDirectory)
-                    try localFileSystem.writeFileContents(manifestPath) {
-                        """
+                    try localFileSystem.writeFileContents(
+                        manifestPath,
+                        string: """
                         import PackageDescription
                         let package = Package(
                             name: "Trivial-\(random)",
@@ -917,7 +925,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                             ]
                         )
                         """
-                    }
+                    )
                 }
 
                 sync.enter()

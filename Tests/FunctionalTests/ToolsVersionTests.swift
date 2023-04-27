@@ -31,8 +31,9 @@ class ToolsVersionTests: XCTestCase {
             initGitRepo(depPath)
             let repo = GitRepository(path: depPath)
 
-            try fs.writeFileContents(depPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                depPath.appending("Package.swift"),
+                string: """
                     // swift-tools-version:5.0
                     import PackageDescription
                     let package = Package(
@@ -45,12 +46,11 @@ class ToolsVersionTests: XCTestCase {
                         ]
                     )
                     """
-            }
-            try fs.writeFileContents(depPath.appending("foo.swift")) {
-                $0 <<< """
-                    public func foo() { print("foo@1.0") }
-                    """
-            }
+            )
+            try fs.writeFileContents(
+                depPath.appending("foo.swift"),
+                string: #"public func foo() { print("foo@1.0") }"#
+            )
             // v1.
             try repo.stageEverything()
             try repo.commit(message: "Initial")
@@ -59,19 +59,19 @@ class ToolsVersionTests: XCTestCase {
             // v1.0.1
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set", "10000.1"], packagePath: depPath)
-            try fs.writeFileContents(depPath.appending("foo.swift")) {
-                $0 <<< """
-                    public func foo() { print("foo@1.0.1") }
-                    """
-            }
+            try fs.writeFileContents(
+                depPath.appending("foo.swift"),
+                string: #"public func foo() { print("foo@1.0.1") }"#
+            )
             try repo.stageEverything()
             try repo.commit(message: "1.0.1")
             try repo.tag(name: "1.0.1")
 
             // Create the primary repository.
             let primaryPath = path.appending("Primary")
-            try fs.writeFileContents(primaryPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                primaryPath.appending("Package.swift"),
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Primary",
@@ -79,14 +79,15 @@ class ToolsVersionTests: XCTestCase {
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")]
                     )
                     """
-            }
+            )
             // Create a file.
-            try fs.writeFileContents(primaryPath.appending("main.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                primaryPath.appending("main.swift"),
+                string: """
                     import Dep
                     Dep.foo()
                     """
-            }
+            )
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
 
@@ -105,8 +106,9 @@ class ToolsVersionTests: XCTestCase {
             }
 
             // Write the manifest with incompatible sources.
-            try fs.writeFileContents(primaryPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                primaryPath.appending("Package.swift"),
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Primary",
@@ -114,7 +116,7 @@ class ToolsVersionTests: XCTestCase {
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")],
                         swiftLanguageVersions: [.version("1000")])
                     """
-            }
+            )
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
 
@@ -122,8 +124,9 @@ class ToolsVersionTests: XCTestCase {
                 XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), error.stderr)
             }
 
-             try fs.writeFileContents(primaryPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                primaryPath.appending("Package.swift"),
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Primary",
@@ -131,7 +134,7 @@ class ToolsVersionTests: XCTestCase {
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")],
                         swiftLanguageVersions: [.version("\(ToolsVersion.current.major)"), .version("1000")])
                     """
-             }
+             )
              _ = try SwiftPMProduct.SwiftPackage.execute(
                  ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
              _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)

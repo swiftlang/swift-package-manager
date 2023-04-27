@@ -106,8 +106,9 @@ final class RunToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
-            try localFileSystem.writeFileContents(mainFilePath) {
-                """
+            try localFileSystem.writeFileContents(
+                mainFilePath,
+                string: """
                 import Foundation
 
                 print("sleeping")
@@ -116,7 +117,7 @@ final class RunToolTests: CommandsTestCase {
                 sleep(10)
                 print("done")
                 """
-            }
+            )
 
             let sync = DispatchGroup()
             let outputHandler = OutputHandler(sync: sync)

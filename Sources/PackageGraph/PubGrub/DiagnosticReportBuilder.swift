@@ -54,16 +54,16 @@ struct DiagnosticReportBuilder {
         let padding = self.lineNumbers.isEmpty ? 0 : "\(Array(self.lineNumbers.values).last!) ".count
 
         for (idx, line) in self.lines.enumerated() {
-            stream <<< Format.asRepeating(string: " ", count: padding)
+            stream.send(Format.asRepeating(string: " ", count: padding))
             if line.number != -1 {
-                stream <<< Format.asRepeating(string: " ", count: padding)
-                stream <<< " (\(line.number)) "
+                stream.send(Format.asRepeating(string: " ", count: padding))
+                stream.send(" (\(line.number)) ")
             }
-            stream <<< line.message.prefix(1).capitalized
-            stream <<< line.message.dropFirst()
+            stream.send(line.message.prefix(1).capitalized)
+            stream.send(line.message.dropFirst())
 
             if self.lines.count - 1 != idx {
-                stream <<< "\n"
+                stream.send("\n")
             }
         }
 
