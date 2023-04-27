@@ -69,6 +69,7 @@ class ToolsVersionTests: XCTestCase {
 
             // Create the primary repository.
             let primaryPath = path.appending("Primary")
+            try fs.createDirectory(primaryPath, recursive: true)
             try fs.writeFileContents(
                 primaryPath.appending("Package.swift"),
                 string: """

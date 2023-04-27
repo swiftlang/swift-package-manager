@@ -263,13 +263,14 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Write out fake git.
             let stream = BufferedOutputByteStream()
-            stream <<< """
+            stream.send("""
                 #!/bin/sh
                 set -e
                 printf "$$" >> \(waitFile)
                 while true; do sleep 1; done
 
                 """
+            )
             try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
 
             // Make it executable.

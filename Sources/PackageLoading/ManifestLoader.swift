@@ -922,13 +922,13 @@ extension ManifestLoader {
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
-            stream <<< packageIdentity
-            stream <<< manifestContents
-            stream <<< toolsVersion.description
+            stream.send(packageIdentity)
+            stream.send(manifestContents)
+            stream.send(toolsVersion.description)
             for (key, value) in env.sorted(by: { $0.key > $1.key }) {
-                stream <<< key <<< value
+                stream.send(key).send(value)
             }
-            stream <<< swiftpmVersion
+            stream.send(swiftpmVersion)
             return stream.bytes.sha256Checksum
         }
     }

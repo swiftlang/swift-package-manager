@@ -243,15 +243,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         let compilerInputHash: String?
         do {
             // Include the full compiler arguments and environment, and the contents of the source files.
-            let stream = BufferedOutputByteStream()
-            stream <<< commandLine
+            var stringToHash = commandLine.description
             for (key, value) in toolchain.swiftCompilerEnvironment.sorted(by: { $0.key < $1.key }) {
-                stream <<< "\(key)=\(value)\n"
+                stringToHash.append("\(key)=\(value)\n")
             }
             for sourceFile in sourceFiles {
-                try stream <<< fileSystem.readFileContents(sourceFile).contents
+                stringToHash.append(try fileSystem.readFileContents(sourceFile).description)
             }
-            compilerInputHash = stream.bytes.sha256Checksum
+            compilerInputHash = ByteString(encodingAsUTF8: stringToHash).sha256Checksum
             observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputHash!)")
         }
         catch {

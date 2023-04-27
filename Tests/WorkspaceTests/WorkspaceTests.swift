@@ -178,7 +178,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace {
-                    $0 <<<
+                    $0.send(
                         """
                         // swift-tools-version:4.0
                         import PackageDescription
@@ -186,6 +186,7 @@ final class WorkspaceTests: XCTestCase {
                             name: "foo"
                         )
                         """
+                    )
                 }
 
                 XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
@@ -193,7 +194,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace {
-                    $0 <<<
+                    $0.send(
                         """
                         // swift-tools-version:3.1
                         import PackageDescription
@@ -201,6 +202,7 @@ final class WorkspaceTests: XCTestCase {
                             name: "foo"
                         )
                         """
+                    )
                 }
 
                 XCTAssertEqual(ws.interpreterFlags(for: foo), [])
@@ -213,17 +215,17 @@ final class WorkspaceTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let pkgDir = path.appending("MyPkg")
-            try localFileSystem.writeFileContents(pkgDir.appending("Package.swift")) {
-                $0 <<<
-                    """
-                    // swift-tools-version:4.0
-                    import PackageDescription
-                    #error("An error in MyPkg")
-                    let package = Package(
-                        name: "MyPkg"
-                    )
-                    """
-            }
+            try localFileSystem.writeFileContents(
+                pkgDir.appending("Package.swift"),
+                string: """
+                // swift-tools-version:4.0
+                import PackageDescription
+                #error("An error in MyPkg")
+                let package = Package(
+                    name: "MyPkg"
+                )
+                """
+            )
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
@@ -10824,19 +10826,19 @@ final class WorkspaceTests: XCTestCase {
 
             let foo = path.appending("foo")
 
-            try fs.writeFileContents(foo.appending("Package.swift")) {
-                $0 <<<
-                    """
-                    // swift-tools-version:5.3
-                    import PackageDescription
-                    let package = Package(
-                        name: "Best",
-                        targets: [
-                            .binaryTarget(name: "best", path: "/best.xcframework")
-                        ]
-                    )
-                    """
-            }
+            try fs.writeFileContents(
+                foo.appending("Package.swift"),
+                string: """
+                // swift-tools-version:5.3
+                import PackageDescription
+                let package = Package(
+                    name: "Best",
+                    targets: [
+                        .binaryTarget(name: "best", path: "/best.xcframework")
+                    ]
+                )
+                """
+            )
 
             let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
             let sandbox = path.appending("ws")

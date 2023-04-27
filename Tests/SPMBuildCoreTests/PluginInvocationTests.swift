@@ -1126,11 +1126,12 @@ class PluginInvocationTests: XCTestCase {
 
             let libDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(libDir, recursive: true)
-            try localFileSystem.writeFileContents(libDir.appending(components: "library.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(
+                libDir.appending(components: "library.swift"),
+                string: """
                 public func myLib() { }
                 """
-            }
+            )
 
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
@@ -1155,8 +1156,9 @@ class PluginInvocationTests: XCTestCase {
                 """
             }
 
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"),
+                string: """
                 {   "schemaVersion": "1.0",
                     "artifacts": {
                         "LocalBinaryTool": {
@@ -1169,7 +1171,7 @@ class PluginInvocationTests: XCTestCase {
                     }
                 }
                 """
-            }
+            )
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
