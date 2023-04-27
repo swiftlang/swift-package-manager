@@ -714,7 +714,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             self.delegate?.buildSystemDidCancel(self.buildSystem)
         case .failed:
             // The command failed, so we queue up an asynchronous task to see if we have any error messages from the
-            target to provide advice about.
+            // target to provide advice about.
             queue.async {
                 guard let target = self.swiftParsers[command.name]?.targetName else { return }
                 guard let errorMessages = self.errorMessagesByTarget[target] else { return }
