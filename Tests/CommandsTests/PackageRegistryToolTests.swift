@@ -15,6 +15,7 @@ import Commands
 import Foundation
 import PackageLoading
 import PackageModel
+import PackagePublication
 @testable import PackageRegistryTool
 import PackageSigning
 import SPMTestSupport
@@ -310,13 +311,14 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
-            let archivePath = try PackageArchiver.archive(
+            let archivePath = try PackageArchiver.archiveSource(
                 packageIdentity: packageIdentity,
                 packageVersion: "1.3.5",
                 packageDirectory: packageDirectory,
                 workingDirectory: workingDirectory,
                 workingFilesToCopy: [],
                 cancellator: .none,
+                fileSystem: localFileSystem,
                 observabilityScope: observability.topScope
             )
 
@@ -340,13 +342,14 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
-            let archivePath = try PackageArchiver.archive(
+            let archivePath = try PackageArchiver.archiveSource(
                 packageIdentity: packageIdentity,
                 packageVersion: "1.5.4",
                 packageDirectory: packageDirectory,
                 workingDirectory: workingDirectory,
                 workingFilesToCopy: [],
                 cancellator: .none,
+                fileSystem: localFileSystem,
                 observabilityScope: observability.topScope
             )
 
@@ -375,13 +378,14 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
-            let archivePath = try PackageArchiver.archive(
+            let archivePath = try PackageArchiver.archiveSource(
                 packageIdentity: packageIdentity,
                 packageVersion: "0.3.1",
                 packageDirectory: packageDirectory,
                 workingDirectory: workingDirectory,
                 workingFilesToCopy: [],
                 cancellator: .none,
+                fileSystem: localFileSystem,
                 observabilityScope: observability.topScope
             )
 
