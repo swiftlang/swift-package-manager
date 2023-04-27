@@ -1156,8 +1156,14 @@ class PluginInvocationTests: XCTestCase {
                 """
             }
 
+            let bundleMetadataPath = packageDir.appending(
+                components: "Binaries",
+                "LocalBinaryTool.artifactbundle",
+                "info.json"
+            )
+            try localFileSystem.createDirectory(bundleMetadataPath.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
-                packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"),
+                bundleMetadataPath,
                 string: """
                 {   "schemaVersion": "1.0",
                     "artifacts": {
