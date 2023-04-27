@@ -802,8 +802,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 self.outputStream.flush()
 
                 // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this
-                will be very slow),
-                // so they can later be passed to the advice provider in case of failure.
+                // will be very slow), so they can later be passed to the advice provider in case of failure.
                 if output.utf8.count < 1024 * 10 {
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
