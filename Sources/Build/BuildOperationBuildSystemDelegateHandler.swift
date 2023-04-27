@@ -292,7 +292,7 @@ public struct BuildDescription: Codable {
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
-    /// A flag that inidcates this build should perform a check for whether targets only import
+    /// A flag that indicates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
     let explicitTargetDependencyImportCheckingMode: BuildParameters.TargetDependencyImportCheckingMode
 
