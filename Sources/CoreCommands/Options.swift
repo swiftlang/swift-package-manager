@@ -434,7 +434,7 @@ public struct BuildOptions: ParsableArguments {
     @Flag()
     public var useIntegratedSwiftDriver: Bool = false
 
-    /// A flag that inidcates this build should check whether targets only import
+    /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
     @Option()
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none

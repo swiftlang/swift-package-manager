@@ -174,7 +174,7 @@ public struct BuildParameters: Encodable {
     /// Whether to use the explicit module build flow (with the integrated driver).
     public var useExplicitModuleBuild: Bool
 
-    /// A flag that inidcates this build should check whether targets only import.
+    /// A flag that indicates this build should check whether targets only import.
     /// their explicitly-declared dependencies
     public var explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode
 
