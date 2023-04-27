@@ -79,8 +79,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 #"""
 
                 fileprivate extension \#(className) {
-                    @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow \
-                inclusion of deprecated tests (which test deprecated functionality) without warnings")
+                    @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
                     static let __allTests__\#(className) = [
                         \#(testMethods.map { $0.allTestsEntry }.joined(separator: ",\n        "))
                     ]
@@ -92,8 +91,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
         stream.send(
         #"""
-        @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of \
-        deprecated tests (which test deprecated functionality) without warnings")
+        @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
         func __\#(module)__allTests() -> [XCTestCaseEntry] {
             return [
                 \#(testsByClassNames.map { "testCase(\($0.key).__allTests__\($0.key))" }
@@ -156,8 +154,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
             #"""
             import XCTest
 
-            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of \
-            deprecated tests (which test deprecated functionality) without warnings")
+            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             public func __allDiscoveredTests() -> [XCTestCaseEntry] {
                 \#(testsKeyword) tests = [XCTestCaseEntry]()
 
@@ -216,8 +213,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
 
             @main
-            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of \
-            deprecated tests (which test deprecated functionality) without warnings")
+            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 static func main() {
                     XCTMain(__allDiscoveredTests())
