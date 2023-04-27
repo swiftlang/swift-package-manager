@@ -27,9 +27,10 @@ final class AuthorizationProviderTests: XCTestCase {
 
             let customPath = try fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
             try fileSystem.createDirectory(customPath.parentDirectory, recursive: true)
-            try fileSystem.writeFileContents(customPath) {
-                "machine mymachine.labkey.org login custom@labkey.org password custom"
-            }
+            try fileSystem.writeFileContents(
+                customPath,
+                string: "machine mymachine.labkey.org login custom@labkey.org password custom"
+            )
 
             let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
             let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
@@ -55,9 +56,10 @@ final class AuthorizationProviderTests: XCTestCase {
 
             let userPath = try fileSystem.homeDirectory.appending(".netrc")
             try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
-            try fileSystem.writeFileContents(userPath) {
-                "machine mymachine.labkey.org login user@labkey.org password user"
-            }
+            try fileSystem.writeFileContents(
+                userPath,
+                string: "machine mymachine.labkey.org login user@labkey.org password user"
+            )
 
             let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
             let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
@@ -89,9 +91,10 @@ final class AuthorizationProviderTests: XCTestCase {
 
             let customPath = try fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
             try fileSystem.createDirectory(customPath.parentDirectory, recursive: true)
-            try fileSystem.writeFileContents(customPath) {
-                "machine mymachine.labkey.org login custom@labkey.org password custom"
-            }
+            try fileSystem.writeFileContents(
+                customPath,
+                string: "machine mymachine.labkey.org login custom@labkey.org password custom"
+            )
 
             let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
             let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
@@ -117,9 +120,10 @@ final class AuthorizationProviderTests: XCTestCase {
 
             let userPath = try fileSystem.homeDirectory.appending(".netrc")
             try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
-            try fileSystem.writeFileContents(userPath) {
-                "machine mymachine.labkey.org login user@labkey.org password user"
-            }
+            try fileSystem.writeFileContents(
+                userPath,
+                string: "machine mymachine.labkey.org login user@labkey.org password user"
+            )
 
             let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
             let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
