@@ -29,16 +29,16 @@ public struct ManifestWriter {
             client:
               name: basic
             tools: {}
-            targets:
-
+            targets:\n
             """
         )
 
         for (_, target) in manifest.targets.sorted(by: { $0.key < $1.key }) {
-            stream.send("  \(Format.asJSON(target.name)): \(Format.asJSON(target.nodes.map(\.name).sorted()))\n")
+            stream.send("  ").send(Format.asJSON(target.name))
+            stream.send(": ").send(Format.asJSON(target.nodes.map(\.name).sorted())).send("\n")
         }
 
-        stream.send("default: \(Format.asJSON(manifest.defaultTarget))\n")
+        stream.send("default: ").send(Format.asJSON(manifest.defaultTarget)).send("\n")
 
         // We need to explicitly configure  the directory structure nodes.
         let directoryStructureNodes = Set(manifest.commands
@@ -48,23 +48,18 @@ public struct ManifestWriter {
         )
 
         if !directoryStructureNodes.isEmpty {
-            stream.send("nodes:")
+            stream.send("nodes:\n")
         }
         let namesToExclude = [".git", ".build"]
         for node in directoryStructureNodes.sorted(by: { $0.name < $1.name }) {
-            stream.send(
-                """
-                  \(Format.asJSON(node)):
-                    is-directory-structure: true
-                    content-exclusion-patterns: \(Format.asJSON(namesToExclude))
-
-                """
-            )
+            stream.send("  ").send(Format.asJSON(node)).send(":\n")
+                .send("    is-directory-structure: true\n")
+                .send("    content-exclusion-patterns: ").send(Format.asJSON(namesToExclude)).send("\n")
         }
 
         stream.send("commands:\n")
         for (_,  command) in manifest.commands.sorted(by: { $0.key < $1.key }) {
-            stream.send("  \(Format.asJSON(command.name)):\n")
+            stream.send("  ").send(Format.asJSON(command.name)).send(":\n")
 
             let tool = command.tool
 
@@ -92,14 +87,14 @@ public final class ManifestToolStream {
     public subscript(key: String) -> Int {
         get { fatalError() }
         set {
-            stream.send("    \(key): \(Format.asJSON(newValue))\n")
+            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
         }
     }
 
     public subscript(key: String) -> String {
         get { fatalError() }
         set {
-            stream.send("    \(key): \(Format.asJSON(newValue))\n")
+            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
         }
     }
 
@@ -113,35 +108,35 @@ public final class ManifestToolStream {
     public subscript(key: String) -> AbsolutePath {
          get { fatalError() }
          set {
-            stream.send("    \(key): \(Format.asJSON(newValue.pathString))\n")
+             stream.send("    \(key): ").send(Format.asJSON(newValue.pathString)).send("\n")
          }
      }
 
     public subscript(key: String) -> [AbsolutePath] {
          get { fatalError() }
          set {
-            stream.send("    \(key): \(Format.asJSON(newValue.map(\.pathString)))\n")
+             stream.send("    \(key): ").send(Format.asJSON(newValue.map(\.pathString))).send("\n")
          }
      }
 
     public subscript(key: String) -> [Node] {
         get { fatalError() }
         set {
-            stream.send("    \(key): \(Format.asJSON(newValue))\n")
+            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
         }
     }
 
     public subscript(key: String) -> Bool {
         get { fatalError() }
         set {
-            stream.send("    \(key): \(Format.asJSON(newValue))\n")
+            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
         }
     }
 
     public subscript(key: String) -> [String] {
         get { fatalError() }
         set {
-            stream.send("    \(key): \(Format.asJSON(newValue))\n")
+            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
         }
     }
 
@@ -150,7 +145,7 @@ public final class ManifestToolStream {
         set {
             stream.send("    \(key):\n")
             for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
-                stream.send("      \(Format.asJSON(key)): \(Format.asJSON(value))\n")
+                stream.send("      ").send(Format.asJSON(key)).send(": ").send(Format.asJSON(value)).send("\n")
             }
         }
     }
