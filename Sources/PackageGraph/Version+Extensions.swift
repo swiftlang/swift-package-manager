@@ -14,6 +14,10 @@ import struct TSCUtility.Version
 
 extension Version {
     func nextPatch() -> Version {
-        return Version(major, minor, patch + 1)
+        if self.prereleaseIdentifiers.isEmpty {
+            return Version(self.major, self.minor, self.patch + 1)
+        } else {
+            return Version(self.major, self.minor, self.patch, prereleaseIdentifiers: self.prereleaseIdentifiers + ["0"])
+        }
     }
 }
