@@ -55,7 +55,7 @@ public struct PartialSolution {
     /// Create a new derivation assignment and add it to the partial solution's
     /// list of known assignments.
     public mutating func derive(_ term: Term, cause: Incompatibility) {
-        let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
+        let derivation = Assignment.derivation(term, cause: cause, decisionLevel: self.decisionLevel)
         self.assignments.append(derivation)
         register(derivation)
     }
