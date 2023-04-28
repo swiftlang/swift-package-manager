@@ -514,9 +514,9 @@ public struct PubGrubDependencyResolver {
             return .conflict
         }
 
-        self.delegate?.derived(term: unsatisfiedTerm.inverse)
-        state.derive(unsatisfiedTerm.inverse, cause: incompatibility)
 
+        state.derive(unsatisfiedTerm.inverse, cause: incompatibility)
+        self.delegate?.derived(term: unsatisfiedTerm.inverse)
         return .almostSatisfied(node: unsatisfiedTerm.node)
     }
 
