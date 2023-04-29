@@ -308,13 +308,11 @@ public final class SwiftTargetBuildDescription {
     private func generateResourceEmbeddingCode() throws {
         guard needsResourceEmbedding else { return }
 
-        let stream = BufferedOutputByteStream()
-        stream.send(
+        var content =
             """
             struct PackageResources {
 
             """
-        )
 
         try resources.forEach {
             guard $0.rule == .embedInCode else { return }
@@ -322,15 +320,15 @@ public final class SwiftTargetBuildDescription {
             let variableName = $0.path.basename.spm_mangledToC99ExtendedIdentifier()
             let fileContent = try Data(contentsOf: URL(fileURLWithPath: $0.path.pathString)).map { String($0) }.joined(separator: ",")
 
-            stream.send("static let \(variableName): [UInt8] = [\(fileContent)]\n")
+            content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
         }
 
-        stream.send("}")
+        content += "}"
 
         let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
         let path = self.derivedSources.root.appending(subpath)
-        try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
     /// Generate the resource bundle accessor, if appropriate.
@@ -354,8 +352,7 @@ public final class SwiftTargetBuildDescription {
                 #"Bundle.main.bundleURL.appendingPathComponent("\#(bundlePath.basename.asSwiftStringLiteralConstant)").path"#
         }
 
-        let stream = BufferedOutputByteStream()
-        stream.send(
+        let content =
             """
             \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
 
@@ -374,7 +371,6 @@ public final class SwiftTargetBuildDescription {
                 }()
             }
             """
-        )
 
         let subpath = try RelativePath(validating: "resource_bundle_accessor.swift")
 
@@ -384,7 +380,7 @@ public final class SwiftTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         let path = self.derivedSources.root.appending(subpath)
-        try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
     private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
@@ -671,43 +667,42 @@ public final class SwiftTargetBuildDescription {
 
     private func writeOutputFileMap() throws -> AbsolutePath {
         let path = self.tempsPath.appending("output-file-map.json")
-        let stream = BufferedOutputByteStream()
-
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
-        stream.send(
+
+        var content =
             #"""
             {
               "": {
 
             """#
-        )
+
         if self.buildParameters.useWholeModuleOptimization {
             let moduleName = self.target.c99name
-            stream.send(
+            content +=
                 #"""
                     "dependencies": "\#(
                     self.tempsPath.appending(component: moduleName + ".d").nativePathString(escaped: true)
                 )",
 
                 """#
-            )
+
             // FIXME: Need to record this deps file for processing it later.
-            stream.send(
+            content +=
                 #"""
                     "object": "\#(
                     self.tempsPath.appending(component: moduleName + ".o").nativePathString(escaped: true)
                 )",
 
                 """#
-            )
+
         }
-        stream.send(
+        content +=
             #"""
                 "swift-dependencies": "\#(masterDepsPath.nativePathString(escaped: true))"
               },
 
             """#
-        )
+
 
         // Write out the entries for each source file.
         let sources = self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
@@ -719,28 +714,26 @@ public final class SwiftTargetBuildDescription {
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
-            stream.send(
+            content +=
                 #"""
                   "\#(source.nativePathString(escaped: true))": {
 
                 """#
-            )
 
             if !self.buildParameters.useWholeModuleOptimization {
                 let depsPath = objectDir.appending(component: sourceFileName + ".d")
-                stream.send(
+                content +=
                     #"""
                         "dependencies": "\#(depsPath.nativePathString(escaped: true))",
 
                     """#
-                )
                 // FIXME: Need to record this deps file for processing it later.
             }
 
 
             let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
 
-            stream.send(
+            content +=
                 #"""
                     "object": "\#(object.nativePathString(escaped: true))",
                     "swiftmodule": "\#(partialModulePath.nativePathString(escaped: true))",
@@ -748,13 +741,11 @@ public final class SwiftTargetBuildDescription {
                   }\#((idx + 1) < sources.count ? "," : "")
 
                 """#
-            )
         }
 
-        stream.send("}\n")
+        content += "}\n"
 
-        try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, string: content)
         return path
     }
 

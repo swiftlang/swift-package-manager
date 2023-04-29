@@ -25,8 +25,7 @@ final class MultiRootSupportTests: CommandsTestCase {
             "/tmp/test/local/Package.swift",
         ])
         let path = AbsolutePath("/tmp/test/Workspace.xcworkspace")
-        try fs.writeFileContents(path.appending("contents.xcworkspacedata")) {
-            $0.send(
+        try fs.writeFileContents(path.appending("contents.xcworkspacedata"), string:
                 """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Workspace
@@ -39,8 +38,7 @@ final class MultiRootSupportTests: CommandsTestCase {
                 </FileRef>
                 </Workspace>
                 """
-            )
-        }
+        )
 
         let observability = ObservabilitySystem.makeForTesting()
         let result = try XcodeWorkspaceLoader(fileSystem: fs, observabilityScope: observability.topScope).load(workspace: path)

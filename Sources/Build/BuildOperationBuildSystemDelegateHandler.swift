@@ -62,20 +62,20 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     private func write(
         tests: [IndexStore.TestCaseClass],
         forModule module: String,
-        to path: AbsolutePath
+        fileSystem: TSCBasic.FileSystem,
+        path: AbsolutePath
     ) throws {
-        let stream = try LocalFileOutputByteStream(path)
 
         let testsByClassNames = Dictionary(grouping: tests, by: { $0.name }).sorted(by: { $0.key < $1.key })
 
-        stream.send("import XCTest\n")
-        stream.send("@testable import \(module)\n")
+        var content = "import XCTest\n"
+        content += "@testable import \(module)\n"
 
         for iterator in testsByClassNames {
             // 'className' provides uniqueness for derived class.
             let className = iterator.key
             let testMethods = iterator.value.flatMap(\.testMethods)
-            stream.send(
+            content +=
                 #"""
 
                 fileprivate extension \#(className) {
@@ -86,10 +86,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 }
 
                 """#
-            )
         }
 
-        stream.send(
+        content +=
         #"""
         @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
         func __\#(module)__allTests() -> [XCTestCaseEntry] {
@@ -98,9 +97,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                     .joined(separator: ",\n        "))
             ]
         }
-        """#)
+        """#
 
-        stream.flush()
+        try fileSystem.writeFileContents(path, string: content)
     }
 
     private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
@@ -138,7 +137,12 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 try fileSystem.writeFileContents(file, bytes: "")
                 continue
             }
-            try write(tests: tests, forModule: module, to: file)
+            try write(
+                tests: tests,
+                forModule: module,
+                fileSystem: fileSystem,
+                path: file
+            )
         }
 
         guard let mainFile = maybeMainFile else {

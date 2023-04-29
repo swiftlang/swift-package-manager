@@ -30,8 +30,8 @@ private let extraFlags = BuildFlags(
 )
 
 private let destinationV1 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/destinationV1.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/destinationV1.json",
+    json: #"""
     {
         "version": 1,
         "sdk": "\#(bundleRootPath.appending(sdkRootDir))",
@@ -41,12 +41,12 @@ private let destinationV1 = (
         "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
         "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
     }
-    """#)
+    """#
 )
 
 private let destinationV2 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/destinationV2.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/destinationV2.json",
+    json: #"""
     {
         "version": 2,
         "sdkRootDir": "\#(sdkRootDir)",
@@ -58,12 +58,12 @@ private let destinationV2 = (
         "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
         "extraLinkerFlags": \#(extraFlags.linkerFlags)
     }
-    """#)
+    """#
 )
 
 private let toolsetNoRootDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/toolsetNoRootDestinationV3.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/toolsetNoRootDestinationV3.json",
+    json: #"""
     {
         "runTimeTriples": {
             "\#(linuxGNUTargetTriple.tripleString)": {
@@ -73,12 +73,12 @@ private let toolsetNoRootDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#)
+    """#
 )
 
 private let toolsetRootDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/toolsetRootDestinationV3.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/toolsetRootDestinationV3.json",
+    json: #"""
     {
         "runTimeTriples": {
             "\#(linuxGNUTargetTriple.tripleString)": {
@@ -88,12 +88,12 @@ private let toolsetRootDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#)
+    """#
 )
 
 private let missingToolsetDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/missingToolsetDestinationV3.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/missingToolsetDestinationV3.json",
+    json: #"""
     {
         "runTimeTriples": {
             "\#(linuxGNUTargetTriple.tripleString)": {
@@ -103,12 +103,12 @@ private let missingToolsetDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#)
+    """#
 )
 
 private let invalidVersionDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/invalidVersionDestinationV3.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/invalidVersionDestinationV3.json",
+    json: #"""
     {
         "runTimeTriples": {
             "\#(linuxGNUTargetTriple.tripleString)": {
@@ -118,12 +118,12 @@ private let invalidVersionDestinationV3 = (
         },
         "schemaVersion": "2.9"
     }
-    """#)
+    """#
 )
 
 private let invalidToolsetDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/invalidToolsetDestinationV3.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "\(bundleRootPath)/invalidToolsetDestinationV3.json",
+    json: #"""
     {
         "runTimeTriples": {
             "\#(linuxGNUTargetTriple.tripleString)": {
@@ -133,30 +133,30 @@ private let invalidToolsetDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#)
+    """#
 )
 
 private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
-    ($0, try! AbsolutePath(validating: "/usr/bin/\($0.rawValue)"))
+    ($0, "/usr/bin/\($0.rawValue)")
 })
 
 private let otherToolsNoRoot = (
-    path: try! AbsolutePath(validating: "/tools/otherToolsNoRoot.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "/tools/otherToolsNoRoot.json",
+    json: #"""
     {
         "schemaVersion": "1.0",
         "librarian": { "path": "\#(usrBinTools[.librarian]!)" },
         "linker": { "path": "\#(usrBinTools[.linker]!)" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
     }
-    """#)
+    """#
 )
 
 private let cCompilerOptions = ["-fopenmp"]
 
 private let someToolsWithRoot = (
-    path: try! AbsolutePath(validating: "/tools/someToolsWithRoot.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "/tools/someToolsWithRoot.json",
+    json: #"""
     {
         "schemaVersion": "1.0",
         "rootPath": "/custom",
@@ -165,12 +165,12 @@ private let someToolsWithRoot = (
         "librarian": { "path": "llvm-ar" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
     }
-    """#)
+    """#
 )
 
 private let invalidToolset = (
-    path: try! AbsolutePath(validating: "/tools/invalidToolset.json"),
-    json: ByteString(encodingAsUTF8: #"""
+    path: "/tools/invalidToolset.json",
+    json: #"""
     {
       "rootPath" : "swift.xctoolchain\/usr\/bin",
       "tools" : [
@@ -195,7 +195,7 @@ private let invalidToolset = (
       ],
       "schemaVersion" : "1.0"
     }
-    """#)
+    """#
 )
 
 private let sdkRootAbsolutePath = bundleRootPath.appending(sdkRootDir)
@@ -268,14 +268,14 @@ final class DestinationTests: XCTestCase {
             someToolsWithRoot,
             invalidToolset,
         ] {
-            try fs.writeFileContents(testFile.path, bytes: testFile.json)
+            try fs.writeFileContents(AbsolutePath(validating: testFile.path), string: testFile.json)
         }
 
         let system = ObservabilitySystem.makeForTesting()
         let observability = system.topScope
 
         let destinationV1Decoded = try Destination.decode(
-            fromFile: destinationV1.path,
+            fromFile: AbsolutePath(validating: destinationV1.path),
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -297,7 +297,7 @@ final class DestinationTests: XCTestCase {
         )
 
         let destinationV2Decoded = try Destination.decode(
-            fromFile: destinationV2.path,
+            fromFile: AbsolutePath(validating: destinationV2.path),
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -305,7 +305,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(destinationV2Decoded, [parsedDestinationV2GNU])
 
         let toolsetNoRootDestinationV3Decoded = try Destination.decode(
-            fromFile: toolsetNoRootDestinationV3.path,
+            fromFile: AbsolutePath(validating: toolsetNoRootDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -313,7 +313,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(toolsetNoRootDestinationV3Decoded, [parsedToolsetNoRootDestinationV3])
 
         let toolsetRootDestinationV3Decoded = try Destination.decode(
-            fromFile: toolsetRootDestinationV3.path,
+            fromFile: AbsolutePath(validating: toolsetRootDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -321,7 +321,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestinationV3])
 
         XCTAssertThrowsError(try Destination.decode(
-            fromFile: missingToolsetDestinationV3.path,
+            fromFile: AbsolutePath(validating: missingToolsetDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
         )) {
@@ -336,13 +336,13 @@ final class DestinationTests: XCTestCase {
             )
         }
         XCTAssertThrowsError(try Destination.decode(
-            fromFile: invalidVersionDestinationV3.path,
+            fromFile: AbsolutePath(validating: invalidVersionDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
         ))
 
         XCTAssertThrowsError(try Destination.decode(
-            fromFile: invalidToolsetDestinationV3.path,
+            fromFile: AbsolutePath(validating: invalidToolsetDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
         )) {

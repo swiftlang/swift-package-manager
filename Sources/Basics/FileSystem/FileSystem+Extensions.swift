@@ -288,19 +288,44 @@ extension FileSystem {
 
 extension FileSystem {
     public func readFileContents(_ path: AbsolutePath) throws -> Data {
-        return try Data(self.readFileContents(path).contents)
+        try Data(self.readFileContents(path).contents)
     }
 
     public func readFileContents(_ path: AbsolutePath) throws -> String {
-        return try String(decoding: self.readFileContents(path), as: UTF8.self)
+        try String(decoding: self.readFileContents(path), as: UTF8.self)
     }
 
     public func writeFileContents(_ path: AbsolutePath, data: Data) throws {
-        return try self.writeFileContents(path, bytes: .init(data))
+        try self._writeFileContents(path, bytes: .init(data))
     }
 
     public func writeFileContents(_ path: AbsolutePath, string: String) throws {
-        return try self.writeFileContents(path, bytes: .init(encodingAsUTF8: string))
+        try self._writeFileContents(path, bytes: .init(encodingAsUTF8: string))
+    }
+
+    private func _writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+        // using the "body" variant since it creates the directory first
+        // we should probably fix TSC to be consistent about this behavior
+        try self.writeFileContents(path, body: { $0.send(bytes) })
+    }
+}
+
+extension FileSystem {
+    /// Write bytes to the path if the given contents are different.
+    public func writeIfChanged(path: AbsolutePath, string: String) throws {
+        try writeIfChanged(path: path, bytes: .init(encodingAsUTF8: string))
+    }
+
+    /// Write bytes to the path if the given contents are different.
+    public func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
+        try createDirectory(path.parentDirectory, recursive: true)
+
+        // Return if the contents are same.
+        if isFile(path), try readFileContents(path) == bytes {
+            return
+        }
+
+        try writeFileContents(path, bytes: bytes)
     }
 }
 

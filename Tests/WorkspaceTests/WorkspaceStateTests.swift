@@ -20,8 +20,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,
@@ -95,8 +93,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,
@@ -170,8 +166,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,
@@ -245,8 +239,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,
@@ -311,8 +303,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,
@@ -384,8 +374,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,
@@ -446,8 +434,6 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        try fs.createDirectory(buildDir, recursive: true)
-
         let statePath = buildDir.appending("workspace-state.json")
         try fs.writeFileContents(
             statePath,

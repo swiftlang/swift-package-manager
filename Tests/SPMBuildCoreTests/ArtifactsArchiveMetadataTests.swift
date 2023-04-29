@@ -21,7 +21,7 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
             "/info.json",
-            bytes: ByteString(encodingAsUTF8: """
+            string: """
             {
                 "schemaVersion": "1.0",
                 "artifacts": {
@@ -41,7 +41,7 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
                     }
                 }
             }
-            """)
+            """
         )
 
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)

@@ -366,7 +366,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     /// Check that we load the manifest appropriate for the current version, if
     /// version specific customization is used.
     func testVersionSpecificLoading() throws {
-        let bogusManifest: ByteString = "THIS WILL NOT PARSE"
+        let bogusManifest = "THIS WILL NOT PARSE"
         let trivialManifest =
         """
         // swift-tools-version:4.2
@@ -395,7 +395,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             try badManifests.forEach {
                 try fs.writeFileContents(
                     root.appending(component: $0),
-                    bytes: bogusManifest)
+                    string: bogusManifest
+                )
             }
             // Check we can load the repository.
             let manifest = try manifestLoader.load(
@@ -420,10 +421,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         let manifestContents = "import PackageDescription\nlet package = Package(name: \"Trivial\")"
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + ".swift"),
-            bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
+            string: "// swift-tools-version:4.0\n" + manifestContents
+        )
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + "@swift-3.swift"),
-            bytes: ByteString(encodingAsUTF8: manifestContents))
+            string: manifestContents
+        )
         // Check we can load the manifest.
         let manifest = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -432,10 +435,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         // Switch it around so that the main manifest is now the one that doesn't have a comment.
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + ".swift"),
-            bytes: ByteString(encodingAsUTF8: manifestContents))
+            string: manifestContents
+        )
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + "@swift-4.swift"),
-            bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
+            string: "// swift-tools-version:4.0\n" + manifestContents
+        )
         // Check we can load the manifest.
         let manifest2 = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -715,8 +720,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testContentBasedCaching() throws {
         try testWithTemporaryDirectory { path in
-            let stream = BufferedOutputByteStream()
-            stream.send("""
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -724,19 +728,18 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         .target(name: "foo"),
                     ]
                 )
-                """
-            )
+            """
 
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
-            func check(loader: ManifestLoader) throws {
+            func check(loader: ManifestLoader, manifest: String) throws {
                 let fs = InMemoryFileSystem()
                 let observability = ObservabilitySystem.makeForTesting()
 
                 let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-                try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+                try fs.writeFileContents(manifestPath, string: manifest)
 
                 let m = try manifestLoader.load(
                     manifestPath: manifestPath,
@@ -752,22 +755,21 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             do {
                 delegate.prepare()
-                try check(loader: manifestLoader)
+                try check(loader: manifestLoader, manifest: manifest)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 1)
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
             }
 
             do {
                 delegate.prepare(expectParsing: false)
-                try check(loader: manifestLoader)
+                try check(loader: manifestLoader, manifest: manifest)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 2)
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
             }
 
             do {
-                stream.send("\n\n")
                 delegate.prepare()
-                try check(loader: manifestLoader)
+                try check(loader: manifestLoader, manifest: manifest + "\n\n")
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 2)
             }

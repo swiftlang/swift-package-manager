@@ -160,10 +160,8 @@ final class WorkspaceTests: XCTestCase {
         try testWithTemporaryDirectory { path in
             let foo = path.appending("foo")
 
-            func createWorkspace(withManifest manifest: (OutputByteStream) -> Void) throws -> Workspace {
-                try fs.writeFileContents(foo.appending("Package.swift")) {
-                    manifest($0)
-                }
+            func createWorkspace(_ content: String) throws -> Workspace {
+                try fs.writeFileContents(foo.appending("Package.swift"), string: content)
 
                 let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
 
@@ -177,33 +175,29 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace {
-                    $0.send(
-                        """
-                        // swift-tools-version:4.0
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
                     )
-                }
+                    """
+                )
 
                 XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
             }
 
             do {
-                let ws = try createWorkspace {
-                    $0.send(
-                        """
-                        // swift-tools-version:3.1
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:3.1
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
                     )
-                }
+                    """
+                )
 
                 XCTAssertEqual(ws.interpreterFlags(for: foo), [])
             }
@@ -2961,8 +2955,7 @@ final class WorkspaceTests: XCTestCase {
 
         // mimic external process putting a dependency into edit mode
         do {
-            try fs.createDirectory(fooEditPath, recursive: true)
-            try fs.writeFileContents(fooEditPath.appending("Package.swift"), bytes: "// swift-tools-version: 5.6")
+            try fs.writeFileContents(fooEditPath.appending("Package.swift"), string: "// swift-tools-version: 5.6")
 
             let fooState = underlying.state.dependencies[.plain("foo")]!
             let externalState = WorkspaceState(
@@ -10826,8 +10819,6 @@ final class WorkspaceTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
 
             let foo = path.appending("foo")
-
-            try fs.createDirectory(foo)
             try fs.writeFileContents(
                 foo.appending("Package.swift"),
                 string: """

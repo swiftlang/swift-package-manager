@@ -328,14 +328,16 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// Writes link filelist to the filesystem.
     func writeLinkFilelist(_ fs: FileSystem) throws {
-        let stream = BufferedOutputByteStream()
+        var content = self.objects
+            .map { $0.pathString.spm_shellEscaped() }
+            .joined(separator: "\n")
 
-        for object in self.objects {
-            stream.send("\(object.pathString.spm_shellEscaped())\n")
+        // not sure this is needed, added here for backward compatibility
+        if !content.isEmpty {
+            content.append("\n")
         }
 
-        try fs.createDirectory(self.linkFileListPath.parentDirectory, recursive: true)
-        try fs.writeFileContents(self.linkFileListPath, bytes: stream.bytes)
+        try fs.writeFileContents(self.linkFileListPath, string: content)
     }
 
     /// Returns the build flags from the declared build settings.

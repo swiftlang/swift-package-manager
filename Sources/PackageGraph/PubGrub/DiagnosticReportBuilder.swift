@@ -50,24 +50,24 @@ struct DiagnosticReportBuilder {
             )
         }
 
-        let stream = BufferedOutputByteStream()
+        var content: String = ""
         let padding = self.lineNumbers.isEmpty ? 0 : "\(Array(self.lineNumbers.values).last!) ".count
 
         for (idx, line) in self.lines.enumerated() {
-            stream.send(Format.asRepeating(string: " ", count: padding))
+            content += String(repeating: " ", count: padding)
             if line.number != -1 {
-                stream.send(Format.asRepeating(string: " ", count: padding))
-                stream.send(" (\(line.number)) ")
+                content +=  String(repeating: " ", count: padding)
+                content += " (\(line.number)) "
             }
-            stream.send(line.message.prefix(1).capitalized)
-            stream.send(line.message.dropFirst())
+            content += line.message.prefix(1).capitalized
+            content += line.message.dropFirst()
 
             if self.lines.count - 1 != idx {
-                stream.send("\n")
+                content += "\n"
             }
         }
 
-        return stream.bytes.description
+        return content
     }
 
     private mutating func visit(

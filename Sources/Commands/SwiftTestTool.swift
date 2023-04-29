@@ -983,27 +983,24 @@ final class XUnitGenerator {
 
     /// Generate the file at the given path.
     func generate(at path: AbsolutePath) throws {
-        let stream = BufferedOutputByteStream()
-        stream.send(
+        var content =
             """
             <?xml version="1.0" encoding="UTF-8"?>
 
             <testsuites>
 
             """
-        )
 
         // Get the failure count.
         let failures = results.filter({ !$0.success }).count
         let duration = results.compactMap({ $0.duration.timeInterval() }).reduce(0.0, +)
 
         // We need better output reporting from XCTest.
-        stream.send(
+        content +=
             """
             <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(duration)">
 
             """
-        )
 
         // Generate a testcase entry for each result.
         //
@@ -1011,29 +1008,27 @@ final class XUnitGenerator {
         for result in results {
             let test = result.unitTest
             let duration = result.duration.timeInterval() ?? 0.0
-            stream.send(
+            content +=
                 """
                 <testcase classname="\(test.testCase)" name="\(test.name)" time="\(duration)">
 
                 """
-            )
 
             if !result.success {
-                stream.send("<failure message=\"failed\"></failure>\n")
+                content += "<failure message=\"failed\"></failure>\n"
             }
 
-            stream.send("</testcase>\n")
+            content += "</testcase>\n"
         }
 
-        stream.send(
+        content +=
             """
             </testsuite>
             </testsuites>
 
             """
-        )
 
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, string: content)
     }
 }
 

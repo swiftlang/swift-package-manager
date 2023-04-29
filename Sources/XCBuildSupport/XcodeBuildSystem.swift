@@ -100,7 +100,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public func build(subset: BuildSubset) throws {
         let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
-        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, bytes: ByteString(encodingAsUTF8: pif))
+        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         var arguments = [
             xcbuildPath.pathString,
@@ -227,7 +227,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(params)
         let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
-        try self.fileSystem.writeFileContents(file, bytes: ByteString(data))
+        try self.fileSystem.writeFileContents(file, data: data)
         return file
     }
 
