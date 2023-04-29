@@ -214,6 +214,7 @@ class RepositoryManagerTests: XCTestCase {
             let delegate = DummyRepositoryManagerDelegate()
 
             try fs.createDirectory(repos, recursive: true)
+
             let manager = RepositoryManager(
                 fileSystem: fs,
                 path: repos,
@@ -665,7 +666,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         assert(!self.fileSystem.exists(path))
         try self.fileSystem.createDirectory(path, recursive: true)
-        try self.fileSystem.writeFileContents(path.appending("readme.md"), bytes: ByteString(encodingAsUTF8: repository.location.description))
+        try self.fileSystem.writeFileContents(path.appending("readme.md"), string: repository.location.description)
 
         self.lock.withLock {
             self._numClones += 1

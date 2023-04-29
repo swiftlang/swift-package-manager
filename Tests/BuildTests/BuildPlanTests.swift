@@ -707,39 +707,27 @@ final class BuildPlanTests: XCTestCase {
             let aPath = sourcesPath.appending("A")
             let bPath = sourcesPath.appending("B")
             let cPath = sourcesPath.appending("C")
-            try fs.createDirectory(testDirPath)
-            try fs.createDirectory(buildDirPath)
-            try fs.createDirectory(sourcesPath)
-            try fs.createDirectory(aPath)
-            try fs.createDirectory(bPath)
-            try fs.createDirectory(cPath)
             let main = aPath.appending("main.swift")
             let aSwift = aPath.appending("A.swift")
             let bSwift = bPath.appending("B.swift")
             let cSwift = cPath.appending("C.swift")
-            try localFileSystem.writeFileContents(main) {
-                $0.send("baz();")
-            }
-            try localFileSystem.writeFileContents(aSwift) {
-                $0.send(
-                    """
-                    import B;\
-                    import C;\
-                    public func baz() { bar() }
-                    """
-                )
-            }
-            try localFileSystem.writeFileContents(bSwift) {
-                $0.send(
-                    """
-                    import C;
-                    public func bar() { foo() }
-                    """
-                )
-            }
-            try localFileSystem.writeFileContents(cSwift) {
-                $0.send("public func foo() {}")
-            }
+            try localFileSystem.writeFileContents(main, string: "baz();")
+            try localFileSystem.writeFileContents(aSwift, string:
+                """
+                import B;\
+                import C;\
+                public func baz() { bar() }
+                """
+            )
+            try localFileSystem.writeFileContents(bSwift, string:
+                """
+                import C;
+                public func bar() { foo() }
+                """
+            )
+            try localFileSystem.writeFileContents(cSwift, string:
+                "public func foo() {}"
+            )
 
             // Plan package build with explicit module build
             let observability = ObservabilitySystem.makeForTesting()
@@ -4175,7 +4163,7 @@ final class BuildPlanTests: XCTestCase {
         try! fs.createDirectory("/Pkg/Framework.xcframework", recursive: true)
         try! fs.writeFileContents(
             "/Pkg/Framework.xcframework/Info.plist",
-            bytes: ByteString(encodingAsUTF8: """
+            string: """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
                 <plist version="1.0">
@@ -4201,12 +4189,13 @@ final class BuildPlanTests: XCTestCase {
                     <string>1.0</string>
                 </dict>
                 </plist>
-                """))
+                """
+        )
 
         try! fs.createDirectory("/Pkg/StaticLibrary.xcframework", recursive: true)
         try! fs.writeFileContents(
             "/Pkg/StaticLibrary.xcframework/Info.plist",
-            bytes: ByteString(encodingAsUTF8: """
+            string: """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
                 <plist version="1.0">
@@ -4234,7 +4223,8 @@ final class BuildPlanTests: XCTestCase {
                     <string>1.0</string>
                 </dict>
                 </plist>
-                """))
+                """
+        )
 
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -4333,7 +4323,7 @@ final class BuildPlanTests: XCTestCase {
 
         try fs.writeFileContents(
             toolPath.appending("info.json"),
-            bytes: ByteString(encodingAsUTF8: """
+            string: """
                 {
                     "schemaVersion": "1.0",
                     "artifacts": {
@@ -4349,7 +4339,8 @@ final class BuildPlanTests: XCTestCase {
                         }
                     }
                 }
-        """))
+            """
+        )
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(

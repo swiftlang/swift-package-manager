@@ -229,7 +229,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         let buffer = try encoder.encode(container)
 
         let path = self.directoryPath.appending(component: package.signedVersionsFilename)
-        try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
+        try self.fileSystem.writeFileContents(path, data: buffer)
     }
 
     private func withLock<T>(_ body: () throws -> T) throws -> T {

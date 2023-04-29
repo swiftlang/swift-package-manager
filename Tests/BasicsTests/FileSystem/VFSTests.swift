@@ -66,7 +66,7 @@ class VFSTests: XCTestCase {
                 try fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
 
                 try fs.createDirectory(tempDirPath.appending("dir"))
-                try fs.writeFileContents(tempDirPath.appending(components: ["dir", "file"]), body: { _ in })
+                try fs.writeFileContents(tempDirPath.appending(components: ["dir", "file"]), bytes: [])
 
                 try VirtualFileSystem.serializeDirectoryTree(tempDirPath, into: vfsPath.path, fs: fs, includeContents: [executable])
             }

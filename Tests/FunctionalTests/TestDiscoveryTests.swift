@@ -77,7 +77,7 @@ class TestDiscoveryTests: XCTestCase {
             try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let random = UUID().uuidString
                 let manifestPath = fixturePath.appending(components: "Tests", name)
-                try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("print(\"\(random)\")".utf8))
+                try localFileSystem.writeFileContents(manifestPath, string: "print(\"\(random)\")")
                 let (stdout, stderr) = try executeSwiftTest(fixturePath)
                 // in "swift test" build output goes to stderr
                 XCTAssertMatch(stderr, .contains("Build complete!"))
@@ -94,7 +94,7 @@ class TestDiscoveryTests: XCTestCase {
         #endif
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let manifestPath = fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName)
-            try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
+            try localFileSystem.writeFileContents(manifestPath, string: "fatalError(\"should not be called\")")
             let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
             // in "swift test" build output goes to stderr
             XCTAssertMatch(stderr, .contains("Build complete!"))

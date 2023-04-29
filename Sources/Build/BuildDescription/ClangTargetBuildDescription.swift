@@ -309,8 +309,7 @@ public final class ClangTargetBuildDescription {
         // Compute the basename of the bundle.
         let bundleBasename = bundlePath.basename
 
-        let implFileStream = BufferedOutputByteStream()
-        implFileStream.send(
+        let implContent =
             """
             #import <Foundation/Foundation.h>
 
@@ -325,7 +324,6 @@ public final class ClangTargetBuildDescription {
                 return preferredBundle;
             }
             """
-        )
 
         let implFileSubpath = try RelativePath(validating: "resource_bundle_accessor.m")
 
@@ -336,11 +334,10 @@ public final class ClangTargetBuildDescription {
         // FIXME: We should generate this file during the actual build.
         try fileSystem.writeIfChanged(
             path: derivedSources.root.appending(implFileSubpath),
-            bytes: implFileStream.bytes
+            string: implContent
         )
 
-        let headerFileStream = BufferedOutputByteStream()
-        headerFileStream.send(
+        let headerContent =
             """
             #import <Foundation/Foundation.h>
 
@@ -356,13 +353,13 @@ public final class ClangTargetBuildDescription {
             }
             #endif
             """
-        )
+
         let headerFile = derivedSources.root.appending("resource_bundle_accessor.h")
         self.resourceAccessorHeaderFile = headerFile
 
         try fileSystem.writeIfChanged(
             path: headerFile,
-            bytes: headerFileStream.bytes
+            string: headerContent
         )
     }
 }

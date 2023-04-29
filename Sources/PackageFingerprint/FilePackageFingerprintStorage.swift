@@ -187,7 +187,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
 
         let buffer = try StorageModel.encode(packageFingerprints: fingerprints, encoder: self.encoder)
         let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
-        try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
+        try self.fileSystem.writeFileContents(path, data: buffer)
     }
 
     private func withLock<T>(_ body: () throws -> T) throws -> T {

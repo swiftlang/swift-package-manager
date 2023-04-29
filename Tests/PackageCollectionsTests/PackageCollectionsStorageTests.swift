@@ -140,7 +140,7 @@ class PackageCollectionsStorageTests: XCTestCase {
             try storage.close()
 
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(path)")
-            try storage.fileSystem.writeFileContents(storagePath, bytes: ByteString("blah".utf8))
+            try storage.fileSystem.writeFileContents(storagePath, string: "blah")
 
             let storage2 = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage2.close()) }

@@ -213,17 +213,17 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(testRepoPath)
 
             // Add a few files and a directory.
-            let test1FileContents: ByteString = "Hello, world!"
-            let test2FileContents: ByteString = "Hello, happy world!"
-            let test3FileContents: ByteString = """
+            let test1FileContents = "Hello, world!"
+            let test2FileContents = "Hello, happy world!"
+            let test3FileContents = """
                 #!/bin/sh
                 set -e
                 exit 0
                 """
-            try localFileSystem.writeFileContents(testRepoPath.appending("test-file-1.txt"), bytes: test1FileContents)
+            try localFileSystem.writeFileContents(testRepoPath.appending("test-file-1.txt"), string: test1FileContents)
             try localFileSystem.createDirectory(testRepoPath.appending("subdir"))
-            try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)
-            try localFileSystem.writeFileContents(testRepoPath.appending("test-file-3.sh"), bytes: test3FileContents)
+            try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), string: test2FileContents)
+            try localFileSystem.writeFileContents(testRepoPath.appending("test-file-3.sh"), string: test3FileContents)
             try localFileSystem.chmod(.executable, path: testRepoPath.appending("test-file-3.sh"), options: [])
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt", "test-file-3.sh")

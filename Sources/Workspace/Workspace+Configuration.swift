@@ -702,7 +702,7 @@ extension Workspace.Configuration {
             if !self.fileSystem.exists(self.path.parentDirectory) {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
-            try self.fileSystem.writeFileContents(self.path, bytes: ByteString(data), atomically: true)
+            try self.fileSystem.writeFileContents(self.path, data: data)
         }
 
         @discardableResult

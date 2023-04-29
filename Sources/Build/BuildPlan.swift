@@ -1052,20 +1052,6 @@ extension BuildParameters {
     }
 }
 
-extension FileSystem {
-    /// Write bytes to the path if the given contents are different.
-    func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
-        try createDirectory(path.parentDirectory, recursive: true)
-
-        // Return if the contents are same.
-        if isFile(path), try readFileContents(path) == bytes {
-            return
-        }
-
-        try writeFileContents(path, bytes: bytes)
-    }
-}
-
 /// Generate the resource bundle Info.plist.
 func generateResourceInfoPlist(
     fileSystem: FileSystem,
@@ -1076,9 +1062,9 @@ func generateResourceInfoPlist(
         return false
     }
 
-    let stream = BufferedOutputByteStream()
-    stream.send(
-        """
+    try fileSystem.writeIfChanged(
+        path: path,
+        string: """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -1089,8 +1075,6 @@ func generateResourceInfoPlist(
         </plist>
         """
     )
-
-    try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     return true
 }
 

@@ -218,8 +218,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             let pcFile = fixturePath.appending("libSystemModule.pc")
 
-            let stream = BufferedOutputByteStream()
-            stream.send("""
+            try localFileSystem.writeFileContents(pcFile, string: """
                 prefix=\(systemModule.pathString)
                 exec_prefix=${prefix}
                 libdir=${exec_prefix}
@@ -233,7 +232,6 @@ class MiscellaneousTestCase: XCTestCase {
 
                 """
             )
-            try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
             let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
@@ -253,7 +251,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCanKillSubprocessOnSigInt() throws {
         // <rdar://problem/31890371> swift-pm: Spurious? failures of MiscellaneousTestCase.testCanKillSubprocessOnSigInt on linux
-      #if false
+        #if false
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
 
             let fakeGit = fixturePath.appending(components: "bin", "git")
@@ -262,16 +260,14 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.createDirectory(fakeGit.parentDirectory)
 
             // Write out fake git.
-            let stream = BufferedOutputByteStream()
-            stream.send("""
-                #!/bin/sh
-                set -e
-                printf "$$" >> \(waitFile)
-                while true; do sleep 1; done
-
+            try localFileSystem.writeFileContents(fakeGit, string:
+                """
+                    #!/bin/sh
+                    set -e
+                    printf "$$" >> \(waitFile)
+                    while true; do sleep 1; done
                 """
             )
-            try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
 
             // Make it executable.
             _ = try Process.popen(args: "chmod", "+x", fakeGit.description)
@@ -304,7 +300,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFalse(try Process.running(process.processID))
             XCTAssertFalse(try Process.running(ProcessID(contents)!))
         }
-      #endif
+        #endif
     }
 
     func testReportingErrorFromGitCommand() throws {

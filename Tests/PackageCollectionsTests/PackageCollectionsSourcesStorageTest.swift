@@ -140,7 +140,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
             XCTAssertEqual(list.count, sources.count, "collections should match")
         }
 
-        try mockFileSystem.writeFileContents(storage.path, bytes: ByteString("".utf8))
+        try mockFileSystem.writeFileContents(storage.path, bytes: [])
         let buffer = try mockFileSystem.readFileContents(storage.path)
         XCTAssertEqual(buffer.count, 0, "expected file to be empty")
 
@@ -163,7 +163,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         let list = try tsc_await { callback in storage.list(callback: callback) }
         XCTAssertEqual(list.count, sources.count, "collections should match")
 
-        try mockFileSystem.writeFileContents(storage.path, bytes: ByteString("{".utf8))
+        try mockFileSystem.writeFileContents(storage.path, string: "{")
 
         let buffer = try mockFileSystem.readFileContents(storage.path)
         XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
