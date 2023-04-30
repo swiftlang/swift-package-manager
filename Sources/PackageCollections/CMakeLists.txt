@@ -27,7 +27,7 @@ add_library(PackageCollections
   Providers/JSONPackageCollectionProvider.swift
   Providers/PackageCollectionProvider.swift
   Providers/PackageMetadataProvider.swift
-  Storage/FilepackageCollectionsSourcesStorage.swift
+  Storage/FilePackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsStorage.swift
   Storage/SQLitePackageCollectionsStorage.swift
