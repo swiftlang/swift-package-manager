@@ -596,17 +596,17 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
-            func check(loader: ManifestLoader, expectCached: Bool) {
+            func check(loader: ManifestLoader, expectCached: Bool) throws {
                 delegate.clear()
                 delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try! loader.load(
+                let manifest = try XCTUnwrap(loader.load(
                     manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
                     observabilityScope: observability.topScope
-                )
+                ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
@@ -615,20 +615,20 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            check(loader: manifestLoader, expectCached: false)
-            check(loader: manifestLoader, expectCached: true)
+            try check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: true)
 
             try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
-                check(loader: manifestLoader, expectCached: false)
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: false)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
             try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
-                check(loader: manifestLoader, expectCached: false)
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: false)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
-            check(loader: manifestLoader, expectCached: true)
+            try check(loader: manifestLoader, expectCached: true)
         }
     }
 
@@ -658,17 +658,17 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
-            func check(loader: ManifestLoader, expectCached: Bool) {
+            func check(loader: ManifestLoader, expectCached: Bool) throws {
                 delegate.clear()
                 delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try! loader.load(
+                let manifest = try XCTUnwrap(loader.load(
                     manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
                     observabilityScope: observability.topScope
-                )
+                ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
@@ -677,9 +677,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
             try fs.writeFileContents(
@@ -700,14 +700,14 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     """
             )
 
-            check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
             let noCacheLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: delegate)
             for _ in 0..<2 {
-                check(loader: noCacheLoader, expectCached: false)
+                try check(loader: noCacheLoader, expectCached: false)
             }
 
             // Resetting the cache should allow us to remove the cache
