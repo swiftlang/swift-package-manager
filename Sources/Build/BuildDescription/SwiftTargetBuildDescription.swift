@@ -681,7 +681,7 @@ public final class SwiftTargetBuildDescription {
             content +=
                 #"""
                     "dependencies": "\#(
-                    self.tempsPath.appending(component: moduleName + ".d").nativePathString(escaped: true)
+                    self.tempsPath.appending(component: moduleName + ".d")._nativePathString(escaped: true)
                 )",
 
                 """#
@@ -690,7 +690,7 @@ public final class SwiftTargetBuildDescription {
             content +=
                 #"""
                     "object": "\#(
-                    self.tempsPath.appending(component: moduleName + ".o").nativePathString(escaped: true)
+                    self.tempsPath.appending(component: moduleName + ".o")._nativePathString(escaped: true)
                 )",
 
                 """#
@@ -698,7 +698,7 @@ public final class SwiftTargetBuildDescription {
         }
         content +=
             #"""
-                "swift-dependencies": "\#(masterDepsPath.nativePathString(escaped: true))"
+                "swift-dependencies": "\#(masterDepsPath._nativePathString(escaped: true))"
               },
 
             """#
@@ -716,7 +716,7 @@ public final class SwiftTargetBuildDescription {
 
             content +=
                 #"""
-                  "\#(source.nativePathString(escaped: true))": {
+                  "\#(source._nativePathString(escaped: true))": {
 
                 """#
 
@@ -724,7 +724,7 @@ public final class SwiftTargetBuildDescription {
                 let depsPath = objectDir.appending(component: sourceFileName + ".d")
                 content +=
                     #"""
-                        "dependencies": "\#(depsPath.nativePathString(escaped: true))",
+                        "dependencies": "\#(depsPath._nativePathString(escaped: true))",
 
                     """#
                 // FIXME: Need to record this deps file for processing it later.
@@ -735,9 +735,9 @@ public final class SwiftTargetBuildDescription {
 
             content +=
                 #"""
-                    "object": "\#(object.nativePathString(escaped: true))",
-                    "swiftmodule": "\#(partialModulePath.nativePathString(escaped: true))",
-                    "swift-dependencies": "\#(swiftDepsPath.nativePathString(escaped: true))"
+                    "object": "\#(object._nativePathString(escaped: true))",
+                    "swiftmodule": "\#(partialModulePath._nativePathString(escaped: true))",
+                    "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))"
                   }\#((idx + 1) < sources.count ? "," : "")
 
                 """#
