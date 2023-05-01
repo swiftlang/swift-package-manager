@@ -235,6 +235,9 @@ public enum ModuleKind {
     case snippet
     /// A module that contains unit tests.
     case test
+    /// A module that contains code for a macro.
+    @available(_PackageDescription, introduced: 5.9)
+    case macro // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
 }
 
 /// Represents a target consisting of a source code module compiled using Swift.
