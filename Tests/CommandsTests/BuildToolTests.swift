@@ -154,9 +154,10 @@ final class BuildToolTests: CommandsTestCase {
             }
 
             do {
-                let (_, stderr) = try execute(["--product", "lib1"], packagePath: fullPath)
+                let result = try build(["--product", "lib1"], packagePath: fullPath)
                 try SwiftPM.Package.execute(["clean"], packagePath: fullPath)
-                XCTAssertMatch(stderr, .contains("'--product' cannot be used with the automatic product 'lib1'; building the default target instead"))
+                XCTAssertMatch(result.binContents, ["lib1.build"])
+                XCTAssertNoMatch(result.binContents, ["exec1"])
             }
 
             do {

@@ -84,10 +84,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard product.type != .library(.automatic) else {
-            throw InternalError("Automatic type libraries should not be described.")
-        }
-
         self.package = package
         self.product = product
         self.toolsVersion = toolsVersion
@@ -199,10 +195,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached
-        case .library(.automatic):
-            throw InternalError("automatic library not supported")
-        case .library(.static):
-            // No arguments for static libraries.
+        case .library(.static), .library(.automatic):
+            // No arguments for static (and automatic) libraries.
             return []
         case .test:
             // Test products are bundle when using objectiveC, executable when using test entry point.

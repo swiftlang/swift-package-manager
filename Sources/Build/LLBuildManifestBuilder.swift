@@ -983,25 +983,35 @@ extension TargetBuildDescription {
 extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
         let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
+        let outputNode: Node
 
         switch buildProduct.product.type {
         case .library(.static):
+            outputNode = try .file(buildProduct.binaryPath)
             try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Archiving \(buildProduct.binaryPath.prettyPath())",
                 inputs: buildProduct.objects.map(Node.file),
-                outputs: [.file(buildProduct.binaryPath)],
+                outputs: [outputNode],
                 arguments: try buildProduct.archiveArguments()
+            )
+        case .library(.automatic):
+            outputNode = .virtual(cmdName)
+            self.manifest.addPhonyCmd(
+                name: cmdName,
+                inputs: buildProduct.objects.map(Node.file),
+                outputs: [outputNode]
             )
 
         default:
+            outputNode = try .file(buildProduct.binaryPath)
             let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath }
 
             try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Linking \(buildProduct.binaryPath.prettyPath())",
                 inputs: inputs.map(Node.file),
-                outputs: [.file(buildProduct.binaryPath)],
+                outputs: [outputNode],
                 arguments: try buildProduct.linkArguments()
             )
         }
@@ -1011,9 +1021,9 @@ extension LLBuildManifestBuilder {
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
-        try self.manifest.addPhonyCmd(
+        self.manifest.addPhonyCmd(
             name: output.name,
-            inputs: [.file(buildProduct.binaryPath)],
+            inputs: [outputNode],
             outputs: [output]
         )
 
@@ -1053,7 +1063,7 @@ extension ResolvedProduct {
         case .library(.static):
             return "\(name)-\(config).a"
         case .library(.automatic):
-            throw InternalError("automatic library not supported")
+            return "\(name)-\(config).automatic"
         case .executable, .snippet:
             return potentialExecutableTargetName
         case .macro:

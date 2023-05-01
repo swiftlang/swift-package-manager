@@ -734,15 +734,6 @@ extension BuildSubset {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
-            // If the product is automatic, we build the main target because automatic products
-            // do not produce a binary right now.
-            if product.type == .library(.automatic) {
-                observabilityScope.emit(
-                    warning:
-                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
-                )
-                return LLBuildManifestBuilder.TargetKind.main.targetName
-            }
             return observabilityScope.trap {
                 try product.getLLBuildTargetName(config: config)
             }

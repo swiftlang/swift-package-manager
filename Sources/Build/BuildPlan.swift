@@ -1104,10 +1104,6 @@ extension ResolvedPackage {
 }
 
 extension ResolvedProduct {
-    private var isAutomaticLibrary: Bool {
-        return self.type == .library(.automatic)
-    }
-
     private var isBinaryOnly: Bool {
         return self.targets.filter({ !($0.underlyingTarget is BinaryTarget) }).isEmpty
     }
@@ -1116,9 +1112,9 @@ extension ResolvedProduct {
         return self.type == .plugin
     }
 
-    // We shouldn't create product descriptions for automatic libraries, plugins or products which consist solely of binary targets, because they don't produce any output.
+    // We shouldn't create product descriptions for plugins or products which consist solely of binary targets, because they don't produce any output.
     fileprivate var shouldCreateProductDescription: Bool {
-        return !isAutomaticLibrary && !isBinaryOnly && !isPlugin
+        return !isBinaryOnly && !isPlugin
     }
 }
 
