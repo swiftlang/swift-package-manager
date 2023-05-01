@@ -559,10 +559,10 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testTargetGroupToPackageNameFlag() throws {
+    func testTargetsWithPackageAccess() throws {
         try XCTSkipIf(!SwiftVersion.current.isDevelopment, "test needs tools-version 999.0")
         let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
-        try fixture(name: "Miscellaneous/TargetGrouping") { fixturePath in
+        try fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
             if isFlagSupportedInDriver {
                 let moduleFlag1 = stdout.range(of: "-module-name DataModel")

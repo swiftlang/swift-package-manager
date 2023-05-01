@@ -19,30 +19,30 @@ public struct MockTarget {
     }
 
     public let name: String
-    public let group: Target.Group
     public let dependencies: [TargetDescription.Dependency]
     public let path: String?
     public let url: String?
     public let checksum: String?
+    public let packageAccess: Bool
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
 
     public init(
         name: String,
-        group: Target.Group = .package,
         dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,
         path: String? = nil,
         url: String? = nil,
+        packageAccess: Bool = true,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil
     ) throws {
         self.name = name
-        self.group = group
         self.dependencies = dependencies
         self.type = type
         self.path = path
         self.url = url
+        self.packageAccess = packageAccess
         self.settings = settings
         self.checksum = checksum
     }
@@ -52,31 +52,30 @@ public struct MockTarget {
         case .regular:
             return try TargetDescription(
                 name: self.name,
-                group: .init(self.group),
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .regular,
+                packageAccess: packageAccess,
                 settings: self.settings
             )
         case .test:
             return try TargetDescription(
                 name: self.name,
-                group: .init(self.group),
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .test,
+                packageAccess: packageAccess,
                 settings: self.settings
             )
         case .binary:
             return try TargetDescription(
                 name: self.name,
-                group: .init(self.group),
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 url: self.url,
@@ -84,6 +83,7 @@ public struct MockTarget {
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .binary,
+                packageAccess: packageAccess,
                 settings: [],
                 checksum: self.checksum
             )

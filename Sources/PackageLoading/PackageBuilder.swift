@@ -597,7 +597,7 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, group: target.group, path: path, type: target.type)
+            return PotentialModule(name: target.name, path: path, type: target.type, packageAccess: target.packageAccess)
         }
 
         let targets = try createModules(potentialTargets)
@@ -922,11 +922,11 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
-                group: .init(potentialModule.group),
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
-                dependencies: dependencies
+                dependencies: dependencies,
+                packageAccess: potentialModule.packageAccess
             )
         }
 
@@ -951,19 +951,11 @@ public final class PackageBuilder {
             }
         }
 
-        var targetGroup: Target.Group
-        switch manifestTarget.group {
-        case .package:
-            targetGroup = .package
-        case .excluded:
-            targetGroup = .excluded
-        }
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             return SwiftTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
-                group: targetGroup,
                 type: targetType,
                 path: potentialModule.path,
                 sources: sources,
@@ -971,6 +963,7 @@ public final class PackageBuilder {
                 ignored: ignored,
                 others: others,
                 dependencies: dependencies,
+                packageAccess: potentialModule.packageAccess,
                 swiftVersion: try self.swiftVersion(),
                 buildSettings: buildSettings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
@@ -1571,10 +1564,6 @@ private struct PotentialModule: Hashable {
     /// Name of the target.
     let name: String
 
-    /// The group this target belongs to, where access to the target's group-specific
-    /// APIs is not allowed from outside.
-    let group: TargetDescription.TargetGroup
-
     /// The path of the target.
     let path: AbsolutePath
 
@@ -1585,6 +1574,9 @@ private struct PotentialModule: Hashable {
 
     /// The target type.
     let type: TargetDescription.TargetType
+
+    /// If true, access to package declarations from other modules is allowed.
+    let packageAccess: Bool
 }
 
 extension Manifest {
@@ -1668,14 +1660,14 @@ extension PackageBuilder {
                 do {
                     let targetDescription = try TargetDescription(
                         name: name,
-                        group: .excluded, // access to only public APIs is allowed for snippets
                         dependencies: dependencies
                             .map {
                                 TargetDescription.Dependency.target(name: $0.name)
                             },
                         path: sourceFile.parentDirectory.pathString,
                         sources: [sourceFile.pathString],
-                        type: .executable
+                        type: .executable,
+                        packageAccess: false
                     )
                     buildSettings = try self.buildSettings(
                         for: targetDescription,
@@ -1685,11 +1677,11 @@ extension PackageBuilder {
 
                 return SwiftTarget(
                     name: name,
-                    group: .excluded, // access to only public APIs is allowed for snippets
                     type: .snippet,
                     path: .root,
                     sources: sources,
                     dependencies: dependencies,
+                    packageAccess: false,
                     swiftVersion: try swiftVersion(),
                     buildSettings: buildSettings,
                     usesUnsafeFlags: false

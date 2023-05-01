@@ -166,11 +166,6 @@ enum Serialization {
         case `macro`
     }
 
-    enum TargetGroup: Codable {
-        case package
-        case excluded
-    }
-
     enum PluginCapability: Codable {
         case buildTool
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
@@ -201,7 +196,6 @@ enum Serialization {
 
     struct Target: Codable {
         let name: String
-        let group: TargetGroup
         let path: String?
         let url: String?
         let sources: [String]?
@@ -210,6 +204,7 @@ enum Serialization {
         let dependencies: [TargetDependency]
         let publicHeadersPath: String?
         let type: TargetType
+        let packageAccess: Bool
         let pkgConfig: String?
         let providers: [SystemPackageProvider]?
         let pluginCapability: PluginCapability?

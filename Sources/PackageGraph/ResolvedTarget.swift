@@ -112,14 +112,16 @@ public final class ResolvedTarget {
         return underlyingTarget.c99name
     }
 
-    public var group: Target.Group {
-        return underlyingTarget.group
-    }
     /// Module aliases for dependencies of this target. The key is an
     /// original target name and the value is a new unique name mapped
     /// to the name of its .swiftmodule binary.
     public var moduleAliases: [String: String]? {
       return underlyingTarget.moduleAliases
+    }
+
+    /// Allows access to package symbols from other targets in the package
+    public var packageAccess: Bool {
+        return underlyingTarget.packageAccess
     }
 
     /// The "type" of target.

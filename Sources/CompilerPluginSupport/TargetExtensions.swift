@@ -16,23 +16,23 @@ public extension Target {
     @available(_PackageDescription, introduced: 5.9)
     static func macro(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
+        packageAccess: Bool = true,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         plugins: [PluginUsage]? = nil
     ) -> Target {
         return Target(name: name,
-                      group: group,
                       dependencies: dependencies,
                       path: path,
                       exclude: exclude,
                       sources: sources,
                       publicHeadersPath: nil,
                       type: .macro,
+                      packageAccess: packageAccess,
                       swiftSettings: swiftSettings,
                       linkerSettings: linkerSettings,
                       plugins: plugins)

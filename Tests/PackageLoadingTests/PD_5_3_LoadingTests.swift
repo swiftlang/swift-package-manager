@@ -97,7 +97,6 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         let foo3 = targets["Foo3"]
         XCTAssertEqual(foo1, try? TargetDescription(
             name: "Foo1",
-            group: .excluded,
             dependencies: [],
             path: "../Foo1.xcframework",
             url: nil,
@@ -106,13 +105,13 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             resources: [],
             publicHeadersPath: nil,
             type: .binary,
+            packageAccess: false,
             pkgConfig: nil,
             providers: nil,
             settings: [],
             checksum: nil))
         XCTAssertEqual(foo2, try? TargetDescription(
             name: "Foo2",
-            group: .excluded,
             dependencies: [],
             path: nil,
             url: "https://foo.com/Foo2-1.0.0.zip",
@@ -121,13 +120,13 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             resources: [],
             publicHeadersPath: nil,
             type: .binary,
+            packageAccess: false,
             pkgConfig: nil,
             providers: nil,
             settings: [],
             checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
         XCTAssertEqual(foo3, try? TargetDescription(
             name: "Foo3",
-            group: .excluded,
             dependencies: [],
             path: "./Foo3.zip",
             url: nil,
@@ -136,6 +135,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             resources: [],
             publicHeadersPath: nil,
             type: .binary,
+            packageAccess: false,
             pkgConfig: nil,
             providers: nil,
             settings: [],

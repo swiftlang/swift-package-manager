@@ -337,7 +337,6 @@ enum ManifestJSONParser {
 
         return try TargetDescription(
             name: target.name,
-            group: .init(target.group),
             dependencies: dependencies,
             path: target.path,
             url: target.url,
@@ -346,6 +345,7 @@ enum ManifestJSONParser {
             resources: try Self.parseResources(target.resources),
             publicHeadersPath: target.publicHeadersPath,
             type: .init(target.type),
+            packageAccess: target.packageAccess,
             pkgConfig: target.pkgConfig,
             providers: providers,
             pluginCapability: pluginCapability,
@@ -533,17 +533,6 @@ extension TargetDescription.TargetType {
             self = .plugin
         case .macro:
             self = .macro
-        }
-    }
-}
-
-extension TargetDescription.TargetGroup {
-    init(_ group: Serialization.TargetGroup) {
-        switch group {
-        case .package:
-            self = .package
-        case .excluded:
-            self = .excluded
         }
     }
 }
