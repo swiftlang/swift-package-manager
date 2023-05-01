@@ -192,8 +192,10 @@ extension Workspace {
                             }
                         } catch {
                             errors.append(error)
-                            observabilityScope
-                                .emit(error: "failed retrieving '\(indexFile.url)': \(error.interpolationDescription)")
+                            observabilityScope.emit(
+                                error: "failed retrieving '\(indexFile.url)'",
+                                underlyingError: error
+                            )
                         }
                     }
                 }
@@ -692,7 +694,7 @@ extension Workspace.BinaryArtifactsManager {
                 _ = try decoder.decode(XCFrameworkMetadata.self, from: fileSystem.readFileContents(infoPlist))
                 return .xcframework
             } catch {
-                observabilityScope.emit(debug: "info.plist found in '\(path)' but failed to parse: \(error)")
+                observabilityScope.emit(debug: "info.plist found in '\(path)' but failed to parse: \(error.interpolationDescription)")
             }
         }
 
@@ -701,7 +703,10 @@ extension Workspace.BinaryArtifactsManager {
                 _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: infoJSON.parentDirectory)
                 return .artifactsArchive
             } catch {
-                observabilityScope.emit(debug: "info.json found in '\(path)' but failed to parse: \(error)")
+                observabilityScope.emit(
+                    debug: "info.json found in '\(path)' but failed to parse",
+                    underlyingError: error
+                )
             }
         }
 

@@ -951,7 +951,10 @@ extension Workspace {
         do {
             try self.fileSystem.removeFileTree(self.location.scratchDirectory)
         } catch {
-            observabilityScope.emit(error: "Error removing scratch directory at '\(self.location.scratchDirectory)': \(error)")
+            observabilityScope.emit(
+                error: "Error removing scratch directory at '\(self.location.scratchDirectory)'",
+                underlyingError: error
+            )
         }
     }
 
@@ -2134,7 +2137,10 @@ extension Workspace {
             fileSystem = try self.getFileSystem(package: package, state: managedDependency.state, observabilityScope: observabilityScope)
         } catch {
             // only warn here in case of issues since we should not even get here without a valid package container
-            observabilityScope.emit(warning: "unexpected failure while accessing custom package container: \(error)")
+            observabilityScope.emit(
+                warning: "unexpected failure while accessing custom package container",
+                underlyingError: error
+            )
             fileSystem = nil
         }
 
@@ -2824,7 +2830,7 @@ extension Workspace {
                 requirement: requirement
             ))
         case .failure(let error):
-            return .required(reason: .other("\(error)"))
+            return .required(reason: .other("\(error.interpolationDescription)"))
         }
     }
 
@@ -3973,7 +3979,10 @@ extension Workspace {
                         switch result {
                         case .failure(let error):
                             // do not raise error, only report it as warning
-                            observabilityScope.emit(warning: "failed querying registry identity for '\(url)': \(error)")
+                            observabilityScope.emit(
+                                warning: "failed querying registry identity for '\(url)'",
+                                underlyingError: error
+                            )
                         case .success(.some(let identity)):
                             transformations[dependency] = identity
                         case .success(.none):

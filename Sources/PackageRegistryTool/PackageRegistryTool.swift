@@ -180,7 +180,7 @@ extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
         case .unknownCredentialStore:
             return "no credential store available"
         case .invalidCredentialStore(let error):
-            return "credential store is invalid: \(error)"
+            return "credential store is invalid: \(error.interpolationDescription)"
         }
     }
 }

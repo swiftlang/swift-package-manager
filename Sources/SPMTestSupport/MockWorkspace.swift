@@ -738,7 +738,7 @@ public final class MockWorkspace {
             let workspace = try self.getOrCreateWorkspace()
             try result(ManagedDependencyResult(workspace.state.dependencies))
         } catch {
-            XCTFail("Failed with error \(error)", file: file, line: line)
+            XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }
     }
 
@@ -747,7 +747,7 @@ public final class MockWorkspace {
             let workspace = try self.getOrCreateWorkspace()
             try result(ManagedArtifactResult(workspace.state.artifacts))
         } catch {
-            XCTFail("Failed with error \(error)", file: file, line: line)
+            XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }
     }
 
@@ -804,7 +804,7 @@ public final class MockWorkspace {
             let workspace = try self.getOrCreateWorkspace()
             try result(ResolvedResult(workspace.pinsStore.load()))
         } catch {
-            XCTFail("Failed with error \(error)", file: file, line: line)
+            XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }
     }
 }

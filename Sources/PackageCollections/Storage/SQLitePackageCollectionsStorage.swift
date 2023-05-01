@@ -855,7 +855,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 return callback(.success(()))
             }
         } catch {
-            self.observabilityScope.emit(warning: "Failed to determine if database is empty or not: \(error)")
+            self.observabilityScope.emit(
+                warning: "Failed to determine if database is empty or not",
+                underlyingError: error
+            )
             // Try again in background
         }
 

@@ -14,8 +14,12 @@ import Dispatch
 import Foundation
 import TSCBasic
 
-import enum TSCUtility.Diagnostics
+import struct TSCBasic.Diagnostic
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.DiagnosticLocation
+import class TSCBasic.UnknownLocation
 import protocol TSCUtility.DiagnosticDataConvertible
+import enum TSCUtility.Diagnostics
 
 // this could become a struct when we remove the "errorsReported" pattern
 
@@ -43,7 +47,8 @@ public class ObservabilitySystem {
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
-        let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
+        let underlying: @Sendable (ObservabilityScope, Diagnostic)
+            -> Void
 
         init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
             self.underlying = underlying
@@ -106,13 +111,13 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
     }
 
     // FIXME: we want to remove this functionality and move to more conventional error handling
-    //@available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
+    // @available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
     public var errorsReported: Bool {
         self.diagnosticsHandler.errorsReported
     }
 
     // FIXME: we want to remove this functionality and move to more conventional error handling
-    //@available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
+    // @available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
     public var errorsReportedInAnyScope: Bool {
         if self.errorsReported {
             return true
@@ -170,45 +175,69 @@ extension DiagnosticsEmitterProtocol {
         self.emit(.init(severity: severity, message: message, metadata: metadata))
     }
 
-    public func emit(error message: String, metadata: ObservabilityMetadata? = .none) {
+    public func emit(error message: String, metadata: ObservabilityMetadata? = .none, underlyingError: Error? = .none) {
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(.init(severity: .error, message: message, metadata: metadata))
     }
 
-    public func emit(error message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
-        self.emit(error: message.description, metadata: metadata)
+    public func emit(
+        error message: CustomStringConvertible,
+        metadata: ObservabilityMetadata? = .none,
+        underlyingError: Error? = .none
+    ) {
+        self.emit(error: message.description, metadata: metadata, underlyingError: underlyingError)
     }
 
     public func emit(_ error: Error, metadata: ObservabilityMetadata? = .none) {
         self.emit(.error(error, metadata: metadata))
     }
 
-    public func emit(warning message: String, metadata: ObservabilityMetadata? = .none) {
+    public func emit(
+        warning message: String,
+        metadata: ObservabilityMetadata? = .none,
+        underlyingError: Error? = .none
+    ) {
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(severity: .warning, message: message, metadata: metadata)
     }
 
-    public func emit(warning message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
-        self.emit(warning: message.description, metadata: metadata)
+    public func emit(
+        warning message: CustomStringConvertible,
+        metadata: ObservabilityMetadata? = .none,
+        underlyingError: Error? = .none
+    ) {
+        self.emit(warning: message.description, metadata: metadata, underlyingError: underlyingError)
     }
 
-    public func emit(info message: String, metadata: ObservabilityMetadata? = .none) {
+    public func emit(info message: String, metadata: ObservabilityMetadata? = .none, underlyingError: Error? = .none) {
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(severity: .info, message: message, metadata: metadata)
     }
 
-    public func emit(info message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
-        self.emit(info: message.description, metadata: metadata)
+    public func emit(
+        info message: CustomStringConvertible,
+        metadata: ObservabilityMetadata? = .none,
+        underlyingError: Error? = .none
+    ) {
+        self.emit(info: message.description, metadata: metadata, underlyingError: underlyingError)
     }
 
-    public func emit(debug message: String, metadata: ObservabilityMetadata? = .none) {
+    public func emit(debug message: String, metadata: ObservabilityMetadata? = .none, underlyingError: Error? = .none) {
+        let message = makeMessage(from: message, underlyingError: underlyingError)
         self.emit(severity: .debug, message: message, metadata: metadata)
     }
 
-    public func emit(debug message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
-        self.emit(debug: message.description, metadata: metadata)
+    public func emit(
+        debug message: CustomStringConvertible,
+        metadata: ObservabilityMetadata? = .none,
+        underlyingError: Error? = .none
+    ) {
+        self.emit(debug: message.description, metadata: metadata, underlyingError: underlyingError)
     }
 
     /// trap a throwing closure, emitting diagnostics on error and returning the value returned by the closure
     public func trap<T>(_ closure: () throws -> T) -> T? {
-        do  {
+        do {
             return try closure()
         } catch Diagnostics.fatalError {
             // FIXME: (diagnostics) deprecate this with Diagnostics.fatalError
@@ -222,7 +251,7 @@ extension DiagnosticsEmitterProtocol {
     /// trap a throwing closure, emitting diagnostics on error and returning boolean representing success
     @discardableResult
     public func trap(_ closure: () throws -> Void) -> Bool {
-        do  {
+        do {
             try closure()
             return true
         } catch Diagnostics.fatalError {
@@ -231,6 +260,16 @@ extension DiagnosticsEmitterProtocol {
         } catch {
             self.emit(error)
             return false
+        }
+    }
+
+    /// If `underlyingError` is not `nil`, its human-readable description is interpolated with `message`,
+    /// otherwise `message` itself is returned.
+    private func makeMessage(from message: String, underlyingError: Error?) -> String {
+        if let underlyingError {
+            return "\(message): \(underlyingError.interpolationDescription)"
+        } else {
+            return message
         }
     }
 }
@@ -255,7 +294,7 @@ public struct DiagnosticsEmitter: DiagnosticsEmitterProtocol {
 public struct Diagnostic: Sendable, CustomStringConvertible {
     public let severity: Severity
     public let message: String
-    public internal (set) var metadata: ObservabilityMetadata?
+    public internal(set) var metadata: ObservabilityMetadata?
 
     public init(severity: Severity, message: String, metadata: ObservabilityMetadata?) {
         self.severity = severity
@@ -264,7 +303,7 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
     }
 
     public var description: String {
-        return "[\(self.severity)]: \(self.message)"
+        "[\(self.severity)]: \(self.message)"
     }
 
     public static func error(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
@@ -289,12 +328,8 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
             message = "\(diagnosticData)"
         } else if let convertible = error as? DiagnosticDataConvertible {
             message = "\(convertible.diagnosticData)"
-        } else if let decodingError = error as? DecodingError { // special case because `LocalizedError` conversion will hide the underlying error
-            message = "\(decodingError)"
-        } else if let localizedError = error as? LocalizedError {
-            message = localizedError.errorDescription ?? localizedError.localizedDescription
         } else {
-            message = "\(error)"
+            message = error.interpolationDescription
         }
 
         return Self(severity: .error, message: message, metadata: metadata)
@@ -344,7 +379,7 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         }
 
         public static func < (lhs: Self, rhs: Self) -> Bool {
-            return lhs.naturalIntegralValue < rhs.naturalIntegralValue
+            lhs.naturalIntegralValue < rhs.naturalIntegralValue
         }
     }
 }
@@ -422,10 +457,10 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
 
     public func merging(_ other: ObservabilityMetadata) -> ObservabilityMetadata {
         var merged = ObservabilityMetadata()
-        self.forEach { (key, value) in
+        self.forEach { key, value in
             merged._storage[key] = value
         }
-        other.forEach { (key, value) in
+        other.forEach { key, value in
             merged._storage[key] = value
         }
         return merged
@@ -443,23 +478,26 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
     // ideally Value would conform to Equatable but that has generic requirement
     // luckily, this is about to change so we can clean this up soon
     /*
-    public static func == (lhs: ObservabilityMetadata, rhs: ObservabilityMetadata) -> Bool {
-        if lhs.count != rhs.count {
-            return false
-        }
+     public static func == (lhs: ObservabilityMetadata, rhs: ObservabilityMetadata) -> Bool {
+         if lhs.count != rhs.count {
+             return false
+         }
 
-        var equals = true
-        lhs.forEach { (key, value) in
-            if rhs._storage[key]?.description != value.description {
-                equals = false
-                return
-            }
-        }
+         var equals = true
+         lhs.forEach { (key, value) in
+             if rhs._storage[key]?.description != value.description {
+                 equals = false
+                 return
+             }
+         }
 
-        return equals
-    }*/
+         return equals
+     }*/
 
-    fileprivate static func mergeLeft(_ lhs: ObservabilityMetadata?, _ rhs: ObservabilityMetadata?) -> ObservabilityMetadata? {
+    fileprivate static func mergeLeft(
+        _ lhs: ObservabilityMetadata?,
+        _ rhs: ObservabilityMetadata?
+    ) -> ObservabilityMetadata? {
         switch (lhs, rhs) {
         case (.none, .none):
             return .none
@@ -515,7 +553,7 @@ extension ObservabilityMetadata {
     public struct UnderlyingError: CustomStringConvertible {
         let underlying: Error
 
-        public init (_ underlying: Error) {
+        public init(_ underlying: Error) {
             self.underlying = underlying
         }
 
@@ -576,7 +614,7 @@ extension ObservabilityMetadata {
     public struct DiagnosticLocationWrapper: Sendable, CustomStringConvertible {
         let underlying: DiagnosticLocation
 
-        public init (_ underlying: DiagnosticLocation) {
+        public init(_ underlying: DiagnosticLocation) {
             self.underlying = underlying
         }
 
@@ -604,7 +642,7 @@ extension ObservabilityMetadata {
     struct DiagnosticDataWrapper: Sendable, CustomStringConvertible {
         let underlying: DiagnosticData
 
-        public init (_ underlying: DiagnosticData) {
+        public init(_ underlying: DiagnosticData) {
             self.underlying = underlying
         }
 

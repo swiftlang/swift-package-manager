@@ -148,7 +148,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     }
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
-                    self.observabilityScope.emit(warning: "failed to load the cached build description: \(error)")
+                    self.observabilityScope.emit(
+                        warning: "failed to load the cached build description",
+                        underlyingError: error
+                    )
                 }
             }
             // We need to perform actual planning if we reach here.
@@ -271,7 +274,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         if self.fileSystem.exists(oldBuildPath) {
             do { try self.fileSystem.removeFileTree(oldBuildPath) }
             catch {
-                self.observabilityScope.emit(warning: "unable to delete \(oldBuildPath), skip creating symbolic link: \(error)")
+                self.observabilityScope.emit(
+                    warning: "unable to delete \(oldBuildPath), skip creating symbolic link",
+                    underlyingError: error
+                )
                 return
             }
         }
@@ -279,7 +285,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         do {
             try self.fileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
         } catch {
-            self.observabilityScope.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
+            self.observabilityScope.emit(
+                warning: "unable to create symbolic link at \(oldBuildPath)",
+                underlyingError: error
+            )
         }
     }
 
