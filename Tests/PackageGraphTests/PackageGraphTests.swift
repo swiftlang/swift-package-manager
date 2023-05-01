@@ -2162,9 +2162,17 @@ class PackageGraphTests: XCTestCase {
         let customXCTestMinimumDeploymentTargets = [
             PackageModel.Platform.macOS: PlatformVersion("10.15"),
             PackageModel.Platform.iOS: PlatformVersion("11.0"),
-            PackageModel.Platform.tvOS: PlatformVersion("11.0"),
+            PackageModel.Platform.tvOS: PlatformVersion("10.0"),
             PackageModel.Platform.watchOS: PlatformVersion("4.0"),
         ]
+
+        let expectedPlatformsForTests = customXCTestMinimumDeploymentTargets.reduce(into: [Platform : PlatformVersion]()) { partialResult, entry in
+            if entry.value > entry.key.oldestSupportedVersion {
+                partialResult[entry.key] = entry.value
+            } else {
+                partialResult[entry.key] = entry.key.oldestSupportedVersion
+            }
+        }
 
         do {
             // One platform with an override.
@@ -2226,7 +2234,7 @@ class PackageGraphTests: XCTestCase {
                 result.checkTarget("test") { target in
                     var expected = expectedDerivedPlatforms
                     [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS].forEach {
-                        expected[$0.name] = customXCTestMinimumDeploymentTargets[$0]?.versionString
+                        expected[$0.name] = expectedPlatformsForTests[$0]?.versionString
                     }
                     target.checkDerivedPlatforms(expected)
                     target.checkDerivedPlatformOptions(.macOS, options: ["option1"])
@@ -2254,7 +2262,7 @@ class PackageGraphTests: XCTestCase {
                 result.checkProduct("multi-target") { product in
                     var expected = expectedDerivedPlatforms
                     [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS].forEach {
-                        expected[$0.name] = customXCTestMinimumDeploymentTargets[$0]?.versionString
+                        expected[$0.name] = expectedPlatformsForTests[$0]?.versionString
                     }
                     product.checkDerivedPlatforms(expected)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
@@ -2358,7 +2366,7 @@ class PackageGraphTests: XCTestCase {
                 ]
 
                 var expectedDerivedPlatforms = defaultDerivedPlatforms.merging(expectedDeclaredPlatforms, uniquingKeysWith: { lhs, rhs in rhs })
-                var expectedDerivedPlatformsForTests = defaultDerivedPlatforms.merging(customXCTestMinimumDeploymentTargets.map { ($0.name, $1.versionString) }, uniquingKeysWith: { lhs, rhs in rhs })
+                var expectedDerivedPlatformsForTests = defaultDerivedPlatforms.merging(expectedPlatformsForTests.map { ($0.name, $1.versionString) }, uniquingKeysWith: { lhs, rhs in rhs })
                 expectedDerivedPlatformsForTests["ios"] = expectedDeclaredPlatforms["ios"]
 
                 // Gets derived to be the same as the declared iOS deployment target.
