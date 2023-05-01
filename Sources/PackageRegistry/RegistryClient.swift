@@ -355,12 +355,17 @@ public final class RegistryClient: Cancellable {
                                         return nil
                                     }
                                     let configuration = self.configuration.signing(for: package, registry: registry)
-                                    return try? tsc_await { SignatureValidation.extractSigningEntity(
+                                    return try? tsc_await { completion in
+                                        let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
+                                            completion($0)
+                                        }
+
+                                        SignatureValidation.extractSigningEntity(
                                         signature: [UInt8](signatureData),
                                         signatureFormat: signatureFormat,
                                         configuration: configuration,
                                         fileSystem: fileSystem,
-                                        completion: $0
+                                        completion: wrappedCompletion
                                     ) }
                                 }
                             )
