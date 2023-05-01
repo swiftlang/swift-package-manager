@@ -737,7 +737,7 @@ private func computePlatforms(
         let platform = platformRegistry.platformByName[platformName]!
 
         let minimumSupportedVersion: PlatformVersion
-        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform] {
+        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
             minimumSupportedVersion = xcTestMinimumDeploymentTarget
         } else {
             minimumSupportedVersion = platform.oldestSupportedVersion
