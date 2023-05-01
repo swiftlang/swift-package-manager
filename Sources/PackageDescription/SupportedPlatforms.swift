@@ -395,19 +395,19 @@ extension SupportedPlatform {
         /// The value that represents tvOS 9.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "tvOS 11.0 is the oldest supported version")
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "tvOS 12.0 is the oldest supported version")
         public static let v9: TVOSVersion = .init(string: "9.0")
 
         /// The value that represents tvOS 10.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "tvOS 11.0 is the oldest supported version")
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "tvOS 12.0 is the oldest supported version")
         public static let v10: TVOSVersion = .init(string: "10.0")
 
         /// The value that represents tvOS 11.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0)
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.9, message: "tvOS 12.0 is the oldest supported version")
         public static let v11: TVOSVersion = .init(string: "11.0")
 
         /// The value that represents tvOS 12.0.
@@ -517,25 +517,25 @@ extension SupportedPlatform {
         /// The value that represents iOS 8.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "iOS 11.0 is the oldest supported version")
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "iOS 12.0 is the oldest supported version")
         public static let v8: IOSVersion = .init(string: "8.0")
 
         /// The value that represents iOS 9.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "iOS 11.0 is the oldest supported version")
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "iOS 12.0 is the oldest supported version")
         public static let v9: IOSVersion = .init(string: "9.0")
 
         /// The value that represents iOS 10.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "iOS 11.0 is the oldest supported version")
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.7, message: "iOS 12.0 is the oldest supported version")
         public static let v10: IOSVersion = .init(string: "10.0")
 
         /// The value that represents iOS 11.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
-        @available(_PackageDescription, introduced: 5.0)
+        @available(_PackageDescription, introduced: 5.0, deprecated: 5.9, message: "iOS 12.0 is the oldest supported version")
         public static let v11: IOSVersion = .init(string: "11.0")
 
         /// The value that represents iOS 12.0.
