@@ -12,7 +12,6 @@
 
 import Basics
 import PackageModel
-import TSCBasic
 
 extension Basics.Diagnostic {
     static func targetHasNoSources(name: String, type: TargetDescription.TargetType, shouldSuggestRelaxedSourceDir: Bool) -> Self {

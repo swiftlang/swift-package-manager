@@ -13,8 +13,9 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import TSCBasic
 import Workspace
+
+import var TSCBasic.stderrStream
 
 extension SwiftPackageTool {
     struct Config: ParsableCommand {

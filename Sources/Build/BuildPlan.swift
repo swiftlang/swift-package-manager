@@ -19,7 +19,9 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
-import TSCBasic
+
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.topologicalSort
 
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
@@ -1041,7 +1043,7 @@ extension Basics.Diagnostic {
             """)
     }
 
-    static func binaryTargetsNotSupported() -> Diagnostic.Message {
+    static func binaryTargetsNotSupported() -> Self {
         .error("binary targets are not supported on this platform")
     }
 }
@@ -1114,3 +1116,4 @@ extension ResolvedProduct {
         return !isAutomaticLibrary && !isBinaryOnly && !isPlugin
     }
 }
+

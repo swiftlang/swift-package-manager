@@ -14,8 +14,11 @@
 @testable import CoreCommands
 @testable import Commands
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.BufferedOutputByteStream
+import protocol TSCBasic.OutputByteStream
+import var TSCBasic.stderrStream
 
 final class SwiftToolTests: CommandsTestCase {
     func testVerbosityLogLevel() throws {

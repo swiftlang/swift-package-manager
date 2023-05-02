@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import SourceControl
-import TSCBasic
 
 extension SwiftPackageTool {
     struct Edit: SwiftCommand {

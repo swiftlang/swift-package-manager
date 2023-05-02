@@ -11,8 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.JSONEncoder
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
 
 public struct VFSOverlay: Encodable {
     public struct File: Encodable {

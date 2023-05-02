@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 import SPMTestSupport
 @testable import SourceControl
 import XCTest

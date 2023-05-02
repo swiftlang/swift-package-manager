@@ -13,13 +13,15 @@
 @_implementationOnly import Foundation
 import PackageModel
 
+import struct Basics.AbsolutePath
+import protocol Basics.FileSystem
 import struct Basics.InternalError
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
+import struct Basics.RelativePath
+
 import enum TSCBasic.PathValidationError
 import struct TSCBasic.RegEx
-import struct TSCBasic.RelativePath
 import struct TSCBasic.StringError
+
 import struct TSCUtility.Version
 
 enum ManifestJSONParser {
@@ -145,7 +147,7 @@ enum ManifestJSONParser {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
-        fileSystem: TSCBasic.FileSystem
+        fileSystem: FileSystem
     ) throws -> PackageDependency {
         switch dependency.kind {
         case .registry(let identity, let requirement):
@@ -179,7 +181,7 @@ enum ManifestJSONParser {
         at location: String,
         name: String?,
         identityResolver: IdentityResolver,
-        fileSystem: TSCBasic.FileSystem
+        fileSystem: FileSystem
     ) throws -> PackageDependency {
         let location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         let path: AbsolutePath
@@ -201,7 +203,7 @@ enum ManifestJSONParser {
         name: String?,
         requirement: PackageDependency.SourceControl.Requirement,
         identityResolver: IdentityResolver,
-        fileSystem: TSCBasic.FileSystem
+        fileSystem: FileSystem
     ) throws -> PackageDependency {
         // cleans up variants of path based location
         var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
@@ -287,7 +289,7 @@ enum ManifestJSONParser {
         }
     }
 
-    private static func sanitizeDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
+    private static func sanitizeDependencyLocation(fileSystem: FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
             return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString

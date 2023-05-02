@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.

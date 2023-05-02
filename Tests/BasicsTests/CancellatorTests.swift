@@ -11,9 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import TSCBasic
-import XCTest
 import SPMTestSupport
+import XCTest
+
+import class TSCBasic.Process
 
 final class CancellatorTests: XCTestCase {
     func testHappyCase() throws {

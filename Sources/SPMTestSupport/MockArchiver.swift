@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 
 public class MockArchiver: Archiver {
     public typealias ExtractionHandler = (

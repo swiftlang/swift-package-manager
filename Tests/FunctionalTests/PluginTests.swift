@@ -16,7 +16,6 @@ import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
 
@@ -365,7 +364,7 @@ class PluginTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -461,7 +460,7 @@ class PluginTests: XCTestCase {
                     )
 
                     let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
-                    let success = try tsc_await { plugin.invoke(
+                    let success = try temp_await { plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
@@ -547,7 +546,7 @@ class PluginTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -644,7 +643,7 @@ class PluginTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -939,7 +938,7 @@ class PluginTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,

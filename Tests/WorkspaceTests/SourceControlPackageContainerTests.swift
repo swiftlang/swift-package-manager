@@ -17,9 +17,10 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 @testable import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Git
 import struct TSCUtility.Version
@@ -683,7 +684,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
 extension PackageContainerProvider {
     fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
-        try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+        try temp_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
     }
 }
 

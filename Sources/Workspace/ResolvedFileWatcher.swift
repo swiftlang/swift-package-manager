@@ -10,10 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import class Foundation.NSLock
 import PackageModel
 import PackageGraph
-import TSCBasic
+
+import struct TSCBasic.ByteString
 
 import class TSCUtility.FSWatch
 
@@ -24,7 +26,7 @@ final class ResolvedFileWatcher {
     private var fswatch: FSWatch!
     private var existingValue: ByteString?
     private let valueLock = NSLock()
-    private let resolvedFile: AbsolutePath
+    private let resolvedFile: TSCAbsolutePath
 
     public func updateValue() {
         valueLock.withLock {
@@ -33,9 +35,10 @@ final class ResolvedFileWatcher {
     }
 
     init(resolvedFile: AbsolutePath, onChange: @escaping () -> ()) throws {
+        let resolvedFile = TSCAbsolutePath(resolvedFile)
         self.resolvedFile = resolvedFile
 
-        let block = { [weak self] (paths: [AbsolutePath]) in
+        let block = { [weak self] (paths: [TSCAbsolutePath]) in
             guard let self else { return }
 
             // Check if resolved file is part of the received paths.
@@ -45,7 +48,7 @@ final class ResolvedFileWatcher {
             self.valueLock.withLock {
                 // Compute the contents of the resolved file and fire the onChange block
                 // if its value is different than existing value.
-                let newValue = try? localFileSystem.readFileContents(resolvedFile)
+                let newValue: ByteString? = try? localFileSystem.readFileContents(resolvedFile)
                 if self.existingValue != newValue {
                     self.existingValue = newValue
                     onChange()

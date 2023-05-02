@@ -20,9 +20,7 @@ import SourceControl
 
 import struct Foundation.Date
 import struct Foundation.URL
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
-import func TSCBasic.withTemporaryDirectory
+
 import struct TSCUtility.Version
 
 public struct Package {

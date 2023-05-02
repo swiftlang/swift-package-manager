@@ -15,7 +15,7 @@ import Dispatch
 import PackageModel
 import PackageLoading
 import PackageGraph
-import TSCBasic
+
 import func XCTest.XCTFail
 
 import struct TSCUtility.Version
@@ -107,7 +107,7 @@ extension ManifestLoader {
             // FIXME: placeholder
             packageLocation = identity.description
         }
-        return try tsc_await {
+        return try temp_await {
             self.load(
                 manifestPath: manifestPath,
                 manifestToolsVersion: manifestToolsVersion,
@@ -156,7 +156,7 @@ extension ManifestLoader {
             // FIXME: placeholder
             packageLocation = identity.description
         }
-        return try tsc_await {
+        return try temp_await {
             self.load(
                 packagePath: packagePath,
                 packageIdentity: packageIdentity,

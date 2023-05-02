@@ -16,8 +16,11 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
+
+import class TSCTestSupport.XCTestCasePerf
 
 class PackageGraphPerfTests: XCTestCasePerf {
 

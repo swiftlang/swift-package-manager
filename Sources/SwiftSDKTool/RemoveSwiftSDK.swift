@@ -15,8 +15,6 @@ import Basics
 import CoreCommands
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-
 public struct RemoveSwiftSDK: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
         commandName: "remove",

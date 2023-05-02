@@ -12,7 +12,6 @@
 
 import Basics
 import class Foundation.ProcessInfo
-import TSCBasic
 
 public protocol ToolProtocol: Codable {
     /// The name of the tool.

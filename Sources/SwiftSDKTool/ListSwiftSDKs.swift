@@ -16,8 +16,6 @@ import CoreCommands
 import PackageModel
 import SPMBuildCore
 
-import struct TSCBasic.AbsolutePath
-
 public struct ListSwiftSDKs: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
         commandName: "list",

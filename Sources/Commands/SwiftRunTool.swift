@@ -16,7 +16,9 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
-import TSCBasic
+
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
 
 import enum TSCUtility.Diagnostics
 

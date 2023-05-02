@@ -14,8 +14,9 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import struct TSCBasic.ByteString
 
 class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {

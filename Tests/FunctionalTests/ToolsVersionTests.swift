@@ -10,14 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-
-import TSCBasic
-import SPMTestSupport
+import Basics
 import Commands
 import PackageModel
 import SourceControl
+import SPMTestSupport
 import Workspace
+import XCTest
 
 class ToolsVersionTests: XCTestCase {
 

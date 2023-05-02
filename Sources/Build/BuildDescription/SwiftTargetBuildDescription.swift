@@ -16,8 +16,9 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 @_implementationOnly import DriverSupport
+
+import struct TSCBasic.ByteString
 
 /// Target description for a Swift target.
 public final class SwiftTargetBuildDescription {

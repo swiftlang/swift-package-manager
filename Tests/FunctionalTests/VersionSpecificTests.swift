@@ -13,7 +13,6 @@
 import Basics
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class VersionSpecificTests: XCTestCase {

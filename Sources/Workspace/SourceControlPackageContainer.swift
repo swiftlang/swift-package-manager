@@ -18,7 +18,8 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
+
+import struct TSCBasic.RegEx
 
 import enum TSCUtility.Git
 import struct TSCUtility.Version

@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import Foundation
 import PackageModel
-import TSCBasic
+
+import struct TSCBasic.StringError
 
 extension SwiftPackageTool {
     struct Describe: SwiftCommand {
@@ -34,7 +36,7 @@ extension SwiftPackageTool {
                 throw StringError("unknown package")
             }
             
-            let package = try tsc_await {
+            let package = try temp_await {
                 workspace.loadRootPackage(
                     at: packagePath,
                     observabilityScope: swiftTool.observabilityScope,

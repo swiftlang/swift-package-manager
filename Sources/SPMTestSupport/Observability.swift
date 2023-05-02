@@ -11,9 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct TSCBasic.StringError
 import func XCTest.XCTAssertEqual
 import func XCTest.XCTFail
+
+import struct TSCBasic.StringError
+
+import TSCTestSupport
 
 extension ObservabilitySystem {
     public static func makeForTesting(verbose: Bool = true) -> TestingObservability {

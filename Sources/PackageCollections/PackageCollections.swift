@@ -12,7 +12,8 @@
 
 import Basics
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol, Closable {

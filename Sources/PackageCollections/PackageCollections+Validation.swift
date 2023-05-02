@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 import Basics
 import PackageCollectionsModel
 import PackageModel

@@ -23,11 +23,11 @@ public struct SwiftVersion {
     public var buildIdentifier: String?
 
     /// The major component of the version number.
-    public var major: Int { return self.version.major }
+    public var major: Int { self.version.major }
     /// The minor component of the version number.
-    public var minor: Int { return self.version.minor }
+    public var minor: Int { self.version.minor }
     /// The patch component of the version number.
-    public var patch: Int { return self.version.patch }
+    public var patch: Int { self.version.patch }
 
     /// The version as a readable string.
     public var displayString: String {

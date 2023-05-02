@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import TSCBasic
+import func TSCBasic.determineTempDirectory
 
 public enum SandboxNetworkPermission: Equatable {
     case none
@@ -55,7 +55,12 @@ public enum Sandbox {
         allowNetworkConnections: [SandboxNetworkPermission] = []
     ) throws -> [String] {
         #if os(macOS)
-        let profile = try macOSSandboxProfile(strictness: strictness, writableDirectories: writableDirectories, readOnlyDirectories: readOnlyDirectories, allowNetworkConnections: allowNetworkConnections)
+        let profile = try macOSSandboxProfile(
+            strictness: strictness,
+            writableDirectories: writableDirectories,
+            readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections
+        )
         return ["/usr/bin/sandbox-exec", "-p", profile] + command
         #else
         // rdar://40235432, rdar://75636874 tracks implementing sandboxes for other platforms.
@@ -86,7 +91,7 @@ fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
 
         guard confstr(name, buffer.baseAddress, length) == length else { return nil }
 
-        let value: String = String(cString: buffer.baseAddress!)
+        let value = String(cString: buffer.baseAddress!)
         guard value.hasSuffix("/") else { return nil }
 
         return try? resolveSymlinks(AbsolutePath(validating: value))
@@ -94,7 +99,7 @@ fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
 
     var directories: [AbsolutePath] = []
     try? directories.append(AbsolutePath(validating: "/private/var/tmp"))
-    (try? TSCBasic.determineTempDirectory()).map { directories.append($0) }
+    (try? TSCBasic.determineTempDirectory()).map { directories.append(AbsolutePath($0)) }
     GetConfStr(_CS_DARWIN_USER_TEMP_DIR).map { directories.append($0) }
     GetConfStr(_CS_DARWIN_USER_CACHE_DIR).map { directories.append($0) }
     return directories
@@ -178,7 +183,9 @@ fileprivate func macOSSandboxProfile(
     else if strictness == .writableTemporaryDirectory {
         // Add `subpath` expressions for the regular and the Foundation temporary directories.
         for tmpDir in ["/tmp", NSTemporaryDirectory()] {
-            writableDirectoriesExpression += try ["(subpath \(resolveSymlinks(AbsolutePath(validating: tmpDir)).quotedAsSubpathForSandboxProfile))"]
+            writableDirectoriesExpression += try [
+                "(subpath \(resolveSymlinks(AbsolutePath(validating: tmpDir)).quotedAsSubpathForSandboxProfile))",
+            ]
         }
     }
 
@@ -212,10 +219,10 @@ fileprivate func macOSSandboxProfile(
     return contents
 }
 
-fileprivate extension AbsolutePath {
+extension AbsolutePath {
     /// Private computed property that returns a version of the path as a string quoted for use as a subpath in a .sb sandbox profile.
-    var quotedAsSubpathForSandboxProfile: String {
-        return "\"" + self.pathString
+    fileprivate var quotedAsSubpathForSandboxProfile: String {
+        "\"" + self.pathString
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             + "\""

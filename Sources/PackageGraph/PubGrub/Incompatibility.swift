@@ -13,7 +13,6 @@
 import Basics
 import OrderedCollections
 import PackageModel
-import TSCBasic
 
 /// A set of terms that are incompatible with each other and can therefore not
 /// all be true at the same time. In dependency resolution, these are derived

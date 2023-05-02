@@ -14,7 +14,6 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
-import TSCBasic
 
 import struct TSCUtility.Version
 

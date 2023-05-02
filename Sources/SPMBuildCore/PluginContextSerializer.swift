@@ -15,7 +15,6 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
-import TSCBasic
 
 typealias WireInput = HostToPluginMessage.InputContext
 

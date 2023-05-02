@@ -13,15 +13,14 @@
 import Basics
 @testable import PackageCollectionsSigning
 import SPMTestSupport
-import TSCBasic
 import X509
 import XCTest
 
 class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {
-        let certChain = try tsc_await { callback in self.readTestRSACertChain(callback: callback) }
+        let certChain = try temp_await { callback in self.readTestRSACertChain(callback: callback) }
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
-        XCTAssertNoThrow(try tsc_await { callback in policy.validate(
+        XCTAssertNoThrow(try temp_await { callback in policy.validate(
             certChain: certChain,
             validationTime: TestCertificatePolicy.testCertValidDate,
             callback: callback
@@ -29,9 +28,9 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_EC_validate_happyCase() throws {
-        let certChain = try tsc_await { callback in self.readTestECCertChain(callback: callback) }
+        let certChain = try temp_await { callback in self.readTestECCertChain(callback: callback) }
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
-        XCTAssertNoThrow(try tsc_await { callback in policy.validate(
+        XCTAssertNoThrow(try temp_await { callback in policy.validate(
             certChain: certChain,
             validationTime: TestCertificatePolicy.testCertValidDate,
             callback: callback
@@ -39,10 +38,10 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_untrustedRoot() throws {
-        let certChain = try tsc_await { callback in self.readTestRSACertChain(callback: callback) }
+        let certChain = try temp_await { callback in self.readTestRSACertChain(callback: callback) }
         // Test root is not trusted
         let policy = TestCertificatePolicy(trustedRoots: nil)
-        XCTAssertThrowsError(try tsc_await { callback in policy.validate(
+        XCTAssertThrowsError(try temp_await { callback in policy.validate(
             certChain: certChain,
             validationTime: TestCertificatePolicy.testCertValidDate,
             callback: callback
@@ -54,12 +53,12 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_expiredCert() throws {
-        let certChain = try tsc_await { callback in self.readTestRSACertChain(callback: callback) }
+        let certChain = try temp_await { callback in self.readTestRSACertChain(callback: callback) }
         // Test root is not trusted
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
 
         // Use verify date outside of cert's validity period
-        XCTAssertThrowsError(try tsc_await { callback in policy.validate(
+        XCTAssertThrowsError(try temp_await { callback in policy.validate(
             certChain: certChain,
             validationTime: TestCertificatePolicy.testCertInvalidDate,
             callback: callback
@@ -98,7 +97,7 @@ class CertificatePolicyTests: XCTestCase {
                 callbackQueue: callbackQueue
             )
 
-            XCTAssertThrowsError(try tsc_await { callback in
+            XCTAssertThrowsError(try temp_await { callback in
                 policy.validate(certChain: certChain, callback: callback)
             }) { error in
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -136,7 +135,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -149,7 +148,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -165,7 +164,7 @@ class CertificatePolicyTests: XCTestCase {
                         observabilityScope: ObservabilitySystem.NOOP,
                         callbackQueue: callbackQueue
                     )
-                    XCTAssertNoThrow(try tsc_await { callback in
+                    XCTAssertNoThrow(try temp_await { callback in
                         policy.validate(certChain: certChain, callback: callback)
                     })
                 }
@@ -201,7 +200,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -214,7 +213,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -230,7 +229,7 @@ class CertificatePolicyTests: XCTestCase {
                         observabilityScope: ObservabilitySystem.NOOP,
                         callbackQueue: callbackQueue
                     )
-                    XCTAssertNoThrow(try tsc_await { callback in
+                    XCTAssertNoThrow(try temp_await { callback in
                         policy.validate(certChain: certChain, callback: callback)
                     })
                 }
@@ -266,7 +265,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -279,7 +278,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -295,7 +294,7 @@ class CertificatePolicyTests: XCTestCase {
                         observabilityScope: ObservabilitySystem.NOOP,
                         callbackQueue: callbackQueue
                     )
-                    XCTAssertNoThrow(try tsc_await { callback in
+                    XCTAssertNoThrow(try temp_await { callback in
                         policy.validate(certChain: certChain, callback: callback)
                     })
                 }
@@ -331,7 +330,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -344,7 +343,7 @@ class CertificatePolicyTests: XCTestCase {
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -360,7 +359,7 @@ class CertificatePolicyTests: XCTestCase {
                         observabilityScope: ObservabilitySystem.NOOP,
                         callbackQueue: callbackQueue
                     )
-                    XCTAssertNoThrow(try tsc_await { callback in
+                    XCTAssertNoThrow(try temp_await { callback in
                         policy.validate(certChain: certChain, callback: callback)
                     })
                 }
@@ -400,7 +399,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -417,7 +416,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -438,7 +437,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -455,7 +454,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -498,7 +497,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -515,7 +514,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -536,7 +535,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -553,7 +552,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -596,7 +595,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -613,7 +612,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -634,7 +633,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -651,7 +650,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -694,7 +693,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -711,7 +710,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
@@ -732,7 +731,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 })
             }
@@ -749,7 +748,7 @@ class CertificatePolicyTests: XCTestCase {
                     callbackQueue: callbackQueue
                 )
 
-                XCTAssertThrowsError(try tsc_await { callback in
+                XCTAssertThrowsError(try temp_await { callback in
                     policy.validate(certChain: certChain, callback: callback)
                 }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {

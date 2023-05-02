@@ -12,7 +12,9 @@
 
 import Basics
 import PackageModel
-import TSCBasic
+
+import class TSCBasic.Process
+
 import enum TSCUtility.Platform
 
 /// Wrapper struct containing result of a pkgConfig query.

@@ -10,10 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import OrderedCollections
 import PackageModel
-import TSCBasic
+
+import struct TSCBasic.StringError
 
 /// A collection of dependency mirrors.
 public final class DependencyMirrors: Equatable {

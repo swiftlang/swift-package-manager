@@ -21,13 +21,19 @@ import PackageGraph
 import PackageRegistry
 import PackageSigning
 import SourceControl
-import TSCBasic
+
+import protocol TSCBasic.HashAlgorithm
+import class TSCBasic.InMemoryFileSystem
+import struct TSCBasic.KeyedPair
+import var TSCBasic.stderrStream
+import struct TSCBasic.SHA256
+import func TSCBasic.topologicalSort
+import func TSCBasic.transitiveClosure
+import func TSCBasic.os_signpost
 
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
 import struct TSCUtility.Version
-
-public typealias Diagnostic = TSCBasic.Diagnostic
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
@@ -65,7 +71,7 @@ public protocol WorkspaceDelegate: AnyObject {
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval)
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic], duration: DispatchTimeInterval)
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -1360,7 +1366,7 @@ extension Workspace {
 
             for path in paths {
                 do {
-                    let result = try tsc_await {
+                    let result = try temp_await {
                         scanner.scanImports(path, callbackQueue: DispatchQueue.sharedConcurrent, completion: $0)
                     }
                     importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
@@ -2178,7 +2184,7 @@ extension Workspace {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        var manifestLoadingDiagnostics = [Basics.Diagnostic]()
+        var manifestLoadingDiagnostics = [Diagnostic]()
 
         let start = DispatchTime.now()
         self.manifestLoader.load(

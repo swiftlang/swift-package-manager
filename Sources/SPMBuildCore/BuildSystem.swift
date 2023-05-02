@@ -13,7 +13,6 @@
 import Basics
 import PackageGraph
 
-import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
 

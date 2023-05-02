@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Foundation
 import DequeModule
+import Foundation
 
 /// `async`-friendly wrapper for HTTP clients. It allows a specific client implementation (either Foundation or
 /// NIO-based) to be hidden from users of the wrapper.
@@ -83,11 +83,13 @@ public actor HTTPClient {
             request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.current.displayString)")
         }
 
-        if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
+        if let authorization = request.options.authorizationProvider?(request.url),
+           !request.headers.contains("Authorization")
+        {
             request.headers.add(name: "Authorization", value: authorization)
         }
 
-        return try await executeWithStrategies(request: request, requestNumber: 0, observabilityScope, progress)
+        return try await self.executeWithStrategies(request: request, requestNumber: 0, observabilityScope, progress)
     }
 
     private func executeWithStrategies(
@@ -135,7 +137,9 @@ public actor HTTPClient {
             )
         }
         // check for valid response codes
-        if let validResponseCodes = request.options.validResponseCodes, !validResponseCodes.contains(response.statusCode) {
+        if let validResponseCodes = request.options.validResponseCodes,
+           !validResponseCodes.contains(response.statusCode)
+        {
             throw HTTPClientError.badResponseStatusCode(response.statusCode)
         } else {
             return response
@@ -171,7 +175,7 @@ public actor HTTPClient {
             }
             // Avoid copy-on-write: remove entry from dictionary before mutating
             let hostErrors: HostErrors
-            if var errors = self.hostsErrors.removeValue(forKey: host)  {
+            if var errors = self.hostsErrors.removeValue(forKey: host) {
                 errors.numberOfErrors += 1
                 errors.lastError = Date()
                 hostErrors = errors
@@ -202,8 +206,8 @@ public actor HTTPClient {
     }
 }
 
-public extension HTTPClient {
-    func head(
+extension HTTPClient {
+    public func head(
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init()
@@ -213,7 +217,7 @@ public extension HTTPClient {
         )
     }
 
-    func get(
+    public func get(
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init()
@@ -223,7 +227,7 @@ public extension HTTPClient {
         )
     }
 
-    func put(
+    public func put(
         _ url: URL,
         body: Data?,
         headers: HTTPClientHeaders = .init(),
@@ -234,7 +238,7 @@ public extension HTTPClient {
         )
     }
 
-    func post(
+    public func post(
         _ url: URL,
         body: Data?,
         headers: HTTPClientHeaders = .init(),
@@ -245,7 +249,7 @@ public extension HTTPClient {
         )
     }
 
-    func delete(
+    public func delete(
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init()

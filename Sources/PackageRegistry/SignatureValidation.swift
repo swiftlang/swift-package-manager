@@ -19,7 +19,6 @@ import PackageLoading
 import PackageModel
 import PackageSigning
 
-import TSCBasic
 import struct TSCUtility.Version
 
 protocol SignatureValidationDelegate {

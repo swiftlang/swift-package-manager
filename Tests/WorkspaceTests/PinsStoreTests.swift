@@ -10,14 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageModel
 import PackageGraph
 import SPMTestSupport
 import SourceControl
 import Workspace
+import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 

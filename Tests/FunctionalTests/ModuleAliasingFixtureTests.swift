@@ -14,7 +14,6 @@ import Commands
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
  

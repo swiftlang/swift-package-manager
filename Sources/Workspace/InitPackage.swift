@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import PackageModel
+
+import protocol TSCBasic.OutputByteStream
 
 /// Create an initial template package.
 public final class InitPackage {

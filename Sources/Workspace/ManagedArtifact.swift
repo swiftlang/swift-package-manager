@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageGraph
 import PackageModel
 import SourceControl
-import TSCBasic
 
 extension Workspace {
     /// A downloaded artifact managed by the workspace.

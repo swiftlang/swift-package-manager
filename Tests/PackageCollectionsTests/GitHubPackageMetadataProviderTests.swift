@@ -18,7 +18,8 @@ import Basics
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
+
+import enum TSCBasic.ProcessEnv
 
 import struct TSCUtility.Version
 
@@ -368,7 +369,7 @@ internal extension GitHubPackageMetadataProvider {
 
 private extension GitHubPackageMetadataProvider {
     func syncGet(identity: PackageIdentity, location: String) throws -> Model.PackageBasicMetadata {
-        try tsc_await { callback in
+        try temp_await { callback in
             self.get(identity: identity, location: location) { result, _ in callback(result) }
         }
     }

@@ -13,7 +13,6 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
 
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {

@@ -15,8 +15,9 @@ import Foundation
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
@@ -33,7 +34,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/Foo.swift",
             "/Bar.swift",
             "/some/path.swift",
@@ -85,7 +86,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/some/hello.swift",
             "/some.thing/hello.txt",
         ])
@@ -124,7 +125,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/some/hello.swift",
             "/some.thing/hello.txt",
         ])
@@ -165,7 +166,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             root.appending(components: "some.xcassets", "hello.txt").pathString,
             root.appending(components: "some", "hello.swift").pathString
         ])
@@ -208,7 +209,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/Foo.swift",
             "/Bar.swift",
             "/some/path.swift",
@@ -250,7 +251,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         ]
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: files.map(\.pathString))
+        fs.createEmptyFiles(at: AbsolutePath.root, files: files.map(\.pathString))
 
         let somethingRule = FileRuleDescription(
             rule: .compile,
@@ -676,7 +677,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/Foo.swift",
             "/Bar.swift"
         ])
@@ -744,7 +745,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/Foo.swift",
             "/Bar.swift"
         ])
@@ -813,7 +814,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/Foo.swift",
             "/Bar.swift"
         ])
@@ -857,7 +858,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/File.swift",
             "/Foo.xcdatamodel"
         ])
@@ -896,7 +897,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/File.swift",
             "/foo.bar"
         ])
@@ -957,7 +958,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: [
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
             "/File.swift",
             "/Foo.docc"
         ])

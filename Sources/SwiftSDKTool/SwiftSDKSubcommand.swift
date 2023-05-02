@@ -16,9 +16,6 @@ import CoreCommands
 import Dispatch
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
-import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 
 /// A protocol for functions and properties common to all destination subcommands.

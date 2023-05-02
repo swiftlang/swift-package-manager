@@ -10,11 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-
+import Basics
 import SPMTestSupport
-import TSCBasic
-
+import XCTest
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
 /// point, and because of the time they take, they need to be kept minimal.

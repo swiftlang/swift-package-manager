@@ -10,12 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly
-import Foundation
+import Basics
+@_implementationOnly import Foundation
 
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
-import var TSCBasic.localFileSystem
 import class TSCBasic.Process
 
 private func isAndroid() -> Bool {

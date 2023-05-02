@@ -12,8 +12,10 @@
 
 import Basics
 @testable import PackageModel
-import TSCBasic
+import func TSCBasic.withTemporaryFile
 import XCTest
+
+import struct TSCBasic.ByteString
 
 class PackageModelTests: XCTestCase {
     func testProductTypeCodable() throws {
@@ -95,7 +97,7 @@ class PackageModelTests: XCTestCase {
         #endif
 
         let triple = try Triple("x86_64-unknown-windows-msvc")
-        let fs = TSCBasic.localFileSystem
+        let fs = localFileSystem
 
         try withTemporaryFile { [contents] _ in
             try withTemporaryDirectory(removeTreeOnDeinit: true) { [contents] tmp in

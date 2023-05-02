@@ -10,11 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-
 @testable import Basics
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
+import XCTest
 
 final class AuthorizationProviderTests: XCTestCase {
     func testBasicAPIs() {
@@ -41,14 +39,14 @@ final class AuthorizationProviderTests: XCTestCase {
             let otherPassword = UUID().uuidString
 
             // Add
-            XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: password, callback: callback) })
-            XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback) })
+            XCTAssertNoThrow(try temp_await { callback in provider.addOrUpdate(for: url, user: user, password: password, callback: callback) })
+            XCTAssertNoThrow(try temp_await { callback in provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback) })
 
             self.assertAuthentication(provider, for: url, expected: (user, password))
 
             // Update - the new password is appended to the end of file
             let newPassword = UUID().uuidString
-            XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback) })
+            XCTAssertNoThrow(try temp_await { callback in provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback) })
 
             // .netrc file now contains two entries for `url`: one with `password` and the other with `newPassword`.
             // `NetrcAuthorizationProvider` returns the first entry it finds.
@@ -76,21 +74,21 @@ final class AuthorizationProviderTests: XCTestCase {
         let otherPassword = UUID().uuidString
 
         // Add
-        XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: password, callback: callback) })
-        XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback) })
+        XCTAssertNoThrow(try temp_await { callback in provider.addOrUpdate(for: url, user: user, password: password, callback: callback) })
+        XCTAssertNoThrow(try temp_await { callback in provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback) })
 
         self.assertAuthentication(provider, for: url, expected: (user, password))
 
         // Update
         let newPassword = UUID().uuidString
-        XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback) })
+        XCTAssertNoThrow(try temp_await { callback in provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback) })
 
         // Existing password is updated
         self.assertAuthentication(provider, for: url, expected: (user, newPassword))
         self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
 
         // Delete
-        XCTAssertNoThrow(try tsc_await { callback in provider.remove(for: url, callback: callback) })
+        XCTAssertNoThrow(try temp_await { callback in provider.remove(for: url, callback: callback) })
         XCTAssertNil(provider.authentication(for: url))
         self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
         #endif

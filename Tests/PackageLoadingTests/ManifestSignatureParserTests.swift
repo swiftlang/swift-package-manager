@@ -10,11 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
-
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class ManifestSignatureParserTests: XCTestCase {

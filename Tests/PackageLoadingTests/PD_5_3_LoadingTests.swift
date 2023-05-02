@@ -14,8 +14,9 @@ import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import enum TSCBasic.PathValidationError
 
 class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {

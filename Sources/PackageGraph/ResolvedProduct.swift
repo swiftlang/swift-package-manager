@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import PackageModel
 
 public final class ResolvedProduct {

@@ -14,9 +14,11 @@ import Basics
 import Foundation
 import PackageModel
 import SPMBuildCore
-import TSCBasic
-
 import PackageLoading
+
+import struct TSCBasic.ByteString
+import protocol TSCBasic.HashAlgorithm
+
 import enum TSCUtility.Diagnostics
 
 extension Workspace {

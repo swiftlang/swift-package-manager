@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import XCTest
 
 final class StringExtensionsTests: XCTestCase {

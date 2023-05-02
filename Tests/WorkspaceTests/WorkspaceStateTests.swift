@@ -12,8 +12,9 @@
 
 import Basics
 @testable import Workspace
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class WorkspaceStateTests: XCTestCase {
     func testV4Format() throws {

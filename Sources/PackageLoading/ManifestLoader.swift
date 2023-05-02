@@ -14,7 +14,13 @@ import Basics
 import Dispatch
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
+
+import class TSCBasic.BufferedOutputByteStream
+import struct TSCBasic.ByteString
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.ProcessResult
+
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 

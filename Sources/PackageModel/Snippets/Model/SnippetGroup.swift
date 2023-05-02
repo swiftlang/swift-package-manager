@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 
 public struct SnippetGroup {
     public var name: String

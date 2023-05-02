@@ -16,8 +16,10 @@ import Build
 import CoreCommands
 import PackageGraph
 import SPMBuildCore
-import TSCBasic
 import XCBuildSupport
+
+import class TSCBasic.Process
+import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics
 import func TSCUtility.getClangVersion

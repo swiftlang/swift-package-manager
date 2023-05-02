@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import tsan_utils
 import XCTest
 

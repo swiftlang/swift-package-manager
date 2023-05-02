@@ -17,7 +17,9 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.ProcessEnv
 
 import protocol TSCUtility.SimplePersistanceProtocol
 import class TSCUtility.SimplePersistence

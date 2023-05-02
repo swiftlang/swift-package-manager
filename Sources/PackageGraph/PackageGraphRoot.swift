@@ -12,7 +12,7 @@
 
 import Basics
 import PackageModel
-import TSCBasic
+
 import enum TSCUtility.Git
 
 /// Represents the input to the package graph root.

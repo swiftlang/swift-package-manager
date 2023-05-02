@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageLoading
 import PackageModel
-import TSCBasic
 
 /// A node used while loading the packages in a resolved graph.
 ///

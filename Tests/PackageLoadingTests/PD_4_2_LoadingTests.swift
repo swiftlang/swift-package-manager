@@ -15,8 +15,13 @@ import Dispatch
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.PathValidationError
+
+import func TSCTestSupport.withCustomEnv
 
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -829,7 +834,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             // warm up caches
             delegate.prepare()
-            let manifest = try tsc_await {
+            let manifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: .v4_2,

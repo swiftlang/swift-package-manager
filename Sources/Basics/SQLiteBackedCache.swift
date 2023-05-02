@@ -12,14 +12,16 @@
 
 import Foundation
 
-import TSCBasic
+import protocol TSCBasic.Closable
+import class TSCBasic.InMemoryFileSystem
+import var TSCBasic.localFileSystem
 
 /// SQLite backed persistent cache.
 public final class SQLiteBackedCache<Value: Codable>: Closable {
     public typealias Key = String
 
     public let tableName: String
-    public let fileSystem: TSCBasic.FileSystem
+    public let fileSystem: FileSystem
     public let location: SQLite.Location
     public let configuration: SQLiteBackedCacheConfiguration
 
@@ -55,7 +57,11 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     ///   - tableName: The SQLite table name. Must follow SQLite naming rules (e.g., no spaces).
     ///   - path: The path of the SQLite database.
     ///   - configuration: Optional. Configuration for the cache.
-    public convenience init(tableName: String, path: AbsolutePath, configuration: SQLiteBackedCacheConfiguration = .init()) {
+    public convenience init(
+        tableName: String,
+        path: AbsolutePath,
+        configuration: SQLiteBackedCacheConfiguration = .init()
+    ) {
         self.init(tableName: tableName, location: .path(path), configuration: configuration)
     }
 
@@ -78,10 +84,15 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
         }
     }
 
-    public func put(key: Key, value: Value, replace: Bool = false, observabilityScope: ObservabilityScope? = nil) throws {
+    public func put(
+        key: Key,
+        value: Value,
+        replace: Bool = false,
+        observabilityScope: ObservabilityScope? = nil
+    ) throws {
         do {
             let query = "INSERT OR \(replace ? "REPLACE" : "IGNORE") INTO \(self.tableName) VALUES (?, ?);"
-            try self.executeStatement(query) { statement -> Void in
+            try self.executeStatement(query) { statement in
                 let data = try self.jsonEncoder.encode(value)
                 let bindings: [SQLite.SQLiteValue] = [
                     .string(key),
@@ -94,8 +105,11 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
             if !self.configuration.truncateWhenFull {
                 throw error
             }
-            observabilityScope?.emit(warning: "truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes")
-            try self.executeStatement("DELETE FROM \(self.tableName);") { statement -> Void in
+            observabilityScope?
+                .emit(
+                    warning: "truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"
+                )
+            try self.executeStatement("DELETE FROM \(self.tableName);") { statement in
                 try statement.step()
             }
             try self.put(key: key, value: value, replace: replace, observabilityScope: observabilityScope)
@@ -123,6 +137,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
         }
     }
 
+    @discardableResult
     private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
         try self.withDB { db in
             let result: Result<T, Error>

@@ -14,7 +14,8 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 struct PackageIndex: PackageIndexProtocol, Closable {
     private let configuration: PackageIndexConfiguration

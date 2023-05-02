@@ -14,7 +14,7 @@ import PackageGraph
 import PackageModel
 
 import struct Basics.InternalError
-import protocol TSCBasic.FileSystem
+import protocol Basics.FileSystem
 
 /// Description for a plugin target. This is treated a bit differently from the
 /// regular kinds of targets, and is not included in the LLBuild description.

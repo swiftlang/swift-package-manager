@@ -79,17 +79,17 @@ extension DispatchTimeInterval {
         case .seconds(let value):
             return "\(value)s"
         case .milliseconds(let value):
-            return String(format: "%.2f", Double(value)/Double(1000)) + "s"
+            return String(format: "%.2f", Double(value) / Double(1000)) + "s"
         case .microseconds(let value):
-            return String(format: "%.2f", Double(value)/Double(1_000_000)) + "s"
+            return String(format: "%.2f", Double(value) / Double(1_000_000)) + "s"
         case .nanoseconds(let value):
-            return String(format: "%.2f", Double(value)/Double(1_000_000_000)) + "s"
+            return String(format: "%.2f", Double(value) / Double(1_000_000_000)) + "s"
         case .never:
             return "n/a"
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
         @unknown default:
             return "n/a"
-#endif
+        #endif
         }
     }
 }
@@ -100,9 +100,8 @@ extension DispatchTime {
     public func distance(to: DispatchTime) -> DispatchTimeInterval {
         let final = to.uptimeNanoseconds
         let point = self.uptimeNanoseconds
-        let duration: Int64 = Int64(bitPattern: final.subtractingReportingOverflow(point).partialValue)
+        let duration = Int64(bitPattern: final.subtractingReportingOverflow(point).partialValue)
         return .nanoseconds(duration >= Int.max ? Int.max : Int(duration))
     }
 }
 #endif
-

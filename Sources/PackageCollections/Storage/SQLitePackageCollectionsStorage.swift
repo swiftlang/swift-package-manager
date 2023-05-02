@@ -18,7 +18,9 @@ import class Foundation.JSONEncoder
 import class Foundation.NSLock
 import struct Foundation.URL
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
+import class TSCBasic.InMemoryFileSystem
 
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
     private static let packageCollectionsTableName = "package_collections"

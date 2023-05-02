@@ -12,9 +12,10 @@
 
 
 @testable import Basics
-import TSCBasic
-import XCTest
 import TSCTestSupport
+import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class FileSystemTests: XCTestCase {
     func testStripFirstLevelComponent() throws {

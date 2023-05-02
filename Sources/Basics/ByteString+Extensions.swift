@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import struct TSCBasic.ByteString
+import struct TSCBasic.SHA256
 
 extension ByteString {
     /// A lowercase, hexadecimal representation of the SHA256 hash
@@ -20,6 +21,6 @@ extension ByteString {
     /// Secure Hashing Algorithm 2 (SHA-2) hashing with a 256-bit digest, when available,
     /// falling back on a native implementation in Swift provided by TSCBasic.
     public var sha256Checksum: String {
-        return SHA256().hash(self).hexadecimalRepresentation
+        SHA256().hash(self).hexadecimalRepresentation
     }
 }

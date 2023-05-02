@@ -10,13 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import class Foundation.ProcessInfo
-
-import TSCBasic
 import PackageModel
 import PackageGraph
-
-import struct Basics.Triple
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.

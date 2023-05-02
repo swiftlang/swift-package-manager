@@ -111,9 +111,9 @@ extension ThreadSafeBox where Value == String {
     public func append(_ value: String) {
         self.mutate { existingValue in
             if let existingValue {
-              return existingValue + value
+                return existingValue + value
             } else {
-              return value
+                return value
             }
         }
     }

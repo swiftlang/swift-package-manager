@@ -15,7 +15,6 @@ import Foundation
 @testable import PackageCollections
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class PackageIndexTests: XCTestCase {
@@ -46,7 +45,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, customHTTPClient: httpClient, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        let metadata = try tsc_await { callback in index.getPackageMetadata(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+        let metadata = try temp_await { callback in index.getPackageMetadata(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
         XCTAssertEqual(metadata.package.identity, package.identity)
         XCTAssert(metadata.collections.isEmpty)
         XCTAssertNotNil(metadata.provider)
@@ -61,7 +60,7 @@ class PackageIndexTests: XCTestCase {
         defer { XCTAssertNoThrow(try index.close()) }
         
         let repoURL = URL("https://github.com/octocat/Hello-World.git")
-        XCTAssertThrowsError(try tsc_await { callback in index.getPackageMetadata(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }) { error in
+        XCTAssertThrowsError(try temp_await { callback in index.getPackageMetadata(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }) { error in
             XCTAssertEqual(error as? PackageIndexError, .featureDisabled)
         }
     }
@@ -74,7 +73,7 @@ class PackageIndexTests: XCTestCase {
         defer { XCTAssertNoThrow(try index.close()) }
         
         let repoURL = URL("https://github.com/octocat/Hello-World.git")
-        XCTAssertThrowsError(try tsc_await { callback in index.getPackageMetadata(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }) { error in
+        XCTAssertThrowsError(try temp_await { callback in index.getPackageMetadata(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }) { error in
             XCTAssertEqual(error as? PackageIndexError, .notConfigured)
         }
     }
@@ -107,7 +106,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, customHTTPClient: httpClient, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        let result = try tsc_await { callback in index.findPackages(query, callback: callback) }
+        let result = try temp_await { callback in index.findPackages(query, callback: callback) }
         XCTAssertEqual(result.items.count, packages.count)
         for (i, item) in result.items.enumerated() {
             XCTAssertEqual(item.package.identity, packages[i].identity)
@@ -145,7 +144,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, customHTTPClient: httpClient, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        let result = try tsc_await { callback in index.findPackages(query, callback: callback) }
+        let result = try temp_await { callback in index.findPackages(query, callback: callback) }
         XCTAssertEqual(result.items.count, configuration.searchResultMaxItemsCount)
         for (i, item) in result.items.enumerated() {
             XCTAssertEqual(item.package.identity, packages[i].identity)
@@ -162,7 +161,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        XCTAssertThrowsError(try tsc_await { callback in index.findPackages("foobar", callback: callback) }) { error in
+        XCTAssertThrowsError(try temp_await { callback in index.findPackages("foobar", callback: callback) }) { error in
             XCTAssertEqual(error as? PackageIndexError, .featureDisabled)
         }
     }
@@ -174,7 +173,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        XCTAssertThrowsError(try tsc_await { callback in index.findPackages("foobar", callback: callback) }) { error in
+        XCTAssertThrowsError(try temp_await { callback in index.findPackages("foobar", callback: callback) }) { error in
             XCTAssertEqual(error as? PackageIndexError, .notConfigured)
         }
     }
@@ -210,7 +209,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, customHTTPClient: httpClient, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        let result = try tsc_await { callback in index.listPackages(offset: offset, limit: limit, callback: callback) }
+        let result = try temp_await { callback in index.listPackages(offset: offset, limit: limit, callback: callback) }
         XCTAssertEqual(result.items.count, packages.count)
         XCTAssertEqual(result.offset, offset)
         XCTAssertEqual(result.limit, limit)
@@ -225,7 +224,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        XCTAssertThrowsError(try tsc_await { callback in index.listPackages(offset: 0, limit: 10, callback: callback) }) { error in
+        XCTAssertThrowsError(try temp_await { callback in index.listPackages(offset: 0, limit: 10, callback: callback) }) { error in
             XCTAssertEqual(error as? PackageIndexError, .featureDisabled)
         }
     }
@@ -237,7 +236,7 @@ class PackageIndexTests: XCTestCase {
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try index.close()) }
         
-        XCTAssertThrowsError(try tsc_await { callback in index.listPackages(offset: 0, limit: 10, callback: callback) }) { error in
+        XCTAssertThrowsError(try temp_await { callback in index.listPackages(offset: 0, limit: 10, callback: callback) }) { error in
             XCTAssertEqual(error as? PackageIndexError, .notConfigured)
         }
     }
@@ -303,7 +302,7 @@ class PackageIndexTests: XCTestCase {
 
 private extension PackageIndex {
     func syncGet(identity: PackageIdentity, location: String) throws -> Model.PackageBasicMetadata {
-        try tsc_await { callback in
+        try temp_await { callback in
             self.get(identity: identity, location: location) { result, _ in callback(result) }
         }
     }

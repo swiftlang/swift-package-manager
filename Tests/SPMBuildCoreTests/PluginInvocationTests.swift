@@ -16,9 +16,10 @@ import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.SerializedDiagnostics
 
@@ -284,7 +285,7 @@ class PluginInvocationTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -334,7 +335,7 @@ class PluginInvocationTests: XCTestCase {
             // Try to compile the broken plugin script.
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -388,7 +389,7 @@ class PluginInvocationTests: XCTestCase {
             let firstExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -440,7 +441,7 @@ class PluginInvocationTests: XCTestCase {
             let secondExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -499,7 +500,7 @@ class PluginInvocationTests: XCTestCase {
             let thirdExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -554,7 +555,7 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the plugin again.
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -669,7 +670,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -748,7 +749,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -858,7 +859,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -1041,7 +1042,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -1189,7 +1190,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,

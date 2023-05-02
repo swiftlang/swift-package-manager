@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Basics
 import SPMTestSupport
-import TSCBasic
 import PackageModel
 import Workspace
+import XCTest
 
 class InitTests: XCTestCase {
 

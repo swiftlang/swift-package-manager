@@ -12,7 +12,6 @@
 
 import _Concurrency
 import Foundation
-import TSCBasic
 import struct TSCUtility.Versioning
 #if canImport(FoundationNetworking)
 // FIXME: this brings OpenSSL dependency on Linux

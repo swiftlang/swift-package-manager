@@ -10,13 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCBasic.AbsolutePath
-import var TSCBasic.localFileSystem
+import Basics
+import Foundation
+
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
-import struct TSCBasic.RelativePath
-
-import Foundation
 
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
@@ -150,4 +148,9 @@ extension SwiftPM {
 public enum SwiftPMError: Error {
     case packagePathNotFound
     case executionFailure(underlying: Error, stdout: String, stderr: String)
+}
+
+public enum SwiftPMProductError: Swift.Error {
+    case packagePathNotFound
+    case executionFailure(error: Swift.Error, output: String, stderr: String)
 }

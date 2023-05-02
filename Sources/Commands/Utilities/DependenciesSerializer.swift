@@ -10,9 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import PackageModel
 import PackageGraph
+
+import enum TSCBasic.JSON
+import protocol TSCBasic.OutputByteStream
 
 protocol DependenciesDumper {
     func dump(dependenciesOf: ResolvedPackage, on: OutputByteStream)

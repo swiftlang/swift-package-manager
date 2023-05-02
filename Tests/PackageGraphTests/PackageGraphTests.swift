@@ -14,8 +14,10 @@ import Basics
 @testable import PackageGraph
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.InMemoryFileSystem
 
 class PackageGraphTests: XCTestCase {
 
@@ -683,7 +685,7 @@ class PackageGraphTests: XCTestCase {
     }
 
     func testEmptyDependency() throws {
-        let Bar: AbsolutePath = AbsolutePath("/Bar")
+        let Bar: AbsolutePath = "/Bar"
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",

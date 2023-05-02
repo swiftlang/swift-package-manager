@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import Dispatch
+import struct TSCBasic.FileSystemError
+import class TSCBasic.Process
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
@@ -40,18 +41,20 @@ public struct ZipArchiver: Archiver, Cancellable {
     ) {
         do {
             guard self.fileSystem.exists(archivePath) else {
-                throw FileSystemError(.noEntry, archivePath)
+                throw FileSystemError(.noEntry, archivePath.underlying)
             }
 
             guard self.fileSystem.isDirectory(destinationPath) else {
-                throw FileSystemError(.notDirectory, destinationPath)
+                throw FileSystemError(.notDirectory, destinationPath.underlying)
             }
 
-#if os(Windows)
-            let process = TSCBasic.Process(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
-#else
-            let process = TSCBasic.Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
-#endif
+            #if os(Windows)
+            let process = TSCBasic
+                .Process(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
+            #else
+            let process = TSCBasic
+                .Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
+            #endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
             }
@@ -78,21 +81,21 @@ public struct ZipArchiver: Archiver, Cancellable {
     ) {
         do {
             guard self.fileSystem.isDirectory(directory) else {
-                throw FileSystemError(.notDirectory, directory)
+                throw FileSystemError(.notDirectory, directory.underlying)
             }
 
-#if os(Windows)
+            #if os(Windows)
             let process = TSCBasic.Process(
                 // FIXME: are these the right arguments?
                 arguments: ["tar.exe", "-a", "-c", "-f", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory
+                workingDirectory: directory.parentDirectory.underlying
             )
-#else
+            #else
             let process = TSCBasic.Process(
                 arguments: ["zip", "-r", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory
+                workingDirectory: directory.parentDirectory.underlying
             )
-#endif
+            #endif
 
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
@@ -116,14 +119,14 @@ public struct ZipArchiver: Archiver, Cancellable {
     public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
             guard self.fileSystem.exists(path) else {
-                throw FileSystemError(.noEntry, path)
+                throw FileSystemError(.noEntry, path.underlying)
             }
 
-#if os(Windows)
+            #if os(Windows)
             let process = TSCBasic.Process(arguments: ["tar.exe", "tf", path.pathString])
-#else
+            #else
             let process = TSCBasic.Process(arguments: ["unzip", "-t", path.pathString])
-#endif
+            #endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
             }

@@ -12,8 +12,6 @@
 
 import Foundation
 
-import TSCBasic
-
 @_implementationOnly import SPMSQLite3
 
 /// A minimal SQLite wrapper.

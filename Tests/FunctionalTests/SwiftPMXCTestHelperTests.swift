@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Commands
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
 

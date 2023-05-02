@@ -15,14 +15,13 @@ import Foundation
 import PackageCollectionsModel
 @testable import PackageCollectionsSigning
 import SPMTestSupport
-import TSCBasic
 import X509
 import XCTest
 
 class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "Test_rsa.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer")
@@ -40,7 +39,7 @@ class PackageCollectionSigningTests: XCTestCase {
             )
 
             // Sign the collection
-            let signedCollection = try tsc_await { callback in
+            let signedCollection = try temp_await { callback in
                 signing.sign(
                     collection: collection,
                     certChainPaths: certChainPaths,
@@ -51,7 +50,7 @@ class PackageCollectionSigningTests: XCTestCase {
             }
 
             // Then validate that signature is valid
-            XCTAssertNoThrow(try tsc_await { callback in
+            XCTAssertNoThrow(try temp_await { callback in
                 signing.validate(signedCollection: signedCollection, certPolicyKey: .custom, callback: callback)
             })
         }
@@ -96,7 +95,7 @@ class PackageCollectionSigningTests: XCTestCase {
             )
 
             // Sign collection1
-            let signedCollection = try tsc_await { callback in
+            let signedCollection = try temp_await { callback in
                 signing.sign(
                     collection: collection1,
                     certChainPaths: certChainPaths,
@@ -113,7 +112,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             // The signature should be invalid
             XCTAssertThrowsError(
-                try tsc_await { callback in
+                try temp_await { callback in
                     signing.validate(signedCollection: badSignedCollection, certPolicyKey: .custom, callback: callback)
                 }
             ) { error in
@@ -126,7 +125,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
     func test_EC_signAndValidate_happyCase() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "Test_ec.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer")
@@ -144,7 +143,7 @@ class PackageCollectionSigningTests: XCTestCase {
             )
 
             // Sign the collection
-            let signedCollection = try tsc_await { callback in
+            let signedCollection = try temp_await { callback in
                 signing.sign(
                     collection: collection,
                     certChainPaths: certChainPaths,
@@ -155,7 +154,7 @@ class PackageCollectionSigningTests: XCTestCase {
             }
 
             // Then validate that signature is valid
-            XCTAssertNoThrow(try tsc_await { callback in
+            XCTAssertNoThrow(try temp_await { callback in
                 signing.validate(signedCollection: signedCollection, certPolicyKey: .custom, callback: callback)
             })
         }
@@ -200,7 +199,7 @@ class PackageCollectionSigningTests: XCTestCase {
             )
 
             // Sign collection1
-            let signedCollection = try tsc_await { callback in
+            let signedCollection = try temp_await { callback in
                 signing.sign(
                     collection: collection1,
                     certChainPaths: certChainPaths,
@@ -217,7 +216,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             // The signature should be invalid
             XCTAssertThrowsError(
-                try tsc_await { callback in
+                try temp_await { callback in
                     signing.validate(signedCollection: badSignedCollection, certPolicyKey: .custom, callback: callback)
                 }
             ) { error in
@@ -235,7 +234,7 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "development.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
@@ -255,7 +254,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -266,7 +265,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -285,7 +284,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -296,7 +295,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -316,7 +315,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -327,7 +326,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -345,7 +344,7 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "swift_package_collection.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
@@ -363,7 +362,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -374,7 +373,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -394,7 +393,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -405,7 +404,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -423,7 +422,7 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "swift_package.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer")
@@ -443,7 +442,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -454,7 +453,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -473,7 +472,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -484,7 +483,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -504,7 +503,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -515,7 +514,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -533,7 +532,7 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "development.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
@@ -553,7 +552,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -564,7 +563,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -583,7 +582,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -594,7 +593,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -612,7 +611,7 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "swift_package_collection.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
@@ -633,7 +632,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -644,7 +643,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -664,7 +663,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -675,7 +674,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -693,7 +692,7 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let collection = try tsc_await { callback in self.testPackageCollection(callback: callback) }
+            let collection = try temp_await { callback in self.testPackageCollection(callback: callback) }
 
             let certPath = fixturePath.appending(components: "Certificates", "swift_package.cer")
             let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer")
@@ -714,7 +713,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -725,7 +724,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,
@@ -745,7 +744,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 )
 
                 // Sign the collection
-                let signedCollection = try tsc_await { callback in
+                let signedCollection = try temp_await { callback in
                     signing.sign(
                         collection: collection,
                         certChainPaths: certChainPaths,
@@ -756,7 +755,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 }
 
                 // Then validate that signature is valid
-                XCTAssertNoThrow(try tsc_await { callback in
+                XCTAssertNoThrow(try temp_await { callback in
                     signing.validate(
                         signedCollection: signedCollection,
                         certPolicyKey: certPolicyKey,

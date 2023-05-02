@@ -14,8 +14,9 @@ import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCTestSupport.XCTestCasePerf
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
     let manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default)

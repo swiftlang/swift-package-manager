@@ -14,7 +14,6 @@ import Basics
 import PackageGraph
 import PackageModel
 import SourceControl
-import TSCBasic
 
 import struct TSCUtility.Version
 

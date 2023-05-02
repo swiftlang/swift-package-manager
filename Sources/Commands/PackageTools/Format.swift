@@ -11,10 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import PackageModel
-import TSCBasic
-import TSCUtility
+
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+
+import enum TSCUtility.Diagnostics
 
 extension SwiftPackageTool {
     struct Format: SwiftCommand {
@@ -32,7 +36,7 @@ extension SwiftPackageTool {
             // Look for swift-format binary.
             // FIXME: This should be moved to user toolchain.
             let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.vars["SWIFT_FORMAT"])
-            guard let swiftFormat = swiftFormatInEnv ?? Process.findExecutable("swift-format") else {
+            guard let swiftFormat = swiftFormatInEnv ?? Process.findExecutable("swift-format").flatMap(AbsolutePath.init) else {
                 swiftTool.observabilityScope.emit(error: "Could not find swift-format in PATH or SWIFT_FORMAT")
                 throw TSCUtility.Diagnostics.fatalError
             }
@@ -44,7 +48,7 @@ extension SwiftPackageTool {
                 throw StringError("unknown package")
             }
 
-            let package = try tsc_await {
+            let package = try temp_await {
                 workspace.loadRootPackage(
                     at: packagePath,
                     observabilityScope: swiftTool.observabilityScope,

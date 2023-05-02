@@ -18,10 +18,12 @@ import PackageModel
 @testable import PackageRegistryTool
 import PackageSigning
 import SPMTestSupport
-import TSCBasic
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import XCTest
+
+import enum TSCBasic.JSON
+import struct TSCBasic.ProcessResult
 
 let defaultRegistryBaseURL = URL("https://packages.example.com")
 let customRegistryBaseURL = URL("https://custom.packages.example.com")
@@ -393,7 +395,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try tsc_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+            try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
             try localFileSystem.stripFirstLevel(of: extractPath)
             XCTAssertFileExists(extractPath.appending("Package.swift"))
             return extractPath
@@ -548,7 +550,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try tsc_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+            try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
             try localFileSystem.stripFirstLevel(of: extractPath)
 
             let manifestInArchive = try localFileSystem.readFileContents(extractPath.appending(manifestFile)).contents
@@ -641,7 +643,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -751,7 +753,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -858,7 +860,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -944,7 +946,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         let archiver = ZipArchiver(fileSystem: localFileSystem)
         let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
         try localFileSystem.createDirectory(extractPath)
-        try tsc_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+        try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
         try localFileSystem.stripFirstLevel(of: extractPath)
 
         let manifestSignature = try ManifestSignatureParser.parse(

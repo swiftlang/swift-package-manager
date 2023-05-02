@@ -10,11 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+import Commands
+import SPMTestSupport
 import XCTest
 
-import SPMTestSupport
-import Commands
-import TSCBasic
+import class TSCBasic.Process
 
 final class RunToolTests: CommandsTestCase {
     

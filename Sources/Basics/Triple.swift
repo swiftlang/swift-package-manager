@@ -12,7 +12,9 @@
 
 import protocol Foundation.CustomNSError
 import var Foundation.NSLocalizedDescriptionKey
-import TSCBasic
+
+import enum TSCBasic.JSON
+import class TSCBasic.Process
 
 /// Triple - Helper class for working with Destination.target values
 ///

@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 
 extension LegacyHTTPClient {
     public static func mock(fileSystem: FileSystem) -> LegacyHTTPClient {

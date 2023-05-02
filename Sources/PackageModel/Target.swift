@@ -10,11 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 import Dispatch
 
 import protocol TSCUtility.PolymorphicCodableProtocol
-import Basics
 
 public class Target: PolymorphicCodableProtocol {
     public static var implementations: [PolymorphicCodableProtocol.Type] = [

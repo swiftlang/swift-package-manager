@@ -14,8 +14,9 @@ import Basics
 @testable import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import func TSCTestSupport.withCustomEnv
 
 extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {

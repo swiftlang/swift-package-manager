@@ -12,17 +12,20 @@
 
 import Basics
 @testable import Build
+@_implementationOnly import DriverSupport
 import PackageLoading
 @testable import PackageGraph
 @testable import PackageModel
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
-import TSCBasic
 import Workspace
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.InMemoryFileSystem
+
 import enum TSCUtility.Diagnostics
-@_implementationOnly import DriverSupport
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
@@ -635,7 +638,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence])
@@ -784,9 +787,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testSwiftConditionalDependency() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
 
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
             Pkg.appending(components: "Sources", "PkgLib", "lib.swift").pathString,
             "/ExtPkg/Sources/ExtLib/lib.swift",
@@ -991,7 +994,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "release")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "release")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-O", "-g", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence])
@@ -1067,7 +1070,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "release")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "release")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-O", "-g", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence])
@@ -1112,10 +1115,10 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testBasicClangPackage() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
-        let ExtPkg: AbsolutePath = AbsolutePath("/ExtPkg")
+        let Pkg: AbsolutePath = "/Pkg"
+        let ExtPkg: AbsolutePath = "/ExtPkg"
 
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.c").pathString,
             Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
             Pkg.appending(components: "Sources", "lib", "lib.S").pathString,
@@ -1162,7 +1165,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let ext = try result.target(for: "extlib").clangTarget()
         var args: [String] = []
@@ -1354,9 +1357,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testCLanguageStandard() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
 
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.cpp").pathString,
             Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
             Pkg.appending(components: "Sources", "lib", "libx.cpp").pathString,
@@ -1392,7 +1395,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -1443,7 +1446,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testSwiftCMixed() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
@@ -1476,7 +1479,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let lib = try result.target(for: "lib").clangTarget()
         var args: [String] = []
@@ -1636,7 +1639,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let buildPath: AbsolutePath = plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
 
         XCTAssertEqual(try plan.createREPLArguments().sorted(), ["-I\(Dep.appending(components: "Sources", "CDep", "include"))", "-I\(buildPath)", "-I\(buildPath.appending(components: "lib.build"))", "-L\(buildPath)", "-lpkg__REPL", "repl"])
 
@@ -1684,7 +1687,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
       #endif
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let foo = try result.target(for: "Foo").swiftTarget().compileArguments()
         XCTAssertMatch(foo, [.anySequence, "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence])
@@ -1764,7 +1767,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "release")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "release")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
 
@@ -2107,7 +2110,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         XCTAssertMatch(try result.target(for: "exe").swiftTarget().compileArguments(), ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence])
 
@@ -2230,7 +2233,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
         let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
@@ -2355,7 +2358,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence])
@@ -2404,7 +2407,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testClangTargets() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.c").pathString,
@@ -2442,7 +2445,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         
         let triple = result.plan.buildParameters.triple
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").clangTarget()
         
@@ -2876,7 +2879,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testWindowsTarget() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
             Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
@@ -2908,7 +2911,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let lib = try result.target(for: "lib").clangTarget()
         let args = [
@@ -2936,7 +2939,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testWASITarget() throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "app", "main.swift").pathString,
@@ -2974,7 +2977,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and test entry point
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let lib = try result.target(for: "lib").clangTarget()
         let args = [
@@ -3653,7 +3656,7 @@ final class BuildPlanTests: XCTestCase {
     func testExecBuildTimeDependency() throws {
         let PkgA = AbsolutePath("/PkgA")
 
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             PkgA.appending(components: "Sources", "exe", "main.swift").pathString,
             PkgA.appending(components: "Sources", "swiftlib", "lib.swift").pathString,
             "/PkgB/Sources/PkgB/PkgB.swift"
@@ -3696,7 +3699,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let buildPath: AbsolutePath = plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -3720,7 +3723,7 @@ final class BuildPlanTests: XCTestCase {
         let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in the same package.
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             PkgA.appending(components: "Sources", "Bar", "main.m").pathString,
             PkgA.appending(components: "Sources", "Foo", "Foo.swift").pathString
         )
@@ -3749,7 +3752,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
         #if os(macOS)
@@ -3783,7 +3786,7 @@ final class BuildPlanTests: XCTestCase {
         let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in different packages with automatic product type.
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             PkgA.appending(components: "Sources", "Bar", "main.m").pathString,
             "/PkgB/Sources/Foo/Foo.swift"
         )
@@ -3823,7 +3826,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
          let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
          #if os(macOS)
@@ -3857,7 +3860,7 @@ final class BuildPlanTests: XCTestCase {
         let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in different packages with dynamic product type.
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             PkgA.appending(components: "Sources", "Bar", "main.m").pathString,
             "/PkgB/Sources/Foo/Foo.swift"
         )
@@ -3917,7 +3920,7 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #endif
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -3934,7 +3937,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testModulewrap() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift"
         )
@@ -3963,7 +3966,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let objects = try result.buildProduct(for: "exe").objects
         XCTAssertTrue(objects.contains(buildPath.appending(components: "exe.build", "exe.swiftmodule.o")), objects.description)
@@ -3993,7 +3996,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testArchiving() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             "/Package/Sources/rary/rary.swift"
         )
 
@@ -4023,7 +4026,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -4108,7 +4111,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let fooTarget = try result.target(for: "Foo").swiftTarget()
         XCTAssertEqual(try fooTarget.objects.map{ $0.pathString }, [
@@ -4174,7 +4177,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let fooTarget = try result.target(for: "Foo").swiftTarget()
         XCTAssertEqual(try fooTarget.objects.map{ $0.pathString }, [
@@ -4239,7 +4242,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending("debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending("debug")
 
         let fooTarget = try result.target(for: "Foo").clangTarget()
         XCTAssertEqual(try fooTarget.objects.map(\.pathString).sorted(), [
@@ -4311,7 +4314,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testXCFrameworkBinaryTargets(platform: String, arch: String, destinationTriple: Basics.Triple) throws {
-        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
@@ -4429,7 +4432,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(3)
         result.checkTargetsCount(3)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let libraryBasicArguments = try result.target(for: "Library").swiftTarget().compileArguments()
         XCTAssertMatch(libraryBasicArguments, [.anySequence, "-F", "\(buildPath)", .anySequence])
@@ -4573,7 +4576,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testSnippets() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Lib/Lib.swift",
             "/Pkg/Snippets/ASnippet.swift",
             "/Pkg/.build/release.yaml"

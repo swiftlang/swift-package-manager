@@ -14,7 +14,6 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import SourceControl
-import TSCBasic
 
 extension SwiftPackageTool {
     struct ArchiveSource: SwiftCommand {
@@ -72,7 +71,7 @@ extension SwiftPackageTool {
             try repository.archive(to: archivePath)
         } else {
             let zipArchiver = ZipArchiver(fileSystem: fileSystem, cancellator: cancellator)
-            try tsc_await {
+            try temp_await {
                 zipArchiver.compress(directory: packageDirectory, to: archivePath, completion: $0)
             }
         }

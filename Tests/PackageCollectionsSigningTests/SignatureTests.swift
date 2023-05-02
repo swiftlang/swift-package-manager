@@ -10,15 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import XCTest
-
 import _CryptoExtras
+import Basics
 import Crypto
+import Foundation
 @testable import PackageCollectionsSigning
 import SPMTestSupport
-import TSCBasic
 import X509
+import XCTest
 
 class SignatureTests: XCTestCase {
     func test_RS256_generateAndValidate_happyCase() throws {
@@ -43,7 +42,7 @@ class SignatureTests: XCTestCase {
                 try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
             }
 
-            let parsedSignature = try tsc_await { callback in
+            let parsedSignature = try temp_await { callback in
                 Signature.parse(
                     signature,
                     certChainValidate: { _, cb in cb(.success([certificate])) },
@@ -79,7 +78,7 @@ class SignatureTests: XCTestCase {
                 try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
             }
 
-            XCTAssertThrowsError(try tsc_await { callback in
+            XCTAssertThrowsError(try temp_await { callback in
                 Signature.parse(
                     signature,
                     certChainValidate: { _, cb in cb(.success([certificate])) },
@@ -116,7 +115,7 @@ class SignatureTests: XCTestCase {
                 try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
             }
 
-            let parsedSignature = try tsc_await { callback in
+            let parsedSignature = try temp_await { callback in
                 Signature.parse(
                     signature,
                     certChainValidate: { _, cb in cb(.success([certificate])) },
@@ -152,7 +151,7 @@ class SignatureTests: XCTestCase {
                 try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
             }
 
-            XCTAssertThrowsError(try tsc_await { callback in
+            XCTAssertThrowsError(try temp_await { callback in
                 Signature.parse(
                     signature,
                     certChainValidate: { _, cb in cb(.success([certificate])) },

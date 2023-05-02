@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct TSCBasic.AbsolutePath
 
 public struct BuildManifest {
     public typealias TargetName = String

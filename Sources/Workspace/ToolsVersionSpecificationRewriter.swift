@@ -16,9 +16,12 @@
 ///
 // -----------------------------------------------------------------------------
 
-import TSCBasic
+import Basics
 import PackageModel
 import PackageLoading
+
+import struct TSCBasic.ByteString
+import class TSCBasic.BufferedOutputByteStream
 
 public struct ToolsVersionSpecificationWriter {
     // designed to be used as a static utility

@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 /// Available runtime sanitizers.
 public enum Sanitizer: String, Encodable, CaseIterable {
     case address

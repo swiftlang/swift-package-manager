@@ -16,8 +16,6 @@ import struct Foundation.URL
 import Security
 #endif
 
-import TSCBasic
-
 public protocol AuthorizationProvider {
     @Sendable
     func authentication(for url: URL) -> (user: String, password: String)?

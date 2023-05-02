@@ -17,7 +17,6 @@ import Foundation
 import FoundationXML
 #endif
 import class PackageModel.Manifest
-import TSCBasic
 
 /// A bare minimum loader for Xcode workspaces.
 ///

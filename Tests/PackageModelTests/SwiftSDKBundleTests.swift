@@ -15,7 +15,6 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 

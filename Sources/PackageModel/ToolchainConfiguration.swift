@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 
 /// Toolchain configuration required for evaluation of swift code such as the manifests or plugins
 ///

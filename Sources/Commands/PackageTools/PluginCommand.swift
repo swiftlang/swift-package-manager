@@ -16,7 +16,8 @@ import CoreCommands
 import Dispatch
 import PackageGraph
 import PackageModel
-import TSCBasic
+
+import enum TSCBasic.ProcessEnv
 
 struct PluginCommand: SwiftCommand {
     static let configuration = CommandConfiguration(
@@ -271,7 +272,7 @@ struct PluginCommand: SwiftCommand {
 
         // Run the command plugin.
         let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
-        let _ = try tsc_await { plugin.invoke(
+        let _ = try temp_await { plugin.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,

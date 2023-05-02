@@ -18,9 +18,10 @@ import PackageLoading
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingEmptyAlias() throws {
