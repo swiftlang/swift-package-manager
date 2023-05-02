@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import XCTest
 import SPMTestSupport
 
@@ -105,6 +106,7 @@ class ResourcesTests: XCTestCase {
     func testFoundationlessClient() throws {
         try fixture(name: "Resources/FoundationlessClient") { fixturePath in
             #if os(Linux) && swift(>=5.8)
+            try XCTSkipIf(!SwiftVersion.current.isDevelopment, "test needs tools-version 999.0")
             let pkgPath = fixturePath.appending(components: "AppPkg")
             guard let failure = XCTAssertBuildFails(pkgPath) else {
                 XCTFail("missing expected command execution error")
