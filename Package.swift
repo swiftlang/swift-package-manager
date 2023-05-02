@@ -671,24 +671,6 @@ let package = Package(
 #if !os(Windows)
 package.targets.append(contentsOf: [
     .testTarget(
-        name: "CommandsTests",
-        dependencies: [
-            "swift-build",
-            "swift-package",
-            "swift-test",
-            "swift-run",
-            "Basics",
-            "Build",
-            "Commands",
-            "PackageModel",
-            "PackageRegistryTool",
-            "SourceControl",
-            "SPMTestSupport",
-            "Workspace",
-        ]
-    ),
-
-    .testTarget(
         name: "FunctionalPerformanceTests",
         dependencies: [
             "swift-build",
@@ -710,6 +692,24 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "swift-test",
                 "PackageModel",
                 "SPMTestSupport"
+            ]
+        ),
+
+        .testTarget(
+            name: "CommandsTests",
+            dependencies: [
+                "swift-build",
+                "swift-package",
+                "swift-test",
+                "swift-run",
+                "Basics",
+                "Build",
+                "Commands",
+                "PackageModel",
+                "PackageRegistryTool",
+                "SourceControl",
+                "SPMTestSupport",
+                "Workspace",
             ]
         ),
     ])
