@@ -51,11 +51,11 @@ public struct TarArchiver: Archiver {
     ) {
         do {
             guard self.fileSystem.exists(archivePath) else {
-                throw FileSystemError(.noEntry, archivePath.underlying)
+                throw FileSystemError(.noEntry, archivePath)
             }
 
             guard self.fileSystem.isDirectory(destinationPath) else {
-                throw FileSystemError(.notDirectory, destinationPath.underlying)
+                throw FileSystemError(.notDirectory, destinationPath)
             }
 
             let process = TSCBasic.Process(
@@ -88,12 +88,12 @@ public struct TarArchiver: Archiver {
     ) {
         do {
             guard self.fileSystem.isDirectory(directory) else {
-                throw FileSystemError(.notDirectory, directory.underlying)
+                throw FileSystemError(.notDirectory, directory)
             }
 
             let process = TSCBasic.Process(
                 arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
+                workingDirectory: TSCAbsolutePath(directory.parentDirectory)
             )
 
             guard let registrationKey = self.cancellator.register(process) else {
@@ -118,7 +118,7 @@ public struct TarArchiver: Archiver {
     public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
             guard self.fileSystem.exists(path) else {
-                throw FileSystemError(.noEntry, path.underlying)
+                throw FileSystemError(.noEntry, path)
             }
 
             let process = TSCBasic.Process(arguments: [self.tarCommand, "tf", path.pathString])

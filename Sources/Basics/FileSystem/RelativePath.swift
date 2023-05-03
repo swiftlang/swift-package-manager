@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@preconcurrency import SystemPackage
+
+import enum TSCBasic.PathValidationError
 import struct TSCBasic.RelativePath
 
 // public for transition
@@ -31,16 +34,24 @@ public typealias TSCRelativePath = TSCBasic.RelativePath
 /// path components are symbolic links on disk.  However, the file system is
 /// never accessed in any way when initializing a RelativePath.
 public struct RelativePath: Hashable, Sendable {
-    let underlying: TSCBasic.RelativePath
+    public let underlying: FilePath
 
-    // public for transition
-    public init(_ underlying: TSCBasic.RelativePath) {
-        self.underlying = underlying
+    public init(_ underlying: FilePath) {
+        self.underlying = underlying//.lexicallyNormalized()
+    }
+
+    // for transition
+    public init(_ underlying: TSCRelativePath) {
+        self.init(FilePath(underlying.pathString))
     }
 
     /// Convenience initializer that verifies that the path is relative.
     public init(validating pathString: String) throws {
-        self.underlying = try .init(validating: pathString)
+        let path = FilePath(pathString)
+        guard path.isRelative else {
+            throw PathValidationError.invalidRelativePath(pathString)
+        }
+        self.init(path)
     }
 
     /// Directory component.  For a relative path without any path separators,
@@ -75,7 +86,7 @@ public struct RelativePath: Hashable, Sendable {
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var pathString: String {
-        self.underlying.pathString
+        self.underlying.string
     }
 }
 
@@ -86,19 +97,19 @@ extension RelativePath {
     /// path components is never empty; even an empty path has a single path
     /// component: the `.` string.
     public var components: [String] {
-        self.underlying.components
+        self.underlying.componentsAsString
     }
 
     /// Returns the relative path with the given relative path applied.
     public func appending(_ subpath: RelativePath) -> RelativePath {
-        Self(self.underlying.appending(subpath.underlying))
+        Self(self.underlying.appending(subpath.underlying.components))
     }
 
     /// Returns the relative path with an additional literal component appended.
     ///
     /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
     public func appending(component: String) -> RelativePath {
-        Self(self.underlying.appending(component: component))
+        Self(self.underlying.appending(component))
     }
 
     /// Returns the relative path with additional literal components appended.
@@ -107,7 +118,7 @@ extension RelativePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components: [String]) -> RelativePath {
-        Self(self.underlying.appending(components: components))
+        Self(self.underlying.appending(components))
     }
 
     /// Returns the relative path with additional literal components appended.
@@ -116,7 +127,7 @@ extension RelativePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components: String...) -> RelativePath {
-        Self(self.underlying.appending(components: components))
+        Self(self.underlying.appending(components))
     }
 
     /// Returns the relative path with additional literal components appended.
@@ -138,13 +149,15 @@ extension RelativePath {
     }
 }
 
+// using underlying string representation for backward compatibility
 extension RelativePath: Codable {
     public func encode(to encoder: Encoder) throws {
-        try self.underlying.encode(to: encoder)
+        try self.underlying.string.encode(to: encoder)
     }
 
     public init(from decoder: Decoder) throws {
-        self = try .init(TSCBasic.RelativePath(from: decoder))
+        let string = try String(from: decoder)
+        try self.init(validating: string)
     }
 }
 
@@ -160,7 +173,11 @@ extension RelativePath: CustomStringConvertible {
 }
 
 extension TSCRelativePath {
+    public init(_ path: FilePath) {
+        self = .init(path.string)
+    }
+
     public init(_ path: RelativePath) {
-        self = path.underlying
+        self = .init(path.underlying)
     }
 }
