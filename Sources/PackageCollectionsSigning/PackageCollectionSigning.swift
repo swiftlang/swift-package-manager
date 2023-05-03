@@ -228,7 +228,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
                                 signatureAlgorithm = .RS256
                                 signatureProvider = {
-                                    try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
+                                    try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
                                 }
                             } catch let error as PackageCollectionSigningError {
                                 throw error

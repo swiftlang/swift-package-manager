@@ -40,7 +40,7 @@ class SignatureTests: XCTestCase {
                 jsonEncoder: jsonEncoder,
                 signatureAlgorithm: .RS256
             ) {
-                try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
+                try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
             }
 
             let parsedSignature = try tsc_await { callback in
@@ -76,7 +76,7 @@ class SignatureTests: XCTestCase {
                 jsonEncoder: jsonEncoder,
                 signatureAlgorithm: .RS256
             ) {
-                try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
+                try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
             }
 
             XCTAssertThrowsError(try tsc_await { callback in

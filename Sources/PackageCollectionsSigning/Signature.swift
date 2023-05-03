@@ -60,6 +60,8 @@ extension Signature {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTSerializer.swift
 extension Signature {
+    static let rsaSigningPadding = _RSA.Signing.Padding.insecurePKCS1v1_5
+    
     static func generate(
         payload: some Encodable,
         certChainData: [Data],
@@ -149,7 +151,7 @@ extension Signature {
                     // Extract public key from the certificate
                     let certificate = certChain.first! // !-safe because certChain is not empty at this point
                     // Verify the key was used to generate the signature
-                    let message: Data = .init(encodedHeader) + .period + Data(encodedPayload)
+                    let message: Data = Data(encodedHeader) + .period + Data(encodedPayload)
                     let digest = SHA256.hash(data: message)
 
                     switch header.algorithm {
@@ -165,7 +167,7 @@ extension Signature {
                         guard let publicKey = _RSA.Signing.PublicKey(certificate.publicKey) else {
                             throw SignatureError.invalidPublicKey
                         }
-                        guard publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest) else {
+                        guard publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest, padding: .insecurePKCS1v1_5) else {
                             throw SignatureError.invalidSignature
                         }
                     }
