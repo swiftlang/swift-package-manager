@@ -463,13 +463,15 @@ public final class UserToolchain: Toolchain {
         }
 
         self.triple = triple
-        self.extraFlags = BuildFlags()
-
-        self.extraFlags.swiftCompilerFlags = try Self.deriveSwiftCFlags(
-            triple: triple,
-            destination: destination,
-            environment: environment
-        )
+        self.extraFlags = BuildFlags(
+            cCompilerFlags: destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
+            cxxCompilerFlags: destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
+            swiftCompilerFlags: try Self.deriveSwiftCFlags(
+                triple: triple,
+                destination: destination,
+                environment: environment),
+            linkerFlags: destination.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
+            xcbuildFlags: destination.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
         self.librarianPath = try UserToolchain.determineLibrarian(
             triple: triple,
@@ -481,14 +483,8 @@ public final class UserToolchain: Toolchain {
         )
 
         if let sdkDir = destination.pathsConfiguration.sdkRootPath {
-            self.extraFlags.cCompilerFlags = [
-                triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString,
-            ] + (destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [])
-
-            self.extraFlags.cxxCompilerFlags = destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? []
-        } else {
-            self.extraFlags.cCompilerFlags = (destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [])
-            self.extraFlags.cxxCompilerFlags = (destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [])
+            let sysrootFlags = [triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
+            self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags, at: 0)
         }
 
         if triple.isWindows() {
