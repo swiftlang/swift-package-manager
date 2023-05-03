@@ -315,10 +315,10 @@ public final class Package {
 /// [RFC5646](https://tools.ietf.org/html/rfc5646).
 public struct LanguageTag: Hashable {
 
-    /// An IETF language tag.
+    /// An IETF BCP 47 standard language tag.
     let tag: String
 
-    /// Creates a language tag from its IETF string representation.
+    /// Creates a language tag from its [IETF BCP 47](https://datatracker.ietf.org/doc/html/rfc5646) string representation.
     ///
     /// - Parameter tag: The string representation of an IETF language tag.
     private init(_ tag: String) {
@@ -377,14 +377,15 @@ public enum SystemPackageProvider {
     case brewItem([String])
     /// Packages installable by the apt-get package manager.
     case aptItem([String])
-    /// Packages installable by the yum package manager.
+    /// Packages installable by the Yellowdog Updated, Modified (YUM) package manager.
     @available(_PackageDescription, introduced: 5.3)
     case yumItem([String])
+    /// Packages installable by the NuGet package manager.
     @available(_PackageDescription, introduced: 999.0)
     case nugetItem([String])
 
     /// Creates a system package provider with a list of installable packages
-    /// for users of the HomeBrew package manager on macOS.
+    /// for people who use the HomeBrew package manager on macOS.
     ///
     /// - Parameter packages: The list of package names.
     ///
@@ -416,7 +417,7 @@ public enum SystemPackageProvider {
     }
 
     /// Creates a system package provider with a list of installable packages
-    /// for users of the nuget package manager on Linux or Windows.
+    /// for users of the NuGet package manager on Linux or Windows.
     ///
     /// - Parameter packages: The list of package names.
     ///
@@ -451,7 +452,7 @@ private func dumpPackageAtExit(_ package: Package, to handle: Int) {
         guard let dumpInfo = dumpInfo else { return }
 
         let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
-        // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
+        // NOTE: `_open_osfhandle` transfers ownership of the `HANDLE` to the file
         // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
         let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
         // NOTE: `_fdopen` transfers ownership of the file descriptor to the

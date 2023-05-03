@@ -48,7 +48,7 @@
 
 - <doc:/documentation/PackageDescription/Platform/linux>
 
-### Type Methods
+### Type methods
 
 - ``custom(_:versionString:)``
 

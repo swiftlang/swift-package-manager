@@ -2,6 +2,6 @@
 
 ## Topics
 
-### Describing an Executable Product
+### Describing an executable product
 
 - ``targets``
