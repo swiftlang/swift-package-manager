@@ -3305,7 +3305,8 @@ final class BuildPlanTests: XCTestCase {
                     name: "exe", dependencies: ["bar"],
                     settings: [
                         .init(tool: .swift, kind: .define("FOO")),
-                        .init(tool: .swift, kind: .interoperabilityMode(.C, nil)),
+                        .init(tool: .swift, kind: .interoperabilityMode(.C, nil), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .interoperabilityMode(.Cxx, nil), condition: .init(platformNames: ["macos"])),
                         .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
                         .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["macos"])),
                         .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
@@ -3383,7 +3384,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=swift-6.0", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-framework", "best", "-Ilfoo", "-L", "lbar", .anySequence])
