@@ -414,6 +414,11 @@ public final class SwiftTargetBuildDescription {
         args += try self.buildParameters.targetTripleArgs(for: self.target)
         args += ["-swift-version", self.swiftVersion.rawValue]
 
+        // pass `-v` during verbose builds.
+        if self.buildParameters.verboseOutput {
+            args += ["-v"]
+        }
+
         // Enable batch mode in debug mode.
         //
         // Technically, it should be enabled whenever WMO is off but we
@@ -496,7 +501,17 @@ public final class SwiftTargetBuildDescription {
 
         args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.swiftCompilerFlags
+        args += self.buildParameters.flags.swiftCompilerFlags
+
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
@@ -611,6 +626,11 @@ public final class SwiftTargetBuildDescription {
         var result: [String] = []
         result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
 
+        // pass `-v` during verbose builds.
+        if self.buildParameters.verboseOutput {
+            result += ["-v"]
+        }
+
         result.append("-module-name")
         result.append(self.target.c99name)
         result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
@@ -646,8 +666,21 @@ public final class SwiftTargetBuildDescription {
         result += self.buildParameters.sanitizers.compileSwiftFlags()
         result += ["-parseable-output"]
         result += try self.buildSettingsFlags()
+
         result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-        result += self.buildParameters.swiftCompilerFlags
+        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
+        result += self.buildParameters.flags.swiftCompilerFlags
+
+        result += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        result += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // result += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // result += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+
         result += try self.macroArguments()
         return result
     }

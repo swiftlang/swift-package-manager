@@ -283,12 +283,14 @@ public final class ClangTargetBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
-        args += buildParameters.toolchain.extraFlags.cCompilerFlags
-        // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
-        args += buildParameters.flags.cCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.cCompilerFlags
 
         // Add extra C++ flags if this target contains C++ files.
-        if clangTarget.isCXX {
+        if isCXX {
+            args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags
+            // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
             args += self.buildParameters.flags.cxxCompilerFlags
         }
         return args

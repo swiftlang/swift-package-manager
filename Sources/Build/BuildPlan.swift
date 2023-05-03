@@ -42,6 +42,14 @@ extension AbsolutePath {
     }
 }
 
+extension Array where Element == String {
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCCompilerFlags() -> Self {
+        self.flatMap { ["-Xcc", $0] }
+    }
+}
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -63,10 +71,25 @@ extension BuildParameters {
             flags.append("-v")
         }
         return flags
+    /// Converts a set of C++ compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCXXCompilerFlags() -> Self {
+        _ = self.flatMap { ["-Xcxx", $0] }
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Remove fatal error when downstream support arrives.
+        fatalError("swiftc does support -Xcxx flags yet.")
     }
 
     /// Extra flags to pass to linker.
     public var linkerFlags: [String] {
+    /// Converts a set of linker flags into an equivalent set to be indirected
+    /// through the Swift compiler instead.
+    ///
+    /// Some arguments can be passed directly to the Swift compiler. We omit
+    /// prefixing these arguments (in both the "-option value" and
+    /// "-option[=]value" forms) with "-Xlinker". All other arguments are
+    /// prefixed with "-Xlinker".
+    func asSwiftcLinkerFlags() -> Self {
         // Arguments that can be passed directly to the Swift compiler and
         // doesn't require -Xlinker prefix.
         //
@@ -76,9 +99,11 @@ extension BuildParameters {
 
         var flags: [String] = []
         var it = self.flags.linkerFlags.makeIterator()
+        var it = self.makeIterator()
         while let flag = it.next() {
             if directSwiftLinkerArgs.contains(flag) {
                 // `-L <value>` variant.
+                // `<option> <value>` variant.
                 flags.append(flag)
                 guard let nextFlag = it.next() else {
                     // We expected a flag but don't have one.
@@ -87,12 +112,27 @@ extension BuildParameters {
                 flags.append(nextFlag)
             } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
                 // `-L<value>` variant.
+                // `<option>[=]<value>` variant.
                 flags.append(flag)
             } else {
                 flags += ["-Xlinker", flag]
             }
         }
         return flags
+    }
+}
+
+extension BuildParameters {
+    /// Returns the directory to be used for module cache.
+    public var moduleCache: AbsolutePath {
+        get throws {
+            // FIXME: We use this hack to let swiftpm's functional test use shared
+            // cache so it doesn't become painfully slow.
+            if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
+                return try AbsolutePath(validating: path)
+            }
+            return buildPath.appending("ModuleCache")
+        }
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
@@ -147,7 +187,7 @@ extension BuildParameters {
         else {
             return nil
         }
-        return args.flatMap { ["-Xlinker", $0] }
+        return args.asSwiftcLinkerFlags()
     }
 
     /// Returns the scoped view of build settings for a given target.

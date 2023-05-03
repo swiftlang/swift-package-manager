@@ -151,6 +151,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.buildParameters.sanitizers.linkSwiftFlags()
         args += self.additionalFlags
 
+        // pass `-v` during verbose builds.
+        if self.buildParameters.verboseOutput {
+            args += ["-v"]
+        }
+
         // Pass `-g` during a *release* build so the Swift driver emits a dSYM file for the binary.
         if self.buildParameters.configuration == .release {
             if self.buildParameters.triple.isWindows() {
@@ -304,9 +309,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.swiftASTs.flatMap { ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
         args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-        // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.linkerFlags
-        args += self.stripInvalidArguments(self.buildParameters.swiftCompilerFlags)
+        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.swiftCompilerFlags
+
+        args += self.buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags()
+        // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
 
         // Add toolchain's libdir at the very end (even after the user -Xlinker arguments).
         //
@@ -323,7 +331,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
         #endif
 
-        return args
+        return self.stripInvalidArguments(args)
     }
 
     /// Writes link filelist to the filesystem.
