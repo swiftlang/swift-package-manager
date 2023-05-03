@@ -15,8 +15,8 @@ import func TSCBasic.determineTempDirectory
 
 public enum SandboxNetworkPermission: Equatable {
     case none
-    case local(ports: [UInt8])
-    case all(ports: [UInt8])
+    case local(ports: [Int])
+    case all(ports: [Int])
     case docker
     case unixDomainSocket
 
@@ -28,7 +28,7 @@ public enum SandboxNetworkPermission: Equatable {
         }
     }
 
-    fileprivate var ports: [UInt8] {
+    fileprivate var ports: [Int] {
         switch self {
         case .all(let ports): return ports
         case .local(let ports): return ports

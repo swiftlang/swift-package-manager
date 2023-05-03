@@ -1492,21 +1492,21 @@ public enum PluginNetworkPermissionScope {
     /// Do not allow network access.
     case none
     /// Allow local network connections; can be limited to a list of allowed ports.
-    case local(ports: [UInt8] = [])
+    case local(ports: [Int] = [])
     /// Allow local and outgoing network connections; can be limited to a list of allowed ports.
-    case all(ports: [UInt8] = [])
+    case all(ports: [Int] = [])
     /// Allow connections to Docker through UNIX domain sockets.
     case docker
     /// Allow connections to any UNIX domain socket.
     case unixDomainSocket
 
     /// Allow local and outgoing network connections, limited to a range of allowed ports.
-    public static func all(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
+    public static func all(ports: Range<Int>) -> PluginNetworkPermissionScope {
         return .all(ports: Array(ports))
     }
 
     /// Allow local network connections, limited to a range of allowed ports.
-    public static func local(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
+    public static func local(ports: Range<Int>) -> PluginNetworkPermissionScope {
         return .local(ports: Array(ports))
     }
 }

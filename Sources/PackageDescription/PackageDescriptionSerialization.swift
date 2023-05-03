@@ -184,8 +184,8 @@ enum Serialization {
 
     enum PluginNetworkPermissionScope: Codable {
         case none
-        case local(ports: [UInt8])
-        case all(ports: [UInt8])
+        case local(ports: [Int])
+        case all(ports: [Int])
         case docker
         case unixDomainSocket
     }

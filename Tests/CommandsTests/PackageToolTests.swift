@@ -1890,8 +1890,8 @@ final class PackageToolTests: CommandsTestCase {
             reason: "internet good",
             remedy: ["--allow-network-connections", "all"])
         try testCommandPluginNetworkingPermissions(
-            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: \"internet good\")]",
-            permissionError: "all network connections on ports: 23, 42",
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: \"internet good\")]",
+            permissionError: "all network connections on ports: 23, 42, 443, 8080",
             reason: "internet good",
             remedy: ["--allow-network-connections", "all"])
         try testCommandPluginNetworkingPermissions(
@@ -1906,8 +1906,8 @@ final class PackageToolTests: CommandsTestCase {
             reason: "localhost good",
             remedy: ["--allow-network-connections", "local"])
         try testCommandPluginNetworkingPermissions(
-            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42]), reason: \"localhost good\")]",
-            permissionError: "local network connections on ports: 23, 42",
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42, 443, 8080]), reason: \"localhost good\")]",
+            permissionError: "local network connections on ports: 23, 42, 443, 8080",
             reason: "localhost good",
             remedy: ["--allow-network-connections", "local"])
         try testCommandPluginNetworkingPermissions(
