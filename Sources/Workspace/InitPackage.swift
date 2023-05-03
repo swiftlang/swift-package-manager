@@ -293,7 +293,7 @@ public final class InitPackage {
                 } else if packageType == .buildToolPlugin {
                     param += """
                             .plugin(
-                                name: "\(typeName)",
+                                name: "\(pkgname)",
                                 capability: .buildTool()
                             ),
                         ]
@@ -301,7 +301,7 @@ public final class InitPackage {
                 } else if packageType == .commandPlugin {
                     param += """
                             .plugin(
-                                name: "\(typeName)",
+                                name: "\(pkgname)",
                                 capability: .command(intent: .custom(
                                     verb: "\(typeName)",
                                     description: "prints hello world"
