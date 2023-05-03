@@ -377,8 +377,8 @@ public struct SwiftSetting {
     ///
     /// - Parameters:
     ///   - mode: The language mode, either C or CXX.
-    ///   - version: When using the CXX language mode, pass the version of Swift and C++
-    /// interoperability; otherwise, `nil`.
+    ///   - version: When using the CXX language mode, pass either the version
+    /// of Swift and C++ interoperability or `nil`; otherwise, `nil`.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
