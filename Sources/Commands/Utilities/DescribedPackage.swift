@@ -188,8 +188,8 @@ struct DescribedPackage: Encodable {
         struct Permission: Encodable {
             enum NetworkScope: Encodable {
                 case none
-                case local(ports: [UInt8])
-                case all(ports: [UInt8])
+                case local(ports: [Int])
+                case all(ports: [Int])
                 case docker
                 case unixDomainSocket
 
