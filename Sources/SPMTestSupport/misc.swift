@@ -98,7 +98,7 @@ public func fixture(
                 try body(tmpDirPath)
             }
         }
-    } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
         print("**** FAILURE EXECUTING SUBPROCESS ****")
         print("output:", output)
         print("stderr:", stderr)
@@ -159,7 +159,7 @@ public func executeSwiftBuild(
     env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -175,7 +175,7 @@ public func executeSwiftRun(
 ) throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
-    return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -189,7 +189,7 @@ public func executeSwiftPackage(
     env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -203,7 +203,7 @@ public func executeSwiftTest(
     env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
 }
 
 private func swiftArgs(

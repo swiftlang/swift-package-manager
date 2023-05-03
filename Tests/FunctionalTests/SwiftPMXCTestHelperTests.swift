@@ -51,7 +51,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
         #if os(macOS)
         let env = ["DYLD_FRAMEWORK_PATH": try Destination.sdkPlatformFrameworkPaths().fwk.pathString]
         let outputFile = bundlePath.parentDirectory.appending("tests.txt")
-        let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
+        try SwiftPM.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
         guard let data = NSData(contentsOfFile: outputFile.pathString) else {
             XCTFail("No output found in : \(outputFile)"); return;
         }
