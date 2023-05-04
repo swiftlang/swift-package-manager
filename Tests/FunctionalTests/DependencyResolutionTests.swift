@@ -55,7 +55,7 @@ class DependencyResolutionTests: XCTestCase {
             let packageRoot = fixturePath.appending("Bar")
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar"))
-            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(try GitRepository(path: path).getTags().contains("1.2.3"))
         }
     }
@@ -72,8 +72,7 @@ class DependencyResolutionTests: XCTestCase {
         try fixture(name: "DependencyResolution/External/Branch") { fixturePath in
             // Tests the convenience init .package(url: , branch: )
             let app = fixturePath.appending("Bar")
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+            try SwiftPM.Build.execute(packagePath: app)
         }
     }
 
@@ -141,8 +140,7 @@ class DependencyResolutionTests: XCTestCase {
 
     func testPackageLookupCaseInsensitive() throws {
         try fixture(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { fixturePath in
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["update"], packagePath: fixturePath.appending("pkg"))
-            XCTAssert(result.exitStatus == .terminated(code: 0), try! result.utf8Output() + result.utf8stderrOutput())
+            try SwiftPM.Package.execute(["update"], packagePath: fixturePath.appending("pkg"))
         }
     }
 }

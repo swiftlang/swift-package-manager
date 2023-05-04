@@ -118,7 +118,7 @@ public func XCTAssertThrowsCommandExecutionError<T>(
     _ errorHandler: (_ error: CommandExecutionError) -> Void = { _ in }
 ) {
     XCTAssertThrowsError(try expression(), message(), file: file, line: line) { error in
-        guard case SwiftPMProductError.executionFailure(let processError, let stdout, let stderr) = error,
+        guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
               case ProcessResult.Error.nonZeroExit(let processResult) = processError,
               processResult.exitStatus != .terminated(code: 0) else {
             return XCTFail("Unexpected error type: \(error.interpolationDescription)", file: file, line: line)

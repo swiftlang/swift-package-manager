@@ -1012,7 +1012,7 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             do {
                 try executeSwiftBuild(fixturePath.appending("MissingPlugin"))
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
                 XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
             }
         }

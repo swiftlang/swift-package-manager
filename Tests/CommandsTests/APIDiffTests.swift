@@ -34,7 +34,7 @@ final class APIDiffTests: CommandsTestCase {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
+        return try SwiftPM.Package.execute(args, packagePath: packagePath, env: environment)
     }
 
     func skipIfApiDigesterUnsupportedOrUnset() throws {

@@ -32,16 +32,15 @@ final class PackageRegistryToolTests: CommandsTestCase {
         _ args: [String],
         packagePath: AbsolutePath? = nil,
         env: EnvironmentVariables? = nil
-    ) throws -> (exitStatus: ProcessResult.ExitStatus, stdout: String, stderr: String) {
+    ) throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+        return try SwiftPM.Registry.execute(
             args,
             packagePath: packagePath,
             env: environment
         )
-        return try (result.exitStatus, result.utf8Output(), result.utf8stderrOutput())
     }
 
     func testUsage() throws {
@@ -92,8 +91,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set default registry
             do {
-                let result = try execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                try execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -106,8 +104,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set new default registry
             do {
-                let result = try execute(["set", "\(customRegistryBaseURL)"], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                try execute(["set", "\(customRegistryBaseURL)"], packagePath: packageRoot)
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -120,8 +117,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Unset default registry
             do {
-                let result = try execute(["unset"], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                try execute(["unset"], packagePath: packageRoot)
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 0)
@@ -130,11 +126,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set registry for "foo" scope
             do {
-                let result = try execute(
+                try execute(
                     ["set", "\(customRegistryBaseURL)", "--scope", "foo"],
                     packagePath: packageRoot
                 )
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -147,11 +142,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set registry for "bar" scope
             do {
-                let result = try execute(
+                try execute(
                     ["set", "\(customRegistryBaseURL)", "--scope", "bar"],
                     packagePath: packageRoot
                 )
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 2)
@@ -168,8 +162,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Unset registry for "foo" scope
             do {
-                let result = try execute(["unset", "--scope", "foo"], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                try execute(["unset", "--scope", "foo"], packagePath: packageRoot)
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -197,10 +190,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
-            do {
-                let result = try execute(["set", "--scope", "foo"], packagePath: packageRoot)
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-            }
+            XCTAssertThrowsError(try execute(["set", "--scope", "foo"], packagePath: packageRoot))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
         }
@@ -217,10 +207,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
-            do {
-                let result = try execute(["set", "invalid"], packagePath: packageRoot)
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-            }
+            XCTAssertThrowsError(try execute(["set", "invalid"], packagePath: packageRoot))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
         }
@@ -238,11 +225,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set default registry
             do {
-                let result = try execute(
+                XCTAssertThrowsError(try execute(
                     ["set", "--scope", "_invalid_", "\(defaultRegistryBaseURL)"],
                     packagePath: packageRoot
-                )
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                ))
             }
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
@@ -261,8 +247,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set default registry
             do {
-                let result = try execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                try execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -275,8 +260,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Unset registry for missing "baz" scope
             do {
-                let result = try execute(["unset", "--scope", "baz"], packagePath: packageRoot)
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertThrowsError(try execute(["unset", "--scope", "baz"], packagePath: packageRoot))
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -448,7 +432,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let metadataPath = temporaryDirectory.appending("metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: "{}")
 
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            try SwiftPM.Registry.execute(
                 [
                     "publish",
                     packageIdentity,
@@ -459,11 +443,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
                 ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
             )
 
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -497,7 +476,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let metadataPath = packageDirectory.appending(SwiftPackageRegistryTool.Publish.metadataFilename)
             try localFileSystem.writeFileContents(metadataPath, string: "{}")
 
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            try SwiftPM.Registry.execute(
                 [
                     "publish",
                     packageIdentity,
@@ -507,11 +486,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
                 ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
             )
 
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -542,7 +516,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
 
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            try SwiftPM.Registry.execute(
                 [
                     "publish",
                     packageIdentity,
@@ -552,11 +526,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
                 ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
             )
 
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -654,7 +623,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 )
             }
 
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            try SwiftPM.Registry.execute(
                 [
                     "publish",
                     packageIdentity,
@@ -668,11 +637,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     "\(intermediateCertificatePath.pathString)",
                     "--dry-run",
                 ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
             )
 
             // Validate signatures
@@ -770,7 +734,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 )
             }
 
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            try SwiftPM.Registry.execute(
                 [
                     "publish",
                     packageIdentity,
@@ -783,11 +747,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     "\(intermediateCertificatePath.pathString)",
                     "--dry-run",
                 ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
             )
 
             // Validate signatures
@@ -882,7 +841,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 )
             }
 
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            try SwiftPM.Registry.execute(
                 [
                     "publish",
                     packageIdentity,
@@ -895,11 +854,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     "\(intermediateCertificatePath.pathString)",
                     "--dry-run",
                 ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
             )
 
             // Validate signatures
