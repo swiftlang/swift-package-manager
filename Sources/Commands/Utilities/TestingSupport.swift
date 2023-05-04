@@ -14,9 +14,12 @@ import Basics
 import CoreCommands
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 import Workspace
 
+import class TSCBasic.Process
+import var TSCBasic.stderrStream
+import var TSCBasic.stdoutStream
+import func TSCBasic.withTemporaryFile
 
 /// Internal helper functionality for the SwiftTestTool command and for the
 /// plugin support.
@@ -91,7 +94,7 @@ enum TestingSupport {
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
-            return try swiftTool.fileSystem.readFileContents(tempFile.path)
+            return try swiftTool.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
         #else
         let env = try Self.constructTestEnvironment(

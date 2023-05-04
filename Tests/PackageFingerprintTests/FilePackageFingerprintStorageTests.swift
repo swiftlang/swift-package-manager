@@ -15,8 +15,9 @@ import struct Foundation.URL
 @testable import PackageFingerprint
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -406,7 +407,7 @@ extension PackageFingerprintStorage {
         package: PackageIdentity,
         version: Version
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try tsc_await {
+        try temp_await {
             self.get(
                 package: package,
                 version: version,
@@ -423,7 +424,7 @@ extension PackageFingerprintStorage {
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
     ) throws -> Fingerprint {
-        try tsc_await {
+        try temp_await {
             self.get(
                 package: package,
                 version: version,
@@ -441,7 +442,7 @@ extension PackageFingerprintStorage {
         version: Version,
         fingerprint: Fingerprint
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.put(
                 package: package,
                 version: version,
@@ -457,7 +458,7 @@ extension PackageFingerprintStorage {
         package: PackageReference,
         version: Version
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try tsc_await {
+        try temp_await {
             self.get(
                 package: package,
                 version: version,
@@ -474,7 +475,7 @@ extension PackageFingerprintStorage {
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
     ) throws -> Fingerprint {
-        try tsc_await {
+        try temp_await {
             self.get(
                 package: package,
                 version: version,
@@ -492,7 +493,7 @@ extension PackageFingerprintStorage {
         version: Version,
         fingerprint: Fingerprint
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.put(
                 package: package,
                 version: version,

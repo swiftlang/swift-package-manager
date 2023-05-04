@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import protocol TSCBasic.HashAlgorithm
 
 public final class MockHashAlgorithm {
     public typealias Handler = @Sendable (ByteString) -> ByteString

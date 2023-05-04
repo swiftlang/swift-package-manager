@@ -14,7 +14,6 @@ import struct Foundation.Date
 import struct Foundation.URL
 
 import PackageModel
-import TSCBasic
 
 import struct TSCUtility.Version
 

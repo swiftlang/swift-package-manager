@@ -12,7 +12,8 @@
 
 import Basics
 import Foundation
-import TSCBasic
+
+import func TSCBasic.transitiveClosure
 
 import struct TSCUtility.Version
 

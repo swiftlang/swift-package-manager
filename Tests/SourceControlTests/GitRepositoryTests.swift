@@ -10,12 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+@testable import SourceControl
+import SPMTestSupport
 import XCTest
 
-import TSCBasic
-@testable import SourceControl
-
-import SPMTestSupport
+import struct TSCBasic.FileSystemError
+import func TSCBasic.makeDirectories
+import class TSCBasic.Process
 
 import enum TSCUtility.Git
 
@@ -262,7 +264,7 @@ class GitRepositoryTests: XCTestCase {
             }
 
             // Check read versus root.
-            XCTAssertThrows(FileSystemError(.isDirectory, .root)) {
+            XCTAssertThrows(FileSystemError(.isDirectory, AbsolutePath.root)) {
                 _ = try view.readFileContents(.root)
             }
 

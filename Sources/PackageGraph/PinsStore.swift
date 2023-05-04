@@ -13,7 +13,8 @@
 import Basics
 import Foundation
 import PackageModel
-import TSCBasic
+
+import enum TSCBasic.JSON
 
 import struct TSCUtility.Version
 

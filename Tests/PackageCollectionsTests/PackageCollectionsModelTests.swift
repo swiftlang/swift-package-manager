@@ -10,12 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SPMTestSupport
-import TSCBasic
-import XCTest
-
+import Basics
 @testable import PackageCollections
 @testable import PackageModel
+import SPMTestSupport
+import XCTest
 
 final class PackageCollectionsModelTests: XCTestCase {
     func testLatestVersions() {

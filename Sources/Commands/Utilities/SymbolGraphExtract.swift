@@ -12,11 +12,12 @@
 
 import ArgumentParser
 import Basics
+@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
-@_implementationOnly import DriverSupport
+
+import class TSCBasic.Process
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {

@@ -16,8 +16,9 @@ import Basics
 import PackageModel
 @testable import PackageSigning
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -430,7 +431,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
 
 extension PackageSigningEntityStorage {
     fileprivate func get(package: PackageIdentity) throws -> PackageSigners {
-        try tsc_await {
+        try temp_await {
             self.get(
                 package: package,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -446,7 +447,7 @@ extension PackageSigningEntityStorage {
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.put(
                 package: package,
                 version: version,
@@ -465,7 +466,7 @@ extension PackageSigningEntityStorage {
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.add(
                 package: package,
                 version: version,
@@ -484,7 +485,7 @@ extension PackageSigningEntityStorage {
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.changeSigningEntityFromVersion(
                 package: package,
                 version: version,
@@ -503,7 +504,7 @@ extension PackageSigningEntityStorage {
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.changeSigningEntityForAllVersions(
                 package: package,
                 version: version,

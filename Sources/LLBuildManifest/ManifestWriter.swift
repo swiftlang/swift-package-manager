@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
+import protocol TSCBasic.ByteStreamable
+import struct TSCBasic.Format
+import protocol TSCBasic.OutputByteStream
+import class TSCBasic.BufferedOutputByteStream
 
 public struct ManifestWriter {
     let fileSystem: FileSystem

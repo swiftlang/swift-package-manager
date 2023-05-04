@@ -10,7 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import class TSCBasic.LocalFileOutputByteStream
+import class TSCBasic.TerminalController
+import class TSCBasic.ThreadSafeOutputByteStream
+import protocol TSCBasic.WritableByteStream
 
 extension WritableByteStream {
     /// Returns true if an only if the output byte stream is attached to a TTY.

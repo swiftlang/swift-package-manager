@@ -17,9 +17,12 @@ import Foundation
 // need to decide how to best deal with that
 import FoundationNetworking
 #endif
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import XCTest
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.FileMode
+import struct TSCBasic.FileSystemError
 
 final class URLSessionHTTPClientTest: XCTestCase {
     func testHead() {
@@ -1116,87 +1119,87 @@ private class MockURLProtocol: URLProtocol {
 }
 
 final class FailingFileSystem: FileSystem {
-    var currentWorkingDirectory: AbsolutePath? {
+    var currentWorkingDirectory: TSCAbsolutePath? {
         fatalError("unexpected call")
     }
 
-    var homeDirectory: AbsolutePath {
+    var homeDirectory: TSCAbsolutePath {
         fatalError("unexpected call")
     }
 
-    var cachesDirectory: AbsolutePath? {
+    var cachesDirectory: TSCAbsolutePath? {
         fatalError("unexpected call")
     }
 
-    var tempDirectory: AbsolutePath {
+    var tempDirectory: TSCAbsolutePath {
         fatalError("unexpected call")
     }
 
-    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+    func changeCurrentWorkingDirectory(to path: TSCAbsolutePath) throws {
         fatalError("unexpected call")
     }
 
-    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+    func exists(_ path: TSCAbsolutePath, followSymlink: Bool) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isDirectory(_: AbsolutePath) -> Bool {
+    func isDirectory(_: TSCAbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isFile(_: AbsolutePath) -> Bool {
+    func isFile(_: TSCAbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isExecutableFile(_: AbsolutePath) -> Bool {
+    func isExecutableFile(_: TSCAbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isSymlink(_: AbsolutePath) -> Bool {
+    func isSymlink(_: TSCAbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isReadable(_ path: AbsolutePath) -> Bool {
+    func isReadable(_ path: TSCAbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isWritable(_ path: AbsolutePath) -> Bool {
+    func isWritable(_ path: TSCAbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func getDirectoryContents(_: AbsolutePath) throws -> [String] {
+    func getDirectoryContents(_: TSCAbsolutePath) throws -> [String] {
         fatalError("unexpected call")
     }
 
-    func readFileContents(_: AbsolutePath) throws -> ByteString {
+    func readFileContents(_: TSCAbsolutePath) throws -> ByteString {
         fatalError("unexpected call")
     }
 
-    func removeFileTree(_: AbsolutePath) throws {
+    func removeFileTree(_: TSCAbsolutePath) throws {
         fatalError("unexpected call")
     }
 
-    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+    func chmod(_ mode: FileMode, path: TSCAbsolutePath, options: Set<FileMode.Option>) throws {
         fatalError("unexpected call")
     }
 
-    func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+    func writeFileContents(_ path: TSCAbsolutePath, bytes: ByteString) throws {
         fatalError("unexpected call")
     }
 
-    func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+    func createDirectory(_ path: TSCAbsolutePath, recursive: Bool) throws {
         fatalError("unexpected call")
     }
 
-    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+    func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
         fatalError("unexpected call")
     }
 
-    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    func copy(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         fatalError("unexpected call")
     }
 
-    func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    func move(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         throw FileSystemError(.unsupported)
     }
 }

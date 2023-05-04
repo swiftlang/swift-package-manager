@@ -14,9 +14,11 @@ import Basics
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
 
 typealias ProcessID = TSCBasic.Process.ProcessID
 

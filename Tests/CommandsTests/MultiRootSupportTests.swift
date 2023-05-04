@@ -13,9 +13,10 @@
 import Basics
 import Commands
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class MultiRootSupportTests: CommandsTestCase {
 

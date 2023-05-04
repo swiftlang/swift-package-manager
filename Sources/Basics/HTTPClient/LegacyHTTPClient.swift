@@ -11,15 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
+import struct Foundation.Data
+import struct Foundation.Date
 import class Foundation.NSLock
 import class Foundation.OperationQueue
 import func Foundation.pow
-import struct Foundation.Data
-import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
-import TSCBasic
-
 
 // MARK: - LegacyHTTPClient
 
@@ -108,7 +106,9 @@ public final class LegacyHTTPClient: Cancellable {
             request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.current.displayString)")
         }
 
-        if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
+        if let authorization = request.options.authorizationProvider?(request.url),
+           !request.headers.contains("Authorization")
+        {
             request.headers.add(name: "Authorization", value: authorization)
         }
         // execute
@@ -235,7 +235,9 @@ public final class LegacyHTTPClient: Cancellable {
                             }
                         }
                         // check for valid response codes
-                        if let validResponseCodes = request.options.validResponseCodes, !validResponseCodes.contains(response.statusCode) {
+                        if let validResponseCodes = request.options.validResponseCodes,
+                           !validResponseCodes.contains(response.statusCode)
+                        {
                             return completion(.failure(HTTPClientError.badResponseStatusCode(response.statusCode)))
                         }
                         completion(.success(response))
@@ -303,8 +305,8 @@ public final class LegacyHTTPClient: Cancellable {
     }
 }
 
-public extension LegacyHTTPClient {
-    func head(
+extension LegacyHTTPClient {
+    public func head(
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
@@ -318,7 +320,7 @@ public extension LegacyHTTPClient {
         )
     }
 
-    func get(
+    public func get(
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
@@ -332,7 +334,7 @@ public extension LegacyHTTPClient {
         )
     }
 
-    func put(
+    public func put(
         _ url: URL,
         body: Data?,
         headers: HTTPClientHeaders = .init(),
@@ -347,7 +349,7 @@ public extension LegacyHTTPClient {
         )
     }
 
-    func post(
+    public func post(
         _ url: URL,
         body: Data?,
         headers: HTTPClientHeaders = .init(),
@@ -362,7 +364,7 @@ public extension LegacyHTTPClient {
         )
     }
 
-    func delete(
+    public func delete(
         _ url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),

@@ -14,7 +14,6 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageModel
-import TSCBasic
 
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {

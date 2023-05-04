@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 
 public protocol Toolchain {
     /// Path of the librarian.

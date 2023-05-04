@@ -13,8 +13,9 @@
 import Basics
 @testable import PackageModel
 @testable import SPMBuildCore
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain")
 private let toolchainBinDir = RelativePath("swift.xctoolchain/usr/bin")
@@ -253,9 +254,9 @@ private let parsedToolsetRootDestinationV3 = Destination(
 final class DestinationTests: XCTestCase {
     func testDestinationCodable() throws {
         let fs = InMemoryFileSystem()
-        try fs.createDirectory(.init(validating: "/tools"))
-        try fs.createDirectory(.init(validating: "/tmp"))
-        try fs.createDirectory(.init(validating: "\(bundleRootPath)"))
+        try fs.createDirectory(AbsolutePath(validating: "/tools"))
+        try fs.createDirectory(AbsolutePath(validating: "/tmp"))
+        try fs.createDirectory(AbsolutePath(validating: "\(bundleRootPath)"))
         for testFile in [
             destinationV1,
             destinationV2,

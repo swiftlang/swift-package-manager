@@ -10,12 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 
-import class Basics.ObservabilityScope
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
-import struct TSCBasic.RelativePath
 import struct TSCBasic.StringError
 import struct TSCUtility.Version
 

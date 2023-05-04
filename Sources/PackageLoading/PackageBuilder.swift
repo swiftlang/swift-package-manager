@@ -14,7 +14,10 @@ import Basics
 import Dispatch
 import OrderedCollections
 import PackageModel
-import TSCBasic
+
+import func TSCBasic.findCycle
+import func TSCBasic.topologicalSort
+import struct TSCBasic.KeyedPair
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {

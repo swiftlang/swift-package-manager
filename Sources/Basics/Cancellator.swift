@@ -12,8 +12,8 @@
 
 import Dispatch
 import Foundation
-import TSCBasic
-
+import class TSCBasic.Process
+import class TSCBasic.Thread
 #if canImport(WinSDK)
 import WinSDK
 #endif

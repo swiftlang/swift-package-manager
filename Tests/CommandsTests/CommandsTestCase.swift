@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 import XCTest
 
 class CommandsTestCase: XCTestCase {

@@ -13,8 +13,7 @@
 import Basics
 import Dispatch
 import PackageModel
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
+
 import struct TSCUtility.Version
 
 /// A container of packages.

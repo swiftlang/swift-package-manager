@@ -13,8 +13,6 @@
 import Dispatch
 import Foundation
 
-import TSCBasic
-
 import SPMBuildCore
 import Basics
 import CoreCommands
@@ -22,6 +20,11 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import Workspace
+
+import protocol TSCBasic.DiagnosticLocation
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
+import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.SerializedDiagnostics

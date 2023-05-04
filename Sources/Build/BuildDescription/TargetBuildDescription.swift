@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import class PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
-import struct TSCBasic.AbsolutePath
 
 /// A target description which can either be for a Swift or Clang target.
 public enum TargetBuildDescription {

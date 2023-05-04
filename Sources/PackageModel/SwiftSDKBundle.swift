@@ -10,14 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import Basics
 
-import func TSCBasic.tsc_await
-import func TSCBasic.withTemporaryDirectory
-import protocol TSCBasic.FileSystem
 import struct Foundation.URL
-import struct TSCBasic.AbsolutePath
 import struct TSCBasic.RegEx
 
 /// Represents an `.artifactbundle` on the filesystem that contains a Swift SDK.
@@ -160,7 +155,7 @@ public struct SwiftSDKBundle {
                     destination: downloadedBundlePath
                 )
                 request.options.validResponseCodes = [200]
-                _ = try tsc_await {
+                _ = try temp_await {
                     client.execute(
                         request,
                         observabilityScope: observabilityScope,
@@ -173,7 +168,7 @@ public struct SwiftSDKBundle {
 
                 print("Destination artifact bundle successfully downloaded from `\(bundleURL)`.")
             } else if
-                let cwd = fileSystem.currentWorkingDirectory,
+                let cwd: AbsolutePath = fileSystem.currentWorkingDirectory,
                 let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
             {
                 bundlePath = originalBundlePath
@@ -231,7 +226,7 @@ public struct SwiftSDKBundle {
 
         print("\(bundleName) is assumed to be an archive, unpacking...")
 
-        try tsc_await { archiver.extract(from: bundlePath, to: temporaryDirectory, completion: $0) }
+        try temp_await { archiver.extract(from: bundlePath, to: temporaryDirectory, completion: $0) }
 
         return temporaryDirectory.appending(component: unpackedBundleName)
     }

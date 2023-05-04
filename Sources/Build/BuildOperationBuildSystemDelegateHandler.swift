@@ -17,7 +17,15 @@ import LLBuildManifest
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import protocol TSCBasic.ByteStreamable
+import struct TSCBasic.Format
+import class TSCBasic.LocalFileOutputByteStream
+import protocol TSCBasic.OutputByteStream
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.RegEx
+import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStore
 import class TSCUtility.IndexStoreAPI
@@ -29,7 +37,6 @@ typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
 typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
 #endif
 
-typealias Diagnostic = TSCBasic.Diagnostic
 
 class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
     let context: BuildExecutionContext
@@ -62,7 +69,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     private func write(
         tests: [IndexStore.TestCaseClass],
         forModule module: String,
-        fileSystem: TSCBasic.FileSystem,
+        fileSystem: Basics.FileSystem,
         path: AbsolutePath
     ) throws {
 
@@ -102,13 +109,13 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         try fileSystem.writeFileContents(path, string: content)
     }
 
-    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
+    private func execute(fileSystem: Basics.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = self.context.buildParameters.indexStore
         let api = try self.context.indexStoreAPI.get()
-        let store = try IndexStore.open(store: index, api: api)
+        let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try store.listTests(in: tool.inputs.map { try AbsolutePath(validating: $0.name) })
+        let tests = try store.listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
 
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
@@ -194,7 +201,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
-    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
+    private func execute(fileSystem: Basics.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
         // Find the inputs, which are the names of the test discovery module(s)
         let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
@@ -365,13 +372,13 @@ public struct BuildDescription: Codable {
         self.pluginDescriptions = pluginDescriptions
     }
 
-    public func write(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws {
+    public func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
         try fileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
-    public static func load(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws -> BuildDescription {
+    public static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
         let contents: Data = try fileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
         return try decoder.decode(BuildDescription.self, from: contents)
@@ -402,14 +409,14 @@ public final class BuildExecutionContext {
     /// Optional provider of build error resolution advice.
     let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
-    let fileSystem: TSCBasic.FileSystem
+    let fileSystem: Basics.FileSystem
 
     let observabilityScope: ObservabilityScope
 
     public init(
         _ buildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
-        fileSystem: TSCBasic.FileSystem,
+        fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope,
         packageStructureDelegate: PackageStructureDelegate,
         buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
@@ -450,7 +457,7 @@ public final class BuildExecutionContext {
                 let indexStoreLib = try buildParameters.toolchain.toolchainLibDir
                     .appending("libIndexStore" + ext)
                 #endif
-                return try .success(IndexStoreAPI(dylib: indexStoreLib))
+                return try .success(IndexStoreAPI(dylib: TSCAbsolutePath(indexStoreLib)))
             } catch {
                 return .failure(error)
             }

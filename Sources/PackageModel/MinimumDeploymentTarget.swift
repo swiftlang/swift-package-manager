@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
+
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
+
 
 public struct MinimumDeploymentTarget {
     public let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]

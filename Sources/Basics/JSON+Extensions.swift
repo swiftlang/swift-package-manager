@@ -10,11 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Foundation.DateFormatter
 import struct Foundation.Data
+import class Foundation.DateFormatter
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
-import TSCBasic
 
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
 extension DateFormatter {
@@ -81,11 +80,24 @@ extension JSONDecoder {
 }
 
 extension JSONEncoder {
-    public static func makeWithDefaults(prettified: Bool = true, dateEncodingStrategy: DateEncodingStrategy = .safeISO8601) -> JSONEncoder {
-        Self.makeWithDefaults(sortKeys: prettified, prettyPrint: prettified, escapeSlashes: !prettified, dateEncodingStrategy: dateEncodingStrategy)
+    public static func makeWithDefaults(
+        prettified: Bool = true,
+        dateEncodingStrategy: DateEncodingStrategy = .safeISO8601
+    ) -> JSONEncoder {
+        Self.makeWithDefaults(
+            sortKeys: prettified,
+            prettyPrint: prettified,
+            escapeSlashes: !prettified,
+            dateEncodingStrategy: dateEncodingStrategy
+        )
     }
 
-    public static func makeWithDefaults(sortKeys: Bool, prettyPrint: Bool, escapeSlashes: Bool, dateEncodingStrategy: DateEncodingStrategy = .safeISO8601) -> JSONEncoder {
+    public static func makeWithDefaults(
+        sortKeys: Bool,
+        prettyPrint: Bool,
+        escapeSlashes: Bool,
+        dateEncodingStrategy: DateEncodingStrategy = .safeISO8601
+    ) -> JSONEncoder {
         let encoder = JSONEncoder()
         var outputFormatting: JSONEncoder.OutputFormatting = []
 
@@ -118,7 +130,7 @@ extension JSONEncoder {
 }
 
 extension JSONDecoder {
-    public func decode<T: Decodable>(path: AbsolutePath, fileSystem: FileSystem, `as` kind: T.Type) throws -> T {
+    public func decode<T: Decodable>(path: AbsolutePath, fileSystem: FileSystem, as kind: T.Type) throws -> T {
         let data: Data = try fileSystem.readFileContents(path)
         return try self.decode(kind, from: data)
     }

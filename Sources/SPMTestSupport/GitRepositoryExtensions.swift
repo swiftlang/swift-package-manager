@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SourceControl
+
+import class TSCBasic.Process
 
 import enum TSCUtility.Git
 

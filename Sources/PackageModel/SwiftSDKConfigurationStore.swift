@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder

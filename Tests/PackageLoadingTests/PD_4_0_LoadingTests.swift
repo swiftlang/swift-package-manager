@@ -14,9 +14,9 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
+import class TSCBasic.InMemoryFileSystem
 
 class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {

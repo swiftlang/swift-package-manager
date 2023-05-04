@@ -10,17 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+import LLBuildManifest
 import XCTest
 
-import TSCBasic
-import LLBuildManifest
+import class TSCBasic.InMemoryFileSystem
 
 // FIXME: This should be in its own test target.
 final class LLBuildManifestTests: XCTestCase {
     func testBasics() throws {
         var manifest = BuildManifest()
 
-        let root: AbsolutePath = AbsolutePath("/some")
+        let root: AbsolutePath = "/some"
 
         manifest.defaultTarget = "main"
         manifest.addPhonyCmd(
@@ -66,7 +67,7 @@ final class LLBuildManifestTests: XCTestCase {
     func testShellCommands() throws {
         var manifest = BuildManifest()
 
-        let root: AbsolutePath = AbsolutePath.root
+        let root: AbsolutePath = .root
 
         manifest.defaultTarget = "main"
         manifest.addShellCmd(

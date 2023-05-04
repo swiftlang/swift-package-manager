@@ -20,9 +20,11 @@ import PackageSigning
 import SourceControl
 import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 @testable import Workspace
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
@@ -228,7 +230,7 @@ final class WorkspaceTests: XCTestCase {
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -4963,7 +4965,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             // From here the API should be simple and straightforward:
-            let manifest = try tsc_await {
+            let manifest = try temp_await {
                 workspace.loadRootManifest(
                     at: packagePath,
                     observabilityScope: observability.topScope,
@@ -4973,7 +4975,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
-            let package = try tsc_await {
+            let package = try temp_await {
                 workspace.loadRootPackage(
                     at: packagePath,
                     observabilityScope: observability.topScope,
@@ -4994,7 +4996,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(package.identity, .plain(manifest.displayName))
             XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
 
-            let reloadedPackage = try tsc_await {
+            let reloadedPackage = try temp_await {
                 workspace.loadPackage(
                     with: package.identity,
                     packageGraph: graph,
@@ -8519,7 +8521,7 @@ final class WorkspaceTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let wks = try workspace.getOrCreateWorkspace()
-        XCTAssertNoThrow(try tsc_await {
+        XCTAssertNoThrow(try temp_await {
             wks.loadRootPackage(
                 at: workspace.rootsDir.appending("Root"),
                 observabilityScope: observability.topScope,
@@ -13626,7 +13628,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 guard let foo = result.find(package: "org.foo") else {
-                    return XCTFail("missing pacakge")
+                    return XCTFail("missing package")
                 }
                 XCTAssertNotNil(foo.registryMetadata, "expecting registry metadata")
                 XCTAssertEqual(foo.registryMetadata?.source, .registry(registryURL))

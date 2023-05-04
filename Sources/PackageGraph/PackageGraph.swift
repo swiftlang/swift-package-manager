@@ -12,7 +12,8 @@
 
 import PackageLoading
 import PackageModel
-import TSCBasic
+
+import func TSCBasic.topologicalSort
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.

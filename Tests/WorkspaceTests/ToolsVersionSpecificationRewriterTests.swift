@@ -14,11 +14,12 @@
 /// This file tests `Workspace.rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
 ///
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageModel
 @testable import Workspace
+import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 /// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`
 class ToolsVersionSpecificationRewriterTests: XCTestCase {

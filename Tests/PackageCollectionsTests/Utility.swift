@@ -19,7 +19,8 @@ import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-import TSCBasic
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 

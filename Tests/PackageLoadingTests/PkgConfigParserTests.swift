@@ -12,9 +12,13 @@
 
 import Basics
 @testable import PackageLoading
-import TSCBasic
 import SPMTestSupport
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.InMemoryFileSystem
+
+import func TSCTestSupport.withCustomEnv
 
 final class PkgConfigParserTests: XCTestCase {
     func testCircularPCFile() throws {

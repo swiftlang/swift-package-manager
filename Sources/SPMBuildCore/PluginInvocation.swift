@@ -15,7 +15,8 @@ import Foundation
 import PackageModel
 import PackageLoading
 import PackageGraph
-import TSCBasic
+
+import protocol TSCBasic.DiagnosticLocation
 
 public enum PluginAction {
     case createBuildToolCommands(package: ResolvedPackage, target: ResolvedTarget)
@@ -466,7 +467,7 @@ extension PackageGraph {
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
-                let success = try tsc_await { pluginTarget.invoke(
+                let success = try temp_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(package: package, target: target),
                     buildEnvironment: buildEnvironment,
                     scriptRunner: pluginScriptRunner,

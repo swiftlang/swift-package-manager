@@ -15,7 +15,6 @@ import Basics
 import SPMTestSupport
 import XCTest
 
-import struct TSCBasic.AbsolutePath
 import class TSCBasic.InMemoryFileSystem
 
 private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
@@ -99,7 +98,7 @@ private let someToolsWithRelativeRoot = (
 final class ToolsetTests: XCTestCase {
     func testToolset() throws {
         let fileSystem = InMemoryFileSystem()
-        try fileSystem.createDirectory(.init(validating: "/tools"))
+        try fileSystem.createDirectory(AbsolutePath(validating: "/tools"))
         for testFile in [compilersNoRoot, noValidToolsNoRoot, unknownToolsNoRoot, otherToolsNoRoot, someToolsWithRoot, someToolsWithRelativeRoot] {
             try fileSystem.writeFileContents(testFile.path, data: .init(testFile.json.utf8))
         }

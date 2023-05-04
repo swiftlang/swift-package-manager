@@ -16,7 +16,6 @@ import CoreCommands
 import Foundation
 import PackageModel
 import PackageRegistry
-import TSCBasic
 import Workspace
 
 @available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)

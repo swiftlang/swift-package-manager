@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+@testable import PackageModel
 import XCTest
 
-@testable import PackageModel
+import struct TSCBasic.ProcessResult
 
 class MinimumDeploymentTargetTests: XCTestCase {
     func testDoesNotAssertWithNoOutput() throws {

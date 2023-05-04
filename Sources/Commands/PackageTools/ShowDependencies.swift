@@ -12,9 +12,13 @@
 
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import PackageGraph
-import TSCBasic
+
+import class TSCBasic.LocalFileOutputByteStream
+import protocol TSCBasic.OutputByteStream
+import var TSCBasic.stdoutStream
 
 extension SwiftPackageTool {
     struct ShowDependencies: SwiftCommand {

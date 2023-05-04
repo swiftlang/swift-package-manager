@@ -10,15 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Commands
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.Process
 
 typealias Process = TSCBasic.Process
 

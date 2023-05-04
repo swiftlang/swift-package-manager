@@ -15,7 +15,6 @@ import Dispatch
 import class Foundation.NSLock
 import OrderedCollections
 import PackageModel
-import TSCBasic
 
 import struct TSCUtility.Version
 

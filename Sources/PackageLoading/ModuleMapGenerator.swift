@@ -13,7 +13,6 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
 
 /// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"

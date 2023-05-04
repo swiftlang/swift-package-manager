@@ -14,7 +14,11 @@ import Basics
 import Dispatch
 import Foundation
 import SourceControl
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.FileMode
+import struct TSCBasic.FileSystemError
+import class TSCBasic.InMemoryFileSystem
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {
@@ -208,112 +212,112 @@ public final class InMemoryGitRepository {
 }
 
 extension InMemoryGitRepository: FileSystem {
-    public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+    public func exists(_ path: TSCAbsolutePath, followSymlink: Bool) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.exists(path, followSymlink: followSymlink)
         }
     }
 
-    public func isDirectory(_ path: AbsolutePath) -> Bool {
+    public func isDirectory(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isDirectory(path)
         }
     }
 
-    public func isFile(_ path: AbsolutePath) -> Bool {
+    public func isFile(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isFile(path)
         }
     }
 
-    public func isSymlink(_ path: AbsolutePath) -> Bool {
+    public func isSymlink(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isSymlink(path)
         }
     }
 
-    public func isExecutableFile(_ path: AbsolutePath) -> Bool {
+    public func isExecutableFile(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isExecutableFile(path)
         }
     }
 
-    public func isReadable(_ path: AbsolutePath) -> Bool {
+    public func isReadable(_ path: TSCAbsolutePath) -> Bool {
         return self.exists(path)
     }
 
-    public func isWritable(_ path: AbsolutePath) -> Bool {
+    public func isWritable(_ path: TSCAbsolutePath) -> Bool {
         return false
     }
 
-    public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath("/")
+    public var currentWorkingDirectory: TSCAbsolutePath? {
+        return .root
     }
 
-    public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+    public func changeCurrentWorkingDirectory(to path: TSCAbsolutePath) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    public var homeDirectory: AbsolutePath {
+    public var homeDirectory: TSCAbsolutePath {
         fatalError("Unsupported")
     }
 
-    public var cachesDirectory: AbsolutePath? {
+    public var cachesDirectory: TSCAbsolutePath? {
         fatalError("Unsupported")
     }
 
-    public var tempDirectory: AbsolutePath {
+    public var tempDirectory: TSCAbsolutePath {
         fatalError("Unsupported")
     }
 
-    public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+    public func getDirectoryContents(_ path: TSCAbsolutePath) throws -> [String] {
         try self.lock.withLock {
             try self.head.fileSystem.getDirectoryContents(path)
         }
     }
 
-    public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+    public func createDirectory(_ path: TSCAbsolutePath, recursive: Bool) throws {
         try self.lock.withLock {
             try self.head.fileSystem.createDirectory(path, recursive: recursive)
         }
     }
     
-    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+    public func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+    public func readFileContents(_ path: TSCAbsolutePath) throws -> ByteString {
         try self.lock.withLock {
             return try head.fileSystem.readFileContents(path)
         }
     }
 
-    public func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+    public func writeFileContents(_ path: TSCAbsolutePath, bytes: ByteString) throws {
         try self.lock.withLock {
             try self.head.fileSystem.writeFileContents(path, bytes: bytes)
             self.isDirty = true
         }
     }
 
-    public func removeFileTree(_ path: AbsolutePath) throws {
+    public func removeFileTree(_ path: TSCAbsolutePath) throws {
         try self.lock.withLock {
             try self.head.fileSystem.removeFileTree(path)
         }
     }
 
-    public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+    public func chmod(_ mode: FileMode, path: TSCAbsolutePath, options: Set<FileMode.Option>) throws {
         try self.lock.withLock {
             try self.head.fileSystem.chmod(mode, path: path, options: options)
         }
     }
 
-    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    public func copy(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         try self.lock.withLock {
             try self.head.fileSystem.copy(from: sourcePath, to: destinationPath)
         }
     }
 
-    public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    public func move(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         try self.lock.withLock {
             try self.head.fileSystem.move(from: sourcePath, to: destinationPath)
         }

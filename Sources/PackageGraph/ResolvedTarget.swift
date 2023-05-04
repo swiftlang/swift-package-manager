@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import PackageModel
+
+import func TSCBasic.topologicalSort
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
 public final class ResolvedTarget {

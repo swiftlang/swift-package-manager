@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 @testable import Commands
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
 

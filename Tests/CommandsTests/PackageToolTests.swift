@@ -19,9 +19,14 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.BufferedOutputByteStream
+import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.JSON
+import class TSCBasic.Process
 
 final class PackageToolTests: CommandsTestCase {
     @discardableResult
@@ -2902,7 +2907,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,

@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageLoading
 import PackageModel
-import TSCBasic
-
-import struct Basics.InternalError
 import class PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
+
+import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
 public final class ClangTargetBuildDescription {

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import OrderedCollections
 
 extension Dictionary {
     @inlinable
@@ -37,12 +37,14 @@ extension Dictionary {
     }
 }
 
-extension OrderedDictionary {
-    public subscript(key: Key, `default` `default`: Value) -> Value {
-        set {
-            self[key] = newValue
-        } get {
-            self[key] ?? `default`
-        }
-    }
-}
+/*
+ extension OrderedDictionary {
+     public subscript(key: Key, `default` `default`: Value) -> Value {
+         set {
+             self[key] = newValue
+         } get {
+             self[key] ?? `default`
+         }
+     }
+ }
+ */

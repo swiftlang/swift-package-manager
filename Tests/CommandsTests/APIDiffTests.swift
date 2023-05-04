@@ -18,9 +18,10 @@ import Foundation
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import enum TSCBasic.ProcessEnv
 
 final class APIDiffTests: CommandsTestCase {
     private let driverSupport = DriverSupport()

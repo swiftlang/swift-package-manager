@@ -14,7 +14,8 @@ import Basics
 import OrderedCollections
 import PackageLoading
 import PackageModel
-import TSCBasic
+
+import func TSCBasic.topologicalSort
 
 extension PackageGraph {
 

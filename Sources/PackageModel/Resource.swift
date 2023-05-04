@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 
 /// An individual resource file and its corresponding rule.
 public struct Resource: Codable, Equatable {

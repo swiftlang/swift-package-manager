@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import struct TSCBasic.SHA256
 
 extension String {
     /// generated for the byte string's contents.
@@ -19,7 +19,7 @@ extension String {
     /// Secure Hashing Algorithm 2 (SHA-2) hashing with a 256-bit digest, when available,
     /// falling back on a native implementation in Swift provided by TSCBasic.
     public var sha256Checksum: String {
-        return SHA256().hash(self).hexadecimalRepresentation
+        SHA256().hash(self).hexadecimalRepresentation
     }
 
     /// Drops the given suffix from the string, if present.

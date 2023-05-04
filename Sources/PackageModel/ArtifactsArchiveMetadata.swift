@@ -12,7 +12,6 @@
 
 import Basics
 import Foundation
-import TSCBasic
 
 import struct TSCUtility.Version
 

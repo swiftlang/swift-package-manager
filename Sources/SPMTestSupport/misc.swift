@@ -20,13 +20,30 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
+import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
 
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+
 import enum TSCUtility.Git
 
-@_exported import TSCTestSupport
+@_exported import func TSCTestSupport.systemQuietly
+@_exported import enum TSCTestSupport.StringPattern
+
+public func testWithTemporaryDirectory(
+    function: StaticString = #function,
+    body: (AbsolutePath) throws -> Void
+) throws {
+    let body2 = { (path: TSCAbsolutePath) in
+        try body(AbsolutePath(path))
+    }
+    try TSCTestSupport.testWithTemporaryDirectory(
+        function: function,
+        body: body2
+    )
+}
 
 /// Test-helper function that runs a block of code on a copy of a test fixture
 /// package.  The copy is made into a temporary directory, and the block is
@@ -270,6 +287,18 @@ public func loadPackageGraph(
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
+extension FileSystem {
+    @_disfavoredOverload
+    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
+        self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
+    }
+
+    @_disfavoredOverload
+    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+        self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
+    }
+}
+
 extension URL: ExpressibleByStringLiteral {
     public init(_ value: StringLiteralType) {
         self.init(string: value)!
@@ -293,5 +322,45 @@ extension PackageIdentity: ExpressibleByStringInterpolation {
 extension PackageIdentity {
     public static func registry(_ value: String) -> RegistryIdentity {
         Self.plain(value).registry!
+    }
+}
+
+extension AbsolutePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension AbsolutePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
+    }
+}
+
+extension AbsolutePath {
+    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
+        try! self.init(validating: path, relativeTo: basePath)
+    }
+}
+
+extension RelativePath {
+    @available(*, deprecated, message: "use direct string instead")
+    public init(static path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+}
+
+extension RelativePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension RelativePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
     }
 }

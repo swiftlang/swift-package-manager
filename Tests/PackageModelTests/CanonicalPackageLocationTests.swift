@@ -12,8 +12,6 @@
 
 import XCTest
 
-import TSCBasic
-
 @testable import PackageModel
 
 final class CanonicalPackageLocationTests: XCTestCase {

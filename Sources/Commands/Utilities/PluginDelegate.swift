@@ -15,7 +15,9 @@ import CoreCommands
 import Foundation
 import PackageModel
 import SPMBuildCore
-import TSCBasic
+
+import class TSCBasic.BufferedOutputByteStream
+import class TSCBasic.Process
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftTool: SwiftTool

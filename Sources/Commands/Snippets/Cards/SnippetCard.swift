@@ -10,9 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import CoreCommands
 import PackageModel
-import TSCBasic
+
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
 
 /// A card displaying a ``Snippet`` at the terminal.
 struct SnippetCard: Card {

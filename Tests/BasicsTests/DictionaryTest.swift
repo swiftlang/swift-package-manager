@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import TSCBasic
 import XCTest
 
 final class DictionaryTests: XCTestCase {

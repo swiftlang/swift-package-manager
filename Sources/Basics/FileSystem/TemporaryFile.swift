@@ -12,7 +12,7 @@
 
 import _Concurrency
 import Foundation
-import TSCBasic
+import enum TSCBasic.TempFileError
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted when
@@ -37,7 +37,7 @@ public func withTemporaryDirectory<Result>(
     _ body: @Sendable @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) throws -> Task<Result, Error> {
     let temporaryDirectory = try createTemporaryDirectory(fileSystem: fileSystem, dir: dir, prefix: prefix)
-    
+
     let task: Task<Result, Error> = Task {
         try await withTaskCancellationHandler {
             try await body(temporaryDirectory) { path in
@@ -46,9 +46,8 @@ public func withTemporaryDirectory<Result>(
         } onCancel: {
             try? fileSystem.removeFileTree(temporaryDirectory)
         }
-        
     }
-    
+
     return task
 }
 
@@ -80,13 +79,17 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
-private func createTemporaryDirectory(fileSystem: FileSystem, dir: AbsolutePath?, prefix: String) throws -> AbsolutePath {
+private func createTemporaryDirectory(
+    fileSystem: FileSystem,
+    dir: AbsolutePath?,
+    prefix: String
+) throws -> AbsolutePath {
     // This random generation is needed so that
     // it is more or less equal to generation using `mkdtemp` function
     let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    
-    let randomSuffix = String((0..<6).map { _ in letters.randomElement()! })
-    
+
+    let randomSuffix = String((0 ..< 6).map { _ in letters.randomElement()! })
+
     let tempDirectory = try dir ?? fileSystem.tempDirectory
     guard fileSystem.isDirectory(tempDirectory) else {
         throw TempFileError.couldNotFindTmpDir(tempDirectory.pathString)
@@ -94,7 +97,7 @@ private func createTemporaryDirectory(fileSystem: FileSystem, dir: AbsolutePath?
 
     // Construct path to the temporary directory.
     let templatePath = try AbsolutePath(validating: prefix + ".\(randomSuffix)", relativeTo: tempDirectory)
-    
+
     try fileSystem.createDirectory(templatePath, recursive: true)
     return templatePath
 }

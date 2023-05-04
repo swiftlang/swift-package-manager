@@ -14,11 +14,34 @@ import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
-import TSCBasic
-@_exported import TSCTestSupport
+import TSCTestSupport
 import XCTest
 
+import struct TSCBasic.ProcessResult
+
 import struct TSCUtility.Version
+
+@_exported import func TSCTestSupport.XCTAssertMatch
+@_exported import func TSCTestSupport.XCTAssertNoMatch
+@_exported import func TSCTestSupport.XCTAssertResultSuccess
+@_exported import func TSCTestSupport.XCTAssertThrows
+
+public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+    TSCTestSupport.XCTAssertFileExists(TSCAbsolutePath(path), file: file, line: line)
+}
+
+public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+    TSCTestSupport.XCTAssertDirectoryExists(TSCAbsolutePath(path), file: file, line: line)
+}
+
+public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+    TSCTestSupport.XCTAssertNoSuchPath(TSCAbsolutePath(path), file: file, line: line)
+}
+
+
+public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), file: StaticString = #file, line: UInt = #line) {
+    TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
+}
 
 public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
     if let ci = ProcessInfo.processInfo.environment["CI"] as? NSString, ci.boolValue {

@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
-import TSCTestSupport
+import SPMTestSupport
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
+import struct TSCBasic.FileSystemError
 
 final class TarArchiverTests: XCTestCase {
     func testSuccess() throws {

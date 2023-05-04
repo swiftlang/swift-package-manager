@@ -17,7 +17,6 @@ import CoreCommands
 import Foundation
 import PackageCollections
 import PackageModel
-import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -88,7 +87,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         func run(_ swiftTool: SwiftTool) throws {
             let collections = try with(swiftTool) { collections in
-                try tsc_await { collections.listCollections(identifiers: nil, callback: $0) }
+                try temp_await { collections.listCollections(identifiers: nil, callback: $0) }
             }
 
             if self.jsonOptions.json {
@@ -109,7 +108,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         func run(_ swiftTool: SwiftTool) throws {
             let collections = try with(swiftTool) { collections in
-                try tsc_await { collections.refreshCollections(callback: $0) }
+                try temp_await { collections.refreshCollections(callback: $0) }
             }
             print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
         }
@@ -140,7 +139,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             let collection: PackageCollectionsModel.Collection = try with(swiftTool) { collections in
                 do {
                     let userTrusted = self.trustUnsigned
-                    return try tsc_await {
+                    return try temp_await {
                         collections.addCollection(
                             source,
                             order: order,
@@ -177,8 +176,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
             try with(swiftTool) { collections in
-                let collection = try tsc_await { collections.getCollection(source, callback: $0) }
-                _ = try tsc_await { collections.removeCollection(source, callback: $0) }
+                let collection = try temp_await { collections.getCollection(source, callback: $0) }
+                _ = try temp_await { collections.removeCollection(source, callback: $0) }
                 print("Removed \"\(collection.name)\" from your package collections.")
             }
         }
@@ -210,7 +209,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             try with(swiftTool) { collections in
                 switch searchMethod {
                 case .keywords:
-                    let results = try tsc_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
+                    let results = try temp_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
 
                     if jsonOptions.json {
                         try JSONEncoder.makeWithDefaults().print(results.items)
@@ -221,7 +220,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     }
 
                 case .module:
-                    let results = try tsc_await { collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil, callback: $0) }
+                    let results = try temp_await { collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil, callback: $0) }
 
                     let packages = Set(results.items.flatMap { $0.packages })
                     if jsonOptions.json {
@@ -293,7 +292,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 let identity = PackageIdentity(urlString: self.packageURL)
 
                 do { // assume URL is for a package in an imported collection
-                    let result = try tsc_await { collections.getPackageMetadata(identity: identity, location: self.packageURL, callback: $0) }
+                    let result = try temp_await { collections.getPackageMetadata(identity: identity, location: self.packageURL, callback: $0) }
 
                     if let versionString = version {
                         guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
@@ -334,7 +333,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
                     do {
                         let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
-                        let collection = try tsc_await { collections.getCollection(source, callback: $0) }
+                        let collection = try temp_await { collections.getCollection(source, callback: $0) }
 
                         let description = optionalRow("Description", collection.overview)
                         let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))

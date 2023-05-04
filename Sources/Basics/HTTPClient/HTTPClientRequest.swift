@@ -12,9 +12,6 @@
 
 import Foundation
 
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
-
 public struct HTTPClientRequest: Sendable {
     public let kind: Kind
     public let url: URL

@@ -12,11 +12,10 @@
 
 import Basics
 import struct Foundation.URL
-import TSCBasic
-import struct TSCUtility.Version
 
 import enum TSCUtility.PackageLocation
 import struct TSCUtility.PolymorphicCodableArray
+import struct TSCUtility.Version
 
 /// The basic package representation.
 ///

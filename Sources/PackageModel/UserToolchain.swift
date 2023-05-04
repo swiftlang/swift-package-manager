@@ -12,7 +12,8 @@
 
 import Basics
 import Foundation
-import TSCBasic
+
+import class TSCBasic.Process
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
@@ -161,7 +162,7 @@ public final class UserToolchain: Toolchain {
             return triple.isAndroid() ? "llvm-ar" : "ar"
         }()
 
-        if let librarian: AbsolutePath = UserToolchain.lookup(
+        if let librarian = UserToolchain.lookup(
             variable: variable,
             searchPaths: searchPaths,
             environment: environment

@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 import Foundation
+
+import struct TSCBasic.RegEx
 
 import struct TSCUtility.Version
 

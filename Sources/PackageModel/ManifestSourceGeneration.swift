@@ -10,9 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
-import TSCBasic
-
 
 /// Extensions on Manifest for generating source code expressing its contents
 /// in canonical declarative form.  Note that this bakes in the results of any

@@ -18,7 +18,8 @@ import struct Foundation.NSRange
 import class Foundation.NSRegularExpression
 import struct Foundation.URL
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 import struct TSCUtility.Version
 

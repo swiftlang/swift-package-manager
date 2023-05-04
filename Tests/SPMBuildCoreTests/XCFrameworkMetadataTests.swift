@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import SPMBuildCore
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class XCFrameworkMetadataTests: XCTestCase {
     func testParseFramework() throws {

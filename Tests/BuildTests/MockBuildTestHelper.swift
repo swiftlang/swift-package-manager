@@ -15,7 +15,6 @@
 @testable import Build
 import Basics
 import SPMBuildCore
-import TSCBasic
 import XCTest
 
 struct MockToolchain: PackageModel.Toolchain {
@@ -61,7 +60,7 @@ let hostTriple = try! UserToolchain.default.triple
 #endif
 
 func mockBuildParameters(
-    buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
+    buildPath: AbsolutePath = "/path/to/build",
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),

@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import XCTest
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+
+import class TSCBasic.InMemoryFileSystem
+import struct TSCBasic.FileSystemError
 
 class ZipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() throws {
@@ -255,17 +257,17 @@ class ArchiverTests: XCTestCase {
 
 extension Archiver {
     func extract(from: AbsolutePath, to: AbsolutePath) throws {
-        try tsc_await {
+        try temp_await {
             self.extract(from: from, to: to, completion: $0)
         }
     }
     func compress(directory: AbsolutePath, to: AbsolutePath) throws {
-        try tsc_await {
+        try temp_await {
             self.compress(directory: directory, to: to, completion: $0)
         }
     }
     func validate(path: AbsolutePath) throws -> Bool {
-        try tsc_await {
+        try temp_await {
             self.validate(path: path, completion: $0)
         }
     }

@@ -17,7 +17,10 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.topologicalSort
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -533,7 +536,7 @@ extension LLBuildManifestBuilder {
         }
         dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
             SwiftDriver.ExternalTargetModuleDetails(
-                path: dependencySwiftTargetDescription.moduleOutputPath,
+                path: TSCAbsolutePath(dependencySwiftTargetDescription.moduleOutputPath),
                 isFramework: false
             )
         try self.collectTargetDependencyModuleDetails(
@@ -1084,10 +1087,10 @@ extension TypedVirtualPath {
     /// Resolve a typed virtual path provided by the Swift driver to
     /// a node in the build graph.
     func resolveToNode(fileSystem: FileSystem) throws -> Node {
-        if let absolutePath = file.absolutePath {
+        if let absolutePath = (file.absolutePath.flatMap{ AbsolutePath($0) }) {
             return Node.file(absolutePath)
-        } else if let relativePath = file.relativePath {
-            guard let workingDirectory = fileSystem.currentWorkingDirectory else {
+        } else if let relativePath = (file.relativePath.flatMap{ RelativePath($0) }) {
+            guard let workingDirectory: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 throw InternalError("unknown working directory")
             }
             return Node.file(workingDirectory.appending(relativePath))

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import protocol TSCBasic.Closable
 
 extension PackageCollections {
     struct Storage: Closable {

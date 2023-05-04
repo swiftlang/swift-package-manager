@@ -13,7 +13,6 @@
 import Basics
 import SwiftDriver
 
-import protocol TSCBasic.FileSystem
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 

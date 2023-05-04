@@ -10,11 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.AbsolutePath
+import protocol Basics.FileSystem
+import struct Basics.Triple
 import Foundation
 import PackageModel
-import TSCBasic
 
-import struct Basics.Triple
+import struct TSCBasic.StringError
 
 public struct XCFrameworkMetadata: Equatable {
     public struct Library: Equatable {

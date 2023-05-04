@@ -13,8 +13,9 @@
 import Basics
 import Dispatch
 import Foundation
-import TSCBasic
 import PackageModel
+
+import enum TSCBasic.ProcessEnv
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager: Cancellable {

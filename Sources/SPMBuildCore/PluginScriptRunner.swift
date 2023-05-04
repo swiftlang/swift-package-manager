@@ -15,7 +15,6 @@ import Foundation
 import PackageModel
 import PackageLoading
 import PackageGraph
-import TSCBasic
 
 /// Implements the mechanics of running and communicating with a plugin (implemented as a set of Swift source files). In most environments this is done by compiling the code to an executable, invoking it as a sandboxed subprocess, and communicating with it using pipes. Specific implementations are free to implement things differently, however.
 public protocol PluginScriptRunner {

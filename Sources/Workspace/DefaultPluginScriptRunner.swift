@@ -15,25 +15,29 @@ import Foundation
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+import enum TSCBasic.ProcessEnv
+import class TSCBasic.Process
 
 import struct TSCUtility.SerializedDiagnostics
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let fileSystem: FileSystem
-    private let cacheDir: AbsolutePath
+    private let cacheDir: Basics.AbsolutePath
     private let toolchain: UserToolchain
     private let extraPluginSwiftCFlags: [String]
     private let enableSandbox: Bool
     private let cancellator: Cancellator
     private let verboseOutput: Bool
 
-    private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
+    private let sdkRootCache = ThreadSafeBox<Basics.AbsolutePath>()
 
     public init(
-        fileSystem: FileSystem,
-        cacheDir: AbsolutePath,
+        fileSystem: Basics.FileSystem,
+        cacheDir: Basics.AbsolutePath,
         toolchain: UserToolchain,
         extraPluginSwiftCFlags: [String] = [],
         enableSandbox: Bool = true,
@@ -50,13 +54,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     
     /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
     public func runPluginScript(
-        sourceFiles: [AbsolutePath],
+        sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         initialMessage: Data,
         toolsVersion: ToolsVersion,
-        workingDirectory: AbsolutePath,
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
+        workingDirectory: Basics.AbsolutePath,
+        writableDirectories: [Basics.AbsolutePath],
+        readOnlyDirectories: [Basics.AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -108,7 +112,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     
     /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
     public func compilePluginScript(
-        sourceFiles: [AbsolutePath],
+        sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
@@ -248,7 +252,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 stringToHash.append("\(key)=\(value)\n")
             }
             for sourceFile in sourceFiles {
-                stringToHash.append(try fileSystem.readFileContents(sourceFile).description)
+                let source: String = try fileSystem.readFileContents(sourceFile)
+                stringToHash.append(source)
             }
             compilerInputHash = ByteString(encodingAsUTF8: stringToHash).sha256Checksum
             observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputHash!)")
@@ -388,12 +393,12 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
     /// Returns path to the sdk, if possible.
     // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
-    private func sdkRoot() -> AbsolutePath? {
+    private func sdkRoot() -> Basics.AbsolutePath? {
         if let sdkRoot = self.sdkRootCache.get() {
             return sdkRoot
         }
 
-        var sdkRootPath: AbsolutePath?
+        var sdkRootPath: Basics.AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
         let foundPath = try? TSCBasic.Process.checkNonZeroExit(
@@ -402,7 +407,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        if let path = try? AbsolutePath(validating: sdkRoot) {
+        if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
             sdkRootPath = path
             self.sdkRootCache.put(path)
         }
@@ -413,10 +418,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
     fileprivate func invoke(
-        compiledExec: AbsolutePath,
-        workingDirectory: AbsolutePath,
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
+        compiledExec: Basics.AbsolutePath,
+        workingDirectory: Basics.AbsolutePath,
+        writableDirectories: [Basics.AbsolutePath],
+        readOnlyDirectories: [Basics.AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
         initialMessage: Data,
         observabilityScope: ObservabilityScope,
@@ -450,7 +455,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
-        let process = Process()
+        let process = Foundation.Process()
         process.executableURL = URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
         process.environment = ProcessInfo.processInfo.environment

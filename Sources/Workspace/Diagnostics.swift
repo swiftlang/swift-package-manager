@@ -15,7 +15,8 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
-import TSCBasic
+
+import struct TSCBasic.FileSystemError
 
 public struct ManifestParseDiagnostic: CustomStringConvertible {
     public let errors: [String]

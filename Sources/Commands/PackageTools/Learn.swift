@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import PackageGraph
 import PackageModel
-import TSCBasic
 
 extension SwiftPackageTool {
     struct Learn: SwiftCommand {

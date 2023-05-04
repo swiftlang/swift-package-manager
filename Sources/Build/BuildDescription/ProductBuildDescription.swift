@@ -11,11 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
+import OrderedCollections
 import SPMBuildCore
-import TSCBasic
-@_implementationOnly import DriverSupport
+
+import struct TSCBasic.SortedArray
 
 /// The build description for a product.
 public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
@@ -371,5 +373,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         return flags
+    }
+}
+
+extension SortedArray where Element == AbsolutePath {
+    public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
+        lhs.insert(contentsOf: rhs)
     }
 }

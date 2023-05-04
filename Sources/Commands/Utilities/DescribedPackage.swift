@@ -10,9 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 import PackageModel
 import Foundation
+
+import class TSCBasic.BufferedOutputByteStream
+import protocol TSCBasic.OutputByteStream
+import func TSCBasic.transitiveClosure
 
 /// Represents a package for the sole purpose of generating a description.
 struct DescribedPackage: Encodable {

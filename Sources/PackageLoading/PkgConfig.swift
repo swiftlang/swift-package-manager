@@ -12,7 +12,10 @@
 
 import Basics
 @_implementationOnly import Foundation
-import TSCBasic
+import OrderedCollections
+
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
 
 /// Information on an individual `pkg-config` supported package.
 public struct PkgConfig {

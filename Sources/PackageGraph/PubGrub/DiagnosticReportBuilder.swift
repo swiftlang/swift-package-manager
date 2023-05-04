@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 struct DiagnosticReportBuilder {
     let rootNode: DependencyResolutionNode
     let incompatibilities: [DependencyResolutionNode: [Incompatibility]]

@@ -15,7 +15,6 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
 
@@ -53,7 +52,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             try fs.writeFileContents(manifestPath, string: manifestContents)
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
-            let manifest = try tsc_await {
+            let manifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: toolsVersion,
@@ -84,7 +83,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(manifestPath, string: newContents)
-            let newManifest = try tsc_await {
+            let newManifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: toolsVersion,

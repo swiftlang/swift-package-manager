@@ -13,7 +13,9 @@
 import Basics
 import Foundation
 import SPMBuildCore
-import TSCBasic
+
+import class TSCBasic.ThreadSafeOutputByteStream
+import protocol TSCBasic.OutputByteStream
 
 import enum TSCUtility.Diagnostics
 import protocol TSCUtility.ProgressAnimationProtocol

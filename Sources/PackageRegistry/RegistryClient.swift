@@ -17,7 +17,8 @@ import PackageFingerprint
 import PackageLoading
 import PackageModel
 import PackageSigning
-import TSCBasic
+
+import protocol TSCBasic.HashAlgorithm
 
 import struct TSCUtility.Version
 
@@ -355,7 +356,7 @@ public final class RegistryClient: Cancellable {
                                         return nil
                                     }
                                     let configuration = self.configuration.signing(for: package, registry: registry)
-                                    return try? tsc_await { completion in
+                                    return try? temp_await { completion in
                                         let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
                                             completion($0)
                                         }

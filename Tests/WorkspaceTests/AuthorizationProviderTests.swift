@@ -12,10 +12,10 @@
 
 @testable import Basics
 import SPMTestSupport
-import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class AuthorizationProviderTests: XCTestCase {
     func testNetrcAuthorizationProviders() throws {
@@ -23,7 +23,7 @@ final class AuthorizationProviderTests: XCTestCase {
 
         // custom .netrc file
         do {
-            let fileSystem = InMemoryFileSystem()
+            let fileSystem: FileSystem = InMemoryFileSystem()
 
             let customPath = try fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
             try fileSystem.createDirectory(customPath.parentDirectory, recursive: true)
@@ -87,7 +87,7 @@ final class AuthorizationProviderTests: XCTestCase {
         // custom .netrc file
 
         do {
-            let fileSystem = InMemoryFileSystem()
+            let fileSystem: FileSystem = InMemoryFileSystem()
 
             let customPath = try fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
             try fileSystem.createDirectory(customPath.parentDirectory, recursive: true)

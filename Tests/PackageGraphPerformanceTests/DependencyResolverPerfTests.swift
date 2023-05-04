@@ -16,9 +16,16 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
-import struct TSCUtility.Version
 import XCTest
+
+import enum TSCBasic.JSON
+import protocol TSCBasic.JSONMappable
+import protocol TSCBasic.JSONSerializable
+
+import func TSCUtility.measure
+import struct TSCUtility.Version
+
+import class TSCTestSupport.XCTestCasePerf
 
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")

@@ -15,8 +15,9 @@ import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class ToolsVersionParserTests: XCTestCase {
     func parse(_ content: String, _ body: ((ToolsVersion) -> Void)? = nil) throws {

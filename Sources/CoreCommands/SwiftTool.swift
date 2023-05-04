@@ -30,10 +30,7 @@ import Darwin
 import Glibc
 #endif
 
-import struct TSCBasic.AbsolutePath
 import func TSCBasic.exec
-import protocol TSCBasic.FileSystem
-import var TSCBasic.localFileSystem
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv

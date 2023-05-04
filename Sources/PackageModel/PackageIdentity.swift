@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
-import TSCBasic
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible, Sendable {

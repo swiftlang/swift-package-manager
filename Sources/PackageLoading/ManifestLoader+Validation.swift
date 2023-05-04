@@ -13,7 +13,6 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
 
 public struct ManifestValidator {
     static var supportedLocalBinaryDependencyExtensions: [String] {

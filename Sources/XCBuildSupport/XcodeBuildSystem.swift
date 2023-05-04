@@ -16,7 +16,12 @@ import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
+
+import protocol TSCBasic.OutputByteStream
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.withTemporaryFile
+import func TSCBasic.memoize
 
 import class TSCUtility.MultiLinePercentProgressAnimation
 import enum TSCUtility.Diagnostics
@@ -227,7 +232,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // Write out the parameters as a JSON file, and return the path.
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(params)
-        let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
+        let file = try withTemporaryFile(deleteOnClose: false) { AbsolutePath($0.path) }
         try self.fileSystem.writeFileContents(file, data: data)
         return file
     }

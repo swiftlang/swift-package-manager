@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 
 /// Represents a test product which is built and is present on disk.
 public struct BuiltTestProduct: Codable {

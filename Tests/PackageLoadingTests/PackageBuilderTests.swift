@@ -14,8 +14,9 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 /// Tests for the handling of source layout conventions.
 class PackageBuilderTests: XCTestCase {
@@ -41,7 +42,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMixedSources() throws {
-        let foo: AbsolutePath = AbsolutePath("/Sources/foo")
+        let foo: AbsolutePath = "/Sources/foo"
 
         let fs = InMemoryFileSystem(emptyFiles:
             foo.appending(components: "main.swift").pathString,
@@ -226,7 +227,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testPublicIncludeDirMixedWithSources() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = "/Sources"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "clib", "nested", "nested.h").pathString,
@@ -597,7 +598,7 @@ class PackageBuilderTests: XCTestCase {
 
     func testMultipleTestEntryPointsError() throws {
         let name = SwiftTarget.defaultTestEntryPointName
-        let swift: AbsolutePath = AbsolutePath("/swift")
+        let swift: AbsolutePath = "/swift"
 
         let fs = InMemoryFileSystem(emptyFiles:
             AbsolutePath.root.appending(components: name).pathString,
@@ -621,9 +622,9 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testCustomTargetPaths() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
-        let swift: RelativePath = RelativePath("swift")
-        let bar: AbsolutePath = AbsolutePath("/bar")
+        let Sources: AbsolutePath = "/Sources"
+        let swift: RelativePath = "swift"
+        let bar: AbsolutePath = "/bar"
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/mah/target/exe/swift/exe/main.swift",
@@ -687,7 +688,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testCustomTargetPathsOverlap() throws {
-        let bar: AbsolutePath = AbsolutePath("/target/bar")
+        let bar: AbsolutePath = "/target/bar"
 
         let fs = InMemoryFileSystem(emptyFiles:
             bar.appending(components: "bar.swift").pathString,
@@ -741,8 +742,8 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testPublicHeadersPath() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
-        let Tests: AbsolutePath = AbsolutePath("/Tests")
+        let Sources: AbsolutePath = "/Sources"
+        let Tests: AbsolutePath = "/Tests"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "Foo", "inc", "module.modulemap").pathString,
@@ -813,7 +814,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTestsLayoutsv4() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = "/Sources"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "A", "main.swift").pathString,
@@ -960,7 +961,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTargetDependencies() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = "/Sources"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "Foo", "Foo.swift").pathString,
@@ -1733,7 +1734,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         do {
-            let pkg2: AbsolutePath = AbsolutePath("/Sources/pkg2")
+            let pkg2: AbsolutePath = "/Sources/pkg2"
 
             // Reference a target which doesn't have sources.
             let fs = InMemoryFileSystem(emptyFiles:
@@ -2044,7 +2045,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSpecialTargetDir() throws {
-        let src: AbsolutePath = AbsolutePath("/src")
+        let src: AbsolutePath = "/src"
         // Special directory should be src because both target and test target are under it.
         let fs = InMemoryFileSystem(emptyFiles:
             src.appending(components: "A", "Foo.swift").pathString,
@@ -2195,7 +2196,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSystemLibraryTargetDiagnostics() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = "/Sources"
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "foo", "module.modulemap").pathString,
@@ -2414,7 +2415,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testUnknownSourceFilesUnderDeclaredSourcesIgnoredInV5_2Manifest() throws {
-        let lib: AbsolutePath = AbsolutePath("/Sources/lib")
+        let lib: AbsolutePath = "/Sources/lib"
 
         // Files with unknown suffixes under declared sources are not considered valid sources in 5.2 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -2441,7 +2442,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testUnknownSourceFilesUnderDeclaredSourcesCompiledInV5_3Manifest() throws {
-        let lib: AbsolutePath = AbsolutePath("/Sources/lib")
+        let lib: AbsolutePath = "/Sources/lib"
 
         // Files with unknown suffixes under declared sources are treated as compilable in 5.3 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -2853,8 +2854,8 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testXcodeResources() throws {
-        let root: AbsolutePath = AbsolutePath("/Foo")
-        let Foo: AbsolutePath = root.appending(components: "Sources", "Foo")
+        let root: AbsolutePath = "/Foo"
+        let Foo = root.appending(components: "Sources", "Foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Foo.appending(components: "foo.swift").pathString,

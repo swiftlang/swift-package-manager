@@ -15,8 +15,6 @@ import Basics
 import CoreCommands
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-
 struct SetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
@@ -85,7 +83,7 @@ struct SetConfiguration: ConfigurationSubcommand {
         var configuration = destination.pathsConfiguration
         var updatedProperties = [String]()
 
-        let currentWorkingDirectory = fileSystem.currentWorkingDirectory
+        let currentWorkingDirectory: AbsolutePath? = fileSystem.currentWorkingDirectory
 
         if let sdkRootPath {
             configuration.sdkRootPath = try AbsolutePath(validating: sdkRootPath, relativeTo: currentWorkingDirectory)

@@ -12,8 +12,9 @@
 
 import Basics
 import Foundation
-import TSCBasic
 import PackageModel
+
+import struct TSCBasic.ByteString
 
 /// The Project Interchange Format (PIF) is a structured representation of the
 /// project model created by clients (Xcode/SwiftPM) to send to XCBuild.

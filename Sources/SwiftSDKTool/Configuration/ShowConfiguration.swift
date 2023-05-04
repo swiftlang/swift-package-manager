@@ -15,8 +15,6 @@ import Basics
 import CoreCommands
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-
 struct ShowConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "show",

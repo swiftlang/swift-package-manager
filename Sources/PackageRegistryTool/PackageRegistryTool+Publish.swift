@@ -18,11 +18,14 @@ import Foundation
 import PackageModel
 import PackageRegistry
 import PackageSigning
-import TSCBasic
-import struct TSCUtility.Version
 import Workspace
-
 @_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
+
+import struct TSCBasic.ByteString
+import struct TSCBasic.SHA256
+import struct TSCBasic.RegEx
+
+import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
     struct Publish: SwiftCommand {
@@ -198,7 +201,7 @@ extension SwiftPackageRegistryTool {
 
             swiftTool.observabilityScope
                 .emit(info: "publishing \(self.packageIdentity) archive at '\(archivePath)' to \(registryURL)")
-            let result = try tsc_await {
+            let result = try temp_await {
                 registryClient.publish(
                     registryURL: registryURL,
                     packageIdentity: self.packageIdentity,

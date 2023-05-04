@@ -15,7 +15,6 @@ import Foundation
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {

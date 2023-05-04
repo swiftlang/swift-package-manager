@@ -14,8 +14,10 @@
 import PackageModel
 import SPMTestSupport
 @testable import SourceControl
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.ProcessEnv
 
 class RepositoryManagerTests: XCTestCase {
     func testBasics() throws {
@@ -135,7 +137,7 @@ class RepositoryManagerTests: XCTestCase {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
-        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try fixture(name: "DependencyResolution/External/Simple") { (fixturePath: AbsolutePath) in
             let cachePath = fixturePath.appending("cache")
             let repositoriesPath = fixturePath.appending("repositories")
             let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
@@ -590,7 +592,7 @@ extension RepositoryManager {
     }
 
     fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
-        return try tsc_await {
+        return try temp_await {
             self.lookup(
                 package: .init(url: repository.url),
                 repository: repository,

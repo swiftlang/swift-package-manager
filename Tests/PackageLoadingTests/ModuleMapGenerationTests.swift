@@ -14,13 +14,14 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class ModuleMapGeneration: XCTestCase {
 
     func testModuleNameHeaderInInclude() throws {
-        let root: AbsolutePath = AbsolutePath.root
+        let root: AbsolutePath = .root
 
         let fs = InMemoryFileSystem(emptyFiles:
             root.appending(components: "include", "Foo.h").pathString,
@@ -38,7 +39,7 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testModuleNameDirAndHeaderInInclude() throws {
-        let root: AbsolutePath = AbsolutePath.root
+        let root: AbsolutePath = .root
 
         let fs = InMemoryFileSystem(emptyFiles:
             root.appending(components: "include", "Foo", "Foo.h").pathString,
@@ -56,7 +57,7 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testOtherCases() throws {
-        let root: AbsolutePath = AbsolutePath.root
+        let root: AbsolutePath = .root
         var fs: InMemoryFileSystem
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -105,7 +106,7 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testWarnings() throws {
-        let root: AbsolutePath = AbsolutePath.root
+        let root: AbsolutePath = .root
 
         var fs = InMemoryFileSystem(emptyFiles:
             root.appending(components: "Foo.c").pathString
@@ -144,7 +145,7 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testUnsupportedLayouts() throws {
-        let include: AbsolutePath = AbsolutePath("/include")
+        let include: AbsolutePath = "/include"
 
         var fs = InMemoryFileSystem(emptyFiles:
             include.appending(components: "Foo", "Foo.h").pathString,

@@ -17,9 +17,12 @@ import PackageGraph
 import PackageLoading
 import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 @testable import XCBuildSupport
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
+
+import func TSCTestSupport.withCustomEnv
 
 class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")

@@ -16,13 +16,12 @@ import PackageLoading
 import PackageModel
 import PackageRegistry
 import SourceControl
-import TSCBasic
 import Workspace
 import XCTest
 
-import struct TSCUtility.Version
+import class TSCBasic.InMemoryFileSystem
 
-public typealias Diagnostic = TSCBasic.Diagnostic
+import struct TSCUtility.Version
 
 public final class MockWorkspace {
     let sandbox: AbsolutePath
@@ -727,7 +726,7 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
-        let rootManifests = try tsc_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
+        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
         let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)

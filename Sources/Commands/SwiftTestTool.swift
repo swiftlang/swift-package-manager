@@ -19,9 +19,16 @@ import class Foundation.ProcessInfo
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 import func TSCLibc.exit
 import Workspace
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.JSON
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import var TSCBasic.stdoutStream
+import class TSCBasic.SynchronizedQueue
+import class TSCBasic.Thread
 
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation

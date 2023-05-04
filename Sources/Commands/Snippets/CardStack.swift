@@ -14,7 +14,9 @@ import Basics
 import CoreCommands
 import PackageGraph
 import PackageModel
-import TSCBasic
+
+import var TSCBasic.stdoutStream
+import class TSCBasic.TerminalController
 
 fileprivate extension TerminalController {
     func clearScreen() {

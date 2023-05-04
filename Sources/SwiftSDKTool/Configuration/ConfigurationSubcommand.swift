@@ -14,8 +14,6 @@ import ArgumentParser
 import Basics
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-
 protocol ConfigurationSubcommand: SwiftSDKSubcommand {
     /// An identifier of an already installed destination.
     var destinationID: String { get }

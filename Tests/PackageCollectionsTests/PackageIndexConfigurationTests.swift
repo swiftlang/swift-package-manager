@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import PackageCollections
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class PackageIndexConfigurationTests: XCTestCase {
     func testSaveAndLoad() throws {

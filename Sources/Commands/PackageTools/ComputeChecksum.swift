@@ -11,9 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
-import TSCBasic
 import Workspace
+
+import struct TSCBasic.SHA256
 
 struct ComputeChecksum: SwiftCommand {
     static let configuration = CommandConfiguration(

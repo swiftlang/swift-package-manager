@@ -13,7 +13,7 @@ import XCTest
 
 import PackageGraph
 import PackageModel
-import TSCBasic
+
 import struct TSCUtility.Version
 
 public struct MockDependencyGraph {

@@ -22,7 +22,6 @@ import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-import TSCBasic
 
 import struct TSCUtility.Version
 

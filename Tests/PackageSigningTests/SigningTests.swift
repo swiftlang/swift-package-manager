@@ -10,21 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import XCTest
-
 import _CryptoExtras // for RSA
 import Basics
 import Crypto
+import Foundation
 @testable import PackageSigning
 import SPMTestSupport
 import SwiftASN1
-import func TSCBasic.tsc_await
 @testable import X509 // need internal APIs for OCSP testing
+import XCTest
 
 final class SigningTests: XCTestCase {
     func testCMS1_0_0EndToEnd() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -68,7 +66,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithECSigningIdentity() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -110,7 +108,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithRSASigningIdentity() async throws {
-        let keyAndCertChain = try tsc_await { self.rsaTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.rsaTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -152,7 +150,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSWrongKeyTypeForSignatureAlgorithm() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -179,7 +177,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0EndToEndWithSelfSignedCertificate() async throws {
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -223,7 +221,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithSelfSignedECSigningIdentity() async throws {
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -265,7 +263,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithSelfSignedRSASigningIdentity() async throws {
-        let keyAndCertChain = try tsc_await { self.rsaSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.rsaSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -324,7 +322,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSInvalidSignature() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -361,7 +359,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSUntrustedCertificate() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -397,7 +395,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSCheckCertificateValidityPeriod() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -591,7 +589,7 @@ final class SigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let keyAndCertChain = try tsc_await { rsaADPKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { rsaADPKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -654,7 +652,7 @@ final class SigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let keyAndCertChain = try tsc_await { ecADPKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { ecADPKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -882,7 +880,7 @@ final class SigningTests: XCTestCase {
     #endif
 
     func testCMS1_0_0ExtractSigningEntity() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -921,7 +919,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0ExtractSigningEntityWithSelfSignedCertificate() async throws {
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -960,7 +958,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0ExtractSigningEntityWithUntrustedCertificate() async throws {
-        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate

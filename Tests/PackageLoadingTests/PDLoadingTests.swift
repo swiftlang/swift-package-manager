@@ -14,8 +14,9 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)

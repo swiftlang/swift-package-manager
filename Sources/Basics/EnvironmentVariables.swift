@@ -10,19 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import Foundation
 
 public typealias EnvironmentVariables = [String: String]
 
 extension EnvironmentVariables {
-
     public static func empty() -> EnvironmentVariables {
-        return [:]
+        [:]
     }
 
     public static func process() -> EnvironmentVariables {
-        return ProcessInfo.processInfo.environment
+        ProcessInfo.processInfo.environment
     }
 
     public mutating func prependPath(_ key: String, value: String) {
@@ -52,11 +50,11 @@ extension EnvironmentVariables {
 
     /// `PATH` variable in the process's environment (`Path` under Windows).
     public var path: String? {
-#if os(Windows)
+        #if os(Windows)
         let pathArg = "Path"
-#else
+        #else
         let pathArg = "PATH"
-#endif
+        #endif
         return self[pathArg]
     }
 }

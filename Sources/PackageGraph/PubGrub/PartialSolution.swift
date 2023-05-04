@@ -12,7 +12,7 @@
 
 import Basics
 import OrderedCollections
-import TSCBasic
+
 import struct TSCUtility.Version
 
 /// The partial solution is a constantly updated solution used throughout the

@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import PackageModel
-import TSCBasic
 
 public struct MockPackage {
     public let name: String

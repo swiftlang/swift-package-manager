@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
-import TSCBasic
 
 // TODO: refactor this when adding registry support
 public protocol IdentityResolver {
