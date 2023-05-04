@@ -66,44 +66,6 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-var packageCollectionsSigningTargets = [Target]()
-var packageCollectionsSigningDeps: [Target.Dependency] = [
-    "Basics",
-    .product(name: "Crypto", package: "swift-crypto"),
-    "PackageCollectionsModel",
-]
-// swift-crypto's Crypto module depends on CCryptoBoringSSL on these platforms only
-#if os(Linux) || os(Windows) || os(Android)
-packageCollectionsSigningTargets.append(
-    .target(
-        /** Package collections signing C lib */
-        name: "PackageCollectionsSigningLibc",
-        dependencies: [
-            .product(name: "Crypto", package: "swift-crypto"), // for CCryptoBoringSSL
-        ],
-        cSettings: [
-            .define("WIN32_LEAN_AND_MEAN"),
-        ]
-    )
-)
-packageCollectionsSigningDeps.append(
-    .target(
-        name: "PackageCollectionsSigningLibc",
-        condition: .when(
-            platforms: [.linux, .android, .windows]
-        )
-    )
-)
-#endif
-// Define PackageCollectionsSigning target always
-packageCollectionsSigningTargets.append(
-    .target(
-         /** Package collections signing */
-         name: "PackageCollectionsSigning",
-         dependencies: packageCollectionsSigningDeps
-    )
-)
-
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -152,7 +114,7 @@ let package = Package(
             ]
         ),
     ],
-    targets: packageCollectionsSigningTargets + [
+    targets: [
         // The `PackageDescription` target provides the API that is available
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
@@ -284,6 +246,16 @@ let package = Package(
                 "PackageCollectionsSigning",
                 "PackageModel",
                 "SourceControl",
+            ]
+        ),
+
+        .target(
+            name: "PackageCollectionsSigning",
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "X509", package: "swift-certificates"),
+                "Basics",
+                "PackageCollectionsModel",
             ]
         ),
 

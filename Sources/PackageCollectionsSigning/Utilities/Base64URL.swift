@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -72,23 +72,5 @@ extension Data {
             }
         }
         self = split(separator: 0x3D).first ?? .init()
-    }
-
-    /// Converts base64-url encoded data to a base64 encoded data.
-    ///
-    /// https://tools.ietf.org/html/rfc4648#page-7
-    func base64URLUnescaped() -> Data {
-        var data = self
-        data.base64URLUnescape()
-        return data
-    }
-
-    /// Converts base64 encoded data to a base64-url encoded data.
-    ///
-    /// https://tools.ietf.org/html/rfc4648#page-7
-    func base64URLEscaped() -> Data {
-        var data = self
-        data.base64URLEscape()
-        return data
     }
 }
