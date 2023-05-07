@@ -124,12 +124,12 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
 
     public enum PluginNetworkPermissionScope: Equatable, Codable, Sendable {
         case none
-        case local(ports: [UInt8])
-        case all(ports: [UInt8])
+        case local(ports: [Int])
+        case all(ports: [Int])
         case docker
         case unixDomainSocket
 
-        public init?(_ scopeString: String, ports: [UInt8]) {
+        public init?(_ scopeString: String, ports: [Int]) {
             switch scopeString {
             case "none": self = .none
             case "local": self = .local(ports: ports)

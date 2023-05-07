@@ -586,7 +586,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             toolsVersion: .v5_9,
             dependencies: [],
             targets: [
-                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: "internet good")]))
+                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: "internet good")]))
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
