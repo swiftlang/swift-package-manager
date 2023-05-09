@@ -848,8 +848,8 @@ public enum PluginCommandIntent: Hashable, Codable {
 
 public enum PluginNetworkPermissionScope: Hashable, Codable {
     case none
-    case local(ports: [UInt8])
-    case all(ports: [UInt8])
+    case local(ports: [Int])
+    case all(ports: [Int])
     case docker
     case unixDomainSocket
 
@@ -873,7 +873,7 @@ public enum PluginNetworkPermissionScope: Hashable, Codable {
         }
     }
 
-    public var ports: [UInt8] {
+    public var ports: [Int] {
         switch self {
         case .all(let ports): return ports
         case .local(let ports): return ports
