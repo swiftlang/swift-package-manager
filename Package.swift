@@ -284,7 +284,6 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageModel",
-                "PackageRegistry",
                 "PackageSigning",
                 "SourceControl",
             ],
@@ -623,6 +622,10 @@ let package = Package(
         .testTarget(
             name: "PackagePluginAPITests",
             dependencies: ["PackagePlugin", "SPMTestSupport"]
+        ),
+        .testTarget(
+            name: "PackagePublicationTests",
+            dependencies: ["SPMTestSupport", "PackagePublication"]
         ),
         .testTarget(
             name: "PackageRegistryTests",

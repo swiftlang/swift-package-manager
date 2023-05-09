@@ -15,7 +15,6 @@ target_link_libraries(PackagePublication PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
   Basics
   PackageModel
-  PackageRegistry
   PackageSigning
   SourceControl
   TSCBasic
