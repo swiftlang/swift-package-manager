@@ -67,7 +67,7 @@ automatic linking type with `-auto` suffix appended to product's name.
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let package = Package(
-    name: "SwiftPM",
+    name: "swift-package-manager",
     platforms: [
         .macOS("12.0"),
         .iOS("15.0")
