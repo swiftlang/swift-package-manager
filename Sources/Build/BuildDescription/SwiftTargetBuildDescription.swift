@@ -250,42 +250,20 @@ public final class SwiftTargetBuildDescription {
         self.fileSystem = fileSystem
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
-        self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.observabilityScope = observabilityScope
 
-        // Add any derived files that were declared for any commands from plugin invocations.
-        var pluginDerivedFiles = [AbsolutePath]()
-        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            for absPath in command.outputFiles {
-                pluginDerivedFiles.append(absPath)
-            }
-        }
-
-        // Add any derived files that were discovered from output directories of prebuild commands.
-        for result in self.prebuildCommandResults {
-            for path in result.derivedFiles {
-                pluginDerivedFiles.append(path)
-            }
-        }
-
-        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
-        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(
-            for: pluginDerivedFiles,
+        (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+            target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,
-            defaultLocalization: target.defaultLocalization,
-            targetName: target.name,
-            targetPath: target.underlyingTarget.path,
+            buildParameters: buildParameters,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
             observabilityScope: observabilityScope
         )
-        self.pluginDerivedResources = derivedResources
-        derivedSources.forEach { absPath in
-            let relPath = absPath.relative(to: self.pluginDerivedSources.root)
-            self.pluginDerivedSources.relativePaths.append(relPath)
-        }
 
         if self.shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()

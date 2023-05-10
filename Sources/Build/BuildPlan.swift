@@ -493,8 +493,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
                     toolsVersion: toolsVersion,
+                    additionalFileRules: additionalFileRules,
                     buildParameters: buildParameters,
-                    fileSystem: fileSystem))
+                    buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
+                    prebuildCommandResults: prebuildCommandResults[target] ?? [],
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope)
+                )
             case is PluginTarget:
                 guard let package = graph.package(for: target) else {
                     throw InternalError("package not found for \(target)")

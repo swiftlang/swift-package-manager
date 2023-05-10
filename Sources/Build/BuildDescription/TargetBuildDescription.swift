@@ -13,6 +13,7 @@
 import class PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
 import struct TSCBasic.AbsolutePath
+import struct SPMBuildCore.BuildToolPluginInvocationResult
 
 /// A target description which can either be for a Swift or Clang target.
 public enum TargetBuildDescription {
@@ -40,8 +41,7 @@ public enum TargetBuildDescription {
         case .swift(let target):
             return target.resources
         case .clang(let target):
-            // TODO: Clang targets should support generated resources in the future.
-            return target.target.underlyingTarget.resources
+            return target.resources
         }
     }
 
@@ -80,6 +80,15 @@ public enum TargetBuildDescription {
             return target.resourceBundleInfoPlistPath
         case .clang(let target):
             return target.resourceBundleInfoPlistPath
+        }
+    }
+
+    var buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] {
+        switch self {
+        case .swift(let target):
+            return target.buildToolPluginInvocationResults
+        case .clang(let target):
+            return target.buildToolPluginInvocationResults
         }
     }
 }

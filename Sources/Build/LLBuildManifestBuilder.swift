@@ -204,6 +204,41 @@ extension LLBuildManifestBuilder {
     }
 }
 
+// MARK: - Compilation
+
+extension LLBuildManifestBuilder {
+    private func addBuildToolPlugins(_ target: TargetBuildDescription) throws {
+        // Add any regular build commands created by plugins for the target.
+        for result in target.buildToolPluginInvocationResults {
+            // Only go through the regular build commands — prebuild commands are handled separately.
+            for command in result.buildCommands {
+                // Create a shell command to invoke the executable. We include the path of the executable as a
+                // dependency, and make sure the name is unique.
+                let execPath = command.configuration.executable
+                let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
+                let displayName = command.configuration.displayName ?? execPath.basename
+                var commandLine = [execPath.pathString] + command.configuration.arguments
+                if !self.disableSandboxForPluginCommands {
+                    commandLine = try Sandbox.apply(
+                        command: commandLine,
+                        strictness: .writableTemporaryDirectory,
+                        writableDirectories: [result.pluginOutputDirectory]
+                    )
+                }
+                self.manifest.addShellCmd(
+                    name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
+                    description: displayName,
+                    inputs: command.inputFiles.map { .file($0) },
+                    outputs: command.outputFiles.map { .file($0) },
+                    arguments: commandLine,
+                    environment: command.configuration.environment,
+                    workingDirectory: command.configuration.workingDirectory?.pathString
+                )
+            }
+        }
+    }
+}
+
 // MARK: - Compile Swift
 
 extension LLBuildManifestBuilder {
@@ -678,34 +713,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        // Add any regular build commands created by plugins for the target.
-        for result in target.buildToolPluginInvocationResults {
-            // Only go through the regular build commands — prebuild commands are handled separately.
-            for command in result.buildCommands {
-                // Create a shell command to invoke the executable. We include the path of the executable as a
-                // dependency, and make sure the name is unique.
-                let execPath = command.configuration.executable
-                let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
-                let displayName = command.configuration.displayName ?? execPath.basename
-                var commandLine = [execPath.pathString] + command.configuration.arguments
-                if !self.disableSandboxForPluginCommands {
-                    commandLine = try Sandbox.apply(
-                        command: commandLine,
-                        strictness: .writableTemporaryDirectory,
-                        writableDirectories: [result.pluginOutputDirectory]
-                    )
-                }
-                self.manifest.addShellCmd(
-                    name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
-                    description: displayName,
-                    inputs: command.inputFiles.map { .file($0) },
-                    outputs: command.outputFiles.map { .file($0) },
-                    arguments: commandLine,
-                    environment: command.configuration.environment,
-                    workingDirectory: command.configuration.workingDirectory?.pathString
-                )
-            }
-        }
+        try addBuildToolPlugins(.swift(target))
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
@@ -878,6 +886,8 @@ extension LLBuildManifestBuilder {
                 dependencies: path.deps.pathString
             )
         }
+
+        try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
         let targetName = target.target.getLLBuildTargetName(config: self.buildConfig)
