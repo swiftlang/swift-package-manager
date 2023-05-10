@@ -552,7 +552,7 @@ final class BuildPlanTests: XCTestCase {
             if isFlagSupportedInDriver {
                 XCTAssertMatch(stdout, .contains("-package-name apppkg"))
                 XCTAssertMatch(stdout, .contains("-package-name foopkg"))
-                // the flag is not supported in old toolsversions
+                // the flag is not supported if < 5.9
                 XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
             } else {
                 XCTAssertNoMatch(stdout, .contains("-package-name"))

@@ -568,7 +568,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.9)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -740,7 +740,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.9)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -986,7 +986,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.9)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1214,7 +1214,7 @@ public final class Target {
     ///   - sources: The source files in the plug-in target.
     ///   - packageAccess: Allows access to package symbols from other targets in the package.
     /// - Returns: A `Target` instance.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.9)
     public static func plugin(
         name: String,
         capability: PluginCapability,
