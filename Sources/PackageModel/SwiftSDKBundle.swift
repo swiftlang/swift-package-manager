@@ -250,7 +250,7 @@ public struct SwiftSDKBundle {
     ) throws {
         #if os(macOS)
         // Check the quarantine attribute on bundles downloaded manually in the browser.
-        guard fileSystem.hasAttribute(.quarantine, bundlePath) else {
+        guard !fileSystem.hasAttribute(.quarantine, bundlePath) else {
             throw DestinationError.quarantineAttributePresent(bundlePath: bundlePath)
         }
         #endif
