@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageLoading
 import PackageModel
-import TSCBasic
-
-import struct Basics.InternalError
 import class PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
+
+import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
 public final class ClangTargetBuildDescription {
@@ -235,12 +235,14 @@ public final class ClangTargetBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
-        args += buildParameters.toolchain.extraFlags.cCompilerFlags
-        // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
-        args += buildParameters.flags.cCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.cCompilerFlags
 
         // Add extra C++ flags if this target contains C++ files.
-        if clangTarget.isCXX {
+        if isCXX {
+            args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags
+            // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
             args += self.buildParameters.flags.cxxCompilerFlags
         }
         return args
@@ -309,23 +311,23 @@ public final class ClangTargetBuildDescription {
         // Compute the basename of the bundle.
         let bundleBasename = bundlePath.basename
 
-        let implFileStream = BufferedOutputByteStream()
-        implFileStream <<< """
-        #import <Foundation/Foundation.h>
+        let implContent =
+            """
+            #import <Foundation/Foundation.h>
 
-        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
-            NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
+            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
+                NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
 
-            NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
-            if (preferredBundle == nil) {
-              return [NSBundle bundleWithPath:@"\(bundlePath.pathString)"];
+                NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
+                if (preferredBundle == nil) {
+                  return [NSBundle bundleWithPath:@"\(bundlePath.pathString)"];
+                }
+
+                return preferredBundle;
             }
+            """
 
-            return preferredBundle;
-        }
-        """
-
-        let implFileSubpath = RelativePath("resource_bundle_accessor.m")
+        let implFileSubpath = try RelativePath(validating: "resource_bundle_accessor.m")
 
         // Add the file to the derived sources.
         derivedSources.relativePaths.append(implFileSubpath)
@@ -334,31 +336,32 @@ public final class ClangTargetBuildDescription {
         // FIXME: We should generate this file during the actual build.
         try fileSystem.writeIfChanged(
             path: derivedSources.root.appending(implFileSubpath),
-            bytes: implFileStream.bytes
+            string: implContent
         )
 
-        let headerFileStream = BufferedOutputByteStream()
-        headerFileStream <<< """
-        #import <Foundation/Foundation.h>
+        let headerContent =
+            """
+            #import <Foundation/Foundation.h>
 
-        #if __cplusplus
-        extern "C" {
-        #endif
+            #if __cplusplus
+            extern "C" {
+            #endif
 
-        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
+            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
 
-        #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+            #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
 
-        #if __cplusplus
-        }
-        #endif
-        """
+            #if __cplusplus
+            }
+            #endif
+            """
+
         let headerFile = derivedSources.root.appending("resource_bundle_accessor.h")
         self.resourceAccessorHeaderFile = headerFile
 
         try fileSystem.writeIfChanged(
             path: headerFile,
-            bytes: headerFileStream.bytes
+            string: headerContent
         )
     }
 }

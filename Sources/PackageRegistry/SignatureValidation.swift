@@ -19,7 +19,6 @@ import PackageLoading
 import PackageModel
 import PackageSigning
 
-import TSCBasic
 import struct TSCUtility.Version
 
 protocol SignatureValidationDelegate {
@@ -432,8 +431,9 @@ struct SignatureValidation {
         } catch {
             observabilityScope
                 .emit(
-                    debug: "cannot determine if \(manifestName) should be signed because retrieval of source archive signature for \(package) \(version) from \(registry) failed: \(error)",
-                    metadata: .registryPackageMetadata(identity: package)
+                    debug: "cannot determine if \(manifestName) should be signed because retrieval of source archive signature for \(package) \(version) from \(registry) failed",
+                    metadata: .registryPackageMetadata(identity: package),
+                    underlyingError: error
                 )
             completion(.success(.none))
         }
@@ -552,7 +552,7 @@ extension VerifierConfiguration {
             do {
                 trustedRootsDirectory = try AbsolutePath(validating: trustedRootsDirectoryPath)
             } catch {
-                throw RegistryError.badConfiguration(details: "\(trustedRootsDirectoryPath) is invalid: \(error)")
+                throw RegistryError.badConfiguration(details: "\(trustedRootsDirectoryPath) is invalid: \(error.interpolationDescription)")
             }
 
             guard fileSystem.isDirectory(trustedRootsDirectory) else {
@@ -566,7 +566,7 @@ extension VerifierConfiguration {
                 }
                 verifierConfiguration.trustedRoots = trustedRoots
             } catch {
-                throw RegistryError.badConfiguration(details: "failed to load trust roots: \(error)")
+                throw RegistryError.badConfiguration(details: "failed to load trust roots: \(error.interpolationDescription)")
             }
         }
 

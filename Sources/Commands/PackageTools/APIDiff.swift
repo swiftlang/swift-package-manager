@@ -17,7 +17,6 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
-import TSCBasic
 
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
@@ -136,7 +135,7 @@ struct APIDiff: SwiftCommand {
                         results.append(comparisonResult)
                     }
                 } catch {
-                    swiftTool.observabilityScope.emit(error: "failed to compare API to baseline: \(error)")
+                    swiftTool.observabilityScope.emit(error: "failed to compare API to baseline", underlyingError: error)
                 }
                 semaphore.signal()
             }

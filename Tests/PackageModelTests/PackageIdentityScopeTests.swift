@@ -12,7 +12,6 @@
 
 import XCTest
 import Basics
-import TSCBasic
 import PackageModel
 
 class PackageIdentityScopeTests: XCTestCase {

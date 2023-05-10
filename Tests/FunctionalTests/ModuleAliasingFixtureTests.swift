@@ -14,7 +14,6 @@ import Commands
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
  
@@ -28,9 +27,7 @@ class ModuleAliasingFixtureTests: XCTestCase {
             XCTAssertFileExists(buildPath.appending(components: "App"))
             XCTAssertFileExists(buildPath.appending(components: "GameUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Utils.swiftmodule"))
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            _ = try SwiftPM.Build.execute(packagePath: pkgPath)
         }
     }
 
@@ -42,9 +39,7 @@ class ModuleAliasingFixtureTests: XCTestCase {
             XCTAssertFileExists(buildPath.appending(components: "App"))
             XCTAssertFileExists(buildPath.appending(components: "AUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "BUtils.swiftmodule"))
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            _ = try SwiftPM.Build.execute(packagePath: pkgPath)
         }
     }
 }

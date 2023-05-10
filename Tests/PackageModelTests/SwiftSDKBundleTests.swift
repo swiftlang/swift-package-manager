@@ -15,13 +15,12 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
 private let testArtifactID = "test-artifact"
 
-private let infoJSON = ByteString(stringLiteral: """
+private let infoJSON = """
 {
   "artifacts" : {
     "\(testArtifactID)" : {
@@ -39,7 +38,7 @@ private let infoJSON = ByteString(stringLiteral: """
   },
   "schemaVersion" : "1.0"
 }
-""")
+"""
 
 final class SwiftSDKBundleTests: XCTestCase {
     func testInstall() async throws {
@@ -51,8 +50,8 @@ final class SwiftSDKBundleTests: XCTestCase {
         let bundlePath2 = "/\(bundleName2)"
         let destinationsDirectory = try AbsolutePath(validating: "/destinations")
         let fileSystem = InMemoryFileSystem(files: [
-            "\(bundlePath1)/info.json": infoJSON,
-            "\(bundlePath2)/info.json": infoJSON,
+            "\(bundlePath1)/info.json": ByteString(encodingAsUTF8: infoJSON),
+            "\(bundlePath2)/info.json": ByteString(encodingAsUTF8: infoJSON),
         ])
         try fileSystem.createDirectory(fileSystem.tempDirectory)
         try fileSystem.createDirectory(destinationsDirectory)

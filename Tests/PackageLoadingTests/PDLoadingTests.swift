@@ -14,8 +14,9 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
@@ -33,23 +34,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     }
 
     func loadAndValidateManifest(
-        _ contents: String,
-        toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind? = nil,
-        observabilityScope: ObservabilityScope,
-        file: StaticString = #file,
-        line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic])  {
-        try self.loadAndValidateManifest(
-            ByteString(encodingAsUTF8: contents),
-            toolsVersion: toolsVersion,
-            packageKind: packageKind,
-            observabilityScope: observabilityScope
-        )
-    }
-
-    func loadAndValidateManifest(
-        _ bytes: ByteString,
+        _ content: String,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind? = nil,
         customManifestLoader: ManifestLoader? = nil,
@@ -73,7 +58,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let toolsVersion = toolsVersion ?? self.toolsVersion
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
-        try fileSystem.writeFileContents(manifestPath, bytes: bytes)
+        try fileSystem.writeFileContents(manifestPath, string: content)
         let manifest = try (customManifestLoader ?? manifestLoader).load(
             manifestPath: manifestPath,
             packageKind: packageKind,

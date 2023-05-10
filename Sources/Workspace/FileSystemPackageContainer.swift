@@ -15,7 +15,6 @@ import Dispatch
 import PackageGraph
 import PackageLoading
 import PackageModel
-import TSCBasic
 
 import struct TSCUtility.Version
 

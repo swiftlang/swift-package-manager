@@ -17,7 +17,15 @@ import LLBuildManifest
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import protocol TSCBasic.ByteStreamable
+import struct TSCBasic.Format
+import class TSCBasic.LocalFileOutputByteStream
+import protocol TSCBasic.OutputByteStream
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.RegEx
+import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStore
 import class TSCUtility.IndexStoreAPI
@@ -29,7 +37,6 @@ typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
 typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
 #endif
 
-typealias Diagnostic = TSCBasic.Diagnostic
 
 class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
     let context: BuildExecutionContext
@@ -62,57 +69,53 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     private func write(
         tests: [IndexStore.TestCaseClass],
         forModule module: String,
-        to path: AbsolutePath
+        fileSystem: Basics.FileSystem,
+        path: AbsolutePath
     ) throws {
-        let stream = try LocalFileOutputByteStream(path)
 
         let testsByClassNames = Dictionary(grouping: tests, by: { $0.name }).sorted(by: { $0.key < $1.key })
 
-        stream <<< "import XCTest" <<< "\n"
-        stream <<< "@testable import " <<< module <<< "\n"
+        var content = "import XCTest\n"
+        content += "@testable import \(module)\n"
 
         for iterator in testsByClassNames {
+            // 'className' provides uniqueness for derived class.
             let className = iterator.key
             let testMethods = iterator.value.flatMap(\.testMethods)
-            stream <<< "\n"
-            stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
-            stream <<< indent(4) <<<
-                "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<<
-                "\n"
-            // 'className' provides uniqueness for derived class.
-            stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
-            for method in testMethods {
-                stream <<< indent(8) <<< method.allTestsEntry <<< ",\n"
-            }
-            stream <<< indent(4) <<< "]" <<< "\n"
-            stream <<< "}" <<< "\n"
+            content +=
+                #"""
+
+                fileprivate extension \#(className) {
+                    @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+                    static let __allTests__\#(className) = [
+                        \#(testMethods.map { $0.allTestsEntry }.joined(separator: ",\n        "))
+                    ]
+                }
+
+                """#
         }
 
-        stream <<< """
+        content +=
+        #"""
         @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-        func __\(module)__allTests() -> [XCTestCaseEntry] {
-            return [\n
-        """
-
-        for iterator in testsByClassNames {
-            let className = iterator.key
-            stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
-        }
-        stream <<< """
+        func __\#(module)__allTests() -> [XCTestCaseEntry] {
+            return [
+                \#(testsByClassNames.map { "testCase(\($0.key).__allTests__\($0.key))" }
+                    .joined(separator: ",\n        "))
             ]
         }
-        """
+        """#
 
-        stream.flush()
+        try fileSystem.writeFileContents(path, string: content)
     }
 
-    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
+    private func execute(fileSystem: Basics.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = self.context.buildParameters.indexStore
         let api = try self.context.indexStoreAPI.get()
-        let store = try IndexStore.open(store: index, api: api)
+        let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try store.listTests(in: tool.inputs.map { try AbsolutePath(validating: $0.name) })
+        let tests = try store.listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
 
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
@@ -141,7 +144,12 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 try fileSystem.writeFileContents(file, bytes: "")
                 continue
             }
-            try write(tests: tests, forModule: module, to: file)
+            try write(
+                tests: tests,
+                forModule: module,
+                fileSystem: fileSystem,
+                path: file
+            )
         }
 
         guard let mainFile = maybeMainFile else {
@@ -153,21 +161,20 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
-        stream <<< "import XCTest" <<< "\n\n"
+        stream.send(
+            #"""
+            import XCTest
 
-        stream <<<
-            "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<<
-            "\n"
-        stream <<< "public func __allDiscoveredTests() -> [XCTestCaseEntry] {" <<< "\n"
-        stream <<< indent(4) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n\n"
+            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+            public func __allDiscoveredTests() -> [XCTestCaseEntry] {
+                \#(testsKeyword) tests = [XCTestCaseEntry]()
 
-        for module in testsByModule.keys {
-            stream <<< indent(4) <<< "tests += __\(module)__allTests()" <<< "\n"
-        }
+                \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))
 
-        stream <<< "\n"
-        stream <<< indent(4) <<< "return tests" <<< "\n"
-        stream <<< "}" <<< "\n"
+                return tests
+            }
+            """#
+        )
 
         stream.flush()
     }
@@ -194,7 +201,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
-    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
+    private func execute(fileSystem: Basics.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
         // Find the inputs, which are the names of the test discovery module(s)
         let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
@@ -211,21 +218,20 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
-        stream <<< "import XCTest" <<< "\n"
-        for discoveryModuleName in discoveryModuleNames {
-            stream <<< "import \(discoveryModuleName)" <<< "\n"
-        }
-        stream <<< "\n"
+        stream.send(
+            #"""
+            import XCTest
+            \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
 
-        stream <<< "@main" <<< "\n"
-        stream <<<
-            "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<<
-            "\n"
-        stream <<< "struct Runner" <<< " {" <<< "\n"
-        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
-        stream <<< indent(8) <<< "XCTMain(__allDiscoveredTests())" <<< "\n"
-        stream <<< indent(4) <<< "}" <<< "\n"
-        stream <<< "}" <<< "\n"
+            @main
+            @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+            struct Runner {
+                static func main() {
+                    XCTMain(__allDiscoveredTests())
+                }
+            }
+            """#
+        )
 
         stream.flush()
     }
@@ -297,7 +303,7 @@ public struct BuildDescription: Codable {
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
-    /// A flag that inidcates this build should perform a check for whether targets only import
+    /// A flag that indicates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
     let explicitTargetDependencyImportCheckingMode: BuildParameters.TargetDependencyImportCheckingMode
 
@@ -357,8 +363,8 @@ public struct BuildDescription: Codable {
         )
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)
-        self.builtTestProducts = plan.buildProducts.filter { $0.product.type == .test }.map { desc in
-            BuiltTestProduct(
+        self.builtTestProducts = try plan.buildProducts.filter { $0.product.type == .test }.map { desc in
+            try BuiltTestProduct(
                 productName: desc.product.name,
                 binaryPath: desc.binaryPath
             )
@@ -366,13 +372,13 @@ public struct BuildDescription: Codable {
         self.pluginDescriptions = pluginDescriptions
     }
 
-    public func write(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws {
+    public func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
         try fileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
-    public static func load(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws -> BuildDescription {
+    public static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
         let contents: Data = try fileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
         return try decoder.decode(BuildDescription.self, from: contents)
@@ -381,7 +387,8 @@ public struct BuildDescription: Codable {
 
 /// A provider of advice about build errors.
 public protocol BuildErrorAdviceProvider {
-    /// Invoked after a command fails and an error message is detected in the output.  Should return a string containing advice or additional information, if any, based on the build plan.
+    /// Invoked after a command fails and an error message is detected in the output. Should return a string containing
+    /// advice or additional information, if any, based on the build plan.
     func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String?
 }
 
@@ -402,14 +409,14 @@ public final class BuildExecutionContext {
     /// Optional provider of build error resolution advice.
     let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
-    let fileSystem: TSCBasic.FileSystem
+    let fileSystem: Basics.FileSystem
 
     let observabilityScope: ObservabilityScope
 
     public init(
         _ buildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
-        fileSystem: TSCBasic.FileSystem,
+        fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope,
         packageStructureDelegate: PackageStructureDelegate,
         buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
@@ -450,7 +457,7 @@ public final class BuildExecutionContext {
                 let indexStoreLib = try buildParameters.toolchain.toolchainLibDir
                     .appending("libIndexStore" + ext)
                 #endif
-                return try .success(IndexStoreAPI(dylib: indexStoreLib))
+                return try .success(IndexStoreAPI(dylib: TSCAbsolutePath(indexStoreLib)))
             } catch {
                 return .failure(error)
             }
@@ -622,7 +629,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.async {
             self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(command))
             if self.logLevel.isVerbose {
-                self.outputStream <<< command.verboseDescription <<< "\n"
+                self.outputStream.send("\(command.verboseDescription)\n")
                 self.outputStream.flush()
             }
         }
@@ -702,7 +709,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.async {
             if let buffer = self.nonSwiftMessageBuffers[command.name] {
                 self.progressAnimation.clear()
-                self.outputStream <<< buffer
+                self.outputStream.send(buffer)
                 self.outputStream.flush()
                 self.nonSwiftMessageBuffers[command.name] = nil
             }
@@ -713,7 +720,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             self.cancelled = true
             self.delegate?.buildSystemDidCancel(self.buildSystem)
         case .failed:
-            // The command failed, so we queue up an asynchronous task to see if we have any error messages from the target to provide advice about.
+            // The command failed, so we queue up an asynchronous task to see if we have any error messages from the
+            // target to provide advice about.
             queue.async {
                 guard let target = self.swiftParsers[command.name]?.targetName else { return }
                 guard let errorMessages = self.errorMessagesByTarget[target] else { return }
@@ -724,7 +732,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                         command: command.name,
                         message: errorMessage
                     ) {
-                        self.outputStream <<< "note: " <<< adviceMessage <<< "\n"
+                        self.outputStream.send("note: \(adviceMessage)\n")
                         self.outputStream.flush()
                     }
                 }
@@ -762,7 +770,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.async {
             self.progressAnimation.clear()
             if !verboseOnly || self.logLevel.isVerbose {
-                self.outputStream <<< output.spm_chomp() <<< "\n"
+                self.outputStream.send("\(output.spm_chomp())\n")
                 self.outputStream.flush()
             }
         }
@@ -783,7 +791,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.async {
             if self.logLevel.isVerbose {
                 if let text = message.verboseProgressText {
-                    self.outputStream <<< text <<< "\n"
+                    self.outputStream.send("\(text)\n")
                     self.outputStream.flush()
                 }
             } else {
@@ -797,11 +805,11 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                     self.progressAnimation.clear()
                 }
 
-                self.outputStream <<< output
+                self.outputStream.send(output)
                 self.outputStream.flush()
 
-                // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this will be very slow),
-                // so they can later be passed to the advice provider in case of failure.
+                // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this
+                // will be very slow), so they can later be passed to the advice provider in case of failure.
                 if output.utf8.count < 1024 * 10 {
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
@@ -825,7 +833,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func buildStart(configuration: BuildConfiguration) {
         queue.sync {
             self.progressAnimation.clear()
-            self.outputStream <<< "Building for \(configuration == .debug ? "debugging" : "production")...\n"
+            self.outputStream.send("Building for \(configuration == .debug ? "debugging" : "production")...\n")
             self.outputStream.flush()
         }
     }
@@ -836,7 +844,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             if success {
                 let message = cancelled ? "Build cancelled!" : "Build complete!"
                 self.progressAnimation.clear()
-                self.outputStream <<< "\(message) (\(duration.descriptionInSeconds))\n"
+                self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")
                 self.outputStream.flush()
             }
         }

@@ -16,7 +16,6 @@ import PackageModel
 @testable import PackageRegistry
 import PackageSigning
 import SPMTestSupport
-import TSCBasic
 import X509 // FIXME: need this import or else SwiftSigningIdentity init crashes
 import XCTest
 
@@ -550,7 +549,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -630,7 +629,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -719,7 +718,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -805,7 +804,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1017,7 +1016,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1111,7 +1110,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1196,7 +1195,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1305,7 +1304,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1394,7 +1393,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1495,7 +1494,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1577,7 +1576,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1656,7 +1655,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1761,7 +1760,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1882,7 +1881,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -2042,7 +2041,7 @@ extension SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         observabilityScope: ObservabilityScope? = nil
     ) throws -> SigningEntity? {
-        try tsc_await {
+        try temp_await {
             self.validate(
                 registry: registry,
                 package: package,
@@ -2067,7 +2066,7 @@ extension SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         observabilityScope: ObservabilityScope? = nil
     ) throws -> SigningEntity? {
-        try tsc_await {
+        try temp_await {
             self.validate(
                 registry: registry,
                 package: package,
@@ -2127,7 +2126,7 @@ private struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegat
 
 extension PackageSigningEntityStorage {
     fileprivate func get(package: PackageIdentity) throws -> PackageSigners {
-        try tsc_await {
+        try temp_await {
             self.get(
                 package: package,
                 observabilityScope: ObservabilitySystem.NOOP,

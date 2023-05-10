@@ -10,19 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+import Commands
+import SPMTestSupport
 import XCTest
 
-import SPMTestSupport
-import Commands
-import TSCBasic
+import class TSCBasic.Process
 
 final class RunToolTests: CommandsTestCase {
     
     private func execute(
-        _ args: [String],
+        _ args: [String] = [],
         packagePath: AbsolutePath? = nil
     ) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath)
+        return try SwiftPM.Run.execute(args, packagePath: packagePath)
     }
 
     func testUsage() throws {
@@ -43,17 +44,17 @@ final class RunToolTests: CommandsTestCase {
     func testUnknownProductAndArgumentPassing() throws {
         try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
 
-            let result = try SwiftPMProduct.SwiftRun.executeProcess(
+            let (stdout, stderr) = try SwiftPM.Run.execute(
                 ["secho", "1", "--hello", "world"], packagePath: fixturePath)
 
             // We only expect tool's output on the stdout stream.
-            XCTAssertMatch(try result.utf8Output(), .contains("""
+            XCTAssertMatch(stdout, .contains("""
                 "1" "--hello" "world"
                 """))
 
             // swift-build-tool output should go to stderr.
-            XCTAssertMatch(try result.utf8stderrOutput(), .regex("Compiling"))
-            XCTAssertMatch(try result.utf8stderrOutput(), .contains("Linking"))
+            XCTAssertMatch(stderr, .regex("Compiling"))
+            XCTAssertMatch(stderr, .contains("Linking"))
 
             XCTAssertThrowsCommandExecutionError(try execute(["unknown"], packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("error: no executable product named 'unknown'"))
@@ -63,7 +64,7 @@ final class RunToolTests: CommandsTestCase {
 
     func testMultipleExecutableAndExplicitExecutable() throws {
         try fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
-            XCTAssertThrowsCommandExecutionError(try execute([], packagePath: fixturePath)) { error in
+            XCTAssertThrowsCommandExecutionError(try execute(packagePath: fixturePath)) { error in
                 XCTAssertMatch(error.stderr, .contains("error: multiple executable products available: exec1, exec2"))
             }
             
@@ -106,8 +107,9 @@ final class RunToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
-            try localFileSystem.writeFileContents(mainFilePath) {
-                """
+            try localFileSystem.writeFileContents(
+                mainFilePath,
+                string: """
                 import Foundation
 
                 print("sleeping")
@@ -116,12 +118,12 @@ final class RunToolTests: CommandsTestCase {
                 sleep(10)
                 print("done")
                 """
-            }
+            )
 
             let sync = DispatchGroup()
             let outputHandler = OutputHandler(sync: sync)
             let process = Process(
-                arguments: [SwiftPMProduct.SwiftRun.path.pathString, "--package-path", fixturePath.pathString],
+                arguments: [SwiftPM.Run.path.pathString, "--package-path", fixturePath.pathString],
                 outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
             )
 

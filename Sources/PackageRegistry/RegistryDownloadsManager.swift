@@ -15,7 +15,6 @@ import Dispatch
 import Foundation
 import PackageLoading
 import PackageModel
-import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -191,7 +190,10 @@ public class RegistryDownloadsManager: Cancellable {
                 }
             } catch {
                 // download without populating the cache in the case of an error.
-                observabilityScope.emit(warning: "skipping cache due to an error: \(error)")
+                observabilityScope.emit(
+                    warning: "skipping cache due to an error",
+                    underlyingError: error
+                )
                 // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
                 try? self.fileSystem.removeFileTree(packagePath)
                 self.registryClient.downloadSourceArchive(
@@ -247,7 +249,10 @@ public class RegistryDownloadsManager: Cancellable {
         do {
             try self.fileSystem.removeFileTree(self.path)
         } catch {
-            observabilityScope.emit(error: "Error resetting registry downloads at '\(self.path)': \(error)")
+            observabilityScope.emit(
+                error: "Error resetting registry downloads at '\(self.path)'",
+                underlyingError: error
+            )
         }
     }
 
@@ -268,12 +273,18 @@ public class RegistryDownloadsManager: Cancellable {
                     do {
                         try self.fileSystem.removeFileTree(pathToDelete)
                     } catch {
-                        observabilityScope.emit(error: "Error removing cached package at '\(pathToDelete)': \(error)")
+                        observabilityScope.emit(
+                            error: "Error removing cached package at '\(pathToDelete)'",
+                            underlyingError: error
+                        )
                     }
                 }
             }
         } catch {
-            observabilityScope.emit(error: "Error purging registry downloads cache at '\(cachePath)': \(error)")
+            observabilityScope.emit(
+                error: "Error purging registry downloads cache at '\(cachePath)'",
+                underlyingError: error
+            )
         }
     }
 
@@ -325,7 +336,7 @@ extension PackageIdentity {
         guard let registryIdentity = self.registry else {
             throw StringError("invalid package identifier \(self), expected registry scope and name")
         }
-        return RelativePath(registryIdentity.scope.description).appending(component: registryIdentity.name.description)
+        return try RelativePath(validating: registryIdentity.scope.description).appending(component: registryIdentity.name.description)
     }
 
     internal func downloadPath(version: Version) throws -> RelativePath {

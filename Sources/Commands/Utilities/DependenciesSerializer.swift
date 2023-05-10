@@ -10,9 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import PackageModel
 import PackageGraph
+
+import enum TSCBasic.JSON
+import protocol TSCBasic.OutputByteStream
 
 protocol DependenciesDumper {
     func dump(dependenciesOf: ResolvedPackage, on: OutputByteStream)
@@ -30,7 +32,7 @@ final class PlainTextDumper: DependenciesDumper {
 
                 let pkgVersion = package.manifest.version?.description ?? "unspecified"
 
-                stream <<< "\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\n"
+                stream.send("\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\n")
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
@@ -43,10 +45,10 @@ final class PlainTextDumper: DependenciesDumper {
         }
 
         if !rootpkg.dependencies.isEmpty {
-            stream <<< (".\n")
+            stream.send(".\n")
             recursiveWalk(packages: rootpkg.dependencies)
         } else {
-            stream <<< "No external dependencies found\n"
+            stream.send("No external dependencies found\n")
         }
     }
 }
@@ -55,7 +57,7 @@ final class FlatListDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
-                stream <<< package.identity.description <<< "\n"
+                stream.send(package.identity.description).send("\n")
                 if !package.dependencies.isEmpty {
                     recursiveWalk(packages: package.dependencies)
                 }
@@ -74,7 +76,7 @@ final class DotDumper: DependenciesDumper {
             let url = package.manifest.packageLocation
             if nodesAlreadyPrinted.contains(url) { return }
             let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            stream <<< #""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"# <<< "\n"
+            stream.send(#""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"#).send("\n")
             nodesAlreadyPrinted.insert(url)
         }
 
@@ -92,7 +94,7 @@ final class DotDumper: DependenciesDumper {
                 if dependenciesAlreadyPrinted.contains(urlPair) { continue }
 
                 printNode(dependency)
-                stream <<< #""\#(rootURL)" -> "\#(dependencyURL)""# <<< "\n"
+                stream.send(#""\#(rootURL)" -> "\#(dependencyURL)""#).send("\n")
                 dependenciesAlreadyPrinted.insert(urlPair)
 
                 if !dependency.dependencies.isEmpty {
@@ -102,12 +104,17 @@ final class DotDumper: DependenciesDumper {
         }
 
         if !rootpkg.dependencies.isEmpty {
-            stream <<< "digraph DependenciesGraph {\n"
-            stream <<< "node [shape = box]\n"
+            stream.send(
+                """
+                digraph DependenciesGraph {
+                node [shape = box]
+
+                """
+            )
             recursiveWalk(rootpkg: rootpkg)
-            stream <<< "}\n"
+            stream.send("}\n")
         } else {
-            stream <<< "No external dependencies found\n"
+            stream.send("No external dependencies found\n")
         }
     }
 }
@@ -125,6 +132,6 @@ final class JSONDumper: DependenciesDumper {
             ])
         }
 
-        stream <<< convert(rootpkg).toString(prettyPrint: true) <<< "\n"
+        stream.send("\(convert(rootpkg).toString(prettyPrint: true))\n")
     }
 }

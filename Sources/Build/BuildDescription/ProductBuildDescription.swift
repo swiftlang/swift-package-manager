@@ -11,11 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
+import OrderedCollections
 import SPMBuildCore
-import TSCBasic
-@_implementationOnly import DriverSupport
+
+import struct TSCBasic.SortedArray
 
 /// The build description for a product.
 public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
@@ -113,7 +115,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .debug:
             return []
         case .release:
-            if self.buildParameters.triple.isDarwin() {
+            if self.buildParameters.triple.isApple() {
                 return ["-Xlinker", "-dead_strip"]
             } else if self.buildParameters.triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
@@ -137,12 +139,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
         let triple = self.buildParameters.triple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
-            return [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
+            return try [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
         }
-        if triple.isDarwin(), librarian.hasSuffix("libtool") {
-            return [librarian, "-static", "-o", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
+        if triple.isApple(), librarian.hasSuffix("libtool") {
+            return try [librarian, "-static", "-o", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
         }
-        return [librarian, "crs", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
+        return try [librarian, "crs", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
     }
 
     /// The arguments to link and create this product.
@@ -150,6 +152,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         var args = [buildParameters.toolchain.swiftCompilerPath.pathString]
         args += self.buildParameters.sanitizers.linkSwiftFlags()
         args += self.additionalFlags
+
+        // pass `-v` during verbose builds.
+        if self.buildParameters.verboseOutput {
+            args += ["-v"]
+        }
 
         // Pass `-g` during a *release* build so the Swift driver emits a dSYM file for the binary.
         if self.buildParameters.configuration == .release {
@@ -166,7 +173,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         args += ["-L", self.buildParameters.buildPath.pathString]
-        args += ["-o", binaryPath.pathString]
+        args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
         args += self.dylibs.map { "-l" + $0.product.name }
 
@@ -209,7 +216,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .library(.dynamic):
             args += ["-emit-library"]
             if self.buildParameters.triple.isDarwin() {
-                let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
+                let relativePath = try "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
             args += self.deadStripArguments
@@ -304,9 +311,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.swiftASTs.flatMap { ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
         args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-        // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.linkerFlags
-        args += self.stripInvalidArguments(self.buildParameters.swiftCompilerFlags)
+        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.swiftCompilerFlags
+
+        args += self.buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags()
+        // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
 
         // Add toolchain's libdir at the very end (even after the user -Xlinker arguments).
         //
@@ -323,19 +333,21 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
         #endif
 
-        return args
+        return self.stripInvalidArguments(args)
     }
 
     /// Writes link filelist to the filesystem.
     func writeLinkFilelist(_ fs: FileSystem) throws {
-        let stream = BufferedOutputByteStream()
+        var content = self.objects
+            .map { $0.pathString.spm_shellEscaped() }
+            .joined(separator: "\n")
 
-        for object in self.objects {
-            stream <<< object.pathString.spm_shellEscaped() <<< "\n"
+        // not sure this is needed, added here for backward compatibility
+        if !content.isEmpty {
+            content.append("\n")
         }
 
-        try fs.createDirectory(self.linkFileListPath.parentDirectory, recursive: true)
-        try fs.writeFileContents(self.linkFileListPath, bytes: stream.bytes)
+        try fs.writeFileContents(self.linkFileListPath, string: content)
     }
 
     /// Returns the build flags from the declared build settings.
@@ -361,5 +373,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         return flags
+    }
+}
+
+extension SortedArray where Element == AbsolutePath {
+    public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
+        lhs.insert(contentsOf: rhs)
     }
 }

@@ -13,7 +13,6 @@
 import DriverSupport
 import SPMTestSupport
 import PackageModel
-import TSCBasic
 import XCTest
 
 class MacroTests: XCTestCase {

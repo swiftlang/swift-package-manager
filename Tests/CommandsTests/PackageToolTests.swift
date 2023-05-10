@@ -19,25 +19,30 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.BufferedOutputByteStream
+import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.JSON
+import class TSCBasic.Process
 
 final class PackageToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
-        _ args: [String],
+        _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
         env: EnvironmentVariables? = nil
     ) throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
+        return try SwiftPM.Package.execute(args, packagePath: packagePath, env: environment)
     }
 
     func testNoParameters() throws {
-        let stdout = try execute([]).stdout
+        let stdout = try execute().stdout
         XCTAssertMatch(stdout, .contains("USAGE: swift package"))
     }
 
@@ -45,7 +50,7 @@ final class PackageToolTests: CommandsTestCase {
         do {
             _ = try execute(["-help"])
             XCTFail("expecting `execute` to fail")
-        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+        } catch SwiftPMError.executionFailure(_, _, let stderr) {
             XCTAssertMatch(stderr, .contains("Usage: swift package"))
         } catch {
             throw error
@@ -118,9 +123,10 @@ final class PackageToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
             let netrcPath = fixturePath.appending(".netrc")
-            try fs.writeFileContents(netrcPath) { stream in
-                stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
-            }
+            try fs.writeFileContents(
+                netrcPath,
+                string: "machine mymachine.labkey.org login user@labkey.org password mypassword"
+            )
 
             // valid .netrc file path
             try execute(["resolve", "--netrc-file", netrcPath.pathString], packagePath: fixturePath)
@@ -247,7 +253,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that `resolve` works.
             _ = try execute(["resolve"], packagePath: packageRoot)
-            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
         }
     }
@@ -258,7 +264,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
-            var path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            var path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
             // Retag the dependency, and update.
@@ -267,7 +273,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["update"], packagePath: packageRoot)
 
             // We shouldn't assume package path will be same after an update so ask again for it.
-            path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3", "1.2.4"])
         }
     }
@@ -307,8 +313,7 @@ final class PackageToolTests: CommandsTestCase {
     func testDescribe() throws {
         try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             // Generate the JSON description.
-            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
-            let jsonOutput = try jsonResult.utf8Output()
+            let (jsonOutput, _) = try SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that tests don't appear in the product memberships.
@@ -321,8 +326,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             // Generate the JSON description.
-            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
-            let jsonOutput = try jsonResult.utf8Output()
+            let (jsonOutput, _) = try SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that the JSON description contains what we expect it to.
@@ -349,8 +353,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(jsonTarget2["product_memberships"]?.array?[0].stringValue, "CExec")
 
             // Generate the text description.
-            let textResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=text"], packagePath: fixturePath)
-            let textOutput = try textResult.utf8Output()
+            let (textOutput, _) = try SwiftPM.Package.execute(["describe", "--type=text"], packagePath: fixturePath)
             let textChunks = textOutput.components(separatedBy: "\n").reduce(into: [""]) { chunks, line in
                 // Split the text into chunks based on presence or absence of leading whitespace.
                 if line.hasPrefix(" ") == chunks[chunks.count-1].hasPrefix(" ") {
@@ -404,8 +407,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
             // Generate the JSON description.
-            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
-            let jsonOutput = try jsonResult.utf8Output()
+            let (jsonOutput, _) = try SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that product dependencies and memberships are as expected.
@@ -421,9 +423,8 @@ final class PackageToolTests: CommandsTestCase {
     func testDescribePackageUsingPlugins() throws {
         try fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             // Generate the JSON description.
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
-            XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
-            let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
+            let (stdout, _) = try SwiftPM.Package.execute(["describe", "--type=json"], packagePath: fixturePath)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: stdout))
 
             // Check the contents of the JSON.
             XCTAssertEqual(try XCTUnwrap(json["name"]).string, "MySourceGenPlugin")
@@ -478,7 +479,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
-        _ = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
+        _ = try SwiftPM.Package.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
 
         var symbolGraphURL: URL?
@@ -520,10 +521,10 @@ final class PackageToolTests: CommandsTestCase {
     func testShowDependencies() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let packageRoot = fixturePath.appending("app")
-            let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text"], packagePath: packageRoot).utf8Output()
+            let (textOutput, _) = try SwiftPM.Package.execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
-            let jsonOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=json"], packagePath: packageRoot).utf8Output()
+            let (jsonOutput, _) = try SwiftPM.Package.execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
@@ -546,11 +547,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestA = Manifest.createRootManifest(
             displayName: "PackageA",
-            path: .init(path: "/PackageA"),
+            path: "/PackageA",
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init(path: "/PackageB")),
-                .fileSystem(path: .init(path: "/PackageC")),
+                .fileSystem(path: "/PackageB"),
+                .fileSystem(path: "/PackageC"),
             ],
             products: [
                 try .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -562,11 +563,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestB = Manifest.createFileSystemManifest(
             displayName: "PackageB",
-            path: .init(path: "/PackageB"),
+            path: "/PackageB",
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init(path: "/PackageC")),
-                .fileSystem(path: .init(path: "/PackageD")),
+                .fileSystem(path: "/PackageC"),
+                .fileSystem(path: "/PackageD"),
             ],
             products: [
                 try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -578,10 +579,10 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestC = Manifest.createFileSystemManifest(
             displayName: "PackageC",
-            path: .init(path: "/PackageC"),
+            path: "/PackageC",
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init(path: "/PackageD")),
+                .fileSystem(path: "/PackageD"),
             ],
             products: [
                 try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
@@ -593,7 +594,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestD = Manifest.createFileSystemManifest(
             displayName: "PackageD",
-            path: .init(path: "/PackageD"),
+            path: "/PackageD",
             toolsVersion: .v5_3,
             products: [
                 try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
@@ -647,32 +648,34 @@ final class PackageToolTests: CommandsTestCase {
             let dep = tmpPath.appending(components: "dep")
 
             // Create root package.
-            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
-            try fs.writeFileContents(root.appending("Package.swift")) {
-                $0 <<< """
+            let mainFilePath = root.appending(components: "Sources", "root", "main.swift")
+            try fs.writeFileContents(mainFilePath, string: "")
+            try fs.writeFileContents(root.appending("Package.swift"), string:
+                """
                 // swift-tools-version:4.2
                 import PackageDescription
                 let package = Package(
-                name: "root",
-                dependencies: [.package(url: "../dep", from: "1.0.0")],
-                targets: [.target(name: "root", dependencies: ["dep"])]
+                    name: "root",
+                    dependencies: [.package(url: "../dep", from: "1.0.0")],
+                    targets: [.target(name: "root", dependencies: ["dep"])]
                 )
                 """
-            }
+            )
 
             // Create dependency.
-            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
-            try fs.writeFileContents(dep.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift"), string: "")
+            try fs.writeFileContents(dep.appending("Package.swift"), string:
+                """
                 // swift-tools-version:4.2
                 import PackageDescription
                 let package = Package(
-                name: "dep",
-                products: [.library(name: "dep", targets: ["dep"])],
-                targets: [.target(name: "dep")]
+                    name: "dep",
+                    products: [.library(name: "dep", targets: ["dep"])],
+                    targets: [.target(name: "dep")]
                 )
                 """
-            }
+            )
+
             do {
                 let depGit = GitRepository(path: dep)
                 try depGit.create()
@@ -757,12 +760,12 @@ final class PackageToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
             func build() throws -> (stdout: String, stderr: String) {
-                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
+                return try SwiftPM.Build.execute(packagePath: fooPath)
             }
 
             // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
+            _ = try SwiftPM.Package.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath)
+            _ = try SwiftPM.Package.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
             let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
@@ -789,7 +792,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // It shouldn't be possible to unedit right now because of uncommited changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
+                _ = try SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -798,7 +801,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // It shouldn't be possible to unedit right now because of unpushed changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
+                _ = try SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -806,29 +809,29 @@ final class PackageToolTests: CommandsTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
+            _ = try SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
 
             // Test editing with a path i.e. ToT development.
             let bazTot = fixturePath.appending("tot")
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
+            try SwiftPM.Package.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
 
             // Edit a file in baz ToT checkout.
             let bazTotPackageFile = bazTot.appending("Package.swift")
-            let stream = BufferedOutputByteStream()
-            stream <<< (try localFileSystem.readFileContents(bazTotPackageFile)) <<< "\n// Edited."
-            try localFileSystem.writeFileContents(bazTotPackageFile, bytes: stream.bytes)
+            var content: String = try localFileSystem.readFileContents(bazTotPackageFile)
+            content += "\n// Edited."
+            try localFileSystem.writeFileContents(bazTotPackageFile, string: content)
 
             // Unediting baz will remove the symlink but not the checked out package.
-            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath)
+            try SwiftPM.Package.execute(["unedit", "baz"], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertFalse(localFileSystem.isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
+            try SwiftPM.Package.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
-            XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), stream.bytes)
+            XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), content)
         }
     }
 
@@ -882,7 +885,7 @@ final class PackageToolTests: CommandsTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath).stdout
+                return try SwiftPM.Package.execute([] + args, packagePath: fooPath).stdout
             }
 
             try execute("update")
@@ -926,7 +929,7 @@ final class PackageToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
             func build() throws -> String {
-                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
+                return try SwiftPM.Build.execute(packagePath: fooPath).stdout
             }
             let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
 
@@ -935,7 +938,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to bar checkout.
-            let barPath = try SwiftPMProduct.packagePath(for: "bar", packageRoot: fooPath)
+            let barPath = try SwiftPM.packagePath(for: "bar", packageRoot: fooPath)
 
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
@@ -952,7 +955,7 @@ final class PackageToolTests: CommandsTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
-                    let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
+                    let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
                     guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
@@ -969,7 +972,7 @@ final class PackageToolTests: CommandsTestCase {
 
             @discardableResult
             func execute(_ args: String...) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath).stdout
+                return try SwiftPM.Package.execute([] + args, packagePath: fooPath).stdout
             }
 
             // Try to pin bar.
@@ -1028,32 +1031,32 @@ final class PackageToolTests: CommandsTestCase {
 
     func testOnlyUseVersionsFromResolvedFileFetchesWithExistingState() throws {
         func writeResolvedFile(packageDir: AbsolutePath, repositoryURL: String, revision: String, version: String) throws {
-            try localFileSystem.writeFileContents(packageDir.appending("Package.resolved")) {
-                $0 <<< """
-                    {
-                      "object": {
-                        "pins": [
-                          {
-                            "package": "library",
-                            "repositoryURL": "\(repositoryURL)",
-                            "state": {
-                              "branch": null,
-                              "revision": "\(revision)",
-                              "version": "\(version)"
-                            }
-                          }
-                        ]
-                      },
-                      "version": 1
-                    }
+            try localFileSystem.writeFileContents(packageDir.appending("Package.resolved"), string:
                 """
-            }
+                {
+                  "object": {
+                    "pins": [
+                      {
+                        "package": "library",
+                        "repositoryURL": "\(repositoryURL)",
+                        "state": {
+                          "branch": null,
+                          "revision": "\(revision)",
+                          "version": "\(version)"
+                        }
+                      }
+                    ]
+                  },
+                  "version": 1
+                }
+                """
+            )
         }
 
         try testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "library")
-            try localFileSystem.writeFileContents(packageDir.appending("Package.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string:
+                """
                 // swift-tools-version:5.0
                 import PackageDescription
                 let package = Package(
@@ -1062,12 +1065,12 @@ final class PackageToolTests: CommandsTestCase {
                     targets: [ .target(name: "library") ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift")) {
-                $0 <<< """
-                    public func Foo() { }
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift"), string:
                 """
-            }
+                public func Foo() { }
+                """
+            )
 
             let depGit = GitRepository(path: packageDir)
             try depGit.create()
@@ -1079,8 +1082,8 @@ final class PackageToolTests: CommandsTestCase {
             let repositoryURL = "file://\(packageDir.pathString)"
 
             let clientDir = tmpPath.appending(components: "client")
-            try localFileSystem.writeFileContents(clientDir.appending("Package.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(clientDir.appending("Package.swift"), string:
+                """
                 // swift-tools-version:5.0
                 import PackageDescription
                 let package = Package(
@@ -1089,23 +1092,23 @@ final class PackageToolTests: CommandsTestCase {
                     targets: [ .target(name: "client", dependencies: [ "library" ]) ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(clientDir.appending(components: "Sources", "client", "main.swift")) {
-                $0 <<< """
-                    print("hello")
+            )
+            try localFileSystem.writeFileContents(clientDir.appending(components: "Sources", "client", "main.swift"), string:
                 """
-            }
+                print("hello")
+                """
+            )
 
             // Initial resolution with clean state.
             try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
             _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
 
             // Make a change to the dependency and tag a new version.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift")) {
-                $0 <<< """
-                    public func Best() { }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift"), string:
                 """
-            }
+                public func Best() { }
+                """
+            )
             try depGit.stageEverything()
             try depGit.commit()
             try depGit.tag(name: "1.0.1")
@@ -1125,33 +1128,33 @@ final class PackageToolTests: CommandsTestCase {
             let depSym = path.appending(components: "depSym")
 
             // Create root package.
-            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
-            try fs.writeFileContents(root.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift"), string: "")
+            try fs.writeFileContents(root.appending("Package.swift"), string:
+                """
                 // swift-tools-version:4.2
                 import PackageDescription
                 let package = Package(
-                name: "root",
-                dependencies: [.package(url: "../depSym", from: "1.0.0")],
-                targets: [.target(name: "root", dependencies: ["dep"])]
+                    name: "root",
+                    dependencies: [.package(url: "../depSym", from: "1.0.0")],
+                    targets: [.target(name: "root", dependencies: ["dep"])]
                 )
 
                 """
-            }
+            )
 
             // Create dependency.
-            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
-            try fs.writeFileContents(dep.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift"), string: "")
+            try fs.writeFileContents(dep.appending("Package.swift"), string:
+                """
                 // swift-tools-version:4.2
                 import PackageDescription
                 let package = Package(
-                name: "dep",
-                products: [.library(name: "dep", targets: ["dep"])],
-                targets: [.target(name: "dep")]
+                    name: "dep",
+                    products: [.library(name: "dep", targets: ["dep"])],
+                    targets: [.target(name: "dep")]
                 )
                 """
-            }
+            )
             do {
                 let depGit = GitRepository(path: dep)
                 try depGit.create()
@@ -1275,11 +1278,9 @@ final class PackageToolTests: CommandsTestCase {
             try execute(["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "https://scm.com/org/bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-            XCTAssertMatch(output, .contains("https://scm.com/org/bar"))
-            XCTAssertNoMatch(output, .contains("https://scm.com/org/foo"))
+            let (stdout, _) = try SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            XCTAssertMatch(stdout, .contains("https://scm.com/org/bar"))
+            XCTAssertNoMatch(stdout, .contains("https://scm.com/org/foo"))
         }
     }
 
@@ -1320,11 +1321,9 @@ final class PackageToolTests: CommandsTestCase {
             try execute(["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "org.bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-            XCTAssertMatch(output, .contains("org.bar"))
-            XCTAssertNoMatch(output, .contains("https://scm.com/org/foo"))
+            let (stdout, _) = try SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            XCTAssertMatch(stdout, .contains("org.bar"))
+            XCTAssertNoMatch(stdout, .contains("https://scm.com/org/foo"))
         }
     }
 
@@ -1365,11 +1364,9 @@ final class PackageToolTests: CommandsTestCase {
             try execute(["config", "set-mirror", "--original", "org.foo", "--mirror", "https://scm.com/org/bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-            XCTAssertMatch(output, .contains("https://scm.com/org/bar"))
-            XCTAssertNoMatch(output, .contains("org.foo"))
+            let (stdout, _) = try SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot)
+            XCTAssertMatch(stdout, .contains("https://scm.com/org/bar"))
+            XCTAssertNoMatch(stdout, .contains("org.foo"))
         }
     }
 
@@ -1384,25 +1381,24 @@ final class PackageToolTests: CommandsTestCase {
                 let fakeBinDir = tmpdir
                 for fakeCmdName in ["xcrun", "sandbox-exec"] {
                     let fakeCmdPath = fakeBinDir.appending(component: fakeCmdName)
-                    try localFileSystem.writeFileContents(fakeCmdPath, body: { stream in
-                        stream <<< """
+                    try localFileSystem.writeFileContents(fakeCmdPath, string:
+                        """
                         #!/bin/sh
                         echo "wrong \(fakeCmdName) invoked"
                         exit 1
                         """
-                    })
+                    )
                     try localFileSystem.chmod(.executable, path: fakeCmdPath)
                 }
 
                 // Invoke `swift-package`, passing in the overriding `PATH` environment variable.
                 let packageRoot = fixturePath.appending("Library")
                 let patchedPATH = fakeBinDir.pathString + ":" + ProcessInfo.processInfo.environment["PATH"]!
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
-                let textOutput = try result.utf8Output() + result.utf8stderrOutput()
+                let (stdout, _) = try SwiftPM.Package.execute(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
 
                 // Check that the wrong tools weren't invoked.  We can't just check the exit code because of fallbacks.
-                XCTAssertNoMatch(textOutput, .contains("wrong xcrun invoked"))
-                XCTAssertNoMatch(textOutput, .contains("wrong sandbox-exec invoked"))
+                XCTAssertNoMatch(stdout, .contains("wrong xcrun invoked"))
+                XCTAssertNoMatch(stdout, .contains("wrong sandbox-exec invoked"))
             }
         }
     }
@@ -1414,8 +1410,8 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending("Package.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string:
+                """
                 // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
@@ -1434,63 +1430,60 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
-                    public func Foo() { }
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift"), string:
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.foo")) {
-                $0 <<< """
-                    a file with a filename suffix handled by the plugin
+                public func Foo() { }
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.bar")) {
-                $0 <<< """
-                    a file with a filename suffix not handled by the plugin
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.foo"), string:
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
-                    import PackagePlugin
-                    import Foundation
-                    @main
-                    struct MyBuildToolPlugin: BuildToolPlugin {
-                        func createBuildCommands(
-                            context: PluginContext,
-                            target: Target
-                        ) throws -> [Command] {
-                            // Expect the initial working directory for build tool plugins is the package directory.
-                            guard FileManager.default.currentDirectoryPath == context.package.directory.string else {
-                                throw "expected initial working directory ‘\\(FileManager.default.currentDirectoryPath)’"
-                            }
-
-                            // Check that the package display name is what we expect.
-                            guard context.package.displayName == "MyPackage" else {
-                                throw "expected display name to be ‘MyPackage’ but found ‘\\(context.package.displayName)’"
-                            }
-
-                            // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
-                            let fooFiles = target.sourceModule?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
-                            return [ .buildCommand(displayName: "A command", executable: Path("/bin/echo"), arguments: fooFiles, inputFiles: fooFiles) ]
+                a file with a filename suffix handled by the plugin
+                """
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.bar"), string:
+                """
+                a file with a filename suffix not handled by the plugin
+                """
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"), string:
+                """
+                import PackagePlugin
+                import Foundation
+                @main
+                struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        // Expect the initial working directory for build tool plugins is the package directory.
+                        guard FileManager.default.currentDirectoryPath == context.package.directory.string else {
+                            throw "expected initial working directory ‘\\(FileManager.default.currentDirectoryPath)’"
                         }
 
+                        // Check that the package display name is what we expect.
+                        guard context.package.displayName == "MyPackage" else {
+                            throw "expected display name to be ‘MyPackage’ but found ‘\\(context.package.displayName)’"
+                        }
+
+                        // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
+                        let fooFiles = target.sourceModule?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
+                        return [ .buildCommand(displayName: "A command", executable: Path("/bin/echo"), arguments: fooFiles, inputFiles: fooFiles) ]
                     }
-                    extension String : Error {}
+
+                }
+                extension String : Error {}
                 """
-            }
+            )
 
             // Invoke it, and check the results.
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-            XCTAssert(output.contains("Build complete!"))
+            let (stdout, stderr) = try SwiftPM.Build.execute(packagePath: packageDir)
+            XCTAssert(stdout.contains("Build complete!"))
 
             // We expect a warning about `library.bar` but not about `library.foo`.
-            let stderrOutput = try result.utf8stderrOutput()
-            XCTAssertMatch(stderrOutput, .contains("found 1 file(s) which are unhandled"))
-            XCTAssertNoMatch(stderrOutput, .contains("Sources/MyLibrary/library.foo"))
-            XCTAssertMatch(stderrOutput, .contains("Sources/MyLibrary/library.bar"))
+            XCTAssertMatch(stderr, .contains("found 1 file(s) which are unhandled"))
+            XCTAssertNoMatch(stderr, .contains("Sources/MyLibrary/library.foo"))
+            XCTAssertMatch(stderr, .contains("Sources/MyLibrary/library.bar"))
         }
     }
 
@@ -1550,12 +1543,14 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Invoke it, and check the results.
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["-v"], packagePath: packageDir)
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-            XCTAssertMatch(output, .contains("This is text from the plugin"))
-            XCTAssertMatch(output, .contains("error: This is an error from the plugin"))
-            XCTAssertMatch(output, .contains("build stopped due to build-tool plugin failures"))
+            XCTAssertThrowsError(try SwiftPM.Build.execute(["-v"], packagePath: packageDir)) { error in
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssertMatch(stderr, .contains("This is text from the plugin"))
+                XCTAssertMatch(stderr, .contains("error: This is an error from the plugin"))
+                XCTAssertMatch(stderr, .contains("build stopped due to build-tool plugin failures"))
+            }
         }
     }
 
@@ -1565,63 +1560,53 @@ final class PackageToolTests: CommandsTestCase {
 
             // Running without arguments or options
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                let (stdout, _) = try SwiftPM.Package.execute(["archive-source"], packagePath: packageRoot)
+                XCTAssert(stdout.contains("Created Bar.zip"), #"actual: "\#(stdout)""#)
+            }
 
-                let stdoutOutput = try result.utf8Output()
-                XCTAssert(stdoutOutput.contains("Created Bar.zip"), #"actual: "\#(stdoutOutput)""#)
-
-                // Running without arguments or options again, overwriting existing archive
-                do {
-                    let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: packageRoot)
-                    XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-
-                    let stdoutOutput = try result.utf8Output()
-                    XCTAssert(stdoutOutput.contains("Created Bar.zip"), #"actual: "\#(stdoutOutput)""#)
-                }
+            // Running without arguments or options again, overwriting existing archive
+            do {
+                let (stdout, _) = try SwiftPM.Package.execute(["archive-source"], packagePath: packageRoot)
+                XCTAssert(stdout.contains("Created Bar.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running with output as absolute path within package root
             do {
                 let destination = packageRoot.appending("Bar-1.2.3.zip")
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-
-                let stdoutOutput = try result.utf8Output()
-                XCTAssert(stdoutOutput.contains("Created Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
+                let (stdout, _) = try SwiftPM.Package.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                XCTAssert(stdout.contains("Created Bar-1.2.3.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running with output is outside the package root
             try withTemporaryDirectory { tempDirectory in
                 let destination = tempDirectory.appending("Bar-1.2.3.zip")
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-
-                let stdoutOutput = try result.utf8Output()
-                XCTAssert(stdoutOutput.hasPrefix("Created /"), #"actual: "\#(stdoutOutput)""#)
-                XCTAssert(stdoutOutput.contains("Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
+                let (stdout, _) = try SwiftPM.Package.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                XCTAssert(stdout.hasPrefix("Created /"), #"actual: "\#(stdout)""#)
+                XCTAssert(stdout.contains("Bar-1.2.3.zip"), #"actual: "\#(stdout)""#)
             }
 
             // Running without arguments or options in non-package directory
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: fixturePath)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-
-                let stderrOutput = try result.utf8stderrOutput()
-                XCTAssert(stderrOutput.contains("error: Could not find Package.swift in this directory or any of its parent directories."), #"actual: "\#(stderrOutput)""#)
+                XCTAssertThrowsError(try SwiftPM.Package.execute(["archive-source"], packagePath: fixturePath)) { error in
+                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssert(stderr.contains("error: Could not find Package.swift in this directory or any of its parent directories."), #"actual: "\#(stderr)""#)
+                }
             }
 
             // Running with output as absolute path to existing directory
             do {
                 let destination = AbsolutePath.root
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-
-                let stderrOutput = try result.utf8stderrOutput()
-                XCTAssert(
-                    stderrOutput.contains("error: Couldn’t create an archive:"),
-                    #"actual: "\#(stderrOutput)""#
-                )
+                XCTAssertThrowsError(try SwiftPM.Package.execute(["archive-source", "--output", destination.pathString], packagePath: packageRoot)) { error in
+                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssert(
+                        stderr.contains("error: Couldn’t create an archive:"),
+                        #"actual: "\#(stderr)""#
+                    )
+                }
             }
         }
     }
@@ -1633,8 +1618,8 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string:
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -1670,14 +1655,14 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift"), string:
+                """
                 public func Foo() { }
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "test.docc")) {
-                $0 <<< """
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "test.docc"), string:
+                """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
                 <plist version="1.0">
@@ -1686,11 +1671,11 @@ final class PackageToolTests: CommandsTestCase {
                     <string>sample</string>
                 </dict>
                 """
-            }
+            )
             let hostTriple = try UserToolchain(destination: .hostDestination()).triple
             let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"), string:
+                """
                 {   "schemaVersion": "1.0",
                     "artifacts": {
                         "LocalBinaryTool": {
@@ -1705,14 +1690,12 @@ final class PackageToolTests: CommandsTestCase {
                     }
                 }
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift")) {
-                $0 <<< """
-                print("Hello")
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"), string:
+                #"print("Hello")"#
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"), string:
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
                 import PackagePlugin
                 import Foundation
                 @main
@@ -1765,11 +1748,11 @@ final class PackageToolTests: CommandsTestCase {
                     }
                 }
                 """
-            }
+            )
 
             // Create the sample vendored dependency package.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift"), string:
+                """
                 // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
@@ -1794,66 +1777,52 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")) {
-                $0 <<< """
-                public func Bar() { }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "RemoteBuiltTool", "main.swift")) {
-                $0 <<< """
-                print("Hello")
-                """
-            }
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift"), string: "public func Bar() { }"
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "RemoteBuiltTool", "main.swift"), string: #"print("Hello")"#
+            )
 
             // Check that we can invoke the plugin with the "plugin" subcommand.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("This is MyCommandPlugin."))
+                let (stdout, _) = try SwiftPM.Package.execute(["plugin", "mycmd"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("This is MyCommandPlugin."))
             }
 
             // Check that we can also invoke it without the "plugin" subcommand.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("This is MyCommandPlugin."))
+                let (stdout, _) = try SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("This is MyCommandPlugin."))
             }
 
             // Testing listing the available command plugins.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+                let (stdout, _) = try SwiftPM.Package.execute(["plugin", "--list"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
             }
 
             // Check that we get the expected error if trying to invoke a plugin with the wrong name.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Unknown subcommand or plugin name ‘my-nonexistent-cmd’"))
+                XCTAssertThrowsError(try SwiftPM.Package.execute(["my-nonexistent-cmd"], packagePath: packageDir)) { error in
+                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssertMatch(stderr, .contains("Unknown subcommand or plugin name ‘my-nonexistent-cmd’"))
+                }
             }
 
             // Check that the .docc file was properly vended to the plugin.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Sources/MyLibrary/library.swift: source"))
-                XCTAssertMatch(output, .contains("Sources/MyLibrary/test.docc: unknown"))
+                let (stdout, _) = try SwiftPM.Package.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Sources/MyLibrary/library.swift: source"))
+                XCTAssertMatch(stdout, .contains("Sources/MyLibrary/test.docc: unknown"))
             }
 
             // Check that the initial working directory is what we expected.
             do {
                 let workingDirectory = FileManager.default.currentDirectoryPath
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Initial working directory: \(workingDirectory)"))
+                let (stdout, _) = try SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Initial working directory: \(workingDirectory)"))
             }
         }
     }
@@ -1865,53 +1834,51 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
-                $0 <<< """
-                    // swift-tools-version: 5.9
-                    import PackageDescription
-                    let package = Package(
-                        name: "MyPackage",
-                        targets: [
-                            .target(name: "MyLibrary"),
-                            .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(permissionsManifestFragment))),
-                        ]
-                    )
-                    """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
-                    public func Foo() { }
-                    """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
-                    import PackagePlugin
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(name: "MyLibrary"),
+                        .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(permissionsManifestFragment))),
+                    ]
+                )
+                """
+            )
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift"), string: "public func Foo() { }")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"), string:
+                """
+                import PackagePlugin
 
-                    @main
-                    struct MyCommandPlugin: CommandPlugin {
-                        func performCommand(context: PluginContext, arguments: [String]) throws {
-                            print("hello world")
-                        }
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(context: PluginContext, arguments: [String]) throws {
+                        print("hello world")
                     }
-                    """
-            }
+                }
+                """
+            )
 
             #if os(macOS)
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "Network"], packagePath: packageDir)
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertNoMatch(try result.utf8Output(), .contains("hello world"))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ wants permission to allow \(permissionError)."))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Stated reason: “\(reason)”."))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Use `\(remedy.joined(separator: " "))` to allow this."))
+                XCTAssertThrowsError(try SwiftPM.Package.execute(["plugin", "Network"], packagePath: packageDir)) { error in
+                    guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssertNoMatch(stdout, .contains("hello world"))
+                    XCTAssertMatch(stderr, .contains("error: Plugin ‘MyPlugin’ wants permission to allow \(permissionError)."))
+                    XCTAssertMatch(stderr, .contains("Stated reason: “\(reason)”."))
+                    XCTAssertMatch(stderr, .contains("Use `\(remedy.joined(separator: " "))` to allow this."))
+                }
             }
             #endif
 
             // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin"] + remedy + ["Network"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("hello world"))
+                let (stdout, _) = try SwiftPM.Package.execute(["plugin"] + remedy + ["Network"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("hello world"))
             }
         }
     }
@@ -1923,8 +1890,8 @@ final class PackageToolTests: CommandsTestCase {
             reason: "internet good",
             remedy: ["--allow-network-connections", "all"])
         try testCommandPluginNetworkingPermissions(
-            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: \"internet good\")]",
-            permissionError: "all network connections on ports: 23, 42",
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: \"internet good\")]",
+            permissionError: "all network connections on ports: 23, 42, 443, 8080",
             reason: "internet good",
             remedy: ["--allow-network-connections", "all"])
         try testCommandPluginNetworkingPermissions(
@@ -1939,8 +1906,8 @@ final class PackageToolTests: CommandsTestCase {
             reason: "localhost good",
             remedy: ["--allow-network-connections", "local"])
         try testCommandPluginNetworkingPermissions(
-            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42]), reason: \"localhost good\")]",
-            permissionError: "local network connections on ports: 23, 42",
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42, 443, 8080]), reason: \"localhost good\")]",
+            permissionError: "local network connections on ports: 23, 42, 443, 8080",
             reason: "localhost good",
             remedy: ["--allow-network-connections", "local"])
         try testCommandPluginNetworkingPermissions(
@@ -1968,8 +1935,9 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
-                $0 <<< """
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string:
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 import Foundation
@@ -1992,14 +1960,16 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
-                public func Foo() { }
+            )
+            let libPath = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(libPath, recursive: true)
+            try localFileSystem.writeFileContents(libPath.appending("library.swift"), string:
+                "public func Foo() { }"
+            )
+            let pluginPath = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(pluginPath, recursive: true)
+            try localFileSystem.writeFileContents(pluginPath.appending("plugin.swift"), string:
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
                 import PackagePlugin
                 import Foundation
 
@@ -2019,60 +1989,62 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 extension String: Error {}
                 """
-            }
+            )
 
             // Check that we get an error if the plugin needs permission but if we don't give it to them. Note that sandboxing is only currently supported on macOS.
           #if os(macOS)
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ wants permission to write to the package directory."))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Stated reason: “For testing purposes”."))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Use `--allow-writing-to-package-directory` to allow this."))
+                XCTAssertThrowsError(try SwiftPM.Package.execute(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])) { error in
+                    guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssertNoMatch(stdout, .contains("successfully created it"))
+                    XCTAssertMatch(stderr, .contains("error: Plugin ‘MyPlugin’ wants permission to write to the package directory."))
+                    XCTAssertMatch(stderr, .contains("Stated reason: “For testing purposes”."))
+                    XCTAssertMatch(stderr, .contains("Use `--allow-writing-to-package-directory` to allow this."))
+                }
             }
           #endif
 
             // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertMatch(stdout, .contains("successfully created it"))
+                XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
 
             // Check that we get an error if the plugin doesn't declare permission but tries to write anyway. Note that sandboxing is only currently supported on macOS.
           #if os(macOS)
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"])
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                XCTAssertThrowsError(try SwiftPM.Package.execute(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"])) { error in
+                    guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssertNoMatch(stdout, .contains("successfully created it"))
+                    XCTAssertMatch(stderr, .contains("error: Couldn’t create file at path"))
+                }
             }
           #endif
 
             // Check default command with arguments
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                let (stdout, stderr) = try SwiftPM.Package.execute(["--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertMatch(stdout, .contains("successfully created it"))
+                XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
 
             // Check plugin arguments after plugin name
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler",  "--allow-writing-to-package-directory"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "PackageScribbler",  "--allow-writing-to-package-directory"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertMatch(stdout, .contains("successfully created it"))
+                XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
 
             // Check default command with arguments after plugin name
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["PackageScribbler", "--allow-writing-to-package-directory", ], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                let (stdout, stderr) = try SwiftPM.Package.execute(["PackageScribbler", "--allow-writing-to-package-directory", ], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertMatch(stdout, .contains("successfully created it"))
+                XCTAssertNoMatch(stderr, .contains("error: Couldn’t create file at path"))
             }
         }
     }
@@ -2084,8 +2056,11 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
-                """
+
+            try localFileSystem.createDirectory(packageDir)
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 import Foundation
@@ -2101,9 +2076,13 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                """
+            )
+
+            let pluginDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(pluginDir, recursive: true)
+            try localFileSystem.writeFileContents(
+                pluginDir.appending("plugin.swift"),
+                string: """
                 import PackagePlugin
                 import Foundation
 
@@ -2131,22 +2110,20 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 extension String: Error {}
                 """
-            }
+            )
 
             // Check arguments
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("success"))
-                XCTAssertEqual(try result.utf8stderrOutput(), "")
+                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("success"))
+                XCTAssertEqual(stderr, "")
             }
 
             // Check default command arguments
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("success"))
-                XCTAssertEqual(try result.utf8stderrOutput(), "")
+                let (stdout, stderr) = try SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("success"))
+                XCTAssertEqual(stderr, "")
             }
         }
     }
@@ -2161,8 +2138,10 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library, and executable, and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
-                $0 <<< """
+            try localFileSystem.createDirectory(packageDir)
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -2184,20 +2163,30 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
-                public func GetGreeting() -> String { return "Hello" }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyCommand", "main.swift")) {
-                $0 <<< """
+            )
+
+            let libraryPath = packageDir.appending(components: "Sources", "MyLibrary", "library.swift")
+            try localFileSystem.createDirectory(libraryPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                libraryPath,
+                string: #"public func GetGreeting() -> String { return "Hello" }"#
+            )
+
+            let commandPath = packageDir.appending(components: "Sources", "MyCommand", "main.swift")
+            try localFileSystem.createDirectory(commandPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                commandPath,
+                string: """
                 import MyLibrary
                 print("\\(GetGreeting()), World!")
                 """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
+            )
+
+            let pluginPath = packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")
+            try localFileSystem.createDirectory(pluginPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                pluginPath,
+                string: """
                 import PackagePlugin
                 import Foundation
 
@@ -2221,25 +2210,21 @@ final class PackageToolTests: CommandsTestCase {
                     }
                 }
                 """
-            }
+            )
 
             // Check that if we don't pass any target, we successfully get symbol graph information for all targets in the package, and at different paths.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["generate-documentation"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
-                XCTAssertMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+                let (stdout, _) = try SwiftPM.Package.execute(["generate-documentation"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
+                XCTAssertMatch(stdout, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
 
             }
 
             // Check that if we pass a target, we successfully get symbol graph information for just the target we asked for.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["generate-documentation", "--target", "MyLibrary"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
-                XCTAssertNoMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+                let (stdout, _) = try SwiftPM.Package.execute(["generate-documentation", "--target", "MyLibrary"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
+                XCTAssertNoMatch(stdout, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
             }
         }
     }
@@ -2358,59 +2343,51 @@ final class PackageToolTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyExecutable for debugging.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Building for debugging..."))
-                XCTAssertNoMatch(output, .contains("Building for production..."))
-                XCTAssertMatch(output, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(output, .contains("-DEXTRA_SWIFT_FLAG"))
-                XCTAssertMatch(output, .contains("Build complete!"))
-                XCTAssertMatch(output, .contains("succeeded: true"))
-                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("debug/MyExecutable")))
-                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("executable")))
+                let (stdout, _) = try SwiftPM.Package.execute(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Building for debugging..."))
+                XCTAssertNoMatch(stdout, .contains("Building for production..."))
+                XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
+                XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
+                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("succeeded: true"))
+                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("debug/MyExecutable")))
+                XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
             }
 
             // Invoke the plugin with parameters choosing a concise build of MyExecutable for release.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyExecutable", "--release"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Building for production..."))
-                XCTAssertNoMatch(output, .contains("Building for debug..."))
-                XCTAssertNoMatch(output, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(output, .contains("Build complete!"))
-                XCTAssertMatch(output, .contains("succeeded: true"))
-                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("release/MyExecutable")))
-                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("executable")))
+                let (stdout, _) = try SwiftPM.Package.execute(["my-build-tester", "--product", "MyExecutable", "--release"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Building for production..."))
+                XCTAssertNoMatch(stdout, .contains("Building for debug..."))
+                XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
+                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("succeeded: true"))
+                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/MyExecutable")))
+                XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Building for production..."))
-                XCTAssertNoMatch(output, .contains("Building for debug..."))
-                XCTAssertNoMatch(output, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(output, .contains("Build complete!"))
-                XCTAssertMatch(output, .contains("succeeded: true"))
-                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("release/libMyStaticLibrary.")))
-                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
+                let (stdout, _) = try SwiftPM.Package.execute(["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Building for production..."))
+                XCTAssertNoMatch(stdout, .contains("Building for debug..."))
+                XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
+                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("succeeded: true"))
+                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyStaticLibrary.")))
+                XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyDynamicLibrary", "--print-commands", "--release"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Building for production..."))
-                XCTAssertNoMatch(output, .contains("Building for debug..."))
-                XCTAssertNoMatch(output, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(output, .contains("Build complete!"))
-                XCTAssertMatch(output, .contains("succeeded: true"))
-                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("release/libMyDynamicLibrary.")))
-                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
+                let (stdout, _) = try SwiftPM.Package.execute(["my-build-tester", "--product", "MyDynamicLibrary", "--print-commands", "--release"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Building for production..."))
+                XCTAssertNoMatch(stdout, .contains("Building for debug..."))
+                XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
+                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("succeeded: true"))
+                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyDynamicLibrary.")))
+                XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
             }
         }
     }
@@ -2532,12 +2509,7 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Check basic usage with filtering and code coverage. The plugin itself asserts a bunch of values.
-            do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-test-tester"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                print(output)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-            }
+            try SwiftPM.Package.execute(["my-test-tester"], packagePath: packageDir)
 
             // We'll add checks for various error conditions here in a future commit.
         }
@@ -2713,49 +2685,39 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that a target doesn't include itself in its recursive dependencies.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "SecondTarget"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Recursive dependencies of 'SecondTarget': [\"FirstTarget\"]"))
-                XCTAssertMatch(output, .contains("Module kind of 'SecondTarget': generic"))
+                let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "SecondTarget"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Recursive dependencies of 'SecondTarget': [\"FirstTarget\"]"))
+                XCTAssertMatch(stdout, .contains("Module kind of 'SecondTarget': generic"))
             }
 
             // Check that targets are not included twice in recursive dependencies.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "ThirdTarget"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Recursive dependencies of 'ThirdTarget': [\"FirstTarget\"]"))
-                XCTAssertMatch(output, .contains("Module kind of 'ThirdTarget': generic"))
+                let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "ThirdTarget"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Recursive dependencies of 'ThirdTarget': [\"FirstTarget\"]"))
+                XCTAssertMatch(stdout, .contains("Module kind of 'ThirdTarget': generic"))
             }
 
             // Check that product dependencies work in recursive dependencies.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "FourthTarget"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Recursive dependencies of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
-                XCTAssertMatch(output, .contains("Module kind of 'FourthTarget': generic"))
+                let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "FourthTarget"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Recursive dependencies of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
+                XCTAssertMatch(stdout, .contains("Module kind of 'FourthTarget': generic"))
             }
 
             // Check some of the other utility APIs.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("execProducts: [\"FifthTarget\"]"))
-                XCTAssertMatch(output, .contains("swiftTargets: [\"ThirdTarget\", \"TestTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
-                XCTAssertMatch(output, .contains("swiftSources: [\"library.swift\", \"tests.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
-                XCTAssertMatch(output, .contains("Module kind of 'FifthTarget': executable"))
+                let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("execProducts: [\"FifthTarget\"]"))
+                XCTAssertMatch(stdout, .contains("swiftTargets: [\"ThirdTarget\", \"TestTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
+                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"tests.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
+                XCTAssertMatch(stdout, .contains("Module kind of 'FifthTarget': executable"))
             }
 
             // Check a test target.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "TestTarget"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Recursive dependencies of 'TestTarget': [\"FirstTarget\", \"SecondTarget\"]"))
-                XCTAssertMatch(output, .contains("Module kind of 'TestTarget': test"))
+                let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "TestTarget"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Recursive dependencies of 'TestTarget': [\"FirstTarget\", \"SecondTarget\"]"))
+                XCTAssertMatch(stdout, .contains("Module kind of 'TestTarget': test"))
             }
         }
     }
@@ -2848,22 +2810,18 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that building without options compiles both plugins and that the build proceeds.
             do {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
-                XCTAssertMatch(output, .contains("Building for debugging..."))
+                let (stdout, _) = try SwiftPM.Build.execute(packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
+                XCTAssertMatch(stdout, .contains("Building for debugging..."))
             }
 
             // Check that building just one of them just compiles that plugin and doesn't build anything else.
             do {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--target", "MyCommandPlugin"], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertNoMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
-                XCTAssertNoMatch(output, .contains("Building for debugging..."))
+                let (stdout, _) = try SwiftPM.Build.execute(["--target", "MyCommandPlugin"], packagePath: packageDir)
+                XCTAssertNoMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
+                XCTAssertNoMatch(stdout, .contains("Building for debugging..."))
             }
 
             // Deliberately break the command plugin.
@@ -2883,13 +2841,15 @@ final class PackageToolTests: CommandsTestCase {
             // Check that building stops after compiling the plugin and doesn't proceed.
             // Run this test a number of times to try to catch any race conditions.
             for _ in 1...5 {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
-                let output = try result.utf8Output() + result.utf8stderrOutput()
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
-                XCTAssertMatch(output, .contains("error: consecutive statements on a line must be separated by ';'"))
-                XCTAssertNoMatch(output, .contains("Building for debugging..."))
+                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: packageDir)) { error in
+                    guard case SwiftPMError.executionFailure(_, let stdout, _) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssertMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
+                    XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
+                    XCTAssertMatch(stdout, .contains("error: consecutive statements on a line must be separated by ';'"))
+                    XCTAssertNoMatch(stdout, .contains("Building for debugging..."))
+                }
             }
         }
     }
@@ -2947,7 +2907,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,

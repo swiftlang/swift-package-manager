@@ -10,11 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-
+import Basics
 import SPMTestSupport
-import TSCBasic
-
+import XCTest
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
 /// point, and because of the time they take, they need to be kept minimal.
@@ -53,9 +51,10 @@ final class IncrementalBuildTests: XCTestCase {
             // build system can detect the change (the timestamp change might be too small
             // for the granularity of the file system to represent as distinct values).
             let sourceFile = fixturePath.appending(components: "Sources", "Foo.c")
-            let sourceStream = BufferedOutputByteStream()
-            sourceStream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
-            try localFileSystem.writeFileContents(sourceFile, bytes: sourceStream.bytes)
+            try localFileSystem.writeFileContents(
+                sourceFile,
+                string: "\(try localFileSystem.readFileContents(sourceFile))\n"
+            )
 
             // Read the first llbuild manifest.
             let llbuildContents1: String = try localFileSystem.readFileContents(llbuildManifest)
@@ -82,9 +81,10 @@ final class IncrementalBuildTests: XCTestCase {
             // build system can detect the change (the timestamp change might be too small
             // for the granularity of the file system to represent as distinct values).
             let headerFile = fixturePath.appending(components: "Sources", "include", "Foo.h")
-            let headerStream = BufferedOutputByteStream()
-            headerStream <<< (try localFileSystem.readFileContents(headerFile)) <<< "\n"
-            try localFileSystem.writeFileContents(headerFile, bytes: headerStream.bytes)
+            try localFileSystem.writeFileContents(
+                headerFile,
+                string: "\(try localFileSystem.readFileContents(headerFile))\n"
+            )
 
             // Now build again.  This should be an incremental build.
             let (log4, _) = try executeSwiftBuild(fixturePath)

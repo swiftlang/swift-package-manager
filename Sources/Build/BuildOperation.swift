@@ -18,8 +18,13 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import TSCBasic
 import Foundation
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.OutputByteStream
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
 import class TSCUtility.MultiLineNinjaProgressAnimation
@@ -76,7 +81,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let logLevel: Basics.Diagnostic.Severity
 
     /// File system to operate on.
-    private let fileSystem: TSCBasic.FileSystem
+    private let fileSystem: Basics.FileSystem
 
     /// ObservabilityScope with which to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -102,7 +107,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         pkgConfigDirectories: [AbsolutePath],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
-        fileSystem: TSCBasic.FileSystem,
+        fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         /// Checks if stdout stream is tty.
@@ -148,7 +153,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     }
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
-                    self.observabilityScope.emit(warning: "failed to load the cached build description: \(error)")
+                    self.observabilityScope.emit(
+                        warning: "failed to load the cached build description",
+                        underlyingError: error
+                    )
                 }
             }
             // We need to perform actual planning if we reach here.
@@ -271,7 +279,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         if self.fileSystem.exists(oldBuildPath) {
             do { try self.fileSystem.removeFileTree(oldBuildPath) }
             catch {
-                self.observabilityScope.emit(warning: "unable to delete \(oldBuildPath), skip creating symbolic link: \(error)")
+                self.observabilityScope.emit(
+                    warning: "unable to delete \(oldBuildPath), skip creating symbolic link",
+                    underlyingError: error
+                )
                 return
             }
         }
@@ -279,7 +290,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         do {
             try self.fileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
         } catch {
-            self.observabilityScope.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
+            self.observabilityScope.emit(
+                warning: "unable to create symbolic link at \(oldBuildPath)",
+                underlyingError: error
+            )
         }
     }
 
@@ -362,7 +376,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
         }
         let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
-        let result = try tsc_await {
+        let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
                 pluginName: plugin.targetName,
@@ -422,7 +436,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             ) { name, path in
                 try buildOperationForPluginDependencies.build(subset: .product(name))
                 if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
-                    return builtTool.binaryPath
+                    return try builtTool.binaryPath
                 } else {
                     return nil
                 }
@@ -595,7 +609,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if !pluginConfiguration.disableSandbox {
                     commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
-                let processResult = try TSCBasic.Process.popen(arguments: commandLine, environment: command.configuration.environment)
+                let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
@@ -675,7 +689,7 @@ extension BuildOperation {
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest.BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest.BuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)

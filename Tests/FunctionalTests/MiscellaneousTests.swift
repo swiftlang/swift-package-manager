@@ -14,9 +14,11 @@ import Basics
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
 
 typealias ProcessID = TSCBasic.Process.ProcessID
 
@@ -71,7 +73,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoArgumentsExitsWithOne() throws {
-        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(AbsolutePath(path: "/"))) { error in
+        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild("/")) { error in
             // if our code crashes we'll get an exit code of 256
             guard error.result.exitStatus == .terminated(code: 1) else {
                 return XCTFail("failed in an unexpected manner: \(error)")
@@ -140,7 +142,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             Thread.sleep(forTimeInterval: 1)
 
-            let path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
+            let path = try SwiftPM.packagePath(for: "FisherYates", packageRoot: packageRoot)
             try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
             try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
@@ -167,7 +169,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             Thread.sleep(forTimeInterval: 1)
 
-            let path = try SwiftPMProduct.packagePath(for: "dep1", packageRoot: packageRoot)
+            let path = try SwiftPM.packagePath(for: "dep1", packageRoot: packageRoot)
             try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
             try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
@@ -218,8 +220,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             let pcFile = fixturePath.appending("libSystemModule.pc")
 
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            try localFileSystem.writeFileContents(pcFile, string: """
                 prefix=\(systemModule.pathString)
                 exec_prefix=${prefix}
                 libdir=${exec_prefix}
@@ -232,7 +233,7 @@ class MiscellaneousTestCase: XCTestCase {
                 Libs: -L${libdir} -lSystemModule
 
                 """
-            try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
+            )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
             let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
@@ -252,7 +253,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCanKillSubprocessOnSigInt() throws {
         // <rdar://problem/31890371> swift-pm: Spurious? failures of MiscellaneousTestCase.testCanKillSubprocessOnSigInt on linux
-      #if false
+        #if false
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
 
             let fakeGit = fixturePath.appending(components: "bin", "git")
@@ -261,15 +262,14 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.createDirectory(fakeGit.parentDirectory)
 
             // Write out fake git.
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                #!/bin/sh
-                set -e
-                printf "$$" >> \(waitFile)
-                while true; do sleep 1; done
-
+            try localFileSystem.writeFileContents(fakeGit, string:
                 """
-            try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
+                    #!/bin/sh
+                    set -e
+                    printf "$$" >> \(waitFile)
+                    while true; do sleep 1; done
+                """
+            )
 
             // Make it executable.
             _ = try Process.popen(args: "chmod", "+x", fakeGit.description)
@@ -284,7 +284,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Launch swift-build.
             let app = fixturePath.appending("Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.pathString, "--package-path", app.pathString, environment: env)
+            let process = Process(args: SwiftPM.Build.path.pathString, "--package-path", app.pathString, environment: env)
             try process.launch()
 
             guard waitForFile(waitFile) else {
@@ -302,7 +302,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFalse(try Process.running(process.processID))
             XCTAssertFalse(try Process.running(ProcessID(contents)!))
         }
-      #endif
+        #endif
     }
 
     func testReportingErrorFromGitCommand() throws {
@@ -313,13 +313,14 @@ class MiscellaneousTestCase: XCTestCase {
             // Launch swift-build.
             let app = fixturePath.appending("Bar")
 
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
-
-            // We should exited with a failure from the attempt to "git clone"
-            // something that doesn't exist.
-            XCTAssert(result.exitStatus != .terminated(code: 0))
-            let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("does not exist"), "Error from git was not propagated to process output: \(output)")
+            XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: app)) { error in
+                // We should exited with a failure from the attempt to "git clone"
+                // something that doesn't exist.
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssert(stderr.contains("does not exist"), "Error from git was not propagated to process output: \(stderr)")
+            }
         }
     }
 
@@ -327,26 +328,32 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { fixturePath in
             // This fixture has a setup that is trying to use a local package
             // as a url that hasn't been initialized as a repo
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending("Bar"))
-            XCTAssert(result.exitStatus != .terminated(code: 0))
-            let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("cannot clone from local directory"), "Didn't find expected output: \(output)")
+            XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("Bar"))) { error in
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssert(stderr.contains("cannot clone from local directory"), "Didn't find expected output: \(stderr)")
+            }
         }
     }
 
     func testInvalidRefsValidation() throws {
         try fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { fixturePath in
             do {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending("InvalidBranch"))
-                XCTAssert(result.exitStatus != .terminated(code: 0))
-                let output = try result.utf8stderrOutput()
-                XCTAssert(output.contains("invalid branch name: "), "Didn't find expected output: \(output)")
+                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidBranch"))) { error in
+                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssert(stderr.contains("invalid branch name: "), "Didn't find expected output: \(stderr)")
+                }
             }
             do {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending("InvalidRevision"))
-                XCTAssert(result.exitStatus != .terminated(code: 0))
-                let output = try result.utf8stderrOutput()
-                XCTAssert(output.contains("invalid revision: "), "Didn't find expected output: \(output)")
+                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidRevision"))) { error in
+                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    XCTAssert(stderr.contains("invalid revision: "), "Didn't find expected output: \(stderr)")
+                }
             }
         }
     }
@@ -363,7 +370,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // ••••• Set up dependency.
             let dependencyName = "UnicodeDependency‐\(complicatedString)"
-            let dependencyOrigin = AbsolutePath(path: #file).parentDirectory.parentDirectory.parentDirectory
+            let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
                 .appending("Fixtures")
                 .appending("Miscellaneous")
                 .appending(component: dependencyName)
@@ -381,8 +388,8 @@ class MiscellaneousTestCase: XCTestCase {
             // •••••
 
             // Attempt several operations.
-            try SwiftPMProduct.SwiftTest.execute([], packagePath: fixturePath)
-            try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: fixturePath)
+            try SwiftPM.Test.execute(packagePath: fixturePath)
+            try SwiftPM.Run.execute([complicatedString + "‐tool"], packagePath: fixturePath)
         }
         #endif
     }
@@ -495,7 +502,7 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/Simple") { path in
             let customCachePath = path.appending(components: "custom", "cache")
             XCTAssertNoSuchPath(customCachePath)
-            try SwiftPMProduct.SwiftBuild.execute(["--cache-path", customCachePath.pathString], packagePath: path)
+            try SwiftPM.Build.execute(["--cache-path", customCachePath.pathString], packagePath: path)
             XCTAssertDirectoryExists(customCachePath)
         }
 
@@ -505,10 +512,12 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customCachePath = path.appending(components: "custom", "cache")
             XCTAssertNoSuchPath(customCachePath)
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--cache-path", customCachePath.pathString], packagePath: path)
-            XCTAssert(result.exitStatus != .terminated(code: 0))
-            let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
+            XCTAssertThrowsError(try SwiftPM.Build.execute(["--cache-path", customCachePath.pathString], packagePath: path)) { error in
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssert(stderr.contains("error: You don’t have permission"), "expected permissions error")
+            }
             XCTAssertNoSuchPath(customCachePath)
         }
         #endif
@@ -518,7 +527,7 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/Simple") { path in
             let customConfigPath = path.appending(components: "custom", "config")
             XCTAssertNoSuchPath(customConfigPath)
-            try SwiftPMProduct.SwiftBuild.execute(["--config-path", customConfigPath.pathString], packagePath: path)
+            try SwiftPM.Build.execute(["--config-path", customConfigPath.pathString], packagePath: path)
             XCTAssertDirectoryExists(customConfigPath)
         }
 
@@ -528,10 +537,12 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customConfigPath = path.appending(components: "custom", "config")
             XCTAssertNoSuchPath(customConfigPath)
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--config-path", customConfigPath.pathString], packagePath: path)
-            XCTAssert(result.exitStatus != .terminated(code: 0))
-            let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
+            XCTAssertThrowsError(try SwiftPM.Build.execute(["--config-path", customConfigPath.pathString], packagePath: path)) { error in
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssert(stderr.contains("error: You don’t have permission"), "expected permissions error")
+            }
             XCTAssertNoSuchPath(customConfigPath)
         }
         #endif
@@ -541,7 +552,7 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/Simple") { path in
             let customSecurityPath = path.appending(components: "custom", "security")
             XCTAssertNoSuchPath(customSecurityPath)
-            try SwiftPMProduct.SwiftBuild.execute(["--security-path", customSecurityPath.pathString], packagePath: path)
+            try SwiftPM.Build.execute(["--security-path", customSecurityPath.pathString], packagePath: path)
             XCTAssertDirectoryExists(customSecurityPath)
         }
 
@@ -551,11 +562,12 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customSecurityPath = path.appending(components: "custom", "security")
             XCTAssertNoSuchPath(customSecurityPath)
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--security-path", customSecurityPath.pathString], packagePath: path)
-            XCTAssert(result.exitStatus != .terminated(code: 0))
-            let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
-            XCTAssertNoSuchPath(customSecurityPath)
+            XCTAssertThrowsError(try SwiftPM.Build.execute(["--security-path", customSecurityPath.pathString], packagePath: path)) { error in
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssert(stderr.contains("error: You don’t have permission"), "expected permissions error")
+            }
         }
         #endif
     }
@@ -565,7 +577,7 @@ class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/PluginGeneratedResources") { path in
-            let result = try SwiftPMProduct.SwiftRun.execute([], packagePath: path)
+            let result = try SwiftPM.Run.execute(packagePath: path)
             XCTAssertEqual(result.stdout, "Hello, World!\n", "executable did not produce expected output")
             XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
         }
@@ -580,13 +592,13 @@ class MiscellaneousTestCase: XCTestCase {
     func testNoJSONOutputWithFlatPackageStructure() throws {
         try fixture(name: "Miscellaneous/FlatPackage") { package in
             // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
-            let (stdout1, stderr1) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: package)
+            let (stdout1, stderr1) = try SwiftPM.Build.execute(packagePath: package)
             XCTAssertDirectoryExists(package.appending(".build"))
             XCTAssertNoMatch(stdout1, .contains("command_arguments"))
             XCTAssertNoMatch(stderr1, .contains("command_arguments"))
             
             // Now test, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
-            let (stdout2, stderr2) = try SwiftPMProduct.SwiftTest.execute([], packagePath: package)
+            let (stdout2, stderr2) = try SwiftPM.Test.execute(packagePath: package)
             XCTAssertDirectoryExists(package.appending(".build"))
             XCTAssertNoMatch(stdout2, .contains("command_arguments"))
             XCTAssertNoMatch(stderr2, .contains("command_arguments"))
@@ -602,7 +614,7 @@ class MiscellaneousTestCase: XCTestCase {
             initGitRepo(dependency2Path, tag: "1.0.0")
 
             let appPath = path.appending("app")
-            let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: appPath)
+            let (stdout, stderr) = try SwiftPM.Build.execute(packagePath: appPath)
             XCTAssertDirectoryExists(appPath.appending(".build"))
             XCTAssertMatch(stdout + stderr, .contains("'DeprecatedApp' is deprecated"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
@@ -619,7 +631,7 @@ class MiscellaneousTestCase: XCTestCase {
             initGitRepo(dependency2Path, tag: "1.0.0")
 
             let appPath = path.appending("app")
-            let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute(["-Xswiftc", "-warnings-as-errors"], packagePath: appPath)
+            let (stdout, stderr) = try SwiftPM.Build.execute(["-Xswiftc", "-warnings-as-errors"], packagePath: appPath)
             XCTAssertDirectoryExists(appPath.appending(".build"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
@@ -628,7 +640,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testRootPackageWithConditionals() throws {
         try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
-            let (_, stderr) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: path)
+            let (_, stderr) = try SwiftPM.Build.execute(packagePath: path)
             let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }

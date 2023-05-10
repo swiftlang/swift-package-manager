@@ -14,8 +14,9 @@ import Basics
 @testable import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import func TSCTestSupport.withCustomEnv
 
 extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
@@ -28,7 +29,7 @@ extension SystemLibraryTarget {
 }
 
 class PkgConfigTests: XCTestCase {
-    let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     let observability = ObservabilitySystem.makeForTesting()
     let fs = localFileSystem
 

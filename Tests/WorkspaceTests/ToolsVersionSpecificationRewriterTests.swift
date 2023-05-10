@@ -14,11 +14,12 @@
 /// This file tests `Workspace.rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
 ///
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageModel
 @testable import Workspace
+import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 /// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`
 class ToolsVersionSpecificationRewriterTests: XCTestCase {
@@ -26,83 +27,76 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
     /// Tests `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
     func testNonVersionSpecificManifests() throws {
         // Empty file.
-        var stream = BufferedOutputByteStream()
-        stream <<< ""
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(content: "") { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n")
         }
 
         // File with just a new line.
-        stream = BufferedOutputByteStream()
-        stream <<< "\n"
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(content: "\n") { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n\n")
         }
 
         // File with some contents.
-        stream = BufferedOutputByteStream()
-        stream <<< "let package = ... \n"
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(content: "let package = ... \n") { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
         }
 
         // File already having a valid version specifier.
-        stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:3.1.2\n"
-        stream <<< "..."
+        let content = """
+            // swift-tools-version:3.1.2
+            ...
+            """
 
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(content: content) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
         // Write a version with zero in patch number.
-        stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:3.1.2\n"
-        stream <<< "..."
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream, version: ToolsVersion(version: "2.1.0")) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(
+            content: """
+            // swift-tools-version:3.1.2
+            ...
+            """,
+            version: ToolsVersion(version: "2.1.0")
+        ) { result in
             XCTAssertEqual(result, "// swift-tools-version:2.1\n...")
         }
 
         // Contents with invalid tools version specification (ignoring the validity of the version specifier).
-        stream = BufferedOutputByteStream()
-        stream <<< "// swift-tool-version:3.1.2\n"
-        stream <<< "..."
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(
+            content: """
+            // swift-tool-version:3.1.2
+            ...
+            """
+        ) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n...")
         }
 
         // Contents with invalid version specifier.
-        stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:-3.1.2\n"
-        stream <<< "..."
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(
+            content: """
+            // swift-tools-version:3.1.2
+            ...
+            """
+        ) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
         // Contents with invalid version specifier and some meta data.
-        stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:-3.1.2;hello\n"
-        stream <<< "..."
-
-        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(
+            content: """
+            // swift-tools-version:3.1.2
+            ...
+            """
+        ) { result in
             // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
         // Try to write a version with prerelease and build meta data.
         let toolsVersion = ToolsVersion(version: "4.1.2-alpha.beta+sha.1234")
-        
-        stream = BufferedOutputByteStream()
-        stream <<< "let package = ... \n"
-        
         rewriteToolsVersionSpecificationToDefaultManifest(
-            stream: stream,
+            content: "let package = ... \n",
             version: toolsVersion
         ) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
@@ -182,7 +176,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
     ///   - version: The Swift tools version to specify.
     ///   - resultHandler: The result handler.
     func rewriteToolsVersionSpecificationToDefaultManifest(
-        stream: BufferedOutputByteStream,
+        content: String,
         version: ToolsVersion = ToolsVersion(version: "4.1.2"),
         resultHandler: (String) -> Void
     ) {
@@ -192,7 +186,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
             let manifestFilePath = AbsolutePath("/pkg/Package.swift")
 
             try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
-            try inMemoryFileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)
+            try inMemoryFileSystem.writeFileContents(manifestFilePath, string: content)
 
             try ToolsVersionSpecificationWriter.rewriteSpecification(
                 manifestDirectory: manifestFilePath.parentDirectory,

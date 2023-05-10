@@ -15,7 +15,6 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
 
@@ -53,7 +52,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             try fs.writeFileContents(manifestPath, string: manifestContents)
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
-            let manifest = try tsc_await {
+            let manifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: toolsVersion,
@@ -84,7 +83,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(manifestPath, string: newContents)
-            let newManifest = try tsc_await {
+            let newManifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: toolsVersion,
@@ -481,7 +480,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         let manifest = Manifest.createManifest(
             displayName: "MyLibrary",
             path: packageDir.appending("Package.swift"),
-            packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
+            packageKind: .root("/tmp/MyLibrary"),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
@@ -517,11 +516,11 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testModuleAliasGeneration() throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
-            path: .init(path: "/thisPkg"),
+            path: "/thisPkg",
             toolsVersion: .v5_7,
             dependencies: [
-                .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
             ],
             targets: [
                 try TargetDescription(name: "exe",
@@ -583,11 +582,11 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testPluginNetworkingPermissionGeneration() throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
-            path: .init(path: "/thisPkg"),
+            path: "/thisPkg",
             toolsVersion: .v5_9,
             dependencies: [],
             targets: [
-                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: "internet good")]))
+                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: "internet good")]))
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)

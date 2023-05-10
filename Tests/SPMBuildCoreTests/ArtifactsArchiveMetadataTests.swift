@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageModel
-import TSCBasic
 import XCTest
 
-import struct Basics.Triple
+import class TSCBasic.InMemoryFileSystem
 
 final class ArtifactsArchiveMetadataTests: XCTestCase {
     func testParseMetadata() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
-            AbsolutePath(path: "/info.json"),
-            bytes: ByteString(encodingAsUTF8: """
+            "/info.json",
+            string: """
             {
                 "schemaVersion": "1.0",
                 "artifacts": {
@@ -41,7 +41,7 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
                     }
                 }
             }
-            """)
+            """
         )
 
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)

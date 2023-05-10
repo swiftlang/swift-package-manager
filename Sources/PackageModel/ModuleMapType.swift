@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import Basics
 
 /// A type of module map layout.  Contains all the information needed to generate or use a module map for a target that can have C-style headers.
 public enum ModuleMapType: Equatable {

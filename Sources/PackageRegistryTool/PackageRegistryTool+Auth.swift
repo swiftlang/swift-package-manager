@@ -17,7 +17,8 @@ import CoreCommands
 import Foundation
 import PackageModel
 import PackageRegistry
-import TSCBasic
+
+import struct TSCBasic.SHA256
 
 #if os(Windows)
 import WinSDK
@@ -162,7 +163,7 @@ extension SwiftPackageRegistryTool {
             }
 
             // Save in cache so we can try the credentials and persist to storage only if login succeeds
-            try tsc_await { callback in
+            try temp_await { callback in
                 authorizationWriter?.addOrUpdate(
                     for: registryURL,
                     user: storeUsername,
@@ -203,7 +204,7 @@ extension SwiftPackageRegistryTool {
             )
 
             // Try logging in
-            try tsc_await { callback in
+            try temp_await { callback in
                 registryClient.login(
                     loginURL: loginURL,
                     timeout: .seconds(5),
@@ -241,7 +242,7 @@ extension SwiftPackageRegistryTool {
             }
 
             if saveChanges {
-                try tsc_await { callback in
+                try temp_await { callback in
                     authorizationWriter?.addOrUpdate(
                         for: registryURL,
                         user: storeUsername,
@@ -307,7 +308,7 @@ extension SwiftPackageRegistryTool {
 
             // Only OS credential store supports deletion
             if osStore {
-                try tsc_await { callback in authorizationWriter?.remove(for: registryURL, callback: callback) }
+                try temp_await { callback in authorizationWriter?.remove(for: registryURL, callback: callback) }
                 print("Credentials have been removed from operating system's secure credential store.")
             } else {
                 print("netrc file not updated. Please remove credentials from the file manually.")

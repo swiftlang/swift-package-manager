@@ -12,7 +12,6 @@
 
 import Basics
 import Foundation
-import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -84,9 +83,8 @@ extension ArtifactsArchiveMetadata {
                     "invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)"
                 )
             }
-
         } catch {
-            throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
+            throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error.interpolationDescription)")
         }
     }
 }

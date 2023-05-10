@@ -10,15 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Commands
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.Process
 
 typealias Process = TSCBasic.Process
 
@@ -52,7 +54,7 @@ class CFamilyTargetTestCase: XCTestCase {
             let debugPath = fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
-            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
         }
     }

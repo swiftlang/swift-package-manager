@@ -15,8 +15,9 @@ import PackageModel
 import PackageLoading
 @testable import PackageRegistry
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -419,7 +420,7 @@ private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
 
 extension RegistryDownloadsManager {
     fileprivate func lookup(package: PackageIdentity, version: Version, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
-        return try tsc_await {
+        return try temp_await {
             self.lookup(
                 package: package,
                 version: version,

@@ -63,19 +63,12 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         }
     }
 
-    /// A group a target belongs to that allows customizing access boundaries. A target is treated as
-    /// a client outside of the package if `excluded`, inside the package boundary if `package`.
-    public enum TargetGroup: Hashable, Codable, Equatable, Sendable {
-        case package
-        case excluded
-    }
-
     /// The name of the target.
     public let name: String
 
-    /// The group this target belongs to, where access to the target's group-specific
+    /// If true, access to package declarations from other targets is allowed.
     /// APIs is not allowed from outside.
-    public let group: TargetGroup
+    public let packageAccess: Bool
 
     /// The custom path of the target.
     public let path: String?
@@ -131,12 +124,12 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
 
     public enum PluginNetworkPermissionScope: Equatable, Codable, Sendable {
         case none
-        case local(ports: [UInt8])
-        case all(ports: [UInt8])
+        case local(ports: [Int])
+        case all(ports: [Int])
         case docker
         case unixDomainSocket
 
-        public init?(_ scopeString: String, ports: [UInt8]) {
+        public init?(_ scopeString: String, ports: [Int]) {
             switch scopeString {
             case "none": self = .none
             case "local": self = .local(ports: ports)
@@ -169,7 +162,6 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
 
     public init(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         url: String? = nil,
@@ -178,6 +170,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         resources: [Resource] = [],
         publicHeadersPath: String? = nil,
         type: TargetType = .regular,
+        packageAccess: Bool = true,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         pluginCapability: PluginCapability? = nil,
@@ -230,12 +223,9 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
-            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
-            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }
 
         self.name = name
-        self.group = group
         self.dependencies = dependencies
         self.path = path
         self.url = url
@@ -244,6 +234,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         self.exclude = exclude
         self.resources = resources
         self.type = type
+        self.packageAccess = packageAccess
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.pluginCapability = pluginCapability
@@ -311,14 +302,6 @@ extension TargetDescription.Dependency: ExpressibleByStringLiteral {
     }
 }
 
-extension TargetDescription.TargetGroup {
-    public init(_ group: Target.Group) {
-        switch group {
-        case .package: self = .package
-        case .excluded: self = .excluded
-        }
-    }
-}
 extension TargetDescription.PluginCapability: Codable {
     private enum CodingKeys: CodingKey {
         case buildTool, command

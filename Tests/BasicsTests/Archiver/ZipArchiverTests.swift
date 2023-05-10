@@ -11,16 +11,18 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import XCTest
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+
+import class TSCBasic.InMemoryFileSystem
+import struct TSCBasic.FileSystemError
 
 class ZipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs", "archive.zip")
+            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.zip")
             try archiver.extract(from: inputArchivePath, to: tmpdir)
             let content = tmpdir.appending("file")
             XCTAssert(localFileSystem.exists(content))
@@ -58,7 +60,7 @@ class ZipArchiverTests: XCTestCase {
     func testZipArchiverInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
 #if os(Windows)
@@ -74,14 +76,14 @@ class ZipArchiverTests: XCTestCase {
         // valid
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.zip")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertFalse(try archiver.validate(path: path))
         }
@@ -255,17 +257,17 @@ class ArchiverTests: XCTestCase {
 
 extension Archiver {
     func extract(from: AbsolutePath, to: AbsolutePath) throws {
-        try tsc_await {
+        try temp_await {
             self.extract(from: from, to: to, completion: $0)
         }
     }
     func compress(directory: AbsolutePath, to: AbsolutePath) throws {
-        try tsc_await {
+        try temp_await {
             self.compress(directory: directory, to: to, completion: $0)
         }
     }
     func validate(path: AbsolutePath) throws -> Bool {
-        try tsc_await {
+        try temp_await {
             self.validate(path: path, completion: $0)
         }
     }

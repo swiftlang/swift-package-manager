@@ -12,8 +12,7 @@
 
 import Basics
 @testable import PackageCollections
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import tsan_utils
 import XCTest
 
@@ -26,39 +25,39 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let mockSources = makeMockSources()
             try mockSources.forEach { source in
-                XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: .init(from: source), callback: callback) }, "expected error", { error in
+                XCTAssertThrowsError(try temp_await { callback in storage.get(identifier: .init(from: source), callback: callback) }, "expected error", { error in
                     XCTAssert(error is NotFoundError, "Expected NotFoundError")
                 })
             }
 
             let mockCollections = makeMockCollections(count: 50)
             try mockCollections.forEach { collection in
-                _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+                _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
             }
 
             try mockCollections.forEach { collection in
-                let retVal = try tsc_await { callback in storage.get(identifier: collection.identifier, callback: callback) }
+                let retVal = try temp_await { callback in storage.get(identifier: collection.identifier, callback: callback) }
                 XCTAssertEqual(retVal.identifier, collection.identifier)
             }
 
             do {
-                let list = try tsc_await { callback in storage.list(callback: callback) }
+                let list = try temp_await { callback in storage.list(callback: callback) }
                 XCTAssertEqual(list.count, mockCollections.count)
             }
 
             do {
                 let count = Int.random(in: 1 ..< mockCollections.count)
-                let list = try tsc_await { callback in storage.list(identifiers: mockCollections.prefix(count).map { $0.identifier }, callback: callback) }
+                let list = try temp_await { callback in storage.list(identifiers: mockCollections.prefix(count).map { $0.identifier }, callback: callback) }
                 XCTAssertEqual(list.count, count)
             }
 
             do {
-                _ = try tsc_await { callback in storage.remove(identifier: mockCollections.first!.identifier, callback: callback) }
-                let list = try tsc_await { callback in storage.list(callback: callback) }
+                _ = try temp_await { callback in storage.remove(identifier: mockCollections.first!.identifier, callback: callback) }
+                let list = try temp_await { callback in storage.list(callback: callback) }
                 XCTAssertEqual(list.count, mockCollections.count - 1)
             }
 
-            XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
+            XCTAssertThrowsError(try temp_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
                 XCTAssert(error is NotFoundError, "Expected NotFoundError")
             })
 
@@ -83,11 +82,11 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let mockCollections = makeMockCollections(count: 3)
             try mockCollections.forEach { collection in
-                _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+                _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
             }
 
             try mockCollections.forEach { collection in
-                let retVal = try tsc_await { callback in storage.get(identifier: collection.identifier, callback: callback) }
+                let retVal = try temp_await { callback in storage.get(identifier: collection.identifier, callback: callback) }
                 XCTAssertEqual(retVal.identifier, collection.identifier)
             }
 
@@ -100,12 +99,12 @@ class PackageCollectionsStorageTests: XCTestCase {
             try storage.fileSystem.removeFileTree(storagePath)
             storage.resetCache()
 
-            XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
+            XCTAssertThrowsError(try temp_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
                 XCTAssert(error is NotFoundError, "Expected NotFoundError")
             })
 
-            XCTAssertNoThrow(try tsc_await { callback in storage.put(collection: mockCollections.first!, callback: callback) })
-            let retVal = try tsc_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }
+            XCTAssertNoThrow(try temp_await { callback in storage.put(collection: mockCollections.first!, callback: callback) })
+            let retVal = try temp_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }
             XCTAssertEqual(retVal.identifier, mockCollections.first!.identifier)
 
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(storagePath)")
@@ -125,11 +124,11 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let mockCollections = makeMockCollections(count: 3)
             try mockCollections.forEach { collection in
-                _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+                _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
             }
 
             try mockCollections.forEach { collection in
-                let retVal = try tsc_await { callback in storage.get(identifier: collection.identifier, callback: callback) }
+                let retVal = try temp_await { callback in storage.get(identifier: collection.identifier, callback: callback) }
                 XCTAssertEqual(retVal.identifier, collection.identifier)
             }
 
@@ -140,15 +139,15 @@ class PackageCollectionsStorageTests: XCTestCase {
             try storage.close()
 
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(path)")
-            try storage.fileSystem.writeFileContents(storagePath, bytes: ByteString("blah".utf8))
+            try storage.fileSystem.writeFileContents(storagePath, string: "blah")
 
             let storage2 = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage2.close()) }
-            XCTAssertThrowsError(try tsc_await { callback in storage2.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
+            XCTAssertThrowsError(try temp_await { callback in storage2.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
 
-            XCTAssertThrowsError(try tsc_await { callback in storage2.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
+            XCTAssertThrowsError(try temp_await { callback in storage2.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
         }
@@ -163,10 +162,10 @@ class PackageCollectionsStorageTests: XCTestCase {
         let count = configuration.batchSize / 2
         let mockCollections = makeMockCollections(count: count)
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+            _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
         }
 
-        let list = try tsc_await { callback in storage.list(callback: callback) }
+        let list = try temp_await { callback in storage.list(callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
     }
 
@@ -179,10 +178,10 @@ class PackageCollectionsStorageTests: XCTestCase {
         let count = Int(Double(configuration.batchSize) * 2.5)
         let mockCollections = makeMockCollections(count: count)
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+            _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
         }
 
-        let list = try tsc_await { callback in storage.list(callback: callback) }
+        let list = try temp_await { callback in storage.list(callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
     }
 
@@ -195,10 +194,10 @@ class PackageCollectionsStorageTests: XCTestCase {
         let count = Int(Double(configuration.batchSize) * 2.5)
         let mockCollections = makeMockCollections(count: count)
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+            _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
         }
 
-        let list = try tsc_await { callback in storage.list(identifiers: mockCollections.map { $0.identifier }, callback: callback) }
+        let list = try temp_await { callback in storage.list(identifiers: mockCollections.map { $0.identifier }, callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
     }
 
@@ -208,13 +207,13 @@ class PackageCollectionsStorageTests: XCTestCase {
 
         let mockCollections = makeMockCollections(count: 3)
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+            _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
         }
 
-        let list = try tsc_await { callback in storage.list(identifiers: mockCollections.map { $0.identifier }, callback: callback) }
+        let list = try temp_await { callback in storage.list(identifiers: mockCollections.map { $0.identifier }, callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
 
-        _ = try tsc_await { callback in storage.put(collection: mockCollections.last!, callback: callback) }
+        _ = try temp_await { callback in storage.put(collection: mockCollections.last!, callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
     }
 
@@ -226,14 +225,14 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let mockCollections = makeMockCollections(count: 3)
             try mockCollections.forEach { collection in
-                _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+                _ = try temp_await { callback in storage.put(collection: collection, callback: callback) }
             }
 
             let version = mockCollections.last!.packages.last!.versions.last!
             let targetName = version.defaultManifest!.targets.last!.name
 
             do {
-                let searchResult = try tsc_await { callback in storage.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
+                let searchResult = try temp_await { callback in storage.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
                 XCTAssert(searchResult.items.count > 0, "should get results")
             }
 
@@ -244,9 +243,9 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             // populateTargetTrie is called in `.init`; call it again explicitly so we know when it's finished
             do {
-                try tsc_await { callback in storage2.populateTargetTrie(callback: callback) }
+                try temp_await { callback in storage2.populateTargetTrie(callback: callback) }
 
-                let searchResult = try tsc_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
+                let searchResult = try temp_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
                 XCTAssert(searchResult.items.count > 0, "should get results")
             } catch {
                 // It's possible that some platforms don't have support FTS

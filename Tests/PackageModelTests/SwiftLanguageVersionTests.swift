@@ -12,8 +12,6 @@
 
 import XCTest
 
-import TSCBasic
-
 import PackageModel
 
 class SwiftLanguageVersionTests: XCTestCase {

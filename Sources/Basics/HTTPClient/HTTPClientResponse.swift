@@ -12,7 +12,7 @@
 
 import Foundation
 
-public struct HTTPClientResponse : Sendable {
+public struct HTTPClientResponse: Sendable {
     public let statusCode: Int
     public let statusText: String?
     public let headers: HTTPClientHeaders
@@ -35,20 +35,20 @@ public struct HTTPClientResponse : Sendable {
     }
 }
 
-public extension HTTPClientResponse {
-    static func okay(body: String? = nil) -> HTTPClientResponse {
+extension HTTPClientResponse {
+    public static func okay(body: String? = nil) -> HTTPClientResponse {
         .okay(body: body?.data(using: .utf8))
     }
 
-    static func okay(body: Data?) -> HTTPClientResponse {
+    public static func okay(body: Data?) -> HTTPClientResponse {
         HTTPClientResponse(statusCode: 200, body: body)
     }
 
-    static func notFound(reason: String? = nil) -> HTTPClientResponse {
+    public static func notFound(reason: String? = nil) -> HTTPClientResponse {
         HTTPClientResponse(statusCode: 404, body: (reason ?? "Not Found").data(using: .utf8))
     }
 
-    static func serverError(reason: String? = nil) -> HTTPClientResponse {
+    public static func serverError(reason: String? = nil) -> HTTPClientResponse {
         HTTPClientResponse(statusCode: 500, body: (reason ?? "Internal Server Error").data(using: .utf8))
     }
 }

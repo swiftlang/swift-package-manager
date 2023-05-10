@@ -11,13 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import SPMBuildCore
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 final class XCFrameworkMetadataTests: XCTestCase {
     func testParseFramework() throws {
         let fileSystem = InMemoryFileSystem(files: [
-            "/Info.plist": ByteString(encodingAsUTF8: """
+            "/Info.plist":  """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
             <plist version="1.0">
@@ -43,7 +44,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
                 <string>1.0</string>
             </dict>
             </plist>
-            """),
+            """,
         ])
 
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: .root)
@@ -61,7 +62,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
 
     func testParseLibrary() throws {
         let fileSystem = InMemoryFileSystem(files: [
-            "/Info.plist": ByteString(encodingAsUTF8: """
+            "/Info.plist": """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
             <plist version="1.0">
@@ -89,7 +90,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
                 <string>1.0</string>
             </dict>
             </plist>
-            """),
+            """,
         ])
 
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: .root)

@@ -10,12 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Basics
 import SPMTestSupport
-
-import struct TSCBasic.AbsolutePath
-import var TSCBasic.localFileSystem
-import func TSCBasic.withTemporaryDirectory
+import XCTest
 
 class ResourcesTests: XCTestCase {
     func testSimpleResources() throws {
@@ -113,6 +110,15 @@ class ResourcesTests: XCTestCase {
             // Check that the following code expectedly doesn't compile for lack of 'import Foundation'
             XCTAssertMatch(failure.stdout, .contains("print(FooUtils.foo.trimmingCharacters(in: .whitespaces))"))
             #endif
+        }
+    }
+
+    func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
+        try fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                Xswiftc: ["-warnings-as-errors"]
+            )
         }
     }
 

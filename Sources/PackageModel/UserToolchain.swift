@@ -12,7 +12,8 @@
 
 import Basics
 import Foundation
-import TSCBasic
+
+import class TSCBasic.Process
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
@@ -68,8 +69,8 @@ public final class UserToolchain: Toolchain {
         // bootstrap script.
         let swiftCompiler = try resolveSymlinks(self.swiftCompilerPath)
 
-        let runtime = swiftCompiler.appending(
-            RelativePath("../../lib/swift/clang/lib/darwin/libclang_rt.\(sanitizer.shortName)_osx_dynamic.dylib")
+        let runtime = try swiftCompiler.appending(
+            RelativePath(validating: "../../lib/swift/clang/lib/darwin/libclang_rt.\(sanitizer.shortName)_osx_dynamic.dylib")
         )
 
         // Ensure that the runtime is present.
@@ -135,9 +136,9 @@ public final class UserToolchain: Toolchain {
     ) throws
         -> AbsolutePath
     {
-        let variable: String = triple.isDarwin() ? "LIBTOOL" : "AR"
+        let variable: String = triple.isApple() ? "LIBTOOL" : "AR"
         let tool: String = {
-            if triple.isDarwin() { return "libtool" }
+            if triple.isApple() { return "libtool" }
             if triple.isWindows() {
                 if let librarian: AbsolutePath =
                     UserToolchain.lookup(
@@ -161,7 +162,7 @@ public final class UserToolchain: Toolchain {
             return triple.isAndroid() ? "llvm-ar" : "ar"
         }()
 
-        if let librarian: AbsolutePath = UserToolchain.lookup(
+        if let librarian = UserToolchain.lookup(
             variable: variable,
             searchPaths: searchPaths,
             environment: environment
@@ -326,7 +327,7 @@ public final class UserToolchain: Toolchain {
 
                     if let settings = WindowsSDKSettings(
                         reading: sdkroot.appending("SDKSettings.plist"),
-                        diagnostics: nil,
+                        observabilityScope: nil,
                         filesystem: localFileSystem
                     ) {
                         switch settings.defaults.runtime {
@@ -351,7 +352,7 @@ public final class UserToolchain: Toolchain {
 
                     if let info = WindowsPlatformInfo(
                         reading: platform.appending("Info.plist"),
-                        diagnostics: nil,
+                        observabilityScope: nil,
                         filesystem: localFileSystem
                     ) {
                         let installation: AbsolutePath =
@@ -463,13 +464,15 @@ public final class UserToolchain: Toolchain {
         }
 
         self.triple = triple
-        self.extraFlags = BuildFlags()
-
-        self.extraFlags.swiftCompilerFlags = try Self.deriveSwiftCFlags(
-            triple: triple,
-            destination: destination,
-            environment: environment
-        )
+        self.extraFlags = BuildFlags(
+            cCompilerFlags: destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
+            cxxCompilerFlags: destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
+            swiftCompilerFlags: try Self.deriveSwiftCFlags(
+                triple: triple,
+                destination: destination,
+                environment: environment),
+            linkerFlags: destination.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
+            xcbuildFlags: destination.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
         self.librarianPath = try UserToolchain.determineLibrarian(
             triple: triple,
@@ -481,21 +484,15 @@ public final class UserToolchain: Toolchain {
         )
 
         if let sdkDir = destination.pathsConfiguration.sdkRootPath {
-            self.extraFlags.cCompilerFlags = [
-                triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString,
-            ] + (destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [])
-
-            self.extraFlags.cxxCompilerFlags = destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? []
-        } else {
-            self.extraFlags.cCompilerFlags = (destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [])
-            self.extraFlags.cxxCompilerFlags = (destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [])
+            let sysrootFlags = [triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
+            self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags, at: 0)
         }
 
         if triple.isWindows() {
             if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
-                    diagnostics: nil,
+                    observabilityScope: nil,
                     filesystem: localFileSystem
                 ) {
                     switch settings.defaults.runtime {
@@ -660,7 +657,7 @@ public final class UserToolchain: Toolchain {
 
             if let info = WindowsPlatformInfo(
                 reading: platform.appending("Info.plist"),
-                diagnostics: nil,
+                observabilityScope: nil,
                 filesystem: localFileSystem
             ) {
                 let xctest: AbsolutePath =

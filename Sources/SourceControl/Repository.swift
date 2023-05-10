@@ -10,9 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
 import Basics
+import Foundation
 
 /// Specifies a repository address.
 public struct RepositorySpecifier: Hashable, Sendable {

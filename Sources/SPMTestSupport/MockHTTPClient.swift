@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 
 extension LegacyHTTPClient {
     public static func mock(fileSystem: FileSystem) -> LegacyHTTPClient {
@@ -23,8 +22,7 @@ extension LegacyHTTPClient {
                 do {
                     try fileSystem.writeFileContents(
                         destination,
-                        bytes: ByteString(encodingAsUTF8: request.url.absoluteString),
-                        atomically: true
+                        string: request.url.absoluteString
                     )
                     completion(.success(.okay(body: request.url.absoluteString)))
                 } catch {

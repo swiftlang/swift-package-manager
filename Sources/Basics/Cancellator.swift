@@ -12,8 +12,8 @@
 
 import Dispatch
 import Foundation
-import TSCBasic
-
+import class TSCBasic.Process
+import class TSCBasic.Thread
 #if canImport(WinSDK)
 import WinSDK
 #endif
@@ -25,7 +25,11 @@ public final class Cancellator: Cancellable {
 
     private let observabilityScope: ObservabilityScope?
     private let registry = ThreadSafeKeyValueStore<String, (name: String, handler: CancellationHandler)>()
-    private let cancelationQueue = DispatchQueue(label: "org.swift.swiftpm.cancellator", qos: .userInteractive, attributes: .concurrent)
+    private let cancelationQueue = DispatchQueue(
+        label: "org.swift.swiftpm.cancellator",
+        qos: .userInteractive,
+        attributes: .concurrent
+    )
     private let cancelling = ThreadSafeBox<Bool>(false)
 
     private static let signalHandlerLock = NSLock()
@@ -44,48 +48,48 @@ public final class Cancellator: Cancellable {
     public func installSignalHandlers() {
         Self.signalHandlerLock.withLock {
             precondition(!Self.isSignalHandlerInstalled)
-            
-#if os(Windows)
+
+            #if os(Windows)
             // Closures passed to `SetConsoleCtrlHandler` can't capture context, working around that with a global.
             Self.shared = self
-            
+
             // set shutdown handler to terminate sub-processes, etc
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
                 try? Cancellator.shared?.cancel(deadline: .now() + .seconds(30))
-                
+
                 // Reset the handler.
                 _ = SetConsoleCtrlHandler(nil, false)
-                
+
                 // Exit as if by signal()
                 TerminateProcess(GetCurrentProcess(), 3)
-                
+
                 return true
             }, true)
-#else
+            #else
             // trap SIGINT to terminate sub-processes, etc
             signal(SIGINT, SIG_IGN)
             let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
             interruptSignalSource.setEventHandler { [weak self] in
                 // cancel the trap?
                 interruptSignalSource.cancel()
-                
+
                 // Terminate all processes on receiving an interrupt signal.
                 try? self?.cancel(deadline: .now() + .seconds(30))
-                
-#if canImport(Darwin) || os(OpenBSD)
+
+                #if canImport(Darwin) || os(OpenBSD)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-#elseif os(Android)
+                #elseif os(Android)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.sa_handler = SIG_DFL
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-#else
+                #else
                 var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
@@ -93,11 +97,11 @@ public final class Cancellator: Cancellable {
                 )
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-#endif
+                #endif
             }
             interruptSignalSource.resume()
-#endif
-            
+            #endif
+
             Self.isSignalHandlerInstalled = true
         }
     }
@@ -138,20 +142,21 @@ public final class Cancellator: Cancellable {
         self.registry[key] = nil
     }
 
-    public func cancel(deadline: DispatchTime) throws -> Void {
+    public func cancel(deadline: DispatchTime) throws {
         self._cancel(deadline: deadline)
     }
 
     // marked internal for testing
     @discardableResult
-    internal func _cancel(deadline: DispatchTime? = .none)-> Int {
+    internal func _cancel(deadline: DispatchTime? = .none) -> Int {
         self.cancelling.put(true)
 
-        self.observabilityScope?.emit(info: "starting cancellation cycle with \(self.registry.count) cancellation handlers registered")
+        self.observabilityScope?
+            .emit(info: "starting cancellation cycle with \(self.registry.count) cancellation handlers registered")
 
         let deadline = deadline ?? .now() + .seconds(30)
         // deadline for individual handlers set slightly before overall deadline
-        let delta: DispatchTimeInterval = .nanoseconds(abs(deadline.distance(to: .now()).nanoseconds() ?? 0)  / 5)
+        let delta: DispatchTimeInterval = .nanoseconds(abs(deadline.distance(to: .now()).nanoseconds() ?? 0) / 5)
         let handlersDeadline = deadline - delta
 
         let cancellationHandlers = self.registry.get()
@@ -164,13 +169,19 @@ public final class Cancellator: Cancellable {
                     try handler(handlersDeadline)
                     cancelled.append(name)
                 } catch {
-                    self.observabilityScope?.emit(warning: "failed cancelling '\(name)': \(error)")
+                    self.observabilityScope?.emit(
+                        warning: "failed cancelling '\(name)'",
+                        underlyingError: error
+                    )
                 }
             }
         }
 
         if case .timedOut = group.wait(timeout: deadline) {
-            self.observabilityScope?.emit(warning: "timeout waiting for cancellation with \(cancellationHandlers.count - cancelled.count) cancellation handlers remaining")
+            self.observabilityScope?
+                .emit(
+                    warning: "timeout waiting for cancellation with \(cancellationHandlers.count - cancelled.count) cancellation handlers remaining"
+                )
         } else {
             self.observabilityScope?.emit(info: "cancellation cycle completed successfully")
         }
@@ -197,7 +208,8 @@ public struct CancellationError: Error, CustomStringConvertible {
     }
 
     static func failedToRegisterProcess(_ process: TSCBasic.Process) -> Self {
-        Self(description: """
+        Self(
+            description: """
             failed to register a cancellation handler for this process invocation `\(
                 process.arguments.joined(separator: " ")
             )`

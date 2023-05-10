@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "App",
     dependencies: [
-        .package(name: "Foo", url: "../Foo", .branch("main")),
-        .package(name: "Bar", url: "../Bar", .branch("main")),
+        .package(url: "../Foo", .branch("main")),
+        .package(url: "../Bar", .branch("main")),
     ],
     targets: [
         .target(name: "App", dependencies: [

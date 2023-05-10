@@ -13,8 +13,14 @@
 
 import Basics
 import Dispatch
-import TSCBasic
-import TSCUtility
+
+import protocol TSCBasic.OutputByteStream
+import class TSCBasic.TerminalController
+import class TSCBasic.ThreadSafeOutputByteStream
+
+import class TSCUtility.MultiLineNinjaProgressAnimation
+import class TSCUtility.NinjaProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
     private let outputHandler: OutputHandler

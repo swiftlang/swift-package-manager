@@ -12,7 +12,8 @@
 
 import Basics
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol, Closable {
@@ -417,7 +418,10 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                 self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result, provider in
                     switch result {
                     case .failure(let error):
-                        self.observabilityScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self): \(error)")
+                        self.observabilityScope.emit(
+                            warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self)",
+                            underlyingError: error
+                        )
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections,

@@ -17,7 +17,9 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.ProcessEnv
 
 import protocol TSCUtility.SimplePersistanceProtocol
 import class TSCUtility.SimplePersistence
@@ -383,7 +385,10 @@ extension Workspace.Configuration {
             do {
                 return try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
             } catch {
-                observabilityScope.emit(warning: "Failed to load netrc file at \(path). Error: \(error)")
+                observabilityScope.emit(
+                    warning: "Failed to load netrc file at \(path)",
+                    underlyingError: error
+                )
                 return .none
             }
         }
@@ -688,7 +693,7 @@ extension Workspace.Configuration {
                 let decoder = JSONDecoder.makeWithDefaults()
                 return try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: RegistryConfiguration.self)
             } catch {
-                throw StringError("Failed loading registries configuration from '\(self.path)': \(error)")
+                throw StringError("Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)")
             }
         }
 
@@ -699,7 +704,7 @@ extension Workspace.Configuration {
             if !self.fileSystem.exists(self.path.parentDirectory) {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
-            try self.fileSystem.writeFileContents(self.path, bytes: ByteString(data), atomically: true)
+            try self.fileSystem.writeFileContents(self.path, data: data)
         }
 
         @discardableResult

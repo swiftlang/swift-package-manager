@@ -10,13 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import class Foundation.ProcessInfo
-
-import TSCBasic
 import PackageModel
 import PackageGraph
-
-import struct Basics.Triple
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.
@@ -174,7 +171,7 @@ public struct BuildParameters: Encodable {
     /// Whether to use the explicit module build flow (with the integrated driver).
     public var useExplicitModuleBuild: Bool
 
-    /// A flag that inidcates this build should check whether targets only import.
+    /// A flag that indicates this build should check whether targets only import.
     /// their explicitly-declared dependencies
     public var explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode
 
@@ -380,45 +377,49 @@ public struct BuildParameters: Encodable {
             return nil
         }
 
-        if triple.isDarwin() {
+        if triple.isApple() {
             return .swiftAST
         }
         return .modulewrap
     }
 
     /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) -> AbsolutePath {
-        return buildPath.appending(binaryRelativePath(for: product))
+    public func binaryPath(for product: ResolvedProduct) throws -> AbsolutePath {
+        return try buildPath.appending(binaryRelativePath(for: product))
+    }
+
+    /// Returns the path to the dynamic library of a product for the current build parameters.
+    func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
+        try RelativePath(validating: "\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
-    public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
-        let potentialExecutablePath = RelativePath("\(product.name)\(triple.executableExtension)")
-        let potentialLibraryPath = RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+    public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
+        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(triple.executableExtension)")
 
         switch product.type {
         case .executable, .snippet:
             return potentialExecutablePath
         case .library(.static):
-            return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
+            return try RelativePath(validating: "lib\(product.name)\(triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return potentialLibraryPath
+            return try potentialDynamicLibraryPath(for: product)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
             guard !triple.isWASI() else {
-                return RelativePath("\(product.name).wasm")
+                return try RelativePath(validating: "\(product.name).wasm")
             }
 
             let base = "\(product.name).xctest"
             if triple.isDarwin() {
-                return RelativePath("\(base)/Contents/MacOS/\(product.name)")
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
             } else {
-                return RelativePath(base)
+                return try RelativePath(validating: base)
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryPath
+            return try potentialDynamicLibraryPath(for: product)
             #else
             return potentialExecutablePath
             #endif

@@ -20,9 +20,11 @@ import PackageSigning
 import SourceControl
 import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 @testable import Workspace
 import XCTest
+
+import struct TSCBasic.ByteString
+import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
@@ -160,10 +162,8 @@ final class WorkspaceTests: XCTestCase {
         try testWithTemporaryDirectory { path in
             let foo = path.appending("foo")
 
-            func createWorkspace(withManifest manifest: (OutputByteStream) -> Void) throws -> Workspace {
-                try fs.writeFileContents(foo.appending("Package.swift")) {
-                    manifest($0)
-                }
+            func createWorkspace(_ content: String) throws -> Workspace {
+                try fs.writeFileContents(foo.appending("Package.swift"), string: content)
 
                 let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
 
@@ -177,31 +177,29 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace {
-                    $0 <<<
-                        """
-                        // swift-tools-version:4.0
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
-                }
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
 
                 XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
             }
 
             do {
-                let ws = try createWorkspace {
-                    $0 <<<
-                        """
-                        // swift-tools-version:3.1
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
-                }
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:3.1
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
 
                 XCTAssertEqual(ws.interpreterFlags(for: foo), [])
             }
@@ -213,17 +211,18 @@ final class WorkspaceTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let pkgDir = path.appending("MyPkg")
-            try localFileSystem.writeFileContents(pkgDir.appending("Package.swift")) {
-                $0 <<<
-                    """
-                    // swift-tools-version:4.0
-                    import PackageDescription
-                    #error("An error in MyPkg")
-                    let package = Package(
-                        name: "MyPkg"
-                    )
-                    """
-            }
+            try localFileSystem.createDirectory(pkgDir)
+            try localFileSystem.writeFileContents(
+                pkgDir.appending("Package.swift"),
+                string: """
+                // swift-tools-version:4.0
+                import PackageDescription
+                #error("An error in MyPkg")
+                let package = Package(
+                    name: "MyPkg"
+                )
+                """
+            )
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
@@ -231,7 +230,7 @@ final class WorkspaceTests: XCTestCase {
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -244,7 +243,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: .contains(
-                        "\(path.appending(components: "MyPkg", "Package.swift")):4:8: error: An error in MyPkg"
+                        "\(pkgDir.appending("Package.swift")):4:8: error: An error in MyPkg"
                     ),
                     severity: .error
                 )
@@ -468,7 +467,7 @@ final class WorkspaceTests: XCTestCase {
             roots: ["foo-package", "bar-package"],
             dependencies: [
                 .localSourceControl(
-                    path: .init(path: "/tmp/ws/pkgs/bar-package"),
+                    path: "/tmp/ws/pkgs/bar-package",
                     requirement: .upToNextMajor(from: "1.0.0")
                 ),
             ]
@@ -2023,7 +2022,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Get some revision identifier of Bar.
-        let bar = RepositorySpecifier(path: .init(path: "/tmp/ws/pkgs/Bar"))
+        let bar = RepositorySpecifier(path: "/tmp/ws/pkgs/Bar")
         let barRevision = workspace.repositoryProvider.specifierMap[bar]!.revisions[0]
 
         // We request Bar via revision.
@@ -2958,8 +2957,7 @@ final class WorkspaceTests: XCTestCase {
 
         // mimic external process putting a dependency into edit mode
         do {
-            try fs.createDirectory(fooEditPath, recursive: true)
-            try fs.writeFileContents(fooEditPath.appending("Package.swift"), bytes: "// swift-tools-version: 5.6")
+            try fs.writeFileContents(fooEditPath.appending("Package.swift"), string: "// swift-tools-version: 5.6")
 
             let fooState = underlying.state.dependencies[.plain("foo")]!
             let externalState = WorkspaceState(
@@ -4967,7 +4965,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             // From here the API should be simple and straightforward:
-            let manifest = try tsc_await {
+            let manifest = try temp_await {
                 workspace.loadRootManifest(
                     at: packagePath,
                     observabilityScope: observability.topScope,
@@ -4977,7 +4975,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
-            let package = try tsc_await {
+            let package = try temp_await {
                 workspace.loadRootPackage(
                     at: packagePath,
                     observabilityScope: observability.topScope,
@@ -4998,7 +4996,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(package.identity, .plain(manifest.displayName))
             XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
 
-            let reloadedPackage = try tsc_await {
+            let reloadedPackage = try temp_await {
                 workspace.loadPackage(
                     with: package.identity,
                     packageGraph: graph,
@@ -8523,7 +8521,7 @@ final class WorkspaceTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let wks = try workspace.getOrCreateWorkspace()
-        XCTAssertNoThrow(try tsc_await {
+        XCTAssertNoThrow(try temp_await {
             wks.loadRootPackage(
                 at: workspace.rootsDir.appending("Root"),
                 observabilityScope: observability.topScope,
@@ -10823,20 +10821,19 @@ final class WorkspaceTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
 
             let foo = path.appending("foo")
-
-            try fs.writeFileContents(foo.appending("Package.swift")) {
-                $0 <<<
-                    """
-                    // swift-tools-version:5.3
-                    import PackageDescription
-                    let package = Package(
-                        name: "Best",
-                        targets: [
-                            .binaryTarget(name: "best", path: "/best.xcframework")
-                        ]
-                    )
-                    """
-            }
+            try fs.writeFileContents(
+                foo.appending("Package.swift"),
+                string: """
+                // swift-tools-version:5.3
+                import PackageDescription
+                let package = Package(
+                    name: "Best",
+                    targets: [
+                        .binaryTarget(name: "best", path: "/best.xcframework")
+                    ]
+                )
+                """
+            )
 
             let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
             let sandbox = path.appending("ws")
@@ -13565,7 +13562,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryMetadata() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let registryURL = URL("https://packages.example.com")
@@ -13631,7 +13628,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 guard let foo = result.find(package: "org.foo") else {
-                    return XCTFail("missing pacakge")
+                    return XCTFail("missing package")
                 }
                 XCTAssertNotNil(foo.registryMetadata, "expecting registry metadata")
                 XCTAssertEqual(foo.registryMetadata?.source, .registry(registryURL))

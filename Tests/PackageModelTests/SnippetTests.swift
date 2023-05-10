@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 @testable import PackageModel
-import TSCBasic
 import XCTest
 
 class SnippetTests: XCTestCase {

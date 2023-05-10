@@ -17,7 +17,8 @@ import PackageFingerprint
 import PackageLoading
 import PackageModel
 import PackageSigning
-import TSCBasic
+
+import protocol TSCBasic.HashAlgorithm
 
 import struct TSCUtility.Version
 
@@ -355,13 +356,19 @@ public final class RegistryClient: Cancellable {
                                         return nil
                                     }
                                     let configuration = self.configuration.signing(for: package, registry: registry)
-                                    return try? tsc_await { SignatureValidation.extractSigningEntity(
-                                        signature: [UInt8](signatureData),
-                                        signatureFormat: signatureFormat,
-                                        configuration: configuration,
-                                        fileSystem: fileSystem,
-                                        completion: $0
-                                    ) }
+                                    return try? temp_await { completion in
+                                        let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
+                                            completion($0)
+                                        }
+
+                                        SignatureValidation.extractSigningEntity(
+                                            signature: [UInt8](signatureData),
+                                            signatureFormat: signatureFormat,
+                                            configuration: configuration,
+                                            fileSystem: fileSystem,
+                                            completion: wrappedCompletion
+                                        )
+                                    }
                                 }
                             )
                         },
@@ -1135,7 +1142,7 @@ public final class RegistryClient: Cancellable {
                                                                         )
                                                                     }.mapError { error in
                                                                         StringError(
-                                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
+                                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error.interpolationDescription)"
                                                                         )
                                                                     })
                                                                 }
@@ -1529,25 +1536,26 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "checking availability of \(registry.url) using \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 200:
-                        return .available
-                    case let value where AvailabilityStatus.unavailableStatusCodes.contains(value):
-                        return .unavailable
-                    default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            return .error(error.detail)
-                        }
-                        return .error("unknown server error (\(response.statusCode))")
+            switch result {
+            case .success(let response):
+                observabilityScope
+                    .emit(
+                        debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                    )
+                switch response.statusCode {
+                case 200:
+                    return completion(.success(.available))
+                case let value where AvailabilityStatus.unavailableStatusCodes.contains(value):
+                    return completion(.success(.unavailable))
+                default:
+                    if let error = try? response.parseError(decoder: self.jsonDecoder) {
+                        return completion(.success(.error(error.detail)))
                     }
+                    return completion(.success(.error("unknown server error (\(response.statusCode))")))
                 }
-            )
+            case .failure(let error):
+                return completion(.failure(RegistryError.availabilityCheckFailed(registry: registry, error: error)))
+            }
         }
     }
 
@@ -1666,6 +1674,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case unauthorized
     case authenticationMethodNotSupported
     case forbidden
+    case availabilityCheckFailed(registry: Registry, error: Error)
     case registryNotAvailable(Registry)
     case packageNotFound
     case packageVersionNotFound
@@ -1730,7 +1739,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .unsupportedHashAlgorithm(let algorithm):
             return "unsupported hash algorithm '\(algorithm)'"
         case .failedToComputeChecksum(let error):
-            return "failed computing registry source archive checksum: \(error)"
+            return "failed computing registry source archive checksum: \(error.interpolationDescription)"
         case .checksumChanged(let latest, let previous):
             return "the latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
         case .invalidChecksum(let expected, let actual):
@@ -1765,6 +1774,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "authentication method not supported"
         case .forbidden:
             return "forbidden"
+        case .availabilityCheckFailed(let registry, let error):
+            return "failed checking availability of registry at '\(registry.url)': \(error.interpolationDescription)"
         case .registryNotAvailable(let registry):
             return "registry at '\(registry.url)' is not available at this time, please try again later"
         case .packageNotFound:
@@ -1865,7 +1876,13 @@ extension RegistryClient {
             public let signing: Signing?
             public let signingEntity: SigningEntity?
 
-            public init(name: String, type: String, checksum: String?, signing: Signing?, signingEntity: SigningEntity?) {
+            public init(
+                name: String,
+                type: String,
+                checksum: String?,
+                signing: Signing?,
+                signingEntity: SigningEntity?
+            ) {
                 self.name = name
                 self.type = type
                 self.checksum = checksum

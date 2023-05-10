@@ -17,7 +17,10 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.topologicalSort
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -171,18 +174,18 @@ extension LLBuildManifestBuilder {
     /// Returns the virtual node that will build the entire bundle.
     private func createResourcesBundle(
         for target: TargetBuildDescription
-    ) -> Node? {
+    ) throws -> Node? {
         guard let bundlePath = target.bundlePath else { return nil }
 
         var outputs: [Node] = []
 
-        let infoPlistDestination = RelativePath("Info.plist")
+        let infoPlistDestination = try RelativePath(validating: "Info.plist")
 
         // Create a copy command for each resource file.
         for resource in target.resources {
             switch resource.rule {
             case .copy, .process:
-                let destination = bundlePath.appending(resource.destination)
+                let destination = try bundlePath.appending(resource.destination)
                 let (_, output) = addCopyCommand(from: resource.path, to: destination)
                 outputs.append(output)
             case .embedInCode:
@@ -533,7 +536,7 @@ extension LLBuildManifestBuilder {
         }
         dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
             SwiftDriver.ExternalTargetModuleDetails(
-                path: dependencySwiftTargetDescription.moduleOutputPath,
+                path: TSCAbsolutePath(dependencySwiftTargetDescription.moduleOutputPath),
                 isFramework: false
             )
         try self.collectTargetDependencyModuleDetails(
@@ -604,7 +607,7 @@ extension LLBuildManifestBuilder {
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = createResourcesBundle(for: .swift(target)) {
+        if let resourcesNode = try createResourcesBundle(for: .swift(target)) {
             inputs.append(resourcesNode)
         }
 
@@ -626,7 +629,7 @@ extension LLBuildManifestBuilder {
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
-                    inputs.append(file: planProduct.binaryPath)
+                    try inputs.append(file: planProduct.binaryPath)
                 }
                 return
             }
@@ -655,7 +658,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    inputs.append(file: planProduct.binaryPath)
+                    try inputs.append(file: planProduct.binaryPath)
 
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
@@ -798,7 +801,7 @@ extension LLBuildManifestBuilder {
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = createResourcesBundle(for: .clang(target)) {
+        if let resourcesNode = try createResourcesBundle(for: .clang(target)) {
             inputs.append(resourcesNode)
         }
 
@@ -820,7 +823,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    let binary = planProduct.binaryPath
+                    let binary = try planProduct.binaryPath
                     inputs.append(file: binary)
 
                 case .library(.automatic), .library(.static), .plugin:
@@ -973,7 +976,7 @@ extension LLBuildManifestBuilder {
 
         switch buildProduct.product.type {
         case .library(.static):
-            self.manifest.addShellCmd(
+            try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Archiving \(buildProduct.binaryPath.prettyPath())",
                 inputs: buildProduct.objects.map(Node.file),
@@ -982,9 +985,9 @@ extension LLBuildManifestBuilder {
             )
 
         default:
-            let inputs = buildProduct.objects + buildProduct.dylibs.map(\.binaryPath)
+            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath }
 
-            self.manifest.addShellCmd(
+            try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Linking \(buildProduct.binaryPath.prettyPath())",
                 inputs: inputs.map(Node.file),
@@ -998,7 +1001,7 @@ extension LLBuildManifestBuilder {
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
-        self.manifest.addPhonyCmd(
+        try self.manifest.addPhonyCmd(
             name: output.name,
             inputs: [.file(buildProduct.binaryPath)],
             outputs: [output]
@@ -1084,10 +1087,10 @@ extension TypedVirtualPath {
     /// Resolve a typed virtual path provided by the Swift driver to
     /// a node in the build graph.
     func resolveToNode(fileSystem: FileSystem) throws -> Node {
-        if let absolutePath = file.absolutePath {
+        if let absolutePath = (file.absolutePath.flatMap{ AbsolutePath($0) }) {
             return Node.file(absolutePath)
-        } else if let relativePath = file.relativePath {
-            guard let workingDirectory = fileSystem.currentWorkingDirectory else {
+        } else if let relativePath = (file.relativePath.flatMap{ RelativePath($0) }) {
+            guard let workingDirectory: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 throw InternalError("unknown working directory")
             }
             return Node.file(workingDirectory.appending(relativePath))

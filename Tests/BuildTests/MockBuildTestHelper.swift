@@ -15,7 +15,6 @@
 @testable import Build
 import Basics
 import SPMBuildCore
-import TSCBasic
 import XCTest
 
 struct MockToolchain: PackageModel.Toolchain {
@@ -29,14 +28,10 @@ struct MockToolchain: PackageModel.Toolchain {
     let librarianPath = AbsolutePath("/fake/path/to/ar")
 #endif
     let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
-    
-    #if os(macOS)
-    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])
-    #else
-    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lstdc++"])
-    #endif
+    let extraFlags = PackageModel.BuildFlags()
+
     func getClangCompiler() throws -> AbsolutePath {
-        return AbsolutePath(path: "/fake/path/to/clang")
+        return "/fake/path/to/clang"
     }
 
     func _isClangCompilerVendorApple() throws -> Bool? {
@@ -65,7 +60,7 @@ let hostTriple = try! UserToolchain.default.triple
 #endif
 
 func mockBuildParameters(
-    buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
+    buildPath: AbsolutePath = "/path/to/build",
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),

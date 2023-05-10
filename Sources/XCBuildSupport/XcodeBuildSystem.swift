@@ -16,7 +16,12 @@ import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
+
+import protocol TSCBasic.OutputByteStream
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.withTemporaryFile
+import func TSCBasic.memoize
 
 import class TSCUtility.MultiLinePercentProgressAnimation
 import enum TSCUtility.Diagnostics
@@ -39,25 +44,28 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     public var builtTestProducts: [BuiltTestProduct] {
-        guard let graph = try? getPackageGraph() else {
+        do {
+            let graph = try getPackageGraph()
+            
+            var builtProducts: [BuiltTestProduct] = []
+            
+            for package in graph.rootPackages {
+                for product in package.products where product.type == .test {
+                    let binaryPath = try buildParameters.binaryPath(for: product)
+                    builtProducts.append(
+                        BuiltTestProduct(
+                            productName: product.name,
+                            binaryPath: binaryPath
+                        )
+                    )
+                }
+            }
+            
+            return builtProducts
+        } catch {
+            self.observabilityScope.emit(error)
             return []
         }
-
-        var builtProducts: [BuiltTestProduct] = []
-
-        for package in graph.rootPackages {
-            for product in package.products where product.type == .test {
-                let binaryPath = buildParameters.binaryPath(for: product)
-                builtProducts.append(
-                    BuiltTestProduct(
-                        productName: product.name,
-                        binaryPath: binaryPath
-                    )
-                )
-            }
-        }
-
-        return builtProducts
     }
 
     public var buildPlan: SPMBuildCore.BuildPlan {
@@ -97,7 +105,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public func build(subset: BuildSubset) throws {
         let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
-        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, bytes: ByteString(encodingAsUTF8: pif))
+        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         var arguments = [
             xcbuildPath.pathString,
@@ -190,21 +198,22 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(try buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraFlags.cCompilerFlags
+            + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.spm_shellEscaped() }
             + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraFlags.cxxCompilerFlags
+            + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
             + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraFlags.swiftCompilerFlags
+            + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
             + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_LDFLAGS"] = (
             ["$(inherited)"]
+            + buildParameters.toolchain.extraFlags.linkerFlags.map { $0.spm_shellEscaped() }
             + buildParameters.flags.linkerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
 
@@ -223,8 +232,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // Write out the parameters as a JSON file, and return the path.
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(params)
-        let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
-        try self.fileSystem.writeFileContents(file, bytes: ByteString(data))
+        let file = try withTemporaryFile(deleteOnClose: false) { AbsolutePath($0.path) }
+        try self.fileSystem.writeFileContents(file, data: data)
         return file
     }
 

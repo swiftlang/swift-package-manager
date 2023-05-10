@@ -10,9 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import XCTest
-
-import TSCBasic
 
 func readFileContents(
     in basePath: AbsolutePath,

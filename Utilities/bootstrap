@@ -367,9 +367,14 @@ def test(args):
     """Builds SwiftPM, then tests itself."""
     build(args)
 
+    if '-macosx' in args.build_target:
+        extra_env = ["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS=YES"]
+    else:
+        extra_env = []
+
     note("Testing")
     parse_test_args(args)
-    cmd = [
+    cmd = extra_env + [
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
         os.path.join(args.bin_dir, "swift-test")
@@ -813,7 +818,7 @@ def get_swiftpm_flags(args):
 
     # Ensure we are not sharing the module cache with concurrent builds in CI
     local_module_cache_path=os.path.join(args.build_dir, "module-cache")
-    for modifier in ["-Xswiftc", "-Xmanifest"]:
+    for modifier in ["-Xswiftc", "-Xbuild-tools-swiftc"]:
         build_flags.extend([modifier, "-module-cache-path", modifier, local_module_cache_path])
 
     return build_flags

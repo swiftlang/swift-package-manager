@@ -12,7 +12,9 @@
 
 import protocol Foundation.CustomNSError
 import var Foundation.NSLocalizedDescriptionKey
-import TSCBasic
+
+import enum TSCBasic.JSON
+import class TSCBasic.Process
 
 /// Triple - Helper class for working with Destination.target values
 ///
@@ -48,6 +50,7 @@ public struct Triple: Encodable, Equatable, Sendable {
         case aarch64
         case amd64
         case armv7
+        case armv7em
         case armv6
         case armv5
         case arm
@@ -73,6 +76,8 @@ public struct Triple: Encodable, Equatable, Sendable {
         case windows
         case wasi
         case openbsd
+        // 'OS' suffix purely to avoid name clash with Optional.none
+        case noneOS = "none"
     }
 
     public enum ABI: Encodable, Equatable, RawRepresentable, Sendable {
@@ -159,12 +164,23 @@ public struct Triple: Encodable, Equatable, Sendable {
         return nil
     }
 
+    public func isApple() -> Bool {
+        vendor == .apple
+    }
+
     public func isAndroid() -> Bool {
         os == .linux && abi == .android
     }
 
     public func isDarwin() -> Bool {
-        vendor == .apple || os == .macOS || os == .darwin
+        switch (vendor, os) {
+        case (.apple, .noneOS):
+            return false
+        case (.apple, _), (_, .macOS), (_, .darwin):
+            return true
+        default:
+            return false
+        }
     }
 
     public func isLinux() -> Bool {
@@ -206,7 +222,7 @@ public struct Triple: Encodable, Equatable, Sendable {
             #if os(macOS)
             return .macOS
             #else
-            throw InternalError("Failed to get target info (\(error))")
+            throw InternalError("Failed to get target info (\(error.interpolationDescription))")
             #endif
         }
         // Parse the compiler's JSON output.
@@ -214,20 +230,26 @@ public struct Triple: Encodable, Equatable, Sendable {
         do {
             parsedTargetInfo = try JSON(string: compilerOutput)
         } catch {
-            throw InternalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
+            throw InternalError(
+                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+            )
         }
         // Get the triple string from the parsed JSON.
         let tripleString: String
         do {
             tripleString = try parsedTargetInfo.get("target").get("triple")
         } catch {
-            throw InternalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
+            throw InternalError(
+                "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(parsedTargetInfo)"
+            )
         }
         // Parse the triple string.
         do {
             return try Triple(tripleString)
         } catch {
-            throw InternalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
+            throw InternalError(
+                "Failed to parse triple string (\(error.interpolationDescription)).\nTriple string: \(tripleString)"
+            )
         }
     }
 
@@ -259,6 +281,8 @@ extension Triple {
             return ".dll"
         case .wasi:
             return ".wasm"
+        case .noneOS:
+            fatalError("Cannot create dynamic libraries for os \"none\".")
         }
     }
 
@@ -272,6 +296,8 @@ extension Triple {
             return ".wasm"
         case .windows:
             return ".exe"
+        case .noneOS:
+            return ""
         }
     }
 

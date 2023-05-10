@@ -18,7 +18,8 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
+
+import struct TSCBasic.RegEx
 
 import enum TSCUtility.Git
 import struct TSCUtility.Version
@@ -202,7 +203,10 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 }
             }
         } catch {
-            self.observabilityScope.emit(error: "Failed to get source control fingerprint for \(self.package) version \(version) from storage: \(error)")
+            self.observabilityScope.emit(
+                error: "Failed to get source control fingerprint for \(self.package) version \(version) from storage",
+                underlyingError: error
+            )
             throw error
         }
 

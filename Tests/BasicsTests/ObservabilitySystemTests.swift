@@ -12,7 +12,6 @@
 
 @testable import Basics
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 // TODO: remove when transition to new diagnostics system is complete

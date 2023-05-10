@@ -16,15 +16,19 @@ import struct Foundation.URL
 import Security
 #endif
 
-import TSCBasic
-
 public protocol AuthorizationProvider {
     @Sendable
     func authentication(for url: URL) -> (user: String, password: String)?
 }
 
 public protocol AuthorizationWriter {
-    func addOrUpdate(for url: URL, user: String, password: String, persist: Bool, callback: @escaping (Result<Void, Error>) -> Void)
+    func addOrUpdate(
+        for url: URL,
+        user: String,
+        password: String,
+        persist: Bool,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
 
     func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void)
 }
@@ -36,9 +40,9 @@ public enum AuthorizationProviderError: Error {
     case other(String)
 }
 
-public extension AuthorizationProvider {
+extension AuthorizationProvider {
     @Sendable
-    func httpAuthorizationHeader(for url: URL) -> String? {
+    public func httpAuthorizationHeader(for url: URL) -> String? {
         guard let (user, password) = self.authentication(for: url) else {
             return nil
         }
@@ -50,8 +54,8 @@ public extension AuthorizationProvider {
     }
 }
 
-private extension URL {
-    var authenticationID: String? {
+extension URL {
+    fileprivate var authenticationID: String? {
         guard let host = host?.lowercased() else {
             return nil
         }
@@ -75,7 +79,13 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
         _ = try Self.load(fileSystem: fileSystem, path: path)
     }
 
-    public func addOrUpdate(for url: URL, user: String, password: String, persist: Bool = true, callback: @escaping (Result<Void, Error>) -> Void) {
+    public func addOrUpdate(
+        for url: URL,
+        user: String,
+        password: String,
+        persist: Bool = true,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
         guard let machine = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
@@ -87,7 +97,9 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
 
         // Same entry already exists, no need to add or update
         let netrc = try? Self.load(fileSystem: self.fileSystem, path: self.path)
-        guard netrc?.machines.first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil else {
+        guard netrc?.machines
+            .first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil
+        else {
             return callback(.success(()))
         }
 
@@ -108,12 +120,18 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
 
             callback(.success(()))
         } catch {
-            callback(.failure(AuthorizationProviderError.other("Failed to update netrc file at \(self.path): \(error)")))
+            callback(.failure(
+                AuthorizationProviderError
+                    .other("Failed to update netrc file at \(self.path): \(error.interpolationDescription)")
+            ))
         }
     }
 
     public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
-        callback(.failure(AuthorizationProviderError.other("User must edit netrc file at \(self.path) manually to remove entries")))
+        callback(.failure(
+            AuthorizationProviderError
+                .other("User must edit netrc file at \(self.path) manually to remove entries")
+        ))
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
@@ -124,7 +142,9 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
     }
 
     private func machine(for url: URL) -> Basics.Netrc.Machine? {
-        if let machine = url.authenticationID, let existing = self.machines.first(where: { $0.name.lowercased() == machine }) {
+        if let machine = url.authenticationID,
+           let existing = self.machines.first(where: { $0.name.lowercased() == machine })
+        {
             return existing
         }
         if let existing = self.machines.first(where: { $0.isDefault }) {
@@ -164,7 +184,13 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         self.observabilityScope = observabilityScope
     }
 
-    public func addOrUpdate(for url: URL, user: String, password: String, persist: Bool = true, callback: @escaping (Result<Void, Error>) -> Void) {
+    public func addOrUpdate(
+        for url: URL,
+        user: String,
+        password: String,
+        persist: Bool = true,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
         guard let server = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
@@ -214,12 +240,14 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         }
 
         do {
-            guard let existingItem = try self.search(server: server, protocol: self.protocol(for: url)) as? [String: Any],
-                  let passwordData = existingItem[kSecValueData as String] as? Data,
-                  let password = String(data: passwordData, encoding: String.Encoding.utf8),
-                  let account = existingItem[kSecAttrAccount as String] as? String
+            guard let existingItem = try self
+                .search(server: server, protocol: self.protocol(for: url)) as? [String: Any],
+                let passwordData = existingItem[kSecValueData as String] as? Data,
+                let password = String(data: passwordData, encoding: String.Encoding.utf8),
+                let account = existingItem[kSecAttrAccount as String] as? String
             else {
-                throw AuthorizationProviderError.other("Failed to extract credentials for server \(server) from keychain")
+                throw AuthorizationProviderError
+                    .other("Failed to extract credentials for server \(server) from keychain")
             }
             return (user: account, password: password)
         } catch {
@@ -229,7 +257,10 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             case AuthorizationProviderError.other(let detail):
                 self.observabilityScope.emit(error: detail)
             default:
-                self.observabilityScope.emit(error: "Failed to find credentials for server \(server) in keychain: \(error)")
+                self.observabilityScope.emit(
+                    error: "Failed to find credentials for server \(server) in keychain",
+                    underlyingError: error
+                )
             }
             return nil
         }
@@ -244,7 +275,8 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.other("Failed to save credentials for server \(server) to keychain: status \(status)")
+            throw AuthorizationProviderError
+                .other("Failed to save credentials for server \(server) to keychain: status \(status)")
         }
     }
 
@@ -260,7 +292,8 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             return false
         }
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.other("Failed to update credentials for server \(server) in keychain: status \(status)")
+            throw AuthorizationProviderError
+                .other("Failed to update credentials for server \(server) in keychain: status \(status)")
         }
         return true
     }
@@ -271,7 +304,8 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
                                     kSecAttrProtocol as String: `protocol`]
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.other("Failed to delete credentials for server \(server) from keychain: status \(status)")
+            throw AuthorizationProviderError
+                .other("Failed to delete credentials for server \(server) from keychain: status \(status)")
         }
     }
 
@@ -290,7 +324,8 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             throw AuthorizationProviderError.notFound
         }
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.other("Failed to find credentials for server \(server) in keychain: status \(status)")
+            throw AuthorizationProviderError
+                .other("Failed to find credentials for server \(server) in keychain: status \(status)")
         }
 
         return item

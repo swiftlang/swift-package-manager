@@ -12,7 +12,8 @@
 
 import Foundation
 import Basics
-import TSCBasic
+
+import struct TSCBasic.CodableRange
 
 import struct TSCUtility.Version
 

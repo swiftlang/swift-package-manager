@@ -16,7 +16,6 @@ import PackageFingerprint
 import PackageModel
 @testable import PackageRegistry
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 import struct TSCUtility.Version
@@ -104,7 +103,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         )
 
         // Checksum should have been saved to storage
-        let fingerprint = try tsc_await { callback in
+        let fingerprint = try temp_await { callback in
             fingerprintStorage.get(
                 package: identity,
                 version: version,
@@ -700,7 +699,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksums should have been saved to storage
         do {
-            let fingerprint = try tsc_await { callback in
+            let fingerprint = try temp_await { callback in
                 fingerprintStorage.get(
                     package: identity,
                     version: version,
@@ -715,7 +714,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             XCTAssertEqual("Package.swift checksum", fingerprint.value)
         }
         do {
-            let fingerprint = try tsc_await { callback in
+            let fingerprint = try temp_await { callback in
                 fingerprintStorage.get(
                     package: identity,
                     version: version,
@@ -942,7 +941,7 @@ extension PackageVersionChecksumTOFU {
         checksum: String,
         observabilityScope: ObservabilityScope? = nil
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.validateSourceArchive(
                 registry: registry,
                 package: package,
@@ -964,7 +963,7 @@ extension PackageVersionChecksumTOFU {
         checksum: String,
         observabilityScope: ObservabilityScope? = nil
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.validateManifest(
                 registry: registry,
                 package: package,

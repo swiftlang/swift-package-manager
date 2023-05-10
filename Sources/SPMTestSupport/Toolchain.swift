@@ -10,10 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import PackageModel
 import Workspace
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import class TSCBasic.Process
+import struct TSCBasic.StringError
 import struct TSCUtility.SerializedDiagnostics
 
 #if os(macOS)

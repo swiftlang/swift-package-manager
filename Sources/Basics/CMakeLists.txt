@@ -25,9 +25,11 @@ add_library(Basics
   DispatchTimeInterval+Extensions.swift
   EnvironmentVariables.swift
   Errors.swift
+  FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
-  FileSystem/Path+Extensions.swift
+  FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
+  FileSystem/TSCAdapters.swift
   FileSystem/VFSOverlay.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift
@@ -42,6 +44,7 @@ add_library(Basics
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  NativePathExtensions.swift
   Netrc.swift
   Observability.swift
   SQLite.swift
@@ -50,7 +53,7 @@ add_library(Basics
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
-  Triple.swift
+  Triple.swift  
   Version+Extensions.swift
   WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC

@@ -12,11 +12,12 @@
 
 import XCTest
 import Basics
-import TSCBasic
 import PackageModel
 import SPMBuildCore
 import XCBuildSupport
 import SPMTestSupport
+
+import enum TSCBasic.JSON
 
 class PIFTests: XCTestCase {
     let topLevelObject = PIF.TopLevelObject(workspace:

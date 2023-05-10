@@ -13,7 +13,16 @@
 import Basics
 import Dispatch
 import class Foundation.NSLock
-import TSCBasic
+
+import class TSCBasic.Process
+import struct TSCBasic.ByteString
+import enum TSCBasic.FileMode
+import struct TSCBasic.FileInfo
+import struct TSCBasic.ProcessResult
+import protocol TSCBasic.DiagnosticLocation
+import struct TSCBasic.RegEx
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.FileSystemError
 
 import enum TSCUtility.Git
 import protocol TSCUtility.DiagnosticLocationProviding
@@ -103,7 +112,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
+    public func fetch(repository: RepositorySpecifier, to path: Basics.AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -126,14 +135,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                          progress: progressHandler)
     }
 
-    public func repositoryExists(at directory: AbsolutePath) -> Bool {
+    public func repositoryExists(at directory: Basics.AbsolutePath) -> Bool {
         if !localFileSystem.isDirectory(directory) {
             return false
         }
         return self.isValidDirectory(directory)
     }
     
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+    public func isValidDirectory(_ directory: Basics.AbsolutePath) -> Bool {
         do {
             let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
             return result == ".git" || result == "." || result == directory.pathString
@@ -152,18 +161,18 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
     
-    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
 
-    public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
+    public func open(repository: RepositorySpecifier, at path: Basics.AbsolutePath) -> Repository {
         return GitRepository(git: self.git, path: path, isWorkingRepo: false)
     }
 
     public func createWorkingCopy(
         repository: RepositorySpecifier,
-        sourcePath: AbsolutePath,
-        at destinationPath: AbsolutePath,
+        sourcePath: Basics.AbsolutePath,
+        at destinationPath: Basics.AbsolutePath,
         editable: Bool
     ) throws -> WorkingCheckout {
         if editable {
@@ -201,7 +210,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return try self.openWorkingCopy(at: destinationPath)
     }
 
-    public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
+    public func workingCopyExists(at path: Basics.AbsolutePath) throws -> Bool {
         guard localFileSystem.exists(path) else {
             throw InternalError("\(path) does not exist")
         }
@@ -210,7 +219,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return try repo.checkoutExists()
     }
 
-    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: Basics.AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(git: self.git, path: path)
     }
 
@@ -610,7 +619,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Returns true if the file at `path` is ignored by `git`
-    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+    public func areIgnored(_ paths: [Basics.AbsolutePath]) throws -> [Bool] {
         return try self.lock.withLock {
             let stringPaths = paths.map { $0.pathString }
 
@@ -794,7 +803,7 @@ private class GitFileSystemView: FileSystem {
 
     // MARK: FileSystem Implementations
 
-    private func getEntry(_ path: AbsolutePath) throws -> Tree.Entry? {
+    private func getEntry(_ path: TSCAbsolutePath) throws -> Tree.Entry? {
         // Walk the components resolving the tree (starting with a synthetic
         // root entry).
         var current: Tree.Entry = Tree.Entry(location: self.root, type: .tree, name: AbsolutePath.root.pathString)
@@ -806,7 +815,7 @@ private class GitFileSystemView: FileSystem {
             currentPath = currentPath.appending(component: component)
             // We have a component to resolve, so the current entry must be a tree.
             guard current.type == .tree else {
-                throw FileSystemError(.notDirectory, currentPath)
+                throw FileSystemError(.notDirectory, .init(currentPath))
             }
 
             // Fetch the tree.
@@ -837,7 +846,7 @@ private class GitFileSystemView: FileSystem {
         return tree
     }
 
-    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+    func exists(_ path: TSCAbsolutePath, followSymlink: Bool) -> Bool {
         do {
             return try self.getEntry(path) != nil
         } catch {
@@ -845,7 +854,7 @@ private class GitFileSystemView: FileSystem {
         }
     }
 
-    func isFile(_ path: AbsolutePath) -> Bool {
+    func isFile(_ path: TSCAbsolutePath) -> Bool {
         do {
             if let entry = try getEntry(path), entry.type != .tree {
                 return true
@@ -856,7 +865,7 @@ private class GitFileSystemView: FileSystem {
         }
     }
 
-    func isDirectory(_ path: AbsolutePath) -> Bool {
+    func isDirectory(_ path: TSCAbsolutePath) -> Bool {
         do {
             if let entry = try getEntry(path), entry.type == .tree {
                 return true
@@ -867,7 +876,7 @@ private class GitFileSystemView: FileSystem {
         }
     }
 
-    func isSymlink(_ path: AbsolutePath) -> Bool {
+    func isSymlink(_ path: TSCAbsolutePath) -> Bool {
         do {
             if let entry = try getEntry(path), entry.type == .symlink {
                 return true
@@ -878,30 +887,30 @@ private class GitFileSystemView: FileSystem {
         }
     }
 
-    func isExecutableFile(_ path: AbsolutePath) -> Bool {
+    func isExecutableFile(_ path: TSCAbsolutePath) -> Bool {
         if let entry = try? getEntry(path), entry.type == .executableBlob {
             return true
         }
         return false
     }
 
-    func isReadable(_ path: AbsolutePath) -> Bool {
+    func isReadable(_ path: TSCAbsolutePath) -> Bool {
         return self.exists(path)
     }
 
-    func isWritable(_ path: AbsolutePath) -> Bool {
+    func isWritable(_ path: TSCAbsolutePath) -> Bool {
         return false
     }
 
-    public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath.root
+    public var currentWorkingDirectory: TSCAbsolutePath? {
+        return TSCAbsolutePath.root
     }
 
-    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+    func changeCurrentWorkingDirectory(to path: TSCAbsolutePath) throws {
         throw InternalError("changeCurrentWorkingDirectory not supported")
     }
 
-    func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+    func getDirectoryContents(_ path: TSCAbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
             throw FileSystemError(.noEntry, path)
         }
@@ -911,7 +920,7 @@ private class GitFileSystemView: FileSystem {
         return try self.getTree(entry.location).contents.map { $0.name }
     }
 
-    func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+    func readFileContents(_ path: TSCAbsolutePath) throws -> ByteString {
         guard let entry = try getEntry(path) else {
             throw FileSystemError(.noEntry, path)
         }
@@ -929,47 +938,47 @@ private class GitFileSystemView: FileSystem {
 
     // MARK: Unsupported methods.
 
-    public var homeDirectory: AbsolutePath {
+    public var homeDirectory: TSCAbsolutePath {
         fatalError("unsupported")
     }
 
-    public var cachesDirectory: AbsolutePath? {
+    public var cachesDirectory: TSCAbsolutePath? {
         fatalError("unsupported")
     }
 
-    public var tempDirectory: AbsolutePath {
+    public var tempDirectory: TSCAbsolutePath {
         fatalError("unsupported")
     }
 
-    func createDirectory(_ path: AbsolutePath) throws {
+    func createDirectory(_ path: TSCAbsolutePath) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+    func createDirectory(_ path: TSCAbsolutePath, recursive: Bool) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+    func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+    func writeFileContents(_ path: TSCAbsolutePath, bytes: ByteString) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    func removeFileTree(_ path: AbsolutePath) throws {
+    func removeFileTree(_ path: TSCAbsolutePath) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+    func chmod(_ mode: FileMode, path: TSCAbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    func copy(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         fatalError("will never be supported")
     }
 
-    func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    func move(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         fatalError("will never be supported")
     }
 }

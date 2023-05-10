@@ -16,9 +16,12 @@
 ///
 // -----------------------------------------------------------------------------
 
-import TSCBasic
+import Basics
 import PackageModel
 import PackageLoading
+
+import struct TSCBasic.ByteString
+import class TSCBasic.BufferedOutputByteStream
 
 public struct ToolsVersionSpecificationWriter {
     // designed to be used as a static utility
@@ -56,7 +59,7 @@ public struct ToolsVersionSpecificationWriter {
 
         let stream = BufferedOutputByteStream()
         // Write out the tools version specification, including the patch version if and only if it's not zero.
-        stream <<< toolsVersion.specification(roundedTo: .automatic) <<< "\n"
+        stream.send("\(toolsVersion.specification(roundedTo: .automatic))\n")
 
         // The following lines up to line 77 append the file contents except for the Swift tools version specification line.
 
@@ -71,9 +74,9 @@ public struct ToolsVersionSpecificationWriter {
         // Replace the Swift tools version specification line if and only if it's well-formed up to the version specifier.
         // This matches the behavior of the old (now removed) [`ToolsVersionLoader.split(:_)`](https://github.com/WowbaggersLiquidLunch/swift-package-manager/blob/49cfc46bc5defd3ce8e0c0261e3e2cb475bcdb91/Sources/PackageLoading/ToolsVersionLoader.swift#L160).
         if toolsVersionSpecificationComponents.everythingUpToVersionSpecifierIsWellFormed {
-            stream <<< ByteString(encodingAsUTF8: String(manifestComponents.contentsAfterToolsVersionSpecification))
+            stream.send(String(manifestComponents.contentsAfterToolsVersionSpecification))
         } else {
-            stream <<< contents
+            stream.send(contents)
         }
 
         try fileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)

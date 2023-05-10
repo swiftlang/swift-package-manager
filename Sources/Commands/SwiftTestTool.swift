@@ -19,9 +19,16 @@ import class Foundation.ProcessInfo
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 import func TSCLibc.exit
 import Workspace
+
+import struct TSCBasic.ByteString
+import enum TSCBasic.JSON
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import var TSCBasic.stdoutStream
+import class TSCBasic.SynchronizedQueue
+import class TSCBasic.Thread
 
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
@@ -75,10 +82,6 @@ struct TestToolOptions: ParsableArguments {
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
           help: "Lists test methods in specifier format")
     var _deprecated_shouldListTests: Bool = false
-
-    /// Generate LinuxMain entries and exit.
-    @Flag(name: .customLong("generate-linuxmain"), help: .hidden)
-    var _deprecated_shouldGenerateLinuxMain: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
     @Flag(name: [.customLong("show-codecov-path"), .customLong("show-code-coverage-path"), .customLong("show-coverage-path")],
@@ -146,7 +149,6 @@ public struct SwiftTestTool: SwiftCommand {
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             List.self,
-            GenerateLinuxMain.self
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
@@ -180,10 +182,6 @@ public struct SwiftTestTool: SwiftCommand {
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
-            try command.run(swiftTool)
-        } else if self.options._deprecated_shouldGenerateLinuxMain {
-            // backward compatibility 6/2022 for deprecation of flag into a subcommand
-            let command = try GenerateLinuxMain.parse()
             try command.run(swiftTool)
         } else if !self.options.shouldRunInParallel {
             let toolchain = try swiftTool.getDestinationToolchain()
@@ -435,10 +433,6 @@ public struct SwiftTestTool: SwiftCommand {
             }
         }
 
-        if options._deprecated_shouldGenerateLinuxMain {
-            observabilityScope.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
-        }
-
         if options._deprecated_shouldListTests {
             observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
         }
@@ -536,56 +530,6 @@ extension SwiftTestTool {
             } else {
                 return testProducts
             }
-        }
-    }
-}
-
-extension SwiftTestTool {
-    // this functionality is deprecated as of 12/2020
-    // but we are keeping it here for transition purposes
-    // to be removed in future releases
-    // deprecation warning is emitted by validateArguments
-    struct GenerateLinuxMain: SwiftCommand {
-        static let configuration = CommandConfiguration(
-            commandName: "generate-linuxmain",
-            abstract: "Generate LinuxMain.swift (deprecated)"
-        )
-
-        @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
-
-        // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
-        @Flag(name: .customLong("generate-linuxmain"), help: .hidden)
-        var _deprecated_passthrough: Bool = false
-
-        func run(_ swiftTool: SwiftTool) throws {
-            #if os(Linux)
-            swiftTool.observabilityScope.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
-            #endif
-            let graph = try swiftTool.loadPackageGraph()
-            let testProducts = try buildTests(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(
-                in: testProducts,
-                swiftTool: swiftTool,
-                enableCodeCoverage: false,
-                sanitizers: globalOptions.build.sanitizers
-            )
-            let allTestSuites = testSuites.values.flatMap { $0 }
-            let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
-            try generator.generate()
-        }
-
-        private func buildTests(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-            let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false)
-            let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
-
-            try buildSystem.build(subset: .allIncludingTests)
-
-            guard !buildSystem.builtTestProducts.isEmpty else {
-                throw TestError.testsExecutableNotFound
-            }
-
-            return  buildSystem.builtTestProducts
         }
     }
 }
@@ -1046,19 +990,21 @@ final class XUnitGenerator {
 
     /// Generate the file at the given path.
     func generate(at path: AbsolutePath) throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        var content =
+            """
             <?xml version="1.0" encoding="UTF-8"?>
 
+            <testsuites>
+
             """
-        stream <<< "<testsuites>\n"
 
         // Get the failure count.
         let failures = results.filter({ !$0.success }).count
         let duration = results.compactMap({ $0.duration.timeInterval() }).reduce(0.0, +)
 
         // We need better output reporting from XCTest.
-        stream <<< """
+        content +=
+            """
             <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(duration)">
 
             """
@@ -1069,22 +1015,27 @@ final class XUnitGenerator {
         for result in results {
             let test = result.unitTest
             let duration = result.duration.timeInterval() ?? 0.0
-            stream <<< """
+            content +=
+                """
                 <testcase classname="\(test.testCase)" name="\(test.name)" time="\(duration)">
 
                 """
 
             if !result.success {
-                stream <<< "<failure message=\"failed\"></failure>\n"
+                content += "<failure message=\"failed\"></failure>\n"
             }
 
-            stream <<< "</testcase>\n"
+            content += "</testcase>\n"
         }
 
-        stream <<< "</testsuite>\n"
-        stream <<< "</testsuites>\n"
+        content +=
+            """
+            </testsuite>
+            </testsuites>
 
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+            """
+
+        try self.fileSystem.writeFileContents(path, string: content)
     }
 }
 

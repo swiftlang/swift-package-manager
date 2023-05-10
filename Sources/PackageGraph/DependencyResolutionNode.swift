@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import PackageModel
+
 import struct TSCUtility.Version
 
 /// A node in the dependency resolution graph.

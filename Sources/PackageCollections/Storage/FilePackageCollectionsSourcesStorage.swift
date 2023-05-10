@@ -16,7 +16,6 @@ import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import struct Foundation.URL
-import TSCBasic
 
 struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
@@ -150,7 +149,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
         let container = StorageModel.Container(sources)
         let buffer = try encoder.encode(container)
-        try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer))
+        try self.fileSystem.writeFileContents(self.path, data: buffer)
     }
 
     private func withLock<T>(_ body: () throws -> T) throws -> T {

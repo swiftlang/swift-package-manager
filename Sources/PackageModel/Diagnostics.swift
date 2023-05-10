@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 import Foundation
 
 /// The diagnostic triggered when the package has a newer tools version than the installed tools.

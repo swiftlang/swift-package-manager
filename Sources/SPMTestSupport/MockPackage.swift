@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import PackageModel
-import TSCBasic
 
 public struct MockPackage {
     public let name: String
@@ -38,9 +38,10 @@ public struct MockPackage {
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
     ) {
+        let path = try! RelativePath(validating: path ?? name)
         self.name = name
         self.platforms = platforms
-        self.location = .fileSystem(path: RelativePath(path ?? name))
+        self.location = .fileSystem(path: path)
         self.targets = targets
         self.products = products
         self.dependencies = dependencies

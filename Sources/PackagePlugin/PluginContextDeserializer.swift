@@ -261,6 +261,8 @@ fileprivate extension ModuleKind {
             self = .snippet
         case .test:
             self = .test
+        case .macro:
+            self = .macro
         }
     }
 }

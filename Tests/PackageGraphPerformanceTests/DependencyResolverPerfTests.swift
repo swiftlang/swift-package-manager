@@ -16,9 +16,16 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
-import struct TSCUtility.Version
 import XCTest
+
+import enum TSCBasic.JSON
+import protocol TSCBasic.JSONMappable
+import protocol TSCBasic.JSONSerializable
+
+import func TSCUtility.measure
+import struct TSCUtility.Version
+
+import class TSCTestSupport.XCTestCasePerf
 
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
@@ -78,7 +85,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     }
 
     func mockGraph(for name: String) throws -> MockDependencyGraph {
-        let input = AbsolutePath(path: #file).parentDirectory.appending("Inputs").appending(component: name)
+        let input = AbsolutePath(#file).parentDirectory.appending("Inputs").appending(component: name)
         let jsonString: Data = try localFileSystem.readFileContents(input)
         let json = try JSON(data: jsonString)
         return MockDependencyGraph(json)

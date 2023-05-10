@@ -30,8 +30,11 @@ public struct InternalError: Error {
 extension Error {
     public var interpolationDescription: String {
         switch self {
+        // special case because `LocalizedError` conversion will hide the underlying error
+        case let _error as DecodingError:
+            return "\(_error)"
         case let _error as LocalizedError:
-            var description = _error.localizedDescription
+            var description = _error.errorDescription ?? _error.localizedDescription
             if let recoverySuggestion = _error.recoverySuggestion {
                 description += ". \(recoverySuggestion)"
             }
@@ -45,7 +48,6 @@ extension Error {
                 description += ". \(localizedRecoverySuggestion)"
             }
             return description
-
         default:
             return "\(self)"
         }

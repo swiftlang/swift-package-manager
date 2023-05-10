@@ -10,23 +10,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Commands
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCTestSupport.XCTestCasePerf
 
 class BuildPerfTests: XCTestCasePerf {
 
     @discardableResult
     func execute(args: [String] = [], packagePath: AbsolutePath) throws -> (stdout: String, stderr: String) {
         // FIXME: We should pass the SWIFT_EXEC at lower level.
-        return try SwiftPMProduct.SwiftBuild.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": UserToolchain.default.swiftCompilerPath.pathString])
+        return try SwiftPM.Build.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": UserToolchain.default.swiftCompilerPath.pathString])
     }
 
     func clean(packagePath: AbsolutePath) throws {
-        _ = try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath)
+        _ = try SwiftPM.Package.execute(["clean"], packagePath: packagePath)
     }
 
     func testTrivialPackageFullBuild() throws {

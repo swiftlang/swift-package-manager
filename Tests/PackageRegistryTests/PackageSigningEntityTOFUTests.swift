@@ -17,7 +17,6 @@ import PackageModel
 @testable import PackageRegistry
 @testable import PackageSigning
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 import struct TSCUtility.Version
@@ -55,7 +54,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // `signingEntity` meets requirement to be used for TOFU
         // (i.e., it's .recognized), so it should be saved to storage.
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -92,7 +91,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` is nil, so it should not be saved to storage.
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -133,7 +132,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` is not .recognized, so it should not be saved to storage.
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -236,7 +235,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -303,7 +302,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -361,7 +360,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -414,7 +413,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with version 1.1.1 added
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -487,7 +486,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -555,7 +554,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -609,7 +608,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -677,7 +676,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -740,7 +739,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -796,7 +795,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -850,7 +849,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with v2.0.0 added
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -919,7 +918,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with v2.0.0 added
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -1003,7 +1002,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try tsc_await { callback in
+        let packageSigners = try temp_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -1098,7 +1097,7 @@ extension PackageSigningEntityTOFU {
         signingEntity: SigningEntity?,
         observabilityScope: ObservabilityScope? = nil
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.validate(
                 registry: registry,
                 package: package,

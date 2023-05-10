@@ -13,7 +13,6 @@
 import Basics
 import PackageGraph
 
-import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
 
@@ -74,7 +73,9 @@ public protocol ProductBuildDescription {
 extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
-        return buildParameters.binaryPath(for: product)
+        get throws {
+            return try buildParameters.binaryPath(for: product)
+        }
     }
 }
 

@@ -13,7 +13,8 @@
 import Basics
 import Foundation
 import PackageModel
-import TSCBasic
+
+import enum TSCBasic.JSON
 
 import struct TSCUtility.Version
 
@@ -85,7 +86,7 @@ public final class PinsStore {
         } catch {
             self._pins = .init()
             throw StringError(
-                "Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error)"
+                "Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error.interpolationDescription)"
             )
         }
     }

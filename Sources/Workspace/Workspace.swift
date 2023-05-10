@@ -21,13 +21,19 @@ import PackageGraph
 import PackageRegistry
 import PackageSigning
 import SourceControl
-import TSCBasic
+
+import protocol TSCBasic.HashAlgorithm
+import class TSCBasic.InMemoryFileSystem
+import struct TSCBasic.KeyedPair
+import var TSCBasic.stderrStream
+import struct TSCBasic.SHA256
+import func TSCBasic.topologicalSort
+import func TSCBasic.transitiveClosure
+import func TSCBasic.os_signpost
 
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
 import struct TSCUtility.Version
-
-public typealias Diagnostic = TSCBasic.Diagnostic
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
@@ -65,7 +71,7 @@ public protocol WorkspaceDelegate: AnyObject {
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval)
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic], duration: DispatchTimeInterval)
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -951,7 +957,10 @@ extension Workspace {
         do {
             try self.fileSystem.removeFileTree(self.location.scratchDirectory)
         } catch {
-            observabilityScope.emit(error: "Error removing scratch directory at '\(self.location.scratchDirectory)': \(error)")
+            observabilityScope.emit(
+                error: "Error removing scratch directory at '\(self.location.scratchDirectory)'",
+                underlyingError: error
+            )
         }
     }
 
@@ -1357,7 +1366,7 @@ extension Workspace {
 
             for path in paths {
                 do {
-                    let result = try tsc_await {
+                    let result = try temp_await {
                         scanner.scanImports(path, callbackQueue: DispatchQueue.sharedConcurrent, completion: $0)
                     }
                     importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
@@ -1545,7 +1554,7 @@ extension Workspace {
 
         // Save the new state.
         self.state.dependencies.add(
-            try dependency.edited(subpath: RelativePath(packageName), unmanagedPath: path)
+            try dependency.edited(subpath: RelativePath(validating: packageName), unmanagedPath: path)
         )
         try self.state.save()
     }
@@ -2131,7 +2140,10 @@ extension Workspace {
             fileSystem = try self.getFileSystem(package: package, state: managedDependency.state, observabilityScope: observabilityScope)
         } catch {
             // only warn here in case of issues since we should not even get here without a valid package container
-            observabilityScope.emit(warning: "unexpected failure while accessing custom package container: \(error)")
+            observabilityScope.emit(
+                warning: "unexpected failure while accessing custom package container",
+                underlyingError: error
+            )
             fileSystem = nil
         }
 
@@ -2172,7 +2184,7 @@ extension Workspace {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        var manifestLoadingDiagnostics = [Basics.Diagnostic]()
+        var manifestLoadingDiagnostics = [Diagnostic]()
 
         let start = DispatchTime.now()
         self.manifestLoader.load(
@@ -2744,7 +2756,7 @@ extension Workspace {
                 return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
             } else if let customContainer = container as? CustomPackageContainer {
                 let path = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
-                let dependency = ManagedDependency(packageRef: package, state: .custom(version: version, path: path), subpath: RelativePath(""))
+                let dependency = try ManagedDependency(packageRef: package, state: .custom(version: version, path: path), subpath: RelativePath(validating: ""))
                 self.state.dependencies.add(dependency)
                 try self.state.save()
                 return path
@@ -2821,7 +2833,7 @@ extension Workspace {
                 requirement: requirement
             ))
         case .failure(let error):
-            return .required(reason: .other("\(error)"))
+            return .required(reason: .other("\(error.interpolationDescription)"))
         }
     }
 
@@ -3329,6 +3341,7 @@ extension Workspace {
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
         delegate?.didCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath, duration: duration)
+        observabilityScope.emit(debug: "`\(repository.location.description)` checked out at \(checkoutState.debugDescription)")
 
         return checkoutPath
     }
@@ -3962,7 +3975,10 @@ extension Workspace {
                         switch result {
                         case .failure(let error):
                             // do not raise error, only report it as warning
-                            observabilityScope.emit(warning: "failed querying registry identity for '\(url)': \(error)")
+                            observabilityScope.emit(
+                                warning: "failed querying registry identity for '\(url)'",
+                                underlyingError: error
+                            )
                         case .success(.some(let identity)):
                             transformations[dependency] = identity
                         case .success(.none):
@@ -4070,7 +4086,6 @@ extension Workspace {
                     modifiedTargets.append(
                         try TargetDescription(
                             name: target.name,
-                            group: target.group,
                             dependencies: modifiedDependencies,
                             path: target.path,
                             url: target.url,
@@ -4079,6 +4094,7 @@ extension Workspace {
                             resources: target.resources,
                             publicHeadersPath: target.publicHeadersPath,
                             type: target.type,
+                            packageAccess: target.packageAccess,
                             pkgConfig: target.pkgConfig,
                             providers: target.providers,
                             pluginCapability: target.pluginCapability,

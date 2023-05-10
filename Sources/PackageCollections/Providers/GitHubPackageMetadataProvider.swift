@@ -18,7 +18,8 @@ import struct Foundation.NSRange
 import class Foundation.NSRegularExpression
 import struct Foundation.URL
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 import struct TSCUtility.Version
 
@@ -176,7 +177,10 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
                             observabilityScope: self.observabilityScope
                         )
                     } catch {
-                        self.observabilityScope.emit(warning: "Failed to save GitHub metadata for package \(identity) to cache: \(error)")
+                        self.observabilityScope.emit(
+                            warning: "Failed to save GitHub metadata for package \(identity) to cache",
+                            underlyingError: error
+                        )
                     }
 
                     callback(.success(model), self.createContext(apiHost: baseURL.host, error: nil))

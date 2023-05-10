@@ -14,7 +14,13 @@ import Basics
 import Dispatch
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
+
+import class TSCBasic.BufferedOutputByteStream
+import struct TSCBasic.ByteString
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.ProcessResult
+
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
@@ -262,9 +268,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     )
                     targets.append(try TargetDescription(
                         name: parsedManifest.name,
-                        group: .excluded, // access to only public APIs is allowed for system libs
                         path: "",
                         type: .system,
+                        packageAccess: false,
                         pkgConfig: parsedManifest.pkgConfig,
                         providers: parsedManifest.providers
                     ))
@@ -369,7 +375,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             do {
                 try cache?.close()
             } catch {
-                observabilityScope.emit(warning: "failed closing cache: \(error)")
+                observabilityScope.emit(
+                    warning: "failed closing cache",
+                    underlyingError: error
+                )
             }
 
             callbackQueue.async {
@@ -407,7 +416,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 return closingCompletion(.success(parsedManifest))
             }
         } catch {
-            observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
+            observabilityScope.emit(
+                warning: "failed loading cached manifest for '\(key.packageIdentity)'",
+                underlyingError: error
+            )
         }
 
         // shells out and compiles the manifest, finally output a JSON
@@ -440,7 +452,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // FIXME: (diagnostics) pass in observability scope when we have one
                         try cache?.put(key: key.sha256Checksum, value: evaluationResult)
                     } catch {
-                        observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+                        observabilityScope.emit(
+                            warning: "failed storing manifest for '\(key.packageIdentity)' in cache",
+                            underlyingError: error
+                        )
                     }
 
                     return closingCompletion(.success(parseManifest))
@@ -864,7 +879,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         } catch {
-            observabilityScope.emit(error: "Error purging manifests cache at '\(manifestCacheDBPath)': \(error))")
+            observabilityScope.emit(
+                error: "Error purging manifests cache at '\(manifestCacheDBPath)'",
+                underlyingError: error
+            )
         }
     }
 }
@@ -910,13 +928,13 @@ extension ManifestLoader {
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
-            stream <<< packageIdentity
-            stream <<< manifestContents
-            stream <<< toolsVersion.description
+            stream.send(packageIdentity)
+            stream.send(manifestContents)
+            stream.send(toolsVersion.description)
             for (key, value) in env.sorted(by: { $0.key > $1.key }) {
-                stream <<< key <<< value
+                stream.send(key).send(value)
             }
-            stream <<< swiftpmVersion
+            stream.send(swiftpmVersion)
             return stream.bytes.sha256Checksum
         }
     }

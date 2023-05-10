@@ -14,7 +14,6 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
@@ -182,7 +181,7 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, restrictImports: (.v5_7, []))
-        XCTAssertThrowsError(try loadAndValidateManifest(ByteString(encodingAsUTF8: content), customManifestLoader: manifestLoader, observabilityScope: observability.topScope)) { error in
+        XCTAssertThrowsError(try loadAndValidateManifest(content, customManifestLoader: manifestLoader, observabilityScope: observability.topScope)) { error in
             if case ManifestParseError.importsRestrictedModules(let modules) = error {
                 XCTAssertEqual(modules.sorted(), ["BestModule", "Foundation"])
             } else {

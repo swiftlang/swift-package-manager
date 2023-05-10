@@ -16,8 +16,9 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 @_implementationOnly import DriverSupport
+
+import struct TSCBasic.ByteString
 
 /// Target description for a Swift target.
 public final class SwiftTargetBuildDescription {
@@ -308,11 +309,11 @@ public final class SwiftTargetBuildDescription {
     private func generateResourceEmbeddingCode() throws {
         guard needsResourceEmbedding else { return }
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-        struct PackageResources {
+        var content =
+            """
+            struct PackageResources {
 
-        """
+            """
 
         try resources.forEach {
             guard $0.rule == .embedInCode else { return }
@@ -320,17 +321,15 @@ public final class SwiftTargetBuildDescription {
             let variableName = $0.path.basename.spm_mangledToC99ExtendedIdentifier()
             let fileContent = try Data(contentsOf: URL(fileURLWithPath: $0.path.pathString)).map { String($0) }.joined(separator: ",")
 
-            stream <<< "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+            content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
         }
 
-        stream <<< """
-        }
-        """
+        content += "}"
 
-        let subpath = RelativePath("embedded_resources.swift")
+        let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
         let path = self.derivedSources.root.appending(subpath)
-        try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
     /// Generate the resource bundle accessor, if appropriate.
@@ -354,27 +353,27 @@ public final class SwiftTargetBuildDescription {
                 #"Bundle.main.bundleURL.appendingPathComponent("\#(bundlePath.basename.asSwiftStringLiteralConstant)").path"#
         }
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-        \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
+        let content =
+            """
+            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
 
-        extension Foundation.Bundle {
-            static let module: Bundle = {
-                let mainPath = \(mainPathSubstitution)
-                let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
+            extension Foundation.Bundle {
+                static let module: Bundle = {
+                    let mainPath = \(mainPathSubstitution)
+                    let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
-                let preferredBundle = Bundle(path: mainPath)
+                    let preferredBundle = Bundle(path: mainPath)
 
-                guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
-                    fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
-                }
+                    guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
+                        fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
+                    }
 
-                return bundle
-            }()
-        }
-        """
+                    return bundle
+                }()
+            }
+            """
 
-        let subpath = RelativePath("resource_bundle_accessor.swift")
+        let subpath = try RelativePath(validating: "resource_bundle_accessor.swift")
 
         // Add the file to the derived sources.
         self.derivedSources.relativePaths.append(subpath)
@@ -382,20 +381,17 @@ public final class SwiftTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         let path = self.derivedSources.root.appending(subpath)
-        try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
-    private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, group: Target.Group) -> [String] {
+    private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
         let flag = "-package-name"
         if pkg.manifest.usePackageNameFlag,
            driverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
-            switch group {
-            case .package:
+            if packageAccess {
                 let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
                 return [flag, pkgID]
-            case .excluded:
-                return []
-            }
+            } 
         }
         return []
     }
@@ -410,7 +406,7 @@ public final class SwiftTargetBuildDescription {
         #else
         try self.requiredMacroProducts.forEach { macro in
             if let macroTarget = macro.targets.first {
-                let executablePath = self.buildParameters.binaryPath(for: macro).pathString
+                let executablePath = try self.buildParameters.binaryPath(for: macro).pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
                 throw InternalError("macro product \(macro.name) has no targets") // earlier validation should normally catch this
@@ -426,6 +422,11 @@ public final class SwiftTargetBuildDescription {
         var args = [String]()
         args += try self.buildParameters.targetTripleArgs(for: self.target)
         args += ["-swift-version", self.swiftVersion.rawValue]
+
+        // pass `-v` during verbose builds.
+        if self.buildParameters.verboseOutput {
+            args += ["-v"]
+        }
 
         // Enable batch mode in debug mode.
         //
@@ -509,7 +510,17 @@ public final class SwiftTargetBuildDescription {
 
         args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.swiftCompilerFlags
+        args += self.buildParameters.flags.swiftCompilerFlags
+
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        args += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
@@ -520,7 +531,7 @@ public final class SwiftTargetBuildDescription {
             }
         }
 
-        args += self.packageNameArgumentIfSupported(with: self.package, group: self.target.group)
+        args += self.packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess)
         args += try self.macroArguments()
 
         return args
@@ -534,7 +545,7 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, group: self.target.group))
+        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
         if !scanInvocation {
             result.append("-emit-dependencies")
 
@@ -580,7 +591,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-emit-module")
         result.append("-emit-module-path")
         result.append(self.moduleOutputPath.pathString)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, group: self.target.group))
+        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
         result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
 
         result.append("-Xfrontend")
@@ -624,9 +635,14 @@ public final class SwiftTargetBuildDescription {
         var result: [String] = []
         result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
 
+        // pass `-v` during verbose builds.
+        if self.buildParameters.verboseOutput {
+            result += ["-v"]
+        }
+
         result.append("-module-name")
         result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, group: self.target.group))
+        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
         result.append("-incremental")
         result.append("-emit-dependencies")
 
@@ -659,8 +675,21 @@ public final class SwiftTargetBuildDescription {
         result += self.buildParameters.sanitizers.compileSwiftFlags()
         result += ["-parseable-output"]
         result += try self.buildSettingsFlags()
+
         result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-        result += self.buildParameters.swiftCompilerFlags
+        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
+        result += self.buildParameters.flags.swiftCompilerFlags
+
+        result += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        result += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // result += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // result += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+
         result += try self.macroArguments()
         return result
     }
@@ -672,23 +701,42 @@ public final class SwiftTargetBuildDescription {
 
     private func writeOutputFileMap() throws -> AbsolutePath {
         let path = self.tempsPath.appending("output-file-map.json")
-        let stream = BufferedOutputByteStream()
-
-        stream <<< "{\n"
-
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
-        stream <<< "  \"\": {\n"
+
+        var content =
+            #"""
+            {
+              "": {
+
+            """#
+
         if self.buildParameters.useWholeModuleOptimization {
             let moduleName = self.target.c99name
-            stream <<< "    \"dependencies\": \"" <<< self.tempsPath.appending(component: moduleName + ".d")
-                .nativePathString(escaped: true) <<< "\",\n"
-            // FIXME: Need to record this deps file for processing it later.
-            stream <<< "    \"object\": \"" <<< self.tempsPath.appending(component: moduleName + ".o")
-                .nativePathString(escaped: true) <<< "\",\n"
-        }
-        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.nativePathString(escaped: true) <<< "\"\n"
+            content +=
+                #"""
+                    "dependencies": "\#(
+                    self.tempsPath.appending(component: moduleName + ".d")._nativePathString(escaped: true)
+                )",
 
-        stream <<< "  },\n"
+                """#
+
+            // FIXME: Need to record this deps file for processing it later.
+            content +=
+                #"""
+                    "object": "\#(
+                    self.tempsPath.appending(component: moduleName + ".o")._nativePathString(escaped: true)
+                )",
+
+                """#
+
+        }
+        content +=
+            #"""
+                "swift-dependencies": "\#(masterDepsPath._nativePathString(escaped: true))"
+              },
+
+            """#
+
 
         // Write out the entries for each source file.
         let sources = self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
@@ -700,26 +748,38 @@ public final class SwiftTargetBuildDescription {
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
-            stream <<< "  \"" <<< source.nativePathString(escaped: true) <<< "\": {\n"
+            content +=
+                #"""
+                  "\#(source._nativePathString(escaped: true))": {
+
+                """#
 
             if !self.buildParameters.useWholeModuleOptimization {
                 let depsPath = objectDir.appending(component: sourceFileName + ".d")
-                stream <<< "    \"dependencies\": \"" <<< depsPath.nativePathString(escaped: true) <<< "\",\n"
+                content +=
+                    #"""
+                        "dependencies": "\#(depsPath._nativePathString(escaped: true))",
+
+                    """#
                 // FIXME: Need to record this deps file for processing it later.
             }
 
-            stream <<< "    \"object\": \"" <<< object.nativePathString(escaped: true) <<< "\",\n"
 
             let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
-            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.nativePathString(escaped: true) <<< "\",\n"
-            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.nativePathString(escaped: true) <<< "\"\n"
-            stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
+
+            content +=
+                #"""
+                    "object": "\#(object._nativePathString(escaped: true))",
+                    "swiftmodule": "\#(partialModulePath._nativePathString(escaped: true))",
+                    "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))"
+                  }\#((idx + 1) < sources.count ? "," : "")
+
+                """#
         }
 
-        stream <<< "}\n"
+        content += "}\n"
 
-        try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, string: content)
         return path
     }
 
@@ -727,19 +787,23 @@ public final class SwiftTargetBuildDescription {
     private func generateModuleMap() throws -> AbsolutePath {
         let path = self.tempsPath.appending(component: moduleMapFilename)
 
-        let stream = BufferedOutputByteStream()
-        stream <<< "module \(self.target.c99name) {\n"
-        stream <<< "    header \"" <<< self.objCompatibilityHeaderPath.pathString <<< "\"\n"
-        stream <<< "    requires objc\n"
-        stream <<< "}\n"
+        let bytes = ByteString(
+            #"""
+            module \#(self.target.c99name) {
+                header "\#(self.objCompatibilityHeaderPath.pathString)"
+                requires objc
+            }
+
+            """#.utf8
+        )
 
         // Return early if the contents are identical.
-        if self.fileSystem.isFile(path), try self.fileSystem.readFileContents(path) == stream.bytes {
+        if self.fileSystem.isFile(path), try self.fileSystem.readFileContents(path) == bytes {
             return path
         }
 
         try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, bytes: bytes)
 
         return path
     }

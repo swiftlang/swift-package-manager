@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import TSCBasic
 
 import PackageGraph
 import PackageModel
@@ -21,11 +20,11 @@ private extension ResolvedTarget {
         self.init(
             target: SwiftTarget(
                 name: name,
-                group: .excluded, // .excluded since group is a no-op for existing tests
                 type: .library,
                 path: .root,
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
+                packageAccess: false,
                 swiftVersion: .v4,
                 usesUnsafeFlags: false
             ),

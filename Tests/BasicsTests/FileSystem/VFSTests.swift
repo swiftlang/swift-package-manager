@@ -11,8 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
+import func TSCBasic.withTemporaryFile
 import XCTest
+
+import struct TSCBasic.ByteString
 
 func testWithTemporaryDirectory(
     function: StaticString = #function,
@@ -47,7 +49,7 @@ class VFSTests: XCTestCase {
           0x02
         ]
 
-        let fs = TSCBasic.localFileSystem
+        let fs = localFileSystem
         try withTemporaryFile { [contents] vfsPath in
             try withTemporaryDirectory(removeTreeOnDeinit: true) { [contents] tempDirPath in
                 let file = tempDirPath.appending("best")
@@ -66,9 +68,9 @@ class VFSTests: XCTestCase {
                 try fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
 
                 try fs.createDirectory(tempDirPath.appending("dir"))
-                try fs.writeFileContents(tempDirPath.appending(components: ["dir", "file"]), body: { _ in })
+                try fs.writeFileContents(tempDirPath.appending(components: ["dir", "file"]), bytes: [])
 
-                try VirtualFileSystem.serializeDirectoryTree(tempDirPath, into: vfsPath.path, fs: fs, includeContents: [executable])
+                try VirtualFileSystem.serializeDirectoryTree(tempDirPath, into: AbsolutePath(vfsPath.path), fs: fs, includeContents: [executable])
             }
 
             let vfs = try VirtualFileSystem(path: vfsPath.path, fs: fs)

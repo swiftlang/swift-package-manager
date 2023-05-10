@@ -12,7 +12,8 @@
 
 import ArgumentParser
 import CoreCommands
-import TSCBasic
+
+import var TSCBasic.stdoutStream
 
 extension SwiftPackageTool {
     struct CompletionTool: SwiftCommand {

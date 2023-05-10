@@ -13,7 +13,6 @@
 import Basics
 import PackageModel
 import SwiftDriver
-import protocol TSCBasic.FileSystem
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
@@ -43,7 +42,7 @@ public class DriverSupport {
             let driver = try Driver(
                 args: ["swiftc"],
                 executor: executor,
-                compilerExecutableDir: toolchain.swiftCompilerPath.parentDirectory
+                compilerExecutableDir: TSCAbsolutePath(toolchain.swiftCompilerPath.parentDirectory)
             )
             let supportedFlagSet = Set(driver.supportedFrontendFlags.map { $0.trimmingCharacters(in: ["-"]) })
             flagsMap.put([swiftcPathString + "-frontend": supportedFlagSet])

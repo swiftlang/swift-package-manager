@@ -16,10 +16,7 @@ import CoreCommands
 import Foundation
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
-import func TSCBasic.tsc_await
 
 public struct InstallSwiftSDK: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(

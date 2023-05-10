@@ -13,8 +13,9 @@
 import Basics
 import Dispatch
 import Foundation
-import TSCBasic
 import PackageModel
+
+import enum TSCBasic.ProcessEnv
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager: Cancellable {
@@ -192,7 +193,7 @@ public class RepositoryManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
-        let relativePath = repository.storagePath()
+        let relativePath = try repository.storagePath()
         let repositoryPath = self.path.appending(relativePath)
         let handle = RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
 
@@ -303,7 +304,7 @@ public class RepositoryManager: Cancellable {
         let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
         if let cachePath, !(handle.repository.isLocal && !shouldCacheLocalPackages) {
-            let cachedRepositoryPath = cachePath.appending(handle.repository.storagePath())
+            let cachedRepositoryPath = try cachePath.appending(handle.repository.storagePath())
             do {
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
                 try self.fileSystem.withLock(on: cachePath, type: .shared) {
@@ -343,7 +344,10 @@ public class RepositoryManager: Cancellable {
                 } else {
                     cacheUsed = false
                     // Fetch without populating the cache in the case of an error.
-                    observabilityScope.emit(warning: "skipping cache due to an error: \(error)")
+                    observabilityScope.emit(
+                        warning: "skipping cache due to an error",
+                        underlyingError: error
+                    )
                     // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
                     try? self.fileSystem.removeFileTree(repositoryPath)
                     try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
@@ -385,7 +389,7 @@ public class RepositoryManager: Cancellable {
 
     /// Removes the repository.
     public func remove(repository: RepositorySpecifier) throws {
-        let relativePath = repository.storagePath()
+        let relativePath = try repository.storagePath()
         let repositoryPath = self.path.appending(relativePath)
         try self.fileSystem.removeFileTree(repositoryPath)
     }
@@ -407,7 +411,10 @@ public class RepositoryManager: Cancellable {
         do {
             try self.fileSystem.removeFileTree(self.path)
         } catch {
-            observabilityScope.emit(error: "Error reseting repository manager at '\(self.path)': \(error)")
+            observabilityScope.emit(
+                error: "Error reseting repository manager at '\(self.path)'",
+                underlyingError: error
+            )
         }
     }
 
@@ -437,12 +444,18 @@ public class RepositoryManager: Cancellable {
                     do {
                         try self.fileSystem.removeFileTree(pathToDelete)
                     } catch {
-                        observabilityScope.emit(error: "Error removing cached repository at '\(pathToDelete)': \(error)")
+                        observabilityScope.emit(
+                            error: "Error removing cached repository at '\(pathToDelete)'",
+                            underlyingError: error
+                        )
                     }
                 }
             }
         } catch {
-            observabilityScope.emit(error: "Error purging repository cache at '\(cachePath)': \(error)")
+            observabilityScope.emit(
+                error: "Error purging repository cache at '\(cachePath)'",
+                underlyingError: error
+            )
         }
     }
 }
@@ -524,8 +537,8 @@ extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
 
 extension RepositorySpecifier {
     // relative path where the repository should be stored
-    internal func storagePath() -> RelativePath {
-        return RelativePath(self.fileSystemIdentifier)
+    internal func storagePath() throws -> RelativePath {
+        return try RelativePath(validating: self.fileSystemIdentifier)
     }
 
     /// A unique identifier for this specifier.

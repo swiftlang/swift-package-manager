@@ -198,7 +198,12 @@ extension Serialization.TargetDependency {
         case .targetItem(let name, let condition):
             self = .target(name: name, condition: condition.map { .init($0) })
         case .productItem(let name, let package, let moduleAliases, let condition):
-            self = .product(name: name, package: package, moduleAliases: moduleAliases, condition: condition.map { .init($0) })
+            self = .product(
+                name: name,
+                package: package,
+                moduleAliases: moduleAliases,
+                condition: condition.map { .init($0) }
+            )
         case .byNameItem(let name, let condition):
             self = .byName(name: name, condition: condition.map { .init($0) })
         }
@@ -219,20 +224,14 @@ extension Serialization.TargetType {
     }
 }
 
-extension Serialization.TargetGroup {
-    init(_ type: PackageDescription.Target.TargetGroup) {
-        switch type {
-        case .package: self = .package
-        case .excluded: self = .excluded
-        }
-    }
-}
-
 extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
         case .buildTool: self = .buildTool
-        case .command(let intent, let permissions): self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
+        case .command(let intent, let permissions): self = .command(
+                intent: .init(intent),
+                permissions: permissions.map { .init($0) }
+            )
         }
     }
 }
@@ -250,7 +249,10 @@ extension Serialization.PluginCommandIntent {
 extension Serialization.PluginPermission {
     init(_ permission: PackageDescription.PluginPermission) {
         switch permission {
-        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(scope: .init(scope), reason: reason)
+        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(
+                scope: .init(scope),
+                reason: reason
+            )
         case .writeToPackageDirectory(let reason): self = .writeToPackageDirectory(reason: reason)
         }
     }
@@ -279,7 +281,7 @@ extension Serialization.PluginUsage {
 extension Serialization.Target {
     init(_ target: PackageDescription.Target) {
         self.name = target.name
-        self.group = .init(target.group)
+        self.packageAccess = target.packageAccess
         self.path = target.path
         self.url = target.url
         self.sources = target.sources

@@ -13,7 +13,6 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
 
 /// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"
@@ -176,26 +175,30 @@ public struct ModuleMapGenerator {
 
     /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any diagnostics are added to the receiver's diagnostics engine.
     public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath) throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< "module \(moduleName) {\n"
+        var moduleMap = "module \(moduleName) {\n"
         switch type {
         case .umbrellaHeader(let hdr):
-            stream <<< "    umbrella header \"\(hdr.moduleEscapedPathString)\"\n"
+            moduleMap.append("    umbrella header \"\(hdr.moduleEscapedPathString)\"\n")
         case .umbrellaDirectory(let dir):
-            stream <<< "    umbrella \"\(dir.moduleEscapedPathString)\"\n"
+            moduleMap.append("    umbrella \"\(dir.moduleEscapedPathString)\"\n")
         }
-        stream <<< "    export *\n"
-        stream <<< "}\n"
+        moduleMap.append(
+            """
+                export *
+            }
+
+            """
+        )
 
         // FIXME: This doesn't belong here.
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
 
         // If the file exists with the identical contents, we don't need to rewrite it.
         // Otherwise, compiler will recompile even if nothing else has changed.
-        if let contents = try? fileSystem.readFileContents(path), contents == stream.bytes {
+        if let contents = try? fileSystem.readFileContents(path).validDescription, contents == moduleMap {
             return
         }
-        try fileSystem.writeFileContents(path, bytes: stream.bytes)
+        try fileSystem.writeFileContents(path, string: moduleMap)
     }
 }
 

@@ -20,8 +20,11 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 import XCBuildSupport
+
+import struct TSCBasic.KeyedPair
+import func TSCBasic.topologicalSort
+import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
@@ -81,7 +84,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 visibility: .hidden))
     public var xcbuildFlags: [String] = []
 
-    @Option(name: .customLong("Xmanifest", withSingleDash: true),
+    @Option(name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp("Pass flag to the manifest build invocation",
                                visibility: .hidden))
@@ -147,7 +150,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 }
             }.topScope
 
-            guard let cwd = fileSystem.currentWorkingDirectory else {
+            guard let cwd: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 observabilityScope.emit(error: "couldn't determine the current working directory")
                 throw ExitCode.failure
             }
@@ -195,7 +198,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         ]
 
         init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) throws {
-            guard let cwd = fileSystem.currentWorkingDirectory else {
+            guard let cwd: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 throw ExitCode.failure
             }
 
@@ -310,7 +313,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
         func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> PackageGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
-            let rootPackageManifest =  try tsc_await { self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0) }
+            let rootPackageManifest =  try temp_await { self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0) }
 
             var loadedManifests = [PackageIdentity: Manifest]()
             loadedManifests[rootPackageRef.identity] = rootPackageManifest
@@ -407,7 +410,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 // TODO: move to shared area
 extension AbsolutePath: ExpressibleByArgument {
     public init?(argument: String) {
-        if let cwd = localFileSystem.currentWorkingDirectory {
+        if let cwd: AbsolutePath = localFileSystem.currentWorkingDirectory {
             guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
                 return nil
             }

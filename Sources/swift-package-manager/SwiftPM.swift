@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Commands
 import SwiftSDKTool
 import PackageCollectionsTool
 import PackageRegistryTool
-import TSCBasic
 
 let firstArg = CommandLine.arguments[0]
 let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??

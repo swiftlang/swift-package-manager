@@ -15,7 +15,9 @@ import CoreCommands
 import Foundation
 import PackageModel
 import SPMBuildCore
-import TSCBasic
+
+import class TSCBasic.BufferedOutputByteStream
+import class TSCBasic.Process
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftTool: SwiftTool
@@ -129,15 +131,15 @@ final class PluginDelegate: PluginInvocationDelegate {
                 return $0.product.name == name
             }
         }
-        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = builtProducts.compactMap {
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = try builtProducts.compactMap {
             switch $0.product.type {
             case .library(let kind):
-                return .init(
+                return try .init(
                     path: $0.binaryPath.pathString,
                     kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary
                 )
             case .executable:
-                return .init(path: $0.binaryPath.pathString, kind: .executable)
+                return try .init(path: $0.binaryPath.pathString, kind: .executable)
             default:
                 return nil
             }

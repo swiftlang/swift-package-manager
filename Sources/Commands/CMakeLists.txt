@@ -40,7 +40,6 @@ add_library(Commands
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
   Utilities/DOTManifestSerializer.swift
-  Utilities/GenerateLinuxMain.swift
   Utilities/MultiRootSupport.swift
   Utilities/PluginDelegate.swift
   Utilities/SymbolGraphExtract.swift

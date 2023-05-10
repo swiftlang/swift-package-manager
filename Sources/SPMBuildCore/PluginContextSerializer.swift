@@ -15,7 +15,6 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
-import TSCBasic
 
 typealias WireInput = HostToPluginMessage.InputContext
 
@@ -114,7 +113,7 @@ internal struct PluginContextSerializer {
             ) {
                 if let error = result.error {
                     observabilityScope.emit(
-                        warning: "\(error)",
+                        warning: "\(error.interpolationDescription)",
                         metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                     )
                 }
@@ -278,7 +277,9 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .snippet
         case .test:
             self = .test
-        case .binary, .plugin, .systemModule, .macro:
+        case .macro:
+            self = .macro
+        case .binary, .plugin, .systemModule:
             throw StringError("unexpected target kind \(kind) for source module")
         }
     }

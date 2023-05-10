@@ -11,14 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-
-import TSCBasic
-
 import Basics
 import PackageModel
 import PackageLoading
 import PackageGraph
 import SPMBuildCore
+
+import func TSCBasic.topologicalSort
+import func TSCBasic.memoize
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
@@ -712,7 +712,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         ) {
             if let error = result.error {
                 self.observabilityScope.emit(
-                    warning: "\(error)",
+                    warning: "\(error.interpolationDescription)",
                     metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                 )
             } else {

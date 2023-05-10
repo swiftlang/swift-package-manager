@@ -15,7 +15,8 @@ import Foundation
 import PackageModel
 import PackageLoading
 import PackageGraph
-import TSCBasic
+
+import protocol TSCBasic.DiagnosticLocation
 
 public enum PluginAction {
     case createBuildToolCommands(package: ResolvedPackage, target: ResolvedTarget)
@@ -222,7 +223,7 @@ extension PluginTarget {
                             }
                         }
                         catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
 
@@ -237,7 +238,7 @@ extension PluginTarget {
                             }
                         }
                         catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
 
@@ -253,7 +254,7 @@ extension PluginTarget {
                             }
                         }
                         catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
                 }
@@ -466,7 +467,7 @@ extension PackageGraph {
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
-                let success = try tsc_await { pluginTarget.invoke(
+                let success = try temp_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(package: package, target: target),
                     buildEnvironment: buildEnvironment,
                     scriptRunner: pluginScriptRunner,
@@ -547,7 +548,7 @@ public extension PluginTarget {
             }
             // For an executable target we create a `builtTool`.
             else if executableOrBinaryTarget.type == .executable {
-                return [.builtTool(name: builtToolName, path: RelativePath(executableOrBinaryTarget.name))]
+                return try [.builtTool(name: builtToolName, path: RelativePath(validating: executableOrBinaryTarget.name))]
             }
             else {
                 return []

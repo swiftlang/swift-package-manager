@@ -17,9 +17,10 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 @testable import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Git
 import struct TSCUtility.Version
@@ -190,7 +191,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
-        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.current)\n"))
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n")
         try repo.commit()
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "v1.0.1")
@@ -325,7 +326,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
-        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.current)\n"))
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n")
         try repo.commit()
         try repo.tag(name: "1.0.0-alpha.1")
         try repo.tag(name: "1.0.0-beta.1")
@@ -369,7 +370,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
-        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.current)\n"))
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n")
         try repo.commit()
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "1.0.0")
@@ -415,9 +416,9 @@ class SourceControlPackageContainerTests: XCTestCase {
 #endif
 
         let dependencies: [PackageDependency] = [
-            .localSourceControl(path: .init(path: "/Bar1"), requirement: .upToNextMajor(from: "1.0.0")),
-            .localSourceControl(path: .init(path: "/Bar2"), requirement: .upToNextMajor(from: "1.0.0")),
-            .localSourceControl(path: .init(path: "/Bar3"), requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -458,7 +459,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createRootManifest(
                 displayName: "Foo",
-                path: .init(path: "/Foo"),
+                path: "/Foo",
                 toolsVersion: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -480,7 +481,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createFileSystemManifest(
                 displayName: "Foo",
-                path: .init(path: "/Foo"),
+                path: "/Foo",
                 toolsVersion: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -502,7 +503,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createRootManifest(
                 displayName: "Foo",
-                path: .init(path: "/Foo"),
+                path: "/Foo",
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -524,7 +525,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createFileSystemManifest(
                 displayName: "Foo",
-                path: .init(path: "/Foo"),
+                path: "/Foo",
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -553,7 +554,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Create a package manifest in it (it only needs the `swift-tools-version` part, because we'll supply the manifest later).
             let manifestFile = packageDir.appending("Package.swift")
-            try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:4.2"))
+            try localFileSystem.writeFileContents(manifestFile, string: "// swift-tools-version:4.2")
 
             // Commit it and tag it.
             try packageRepo.stage(file: "Package.swift")
@@ -623,7 +624,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             let packageRepository = GitRepository(path: packageDirectory)
 
             let manifestFile = packageDirectory.appending("Package.swift")
-            try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:5.2"))
+            try localFileSystem.writeFileContents(manifestFile, string: "// swift-tools-version:5.2")
 
             try packageRepository.stage(file: "Package.swift")
             try packageRepository.commit(message: "Initialized.")
@@ -644,7 +645,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                 toolsVersion: .v5_2,
                 dependencies: [
                     .localSourceControl(
-                        path: .init(path: "/Somewhere/Dependency"),
+                        path: "/Somewhere/Dependency",
                         requirement: .exact(version),
                         productFilter: .specific([])
                     )
@@ -683,7 +684,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
 extension PackageContainerProvider {
     fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
-        try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+        try temp_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
     }
 }
 

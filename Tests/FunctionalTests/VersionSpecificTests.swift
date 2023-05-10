@@ -13,7 +13,6 @@
 import Basics
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class VersionSpecificTests: XCTestCase {
@@ -29,8 +28,9 @@ class VersionSpecificTests: XCTestCase {
             let repo = GitRepository(path: depPath)
 
             // Create the initial commit.
-            try fs.writeFileContents(depPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                depPath.appending("Package.swift"),
+                string: """
                     // swift-tools-version:4.2
                     import PackageDescription
                     let package = Package(
@@ -43,24 +43,28 @@ class VersionSpecificTests: XCTestCase {
                         ]
                     )
                     """
-            }
+            )
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "Initial")
             try repo.tag(name: "1.0.0")
 
             // Create the version to test against.
-            try fs.writeFileContents(depPath.appending("Package.swift")) {
+            try fs.writeFileContents(
+                depPath.appending("Package.swift"),
                 // FIXME: We end up filtering this manifest if it has an invalid
                 // tools version as they're assumed to be v3 manifests. Should we
                 // do something better?
-                $0 <<< "// swift-tools-version:4.2\n"
-                $0 <<< "NOT_A_VALID_PACKAGE"
-            }
-            try fs.writeFileContents(depPath.appending("foo.swift")) {
-                $0 <<< """
+                string: """
+                // swift-tools-version:4.2
+                NOT_A_VALID_PACKAGE
+                """
+            )
+            try fs.writeFileContents(
+                depPath.appending("foo.swift"),
+                string: """
                     public func foo() { print("foo\\n") }
                     """
-            }
+            )
             try repo.stage(file: "Package.swift")
             try repo.stage(file: "foo.swift")
             try repo.commit(message: "Bogus v1.1.0")
@@ -68,8 +72,10 @@ class VersionSpecificTests: XCTestCase {
 
             // Create the primary repository.
             let primaryPath = path.appending("Primary")
-            try fs.writeFileContents(primaryPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.createDirectory(primaryPath, recursive: true)
+            try fs.writeFileContents(
+                primaryPath.appending("Package.swift"),
+                string: """
                     // swift-tools-version:4.2
                     import PackageDescription
                     let package = Package(
@@ -82,21 +88,23 @@ class VersionSpecificTests: XCTestCase {
                         ]
                     )
                     """
-            }
+            )
             // This build should fail, because of the invalid package.
             XCTAssertBuildFails(primaryPath)
 
             // Create a file which requires a version 1.1.0 resolution.
-            try fs.writeFileContents(primaryPath.appending("main.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                primaryPath.appending("main.swift"),
+                string: """
                     import Dep
                     Dep.foo()
                     """
-            }
+            )
 
             // Create a version-specific tag, which should work.
-            try fs.writeFileContents(depPath.appending("Package.swift")) {
-                $0 <<< """
+            try fs.writeFileContents(
+                depPath.appending("Package.swift"),
+                string: """
                     // swift-tools-version:4.2
                     import PackageDescription
                     let package = Package(
@@ -109,13 +117,13 @@ class VersionSpecificTests: XCTestCase {
                         ]
                     )
                     """
-            }
+            )
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "OK v1.1.0")
             try repo.tag(name: "1.1.0@swift-\(SwiftVersion.current.major)")
 
             // The build should work now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["reset"], packagePath: primaryPath)
+            _ = try SwiftPM.Package.execute(["reset"], packagePath: primaryPath)
             XCTAssertBuilds(primaryPath)
         }
     }

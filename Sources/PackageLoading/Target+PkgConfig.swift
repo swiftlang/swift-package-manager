@@ -12,7 +12,9 @@
 
 import Basics
 import PackageModel
-import TSCBasic
+
+import class TSCBasic.Process
+
 import enum TSCUtility.Platform
 
 /// Wrapper struct containing result of a pkgConfig query.
@@ -122,7 +124,7 @@ public func pkgConfigArgs(
             )
         } else if let error = result.error {
             observabilityScope.emit(
-                warning: "\(error)",
+                warning: error.interpolationDescription,
                 metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
             )
         }

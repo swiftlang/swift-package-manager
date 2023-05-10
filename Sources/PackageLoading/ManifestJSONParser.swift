@@ -13,13 +13,15 @@
 @_implementationOnly import Foundation
 import PackageModel
 
+import struct Basics.AbsolutePath
+import protocol Basics.FileSystem
 import struct Basics.InternalError
-import struct TSCBasic.AbsolutePath
-import protocol TSCBasic.FileSystem
+import struct Basics.RelativePath
+
 import enum TSCBasic.PathValidationError
 import struct TSCBasic.RegEx
-import struct TSCBasic.RelativePath
 import struct TSCBasic.StringError
+
 import struct TSCUtility.Version
 
 enum ManifestJSONParser {
@@ -63,7 +65,7 @@ enum ManifestJSONParser {
             versionedInput = try decoder.decode(VersionedInput.self, from: jsonString)
         } catch {
             // If we cannot even decode the version, assume that a pre-5.9 PD library is being used which emits an incompatible JSON format.
-            throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error)")
+            throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error.interpolationDescription)")
         }
         guard versionedInput.version == 2 else {
             throw ManifestParseError.unsupportedVersion(version: versionedInput.version)
@@ -145,7 +147,7 @@ enum ManifestJSONParser {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
-        fileSystem: TSCBasic.FileSystem
+        fileSystem: FileSystem
     ) throws -> PackageDependency {
         switch dependency.kind {
         case .registry(let identity, let requirement):
@@ -179,7 +181,7 @@ enum ManifestJSONParser {
         at location: String,
         name: String?,
         identityResolver: IdentityResolver,
-        fileSystem: TSCBasic.FileSystem
+        fileSystem: FileSystem
     ) throws -> PackageDependency {
         let location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         let path: AbsolutePath
@@ -201,7 +203,7 @@ enum ManifestJSONParser {
         name: String?,
         requirement: PackageDependency.SourceControl.Requirement,
         identityResolver: IdentityResolver,
-        fileSystem: TSCBasic.FileSystem
+        fileSystem: FileSystem
     ) throws -> PackageDependency {
         // cleans up variants of path based location
         var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
@@ -287,7 +289,7 @@ enum ManifestJSONParser {
         }
     }
 
-    private static func sanitizeDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
+    private static func sanitizeDependencyLocation(fileSystem: FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
             return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
@@ -337,7 +339,6 @@ enum ManifestJSONParser {
 
         return try TargetDescription(
             name: target.name,
-            group: .init(target.group),
             dependencies: dependencies,
             path: target.path,
             url: target.url,
@@ -346,6 +347,7 @@ enum ManifestJSONParser {
             resources: try Self.parseResources(target.resources),
             publicHeadersPath: target.publicHeadersPath,
             type: .init(target.type),
+            packageAccess: target.packageAccess,
             pkgConfig: target.pkgConfig,
             providers: providers,
             pluginCapability: pluginCapability,
@@ -533,17 +535,6 @@ extension TargetDescription.TargetType {
             self = .plugin
         case .macro:
             self = .macro
-        }
-    }
-}
-
-extension TargetDescription.TargetGroup {
-    init(_ group: Serialization.TargetGroup) {
-        switch group {
-        case .package:
-            self = .package
-        case .excluded:
-            self = .excluded
         }
     }
 }

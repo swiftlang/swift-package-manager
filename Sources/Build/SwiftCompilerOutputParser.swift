@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import TSCBasic
 
 import class TSCUtility.JSONMessageStreamingParser
 import protocol TSCUtility.JSONMessageStreamingParserDelegate

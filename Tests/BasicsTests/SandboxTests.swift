@@ -12,8 +12,10 @@
 
 @testable import Basics
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
 
 final class SandboxTest: XCTestCase {
     func testSandboxOnAllPlatforms() throws {

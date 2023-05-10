@@ -13,7 +13,9 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
+
+import struct TSCBasic.ByteString
+import struct TSCBasic.RegEx
 
 import struct TSCUtility.Version
 

@@ -10,12 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import struct Foundation.Date
 import struct Foundation.URL
-
 import PackageModel
 import SourceControl
-import TSCBasic
 
 public enum PackageCollectionsModel {}
 

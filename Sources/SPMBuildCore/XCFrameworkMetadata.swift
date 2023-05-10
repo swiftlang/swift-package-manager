@@ -10,11 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.AbsolutePath
+import protocol Basics.FileSystem
+import struct Basics.Triple
 import Foundation
 import PackageModel
-import TSCBasic
 
-import struct Basics.Triple
+import struct TSCBasic.StringError
 
 public struct XCFrameworkMetadata: Equatable {
     public struct Library: Equatable {
@@ -58,7 +60,7 @@ extension XCFrameworkMetadata {
             let decoder = PropertyListDecoder()
             return try decoder.decode(XCFrameworkMetadata.self, from: data)
         } catch {
-            throw StringError("failed parsing XCFramework Info.plist at '\(path)': \(error)")
+            throw StringError("failed parsing XCFramework Info.plist at '\(path)': \(error.interpolationDescription)")
         }
     }
 }

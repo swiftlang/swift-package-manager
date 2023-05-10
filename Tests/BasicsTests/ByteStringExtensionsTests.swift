@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import XCTest
+
+import struct TSCBasic.ByteString
 
 final class ByteStringExtensionsTests: XCTestCase {
     func testSHA256Checksum() {

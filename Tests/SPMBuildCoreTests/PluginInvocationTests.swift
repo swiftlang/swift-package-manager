@@ -16,9 +16,10 @@ import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.SerializedDiagnostics
 
@@ -38,7 +39,7 @@ class PluginInvocationTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     products: [
                         ProductDescription(
                             name: "Foo",
@@ -125,7 +126,7 @@ class PluginInvocationTests: XCTestCase {
                 completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
-                XCTAssertEqual(sourceFiles, [AbsolutePath(path: "/Foo/Plugins/FooPlugin/source.swift")])
+                XCTAssertEqual(sourceFiles, ["/Foo/Plugins/FooPlugin/source.swift"])
 
                 do {
                     // Pretend the plugin emitted some output.
@@ -223,7 +224,7 @@ class PluginInvocationTests: XCTestCase {
         let evalFirstDiagnostic = try XCTUnwrap(evalFirstResult.diagnostics.first)
         XCTAssertEqual(evalFirstDiagnostic.severity, .warning)
         XCTAssertEqual(evalFirstDiagnostic.message, "A warning")
-        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation(.init(path: "/Foo/Sources/Foo/SomeFile.abc"), line: 42))
+        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation("/Foo/Sources/Foo/SomeFile.abc", line: 42))
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }
@@ -284,7 +285,7 @@ class PluginInvocationTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -299,7 +300,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -334,7 +335,7 @@ class PluginInvocationTests: XCTestCase {
             // Try to compile the broken plugin script.
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -388,7 +389,7 @@ class PluginInvocationTests: XCTestCase {
             let firstExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -440,7 +441,7 @@ class PluginInvocationTests: XCTestCase {
             let secondExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -499,7 +500,7 @@ class PluginInvocationTests: XCTestCase {
             let thirdExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -554,7 +555,7 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the plugin again.
             do {
                 let delegate = Delegate()
-                let result = try tsc_await {
+                let result = try temp_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
                         pluginName: buildToolPlugin.name,
@@ -669,7 +670,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -748,7 +749,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -858,7 +859,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -873,7 +874,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).filter{ $0.name == "X" }.first as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlyingTarget).filter{ $0.name == "X" }.first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "X")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -1041,7 +1042,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -1126,11 +1127,12 @@ class PluginInvocationTests: XCTestCase {
 
             let libDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(libDir, recursive: true)
-            try localFileSystem.writeFileContents(libDir.appending(components: "library.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(
+                libDir.appending(components: "library.swift"),
+                string: """
                 public func myLib() { }
                 """
-            }
+            )
 
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
@@ -1155,8 +1157,15 @@ class PluginInvocationTests: XCTestCase {
                 """
             }
 
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
-                $0 <<< """
+            let bundleMetadataPath = packageDir.appending(
+                components: "Binaries",
+                "LocalBinaryTool.artifactbundle",
+                "info.json"
+            )
+            try localFileSystem.createDirectory(bundleMetadataPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                bundleMetadataPath,
+                string: """
                 {   "schemaVersion": "1.0",
                     "artifacts": {
                         "LocalBinaryTool": {
@@ -1169,7 +1178,7 @@ class PluginInvocationTests: XCTestCase {
                     }
                 }
                 """
-            }
+            )
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
@@ -1181,7 +1190,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
                     observabilityScope: observability.topScope,
@@ -1195,7 +1204,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets
                 .map(\.underlyingTarget)
                 .filter { $0.name == "Foo" }
                 .first as? PluginTarget)

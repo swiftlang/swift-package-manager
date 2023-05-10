@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,11 +14,11 @@ import Basics
 import Dispatch
 import Foundation
 @testable import PackageCollectionsSigning
-import TSCBasic
-import XCTest
+import X509
 
-// Set `REAL_CERT_USER_ID` env var when running ENABLE_REAL_CERT_TEST tests
+// Set `REAL_CERT_USER_ID` and `REAL_CERT_ORG_UNIT` env vars when running ENABLE_REAL_CERT_TEST tests
 let expectedSubjectUserID = ProcessInfo.processInfo.environment["REAL_CERT_USER_ID"] ?? "<USER ID>"
+let expectedSubjectOrgUnit = ProcessInfo.processInfo.environment["REAL_CERT_ORG_UNIT"] ?? "<ORG UNIT>"
 
 let callbackQueue = DispatchQueue(label: "org.swift.swiftpm.PackageCollectionsSigningTests", attributes: .concurrent)
 
@@ -28,10 +28,10 @@ struct TestCertificatePolicy: CertificatePolicy {
     static let testCertValidDate: Date = {
         // This is the datetime that the tests use to validate test certs (Test_rsa.cer, Test_ec.cer).
         // Make sure it falls within the certs' validity period, across timezones.
-        // For example, suppose the current date is April 12, 2021, the cert validation runs as if
-        // the date were July 18, 2021.
+        // For example, suppose the current date is April 17, 2023, the cert validation runs as if
+        // the date were July 18, 2023.
         var dateComponents = DateComponents()
-        dateComponents.year = 2021
+        dateComponents.year = 2023
         dateComponents.month = 7
         dateComponents.day = 18
         return Calendar.current.date(from: dateComponents)!
@@ -45,33 +45,32 @@ struct TestCertificatePolicy: CertificatePolicy {
         return Calendar.current.date(from: dateComponents)!
     }()
 
-    let anchorCerts: [Certificate]?
-    let verifyDate: Date
+    let trustedRoots: [Certificate]?
 
-    init(anchorCerts: [Certificate]? = nil, verifyDate: Date = Self.testCertValidDate) {
-        self.anchorCerts = anchorCerts
-        self.verifyDate = verifyDate
+    init(trustedRoots: [Certificate]?) {
+        self.trustedRoots = trustedRoots
     }
 
-    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
-        do {
-            guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
-                return callbackQueue.async { callback(.failure(CertificatePolicyError.codeSigningCertRequired)) }
-            }
+    func validate(
+        certChain: [Certificate],
+        validationTime: Date,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        var policies = [VerifierPolicy]()
+        // Must be a code signing certificate
+        policies.append(_CodeSigningPolicy())
+        // Basic validations including expiry check
+        policies.append(RFC5280Policy(validationTime: validationTime))
+        // Doesn't require OCSP
 
-            #if os(macOS)
-            self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
-                        callbackQueue: callbackQueue, callback: callback)
-            #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
-                        observabilityScope: ObservabilitySystem.NOOP,
-                        callbackQueue: callbackQueue, callback: callback)
-            #else
-            throw InternalError("not implemented")
-            #endif
-        } catch {
-            return callbackQueue.async { callback(.failure(error)) }
-        }
+        self.verify(
+            certChain: certChain,
+            trustedRoots: self.trustedRoots,
+            policies: policies,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 }
 
@@ -136,55 +135,38 @@ maa3Ms9tPcsQUggtAR/QepyrKmB1SRAouHqKi+bGTlCpFSFbDgW422gfqXEEboh3
 
 let certECPrivateKey = """
 -----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIFyZDwhGj2Q6ZchEt6DIQSptRk9yKPo60JH5x4u3p4YmoAoGCCqGSM49
-AwEHoUQDQgAEHg58TCXScU6zXSYygCNW0tBZeYFRWf3XAjaDJUkeEFUvKxiIcP8S
-sLfb8P9mukwJsj2CwfatwneFIUQGJ4P+SQ==
+MHcCAQEEIGfOkQcQq6oTC06KkGMVBAr2MiYFRaLo4/wKdNBpIjhnoAoGCCqGSM49
+AwEHoUQDQgAE6SjFVQRtU/+ywvxslaVsl+iZf65YgkQShuxsbAbNJBTVkEkMGyNL
+8nbaj6B4Jskjo1loNPLirNE7mKeTLYbrcw==
 -----END EC PRIVATE KEY-----
 """
 
 let certRSAPrivateKey = """
 -----BEGIN RSA PRIVATE KEY-----
-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
+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
 -----END RSA PRIVATE KEY-----
 """
-
-// MARK: - Utils
-
-extension String {
-    var bytes: [UInt8] {
-        [UInt8](self.utf8)
-    }
-}
-
-extension XCTestCase {
-    func PackageCollectionsSigningTests_skipIfUnsupportedPlatform() throws {
-        #if os(macOS) || os(Linux) || os(Windows) || os(Android)
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
-    }
-}

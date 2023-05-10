@@ -12,7 +12,9 @@
 
 import Basics
 import Foundation
-import TSCBasic
+
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
 
 import struct TSCUtility.Version
 

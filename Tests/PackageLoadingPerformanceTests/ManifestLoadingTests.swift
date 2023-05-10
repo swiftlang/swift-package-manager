@@ -14,16 +14,17 @@ import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCTestSupport.XCTestCasePerf
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
     let manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default)
 
-    func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) throws {
+    func write(_ content: String, body: (AbsolutePath) -> ()) throws {
         try testWithTemporaryDirectory { tmpdir in
             let manifestFile = tmpdir.appending("Package.swift")
-            try localFileSystem.writeFileContents(manifestFile, bytes: bytes)
+            try localFileSystem.writeFileContents(manifestFile, string: content)
             body(tmpdir)
         }
     }
@@ -33,16 +34,17 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let N = 1
-        let trivialManifest = ByteString(encodingAsUTF8: ("""
+        let trivialManifest = """
             import PackageDescription
             let package = Package(name: "Trivial")
-            """))
+            """
+
         try write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
                         manifestPath: path,
-                        packageKind: .root(.init(path: "/Trivial")),
+                        packageKind: .root("/Trivial"),
                         toolsVersion: .v4_2,
                         fileSystem: localFileSystem,
                         observabilityScope: ObservabilitySystem.NOOP
@@ -58,7 +60,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let N = 1
-        let manifest = ByteString(encodingAsUTF8: """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -70,14 +72,14 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                     .target(name: "dep", dependencies: ["sys", "libc"])
                 ]
             )
-            """)
+            """
 
         try write(manifest) { path in
             measure {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
                         manifestPath: path,
-                        packageKind: .root(.init(path: "/Trivial")),
+                        packageKind: .root("/Trivial"),
                         toolsVersion: .v4_2,
                         fileSystem: localFileSystem,
                         observabilityScope: ObservabilitySystem.NOOP

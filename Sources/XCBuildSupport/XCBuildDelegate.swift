@@ -13,7 +13,9 @@
 import Basics
 import Foundation
 import SPMBuildCore
-import TSCBasic
+
+import class TSCBasic.ThreadSafeOutputByteStream
+import protocol TSCBasic.OutputByteStream
 
 import enum TSCUtility.Diagnostics
 import protocol TSCUtility.ProgressAnimationProtocol
@@ -74,8 +76,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         case .taskOutput(let info):
             queue.async {
                 self.progressAnimation.clear()
-                self.outputStream <<< info.data
-                self.outputStream <<< "\n"
+                self.outputStream.send("\(info.data)\n")
                 self.outputStream.flush()
             }
         case .taskComplete(let info):
@@ -85,29 +86,25 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         case .buildDiagnostic(let info):
             queue.async {
                 self.progressAnimation.clear()
-                self.outputStream <<< info.message
-                self.outputStream <<< "\n"
+                self.outputStream.send("\(info.message)\n")
                 self.outputStream.flush()
             }
         case .taskDiagnostic(let info):
             queue.async {
                 self.progressAnimation.clear()
-                self.outputStream <<< info.message
-                self.outputStream <<< "\n"
+                self.outputStream.send("\(info.message)\n")
                 self.outputStream.flush()
             }
         case .targetDiagnostic(let info):
             queue.async {
                 self.progressAnimation.clear()
-                self.outputStream <<< info.message
-                self.outputStream <<< "\n"
+                self.outputStream.send("\(info.message)\n")
                 self.outputStream.flush()
             }
         case .buildOutput(let info):
             queue.async {
                 self.progressAnimation.clear()
-                self.outputStream <<< info.data
-                self.outputStream <<< "\n"
+                self.outputStream.send("\(info.data)\n")
                 self.outputStream.flush()
             }
         case .didUpdateProgress(let info):
@@ -120,7 +117,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
             queue.async {
                 switch info.result {
                 case .aborted, .cancelled, .failed:
-                    self.outputStream <<< "Build \(info.result)\n"
+                    self.outputStream.send("Build \(info.result)\n")
                     self.outputStream.flush()
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: false)
                 case .ok:
@@ -158,12 +155,12 @@ public final class VerboseProgressAnimation: ProgressAnimationProtocol {
     }
 
     public func update(step: Int, total: Int, text: String) {
-        stream <<< text <<< "\n"
+        stream.send("\(text)\n")
         stream.flush()
     }
 
     public func complete(success: Bool) {
-        stream <<< "\n"
+        stream.send("\n")
         stream.flush()
     }
 

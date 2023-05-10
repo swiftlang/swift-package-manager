@@ -14,8 +14,9 @@ import Basics
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import struct TSCBasic.ByteString
 
 class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -67,7 +68,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
         // Check dependencies.
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
         // Check products.
         let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -373,8 +374,10 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             do {
                 let observability = ObservabilitySystem.makeForTesting()
 
-                try fs.writeFileContents(manifestPath) { stream in
-                    stream <<< """
+                try fs.createDirectory(manifestPath.parentDirectory)
+                try fs.writeFileContents(
+                    manifestPath,
+                    string: """
                     import PackageDescription
                     let package = Package(
                     name: "Trivial",
@@ -385,7 +388,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
                     )
                     """
-                }
+                )
 
                 do {
                     _ = try loader.load(
@@ -405,8 +408,9 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             do {
                 let observability = ObservabilitySystem.makeForTesting()
 
-                try fs.writeFileContents(manifestPath) { stream in
-                    stream <<< """
+                try fs.writeFileContents(
+                    manifestPath,
+                    string: """
                     import PackageDescription
                     func foo() {
                         let a = 5
@@ -420,8 +424,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                         ]
                     )
                     """
-                }
-
+                )
 
                 _ = try loader.load(
                     manifestPath: manifestPath,
@@ -587,9 +590,11 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let fs = localFileSystem
 
             let packagePath = path.appending("pkg")
+            try fs.createDirectory(packagePath)
             let manifestPath = packagePath.appending("Package.swift")
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                 // swift-tools-version:5
                 import PackageDescription
 
@@ -602,7 +607,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                     ]
                 )
                 """
-            }
+            )
 
             let moduleTraceFilePath = path.appending("swift-module-trace")
             var env = EnvironmentVariables.process()

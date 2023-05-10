@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Basics
 import SPMTestSupport
-import TSCBasic
 import PackageModel
 import Workspace
+import XCTest
 
 class InitTests: XCTestCase {
 
@@ -172,10 +172,15 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("),
                 .and(.contains("capability: .command(intent: .custom("), .contains("verb: \"MyCommandPlugin\""))))
 
+            // Check basic content that we expect in the plugin source file
             let source = path.appending("Plugins", "MyCommandPlugin.swift")
             XCTAssertFileExists(source)
             let sourceContents: String = try localFileSystem.readFileContents(source)
             XCTAssertMatch(sourceContents, .contains("struct MyCommandPlugin: CommandPlugin"))
+            XCTAssertMatch(sourceContents, .contains("performCommand(context: PluginContext"))
+            XCTAssertMatch(sourceContents, .contains("import XcodeProjectPlugin"))
+            XCTAssertMatch(sourceContents, .contains("extension MyCommandPlugin: XcodeCommandPlugin"))
+            XCTAssertMatch(sourceContents, .contains("performCommand(context: XcodePluginContext"))
         }
     }
     
@@ -201,10 +206,15 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyBuildToolPlugin\"]")))
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .buildTool()")))
 
+            // Check basic content that we expect in the plugin source file
             let source = path.appending("Plugins", "MyBuildToolPlugin.swift")
             XCTAssertFileExists(source)
             let sourceContents: String = try localFileSystem.readFileContents(source)
             XCTAssertMatch(sourceContents, .contains("struct MyBuildToolPlugin: BuildToolPlugin"))
+            XCTAssertMatch(sourceContents, .contains("createBuildCommands(context: PluginContext"))
+            XCTAssertMatch(sourceContents, .contains("import XcodeProjectPlugin"))
+            XCTAssertMatch(sourceContents, .contains("extension MyBuildToolPlugin: XcodeBuildToolPlugin"))
+            XCTAssertMatch(sourceContents, .contains("createBuildCommands(context: XcodePluginContext"))
         }
     }
 

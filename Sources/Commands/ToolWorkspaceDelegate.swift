@@ -21,7 +21,6 @@ import PackageModel
 import SPMBuildCore
 import Workspace
 
-import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.OutputByteStream
 import struct TSCUtility.Version
 

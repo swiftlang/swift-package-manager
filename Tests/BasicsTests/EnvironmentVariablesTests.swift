@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import TSCBasic
 import XCTest
+
+import enum TSCBasic.ProcessEnv
 
 final class EnvironmentVariablesTests: XCTestCase {
 #if os(Windows)

@@ -12,6 +12,8 @@
 
 import ArgumentParser
 
+import var Basics.localFileSystem
+import struct Basics.AbsolutePath
 import struct Basics.Triple
 
 import struct Foundation.URL
@@ -24,8 +26,6 @@ import enum PackageModel.Sanitizer
 
 import struct SPMBuildCore.BuildSystemProvider
 
-import struct TSCBasic.AbsolutePath
-import var TSCBasic.localFileSystem
 import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
@@ -434,7 +434,7 @@ public struct BuildOptions: ParsableArguments {
     @Flag()
     public var useIntegratedSwiftDriver: Bool = false
 
-    /// A flag that inidcates this build should check whether targets only import
+    /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
     @Option()
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none

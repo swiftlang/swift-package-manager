@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 @testable import Commands
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMTestSupport
-import TSCBasic
 import Workspace
 import XCTest
 
@@ -29,16 +29,16 @@ struct BuildResult {
 final class BuildToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
-        _ args: [String],
+        _ args: [String] = [],
         environment: [String : String]? = nil,
         packagePath: AbsolutePath? = nil
     ) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: environment)
+        return try SwiftPM.Build.execute(args, packagePath: packagePath, env: environment)
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil) throws -> BuildResult {
         let (output, _) = try execute(args, packagePath: packagePath)
-        defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath) }
+        defer { try! SwiftPM.Package.execute(["clean"], packagePath: packagePath) }
         let (binPathOutput, _) = try execute(["--show-bin-path"], packagePath: packagePath)
         let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
         let binContents = try localFileSystem.getDirectoryContents(binPath)
@@ -71,16 +71,18 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testImportOfMissedDepWarning() throws {
+        try XCTSkipIf(true, "tested functionality doesn't work due to 'libSwiftScan dependency scan query failed' (rdar://108512158)")
+
         // Verify the warning flow
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = try resolveSymlinks(path)
             XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=warn"], packagePath: fullPath)) { error in
-                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                     XCTFail()
                     return
                 }
 
-                XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+                XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."), "got stdout: \(stdout), stderr: \(stderr)")
             }
         }
 
@@ -88,12 +90,12 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = try resolveSymlinks(path)
             XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=error"], packagePath: fullPath)) { error in
-                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     XCTFail()
                     return
                 }
 
-                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."))
+                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."), "got stdout: \(stdout), stderr: \(stderr)")
             }
         }
 
@@ -101,11 +103,11 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = try resolveSymlinks(path)
             XCTAssertThrowsError(try build([], packagePath: fullPath)) { error in
-                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     XCTFail()
                     return
                 }
-                XCTAssertFalse(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+                XCTAssertFalse(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."), "got stdout: \(stdout), stderr: \(stderr)")
             }
         }
     }
@@ -132,10 +134,10 @@ final class BuildToolTests: CommandsTestCase {
           #endif
 
             // Test symlink.
-            _ = try execute([], packagePath: fullPath)
+            try execute(packagePath: fullPath)
             XCTAssertEqual(try resolveSymlinks(fullPath.appending(components: ".build", "debug")),
                            targetPath.appending("debug"))
-            _ = try execute(["-c", "release"], packagePath: fullPath)
+            try execute(["-c", "release"], packagePath: fullPath)
             XCTAssertEqual(try resolveSymlinks(fullPath.appending(components: ".build", "release")),
                            targetPath.appending("release"))
         }
@@ -153,7 +155,7 @@ final class BuildToolTests: CommandsTestCase {
 
             do {
                 let (_, stderr) = try execute(["--product", "lib1"], packagePath: fullPath)
-                try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: fullPath)
+                try SwiftPM.Package.execute(["clean"], packagePath: fullPath)
                 XCTAssertMatch(stderr, .contains("'--product' cannot be used with the automatic product 'lib1'; building the default target instead"))
             }
 
@@ -255,7 +257,7 @@ final class BuildToolTests: CommandsTestCase {
                 let result = try build(["--enable-parseable-module-interfaces"], packagePath: fixturePath)
                 XCTAssertMatch(result.binContents, ["A.swiftinterface"])
                 XCTAssertMatch(result.binContents, ["B.swiftinterface"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
         }
@@ -272,11 +274,11 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testBuildCompleteMessage() throws {
-        throw XCTSkip("This test fails to match the 'Compiling' regex; rdar://101815761")
+        try XCTSkipIf(true, "This test fails to match the 'Compiling' regex; rdar://101815761")
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             do {
-                let result = try execute([], packagePath: fixturePath)
+                let result = try execute(packagePath: fixturePath)
                 XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(separator: "\n")
                 XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
@@ -284,12 +286,12 @@ final class BuildToolTests: CommandsTestCase {
 
             do {
                 // test second time, to stabilize the cache
-                let _ = try execute([], packagePath: fixturePath)
+                try execute(packagePath: fixturePath)
             }
 
             do {
                 // test third time, to make sure message is presented even when nothing to build (cached)
-                let result = try execute([], packagePath: fixturePath)
+                let result = try execute(packagePath: fixturePath)
                 XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(separator: "\n")
                 XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))

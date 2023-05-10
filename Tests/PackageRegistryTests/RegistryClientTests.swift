@@ -18,8 +18,10 @@ import PackageModel
 @testable import PackageRegistry
 import PackageSigning
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import protocol TSCBasic.HashAlgorithm
+import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -2536,7 +2538,7 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
 
         // Expected checksum is not found in storage so the metadata API will be called
-        let fingerprint = try tsc_await { callback in
+        let fingerprint = try temp_await { callback in
             fingerprintStorage.get(
                 package: identity,
                 version: version,
@@ -3819,7 +3821,7 @@ final class RegistryClientTests: XCTestCase {
 
 extension RegistryClient {
     fileprivate func getPackageMetadata(package: PackageIdentity) throws -> RegistryClient.PackageMetadata {
-        try tsc_await {
+        try temp_await {
             self.getPackageMetadata(
                 package: package,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -3833,7 +3835,7 @@ extension RegistryClient {
         package: PackageIdentity,
         version: Version
     ) throws -> PackageVersionMetadata {
-        try tsc_await {
+        try temp_await {
             self.getPackageVersionMetadata(
                 package: package,
                 version: version,
@@ -3860,7 +3862,7 @@ extension RegistryClient {
         version: Version,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
-        try tsc_await {
+        try temp_await {
             self.getAvailableManifests(
                 package: package,
                 version: version,
@@ -3877,7 +3879,7 @@ extension RegistryClient {
         customToolsVersion: ToolsVersion?,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws -> String {
-        try tsc_await {
+        try temp_await {
             self.getManifestContent(
                 package: package,
                 version: version,
@@ -3896,7 +3898,7 @@ extension RegistryClient {
         destinationPath: AbsolutePath,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws {
-        try tsc_await {
+        try temp_await {
             self.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -3911,7 +3913,7 @@ extension RegistryClient {
     }
 
     fileprivate func lookupIdentities(scmURL: URL) throws -> Set<PackageIdentity> {
-        try tsc_await {
+        try temp_await {
             self.lookupIdentities(
                 scmURL: scmURL,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -3922,7 +3924,7 @@ extension RegistryClient {
     }
 
     fileprivate func login(loginURL: URL) throws {
-        try tsc_await {
+        try temp_await {
             self.login(
                 loginURL: loginURL,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -3943,7 +3945,7 @@ extension RegistryClient {
         signatureFormat: SignatureFormat?,
         fileSystem: FileSystem
     ) throws -> RegistryClient.PublishResult {
-        try tsc_await {
+        try temp_await {
             self.publish(
                 registryURL: registryURL,
                 packageIdentity: packageIdentity,
@@ -3962,7 +3964,7 @@ extension RegistryClient {
     }
 
     func checkAvailability(registry: Registry) throws -> AvailabilityStatus {
-        try tsc_await {
+        try temp_await {
             self.checkAvailability(
                 registry: registry,
                 observabilityScope: ObservabilitySystem.NOOP,

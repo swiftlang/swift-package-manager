@@ -13,7 +13,6 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
 
 public enum RegistryReleaseMetadataStorage {
     public static let fileName = ".registry-metadata"

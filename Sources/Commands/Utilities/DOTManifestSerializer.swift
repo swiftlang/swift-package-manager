@@ -11,7 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import LLBuildManifest
-import TSCBasic
+
+import protocol TSCBasic.OutputByteStream
 
 /// Serializes an LLBuildManifest graph to a .dot file
 public struct DOTManifestSerializer {

@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import PackageModel
+
+import protocol TSCBasic.OutputByteStream
 
 /// Create an initial template package.
 public final class InitPackage {
@@ -133,25 +134,31 @@ public final class InitPackage {
         }
 
         try writePackageFile(manifest) { stream in
-            stream <<< """
+            stream.send(
+                """
                 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
                 import PackageDescription
 
                 """
+            )
 
             if packageType == .macro {
-                stream <<< """
+                stream.send(
+                  """
                   import CompilerPluginSupport
 
                   """
+                )
             }
 
-            stream <<< """
+            stream.send(
+                """
 
                 let package = Package(
 
                 """
+            )
 
             var pkgParams = [String]()
             pkgParams.append("""
@@ -231,7 +238,8 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                         .executable(
                             name: "\(pkgname)Client",
                             targets: ["\(pkgname)Client"]
@@ -252,7 +260,7 @@ public final class InitPackage {
                 pkgParams.append("""
                     dependencies: [
                         // Depend on the latest Swift 5.9 prerelease of SwiftSyntax
-                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-10-a"),
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-25-b"),
                     ]
                 """)
             }
@@ -279,13 +287,14 @@ public final class InitPackage {
                                 name: "\(pkgname)",
                                 dependencies: [
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                                ]),
+                                ]
+                            ),
                         ]
                     """
                 } else if packageType == .buildToolPlugin {
                     param += """
                             .plugin(
-                                name: "\(typeName)",
+                                name: "\(pkgname)",
                                 capability: .buildTool()
                             ),
                         ]
@@ -293,7 +302,7 @@ public final class InitPackage {
                 } else if packageType == .commandPlugin {
                     param += """
                             .plugin(
-                                name: "\(typeName)",
+                                name: "\(pkgname)",
                                 capability: .command(intent: .custom(
                                     verb: "\(typeName)",
                                     description: "prints hello world"
@@ -303,23 +312,29 @@ public final class InitPackage {
                     """
                 } else if packageType == .macro {
                     param += """
-                            // Macro implementation, only built for the host and never part of a client program.
-                            .macro(name: "\(pkgname)Macros",
-                                   dependencies: [
-                                     .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                     .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-                                   ]
+                            // Macro implementation that performs the source transformation of a macro.
+                            .macro(
+                                name: "\(pkgname)Macros",
+                                dependencies: [
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                    .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
+                                ]
                             ),
 
                             // Library that exposes a macro as part of its API, which is used in client programs.
                             .target(name: "\(pkgname)", dependencies: ["\(pkgname)Macros"]),
 
-                            // A client of the library, which is able to use the macro in its
-                            // own code.
+                            // A client of the library, which is able to use the macro in its own code.
                             .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
 
                             // A test target used to develop the macro implementation.
-                            .testTarget(name: "\(pkgname)Tests", dependencies: ["\(pkgname)Macros"]),
+                            .testTarget(
+                                name: "\(pkgname)Tests",
+                                dependencies: [
+                                    "\(pkgname)Macros",
+                                    .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                ]
+                            ),
                         ]
                     """
                 } else {
@@ -336,14 +351,13 @@ public final class InitPackage {
                 pkgParams.append(param)
             }
 
-            stream <<< pkgParams.joined(separator: ",\n") <<< "\n)\n"
+            stream.send("\(pkgParams.joined(separator: ",\n"))\n)\n")
         }
 
         // Create a tools version with current version but with patch set to zero.
         // We do this to avoid adding unnecessary constraints to patch versions, if
         // the package really needs it, they should add it manually.
-        let version = packageType == .macro ? ToolsVersion.vNext
-            : InitPackage.newPackageToolsVersion.zeroedPatch
+        let version = InitPackage.newPackageToolsVersion.zeroedPatch
 
         // Write the current tools version.
         try ToolsVersionSpecificationWriter.rewriteSpecification(
@@ -363,7 +377,8 @@ public final class InitPackage {
         }
 
         try writePackageFile(gitignore) { stream in
-            stream <<< """
+            stream.send(
+                """
                 .DS_Store
                 /.build
                 /Packages
@@ -374,6 +389,7 @@ public final class InitPackage {
                 .netrc
 
                 """
+            )
         }
     }
 
@@ -402,27 +418,56 @@ public final class InitPackage {
             if packageType == .buildToolPlugin {
                 content += """
                 struct \(typeName): BuildToolPlugin {
+                    /// Entry point for creating build commands for targets in Swift packages.
                     func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
-                        // The plugin can choose what parts of the package to process.
+                        // This plugin only runs for package targets that can have source files.
                         guard let sourceFiles = target.sourceModule?.sourceFiles else { return [] }
 
                         // Find the code generator tool to run (replace this with the actual one).
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return sourceFiles.map(\\.path).compactMap { inputPath in
-                            guard inputPath.extension == "my-input-suffix" else { return .none }
-                            let inputName = inputPath.lastComponent
-                            let outputName = inputPath.stem + ".swift"
-                            let outputPath = context.pluginWorkDirectory.appending(outputName)
-                            return .buildCommand(
-                                displayName: "Generating \\(outputName) from \\(inputName)",
-                                executable: generatorTool.path,
-                                arguments: ["\\(inputPath)", "-o", "\\(outputPath)"],
-                                inputFiles: [inputPath],
-                                outputFiles: [outputPath]
-                            )
+                        return sourceFiles.map(\\.path).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
                         }
+                    }
+                }
+
+                #if canImport(XcodeProjectPlugin)
+                import XcodeProjectPlugin
+
+                extension \(typeName): XcodeBuildToolPlugin {
+                    // Entry point for creating build commands for targets in Xcode projects.
+                    func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) throws -> [Command] {
+                        // Find the code generator tool to run (replace this with the actual one).
+                        let generatorTool = try context.tool(named: "my-code-generator")
+
+                        // Construct a build command for each source file with a particular suffix.
+                        return target.inputFiles.map(\\.path).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        }
+                    }
+                }
+
+                #endif
+
+                extension \(typeName) {
+                    /// Shared function that returns a configured build command if the input files is one that should be processed.
+                    func createBuildCommand(for inputPath: Path, in outputDirectoryPath: Path, with generatorToolPath: Path) -> Command? {
+                        // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
+                        guard inputPath.extension == "my-input-suffix" else { return .none }
+                        
+                        // Return a command that will run during the build to generate the output file.
+                        let inputName = inputPath.lastComponent
+                        let outputName = inputPath.stem + ".swift"
+                        let outputPath = outputDirectoryPath.appending(outputName)
+                        return .buildCommand(
+                            displayName: "Generating \\(outputName) from \\(inputName)",
+                            executable: generatorToolPath,
+                            arguments: ["\\(inputPath)", "-o", "\\(outputPath)"],
+                            inputFiles: [inputPath],
+                            outputFiles: [outputPath]
+                        )
                     }
                 }
 
@@ -431,10 +476,23 @@ public final class InitPackage {
             else {
                 content += """
                 struct \(typeName): CommandPlugin {
+                    // Entry point for command plugins applied to Swift Packages.
                     func performCommand(context: PluginContext, arguments: [String]) async throws {
                         print("Hello, World!")
                     }
                 }
+
+                #if canImport(XcodeProjectPlugin)
+                import XcodeProjectPlugin
+
+                extension MyCommandPlugin: XcodeCommandPlugin {
+                    // Entry point for command plugins applied to Xcode projects.
+                    func performCommand(context: XcodePluginContext, arguments: [String]) throws {
+                        print("Hello, World!")
+                    }
+                }
+
+                #endif
 
                 """
             }
@@ -555,7 +613,8 @@ public final class InitPackage {
 
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
-            stream <<< """
+            stream.send(
+                """
                 import XCTest
                 @testable import \(moduleName)
 
@@ -570,54 +629,52 @@ public final class InitPackage {
                 }
 
                 """
+            )
         }
     }
 
     private func writeMacroTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
-            stream <<< ##"""
+            stream.send(##"""
                 import SwiftSyntax
                 import SwiftSyntaxBuilder
                 import SwiftSyntaxMacros
+                import SwiftSyntaxMacrosTestSupport
                 import XCTest
                 import \##(moduleName)Macros
 
-                var testMacros: [String: Macro.Type] = [
-                    "stringify" : StringifyMacro.self,
+                let testMacros: [String: Macro.Type] = [
+                    "stringify": StringifyMacro.self,
                 ]
 
                 final class \##(moduleName)Tests: XCTestCase {
                     func testMacro() {
-                        // XCTest Documentation
-                        // https://developer.apple.com/documentation/xctest
-
-                        // Test input is a source file containing uses of the macro.
-                        let sf: SourceFileSyntax =
-                            #"""
-                            let a = #stringify(x + y)
-                            let b = #stringify("Hello, \(name)")
-                            """#
-
-                        let context = BasicMacroExpansionContext(
-                            sourceFiles: [sf: .init(moduleName: "MyModule", fullFilePath: "test.swift")]
+                        assertMacroExpansion(
+                            """
+                            #stringify(a + b)
+                            """,
+                            expandedSource: """
+                            (a + b, "a + b")
+                            """,
+                            macros: testMacros
                         )
+                    }
 
-                        // Expand the macro to produce a new source file with the
-                        // result of the expansion, and ensure that it has the
-                        // expected source code.
-                        let transformedSF = sf.expand(macros: testMacros, in: context)
-
-                        XCTAssertEqual(
-                            transformedSF.description,
+                    func testMacroWithStringLiteral() {
+                        assertMacroExpansion(
                             #"""
-                            let a = (x + y, "x + y")
-                            let b = ("Hello, \(name)", #""Hello, \(name)""#)
-                            """#
+                            #stringify("Hello, \(name)")
+                            """#,
+                            expandedSource: #"""
+                            ("Hello, \(name)", #""Hello, \(name)""#)
+                            """#,
+                            macros: testMacros
                         )
                     }
                 }
 
                 """##
+            )
         }
     }
 
@@ -625,7 +682,8 @@ public final class InitPackage {
         try makeDirectories(path)
 
         try writePackageFile(path.appending("\(moduleName)Macro.swift")) { stream in
-            stream <<< ##"""
+            stream.send(
+                ##"""
                 import SwiftCompilerPlugin
                 import SwiftSyntax
                 import SwiftSyntaxBuilder
@@ -661,6 +719,7 @@ public final class InitPackage {
                 }
 
                 """##
+            )
         }
     }
 
@@ -668,7 +727,8 @@ public final class InitPackage {
         try makeDirectories(path)
 
         try writePackageFile(path.appending("main.swift")) { stream in
-            stream <<< ##"""
+            stream.send(
+                ##"""
                 import \##(moduleName)
 
                 let a = 17
@@ -679,6 +739,7 @@ public final class InitPackage {
                 print("The value \(result) was produced by the code \"\(code)\"")
 
                 """##
+            )
         }
     }
 

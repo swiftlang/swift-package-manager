@@ -17,7 +17,7 @@
 - ``wasi``
 - ``windows``
 
-### Type Methods
+### Type methods
 
 - ``custom(_:)``
 

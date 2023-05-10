@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import XCTest
 
 @testable import PackageCollections

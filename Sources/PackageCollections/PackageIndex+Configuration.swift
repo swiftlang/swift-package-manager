@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
-import TSCBasic
 
 public struct PackageIndexConfiguration: Equatable {
     public var url: URL?
@@ -71,7 +71,7 @@ public struct PackageIndexConfigurationStorage {
         }
         let container = StorageModel.Container(configuration)
         let buffer = try encoder.encode(container)
-        try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer), atomically: true)
+        try self.fileSystem.writeFileContents(self.path, data: buffer)
     }
     
     @discardableResult

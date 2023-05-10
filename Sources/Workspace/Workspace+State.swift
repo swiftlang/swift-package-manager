@@ -15,7 +15,6 @@ import Foundation
 import PackageGraph
 import PackageModel
 import SourceControl
-import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -57,7 +56,7 @@ public final class WorkspaceState {
             self.dependencies = Workspace.ManagedDependencies()
             self.artifacts = Workspace.ManagedArtifacts()
             try? self.storage.reset()
-            initializationWarningHandler("unable to restore workspace state: \(error)")
+            initializationWarningHandler("unable to restore workspace state: \(error.interpolationDescription)")
         }
     }
 
@@ -452,7 +451,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath)
+            subpath: try RelativePath(validating: dependency.subpath)
         )
     }
 }
@@ -771,7 +770,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath)
+            subpath: RelativePath(validating: dependency.subpath)
         )
     }
 }
@@ -1011,7 +1010,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath)
+            subpath: RelativePath(validating: dependency.subpath)
         )
     }
 }

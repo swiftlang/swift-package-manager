@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import PackageModel
 
 public final class ResolvedProduct {
@@ -64,8 +63,8 @@ public final class ResolvedProduct {
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
             let swiftTarget = SwiftTarget(name: product.name,
-                                          group: .package, // entry point target so treated as a part of the package
                                           dependencies: dependencies,
+                                          packageAccess: true, // entry point target so treated as a part of the package
                                           testEntryPointPath: testEntryPointPath)
             return ResolvedTarget(
                 target: swiftTarget,

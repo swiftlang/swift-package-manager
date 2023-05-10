@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 struct DiagnosticReportBuilder {
     let rootNode: DependencyResolutionNode
     let incompatibilities: [DependencyResolutionNode: [Incompatibility]]
@@ -50,24 +48,24 @@ struct DiagnosticReportBuilder {
             )
         }
 
-        let stream = BufferedOutputByteStream()
+        var content: String = ""
         let padding = self.lineNumbers.isEmpty ? 0 : "\(Array(self.lineNumbers.values).last!) ".count
 
         for (idx, line) in self.lines.enumerated() {
-            stream <<< Format.asRepeating(string: " ", count: padding)
+            content += String(repeating: " ", count: padding)
             if line.number != -1 {
-                stream <<< Format.asRepeating(string: " ", count: padding)
-                stream <<< " (\(line.number)) "
+                content +=  String(repeating: " ", count: padding)
+                content += " (\(line.number)) "
             }
-            stream <<< line.message.prefix(1).capitalized
-            stream <<< line.message.dropFirst()
+            content += line.message.prefix(1).capitalized
+            content += line.message.dropFirst()
 
             if self.lines.count - 1 != idx {
-                stream <<< "\n"
+                content += "\n"
             }
         }
 
-        return stream.bytes.description
+        return content
     }
 
     private mutating func visit(

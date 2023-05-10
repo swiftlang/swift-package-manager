@@ -14,7 +14,8 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 struct PackageIndex: PackageIndexProtocol, Closable {
     private let configuration: PackageIndexConfiguration
@@ -89,7 +90,10 @@ struct PackageIndex: PackageIndexProtocol, Closable {
                                 observabilityScope: self.observabilityScope
                             )
                         } catch {
-                            self.observabilityScope.emit(warning: "Failed to save index metadata for package \(identity) to cache: \(error)")
+                            self.observabilityScope.emit(
+                                warning: "Failed to save index metadata for package \(identity) to cache",
+                                underlyingError: error
+                            )
                         }
                         
                         return (package: package, collections: [], provider: self.createContext(host: url.host, error: nil))

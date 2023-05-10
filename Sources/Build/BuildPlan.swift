@@ -19,7 +19,9 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
-import TSCBasic
+
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.topologicalSort
 
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
@@ -30,15 +32,56 @@ extension String {
     }
 }
 
-extension AbsolutePath {
-    internal func nativePathString(escaped: Bool) -> String {
-        return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
-            let repr = String(cString: $0!)
-            if escaped {
-                return repr.replacingOccurrences(of: "\\", with: "\\\\")
+extension Array where Element == String {
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCCompilerFlags() -> Self {
+        self.flatMap { ["-Xcc", $0] }
+    }
+
+    /// Converts a set of C++ compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCXXCompilerFlags() -> Self {
+        _ = self.flatMap { ["-Xcxx", $0] }
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Remove fatal error when downstream support arrives.
+        fatalError("swiftc does support -Xcxx flags yet.")
+    }
+
+    /// Converts a set of linker flags into an equivalent set to be indirected
+    /// through the Swift compiler instead.
+    ///
+    /// Some arguments can be passed directly to the Swift compiler. We omit
+    /// prefixing these arguments (in both the "-option value" and
+    /// "-option[=]value" forms) with "-Xlinker". All other arguments are
+    /// prefixed with "-Xlinker".
+    func asSwiftcLinkerFlags() -> Self {
+        // Arguments that can be passed directly to the Swift compiler and
+        // doesn't require -Xlinker prefix.
+        //
+        // We do this to avoid sending flags like linker search path at the end
+        // of the search list.
+        let directSwiftLinkerArgs = ["-L"]
+
+        var flags: [String] = []
+        var it = self.makeIterator()
+        while let flag = it.next() {
+            if directSwiftLinkerArgs.contains(flag) {
+                // `<option> <value>` variant.
+                flags.append(flag)
+                guard let nextFlag = it.next() else {
+                    // We expected a flag but don't have one.
+                    continue
+                }
+                flags.append(nextFlag)
+            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
+                // `<option>[=]<value>` variant.
+                flags.append(flag)
+            } else {
+                flags += ["-Xlinker", flag]
             }
-            return repr
         }
+        return flags
     }
 }
 
@@ -53,46 +96,6 @@ extension BuildParameters {
             }
             return buildPath.appending("ModuleCache")
         }
-    }
-
-    /// Extra flags to pass to Swift compiler.
-    public var swiftCompilerFlags: [String] {
-        var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
-        flags += self.flags.swiftCompilerFlags
-        if self.verboseOutput {
-            flags.append("-v")
-        }
-        return flags
-    }
-
-    /// Extra flags to pass to linker.
-    public var linkerFlags: [String] {
-        // Arguments that can be passed directly to the Swift compiler and
-        // doesn't require -Xlinker prefix.
-        //
-        // We do this to avoid sending flags like linker search path at the end
-        // of the search list.
-        let directSwiftLinkerArgs = ["-L"]
-
-        var flags: [String] = []
-        var it = self.flags.linkerFlags.makeIterator()
-        while let flag = it.next() {
-            if directSwiftLinkerArgs.contains(flag) {
-                // `-L <value>` variant.
-                flags.append(flag)
-                guard let nextFlag = it.next() else {
-                    // We expected a flag but don't have one.
-                    continue
-                }
-                flags.append(nextFlag)
-            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
-                // `-L<value>` variant.
-                flags.append(flag)
-            } else {
-                flags += ["-Xlinker", flag]
-            }
-        }
-        return flags
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
@@ -138,7 +141,7 @@ extension BuildParameters {
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
-        if self.triple.isDarwin() {
+        if self.triple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         }
         else if self.triple.isLinux() {
@@ -147,7 +150,7 @@ extension BuildParameters {
         else {
             return nil
         }
-        return args.flatMap { ["-Xlinker", $0] }
+        return args.asSwiftcLinkerFlags()
     }
 
     /// Returns the scoped view of build settings for a given target.
@@ -282,8 +285,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let discoveryTarget = SwiftTarget(
                     name: discoveryTargetName,
-                    group: .package, // test target is allowed access to package decls by default
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
+                    packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
                 let discoveryResolvedTarget = ResolvedTarget(
@@ -314,9 +317,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
-                    group: .package, // test target is allowed access to package decls by default
                     type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
+                    packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(
@@ -344,8 +347,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let entryPointTarget = SwiftTarget(
                             name: entryPointResolvedTarget.underlyingTarget.name,
-                            group: entryPointResolvedTarget.group,
                             dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
+                            packageAccess: entryPointResolvedTarget.packageAccess,
                             testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
@@ -999,18 +1002,18 @@ private extension PackageModel.SwiftTarget {
     /// Initialize a SwiftTarget representing a test entry point.
     convenience init(
         name: String,
-        group: Group,
         type: PackageModel.Target.Kind? = nil,
         dependencies: [PackageModel.Target.Dependency],
+        packageAccess: Bool,
         testEntryPointSources sources: Sources
     ) {
         self.init(
             name: name,
-            group: group,
             type: type ?? .executable,
             path: .root,
             sources: sources,
             dependencies: dependencies,
+            packageAccess: packageAccess,
             swiftVersion: .v5,
             usesUnsafeFlags: false
         )
@@ -1040,7 +1043,7 @@ extension Basics.Diagnostic {
             """)
     }
 
-    static func binaryTargetsNotSupported() -> Diagnostic.Message {
+    static func binaryTargetsNotSupported() -> Self {
         .error("binary targets are not supported on this platform")
     }
 }
@@ -1049,20 +1052,6 @@ extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> AbsolutePath {
         return buildPath.appending(component: name + triple.nsbundleExtension)
-    }
-}
-
-extension FileSystem {
-    /// Write bytes to the path if the given contents are different.
-    func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
-        try createDirectory(path.parentDirectory, recursive: true)
-
-        // Return if the contents are same.
-        if isFile(path), try readFileContents(path) == bytes {
-            return
-        }
-
-        try writeFileContents(path, bytes: bytes)
     }
 }
 
@@ -1076,8 +1065,9 @@ func generateResourceInfoPlist(
         return false
     }
 
-    let stream = BufferedOutputByteStream()
-    stream <<< """
+    try fileSystem.writeIfChanged(
+        path: path,
+        string: """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -1087,8 +1077,7 @@ func generateResourceInfoPlist(
         </dict>
         </plist>
         """
-
-    try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+    )
     return true
 }
 
@@ -1127,3 +1116,4 @@ extension ResolvedProduct {
         return !isAutomaticLibrary && !isBinaryOnly && !isPlugin
     }
 }
+

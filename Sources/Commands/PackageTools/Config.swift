@@ -13,8 +13,9 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import TSCBasic
 import Workspace
+
+import var TSCBasic.stderrStream
 
 extension SwiftPackageTool {
     struct Config: ParsableCommand {
@@ -177,7 +178,7 @@ extension SwiftPackageTool.Config {
             if let mirror = config.mirrors.mirror(for: original) {
                 print(mirror)
             } else {
-                stderrStream <<< "not found\n"
+                stderrStream.send("not found\n")
                 stderrStream.flush()
                 throw ExitCode.failure
             }

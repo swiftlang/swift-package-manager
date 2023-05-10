@@ -15,8 +15,9 @@ import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
 
 class ToolsVersionParserTests: XCTestCase {
     func parse(_ content: String, _ body: ((ToolsVersion) -> Void)? = nil) throws {
@@ -117,20 +118,32 @@ class ToolsVersionParserTests: XCTestCase {
 
 
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< "// swift-tools-version:3.1.0\n\n\n\n\n"
-            stream <<< "let package = .."
-            try self.parse(stream.bytes.validDescription!) { toolsVersion in
+            try self.parse(
+                """
+                // swift-tools-version:3.1.0
+
+
+
+                let package = ..
+                """
+            ) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
         }
 
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< "// swift-tools-version:3.1.0\n"
-            stream <<< "// swift-tools-version:4.1.0\n\n\n\n"
-            stream <<< "let package = .."
-            try self.parse(stream.bytes.validDescription!) { toolsVersion in
+            try self.parse(
+                """
+                // swift-tools-version:3.1.0
+
+                // swift-tools-version:4.1.0
+
+
+
+
+                let package = ..
+                """
+            ) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
         }
@@ -679,7 +692,6 @@ class ToolsVersionParserTests: XCTestCase {
     func testVersionSpecificManifest() throws {
         let fs = InMemoryFileSystem()
         let root = AbsolutePath("/pkg")
-        try fs.createDirectory(root, recursive: true)
 
         /// Loads the tools version of root pkg.
         func parse(_ body: (ToolsVersion) -> Void) throws {
@@ -688,7 +700,7 @@ class ToolsVersionParserTests: XCTestCase {
         }
 
         // Test default manifest.
-        try fs.writeFileContents(root.appending("Package.swift"), bytes: "// swift-tools-version:3.1.1\n")
+        try fs.writeFileContents(root.appending("Package.swift"), string: "// swift-tools-version:3.1.1\n")
         try parse { version in
             XCTAssertEqual(version.description, "3.1.1")
         }
@@ -700,19 +712,19 @@ class ToolsVersionParserTests: XCTestCase {
         XCTAssertEqual(keys.count, 3)
 
         // Test the last key.
-        try fs.writeFileContents(root.appending("Package\(keys[2]).swift"), bytes: "// swift-tools-version:3.4.1\n")
+        try fs.writeFileContents(root.appending("Package\(keys[2]).swift"), string: "// swift-tools-version:3.4.1\n")
         try parse { version in
             XCTAssertEqual(version.description, "3.4.1")
         }
 
         // Test the second last key.
-        try fs.writeFileContents(root.appending("Package\(keys[1]).swift"), bytes: "// swift-tools-version:3.4.0\n")
+        try fs.writeFileContents(root.appending("Package\(keys[1]).swift"), string: "// swift-tools-version:3.4.0\n")
         try parse { version in
             XCTAssertEqual(version.description, "3.4.0")
         }
 
         // Test the first key.
-        try fs.writeFileContents(root.appending("Package\(keys[0]).swift"), bytes: "// swift-tools-version:3.4.5\n")
+        try fs.writeFileContents(root.appending("Package\(keys[0]).swift"), string: "// swift-tools-version:3.4.5\n")
         try parse { version in
             XCTAssertEqual(version.description, "3.4.5")
         }
@@ -729,11 +741,11 @@ class ToolsVersionParserTests: XCTestCase {
             body(try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs))
         }
 
-        try fs.writeFileContents(root.appending("Package.swift"), bytes: "// swift-tools-version:1.0.0\n")
-        try fs.writeFileContents(root.appending("Package@swift-4.2.swift"), bytes: "// swift-tools-version:3.4.5\n")
-        try fs.writeFileContents(root.appending("Package@swift-15.1.swift"), bytes: "// swift-tools-version:3.4.6\n")
-        try fs.writeFileContents(root.appending("Package@swift-15.2.swift"), bytes: "// swift-tools-version:3.4.7\n")
-        try fs.writeFileContents(root.appending("Package@swift-15.3.swift"), bytes: "// swift-tools-version:3.4.8\n")
+        try fs.writeFileContents(root.appending("Package.swift"), string: "// swift-tools-version:1.0.0\n")
+        try fs.writeFileContents(root.appending("Package@swift-4.2.swift"), string: "// swift-tools-version:3.4.5\n")
+        try fs.writeFileContents(root.appending("Package@swift-15.1.swift"), string: "// swift-tools-version:3.4.6\n")
+        try fs.writeFileContents(root.appending("Package@swift-15.2.swift"), string: "// swift-tools-version:3.4.7\n")
+        try fs.writeFileContents(root.appending("Package@swift-15.3.swift"), string: "// swift-tools-version:3.4.8\n")
 
         try parse(currentToolsVersion: ToolsVersion(version: "15.1.1")) { version in
             XCTAssertEqual(version.description, "3.4.6")

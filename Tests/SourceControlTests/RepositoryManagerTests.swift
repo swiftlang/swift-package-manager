@@ -14,8 +14,10 @@
 import PackageModel
 import SPMTestSupport
 @testable import SourceControl
-import TSCBasic
 import XCTest
+
+import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.ProcessEnv
 
 class RepositoryManagerTests: XCTestCase {
     func testBasics() throws {
@@ -33,8 +35,8 @@ class RepositoryManagerTests: XCTestCase {
                 delegate: delegate
             )
 
-            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
-            let badDummyRepo = RepositorySpecifier(path: .init(path: "/badDummy"))
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
+            let badDummyRepo = RepositorySpecifier(path: "/badDummy")
             var prevHandle: RepositoryManager.RepositoryHandle?
 
             // Check that we can "fetch" a repository.
@@ -135,7 +137,7 @@ class RepositoryManagerTests: XCTestCase {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
-        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try fixture(name: "DependencyResolution/External/Simple") { (fixturePath: AbsolutePath) in
             let cachePath = fixturePath.appending("cache")
             let repositoriesPath = fixturePath.appending("repositories")
             let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
@@ -156,8 +158,8 @@ class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
-            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[0].details,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
@@ -171,7 +173,7 @@ class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[1].details,
                            RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
@@ -186,8 +188,8 @@ class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
-            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[2].details,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
@@ -199,8 +201,8 @@ class RepositoryManagerTests: XCTestCase {
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willUpdate[0].storagePath(), repo.storagePath())
-            XCTAssertEqual(delegate.didUpdate[0].storagePath(), repo.storagePath())
+            try XCTAssertEqual(delegate.willUpdate[0].storagePath(), repo.storagePath())
+            try XCTAssertEqual(delegate.didUpdate[0].storagePath(), repo.storagePath())
         }
     }
 
@@ -214,13 +216,14 @@ class RepositoryManagerTests: XCTestCase {
             let delegate = DummyRepositoryManagerDelegate()
 
             try fs.createDirectory(repos, recursive: true)
+
             let manager = RepositoryManager(
                 fileSystem: fs,
                 path: repos,
                 provider: provider,
                 delegate: delegate
             )
-            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
 
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
@@ -254,7 +257,7 @@ class RepositoryManagerTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider(fileSystem: fs)
-            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
 
             // Do the initial fetch.
             do {
@@ -314,7 +317,7 @@ class RepositoryManagerTests: XCTestCase {
                     provider: provider,
                     delegate: delegate
                 )
-                let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
+                let dummyRepo = RepositorySpecifier(path: "/dummy")
 
                 delegate.prepare(fetchExpected: true, updateExpected: false)
                 _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
@@ -342,7 +345,7 @@ class RepositoryManagerTests: XCTestCase {
                 provider: provider,
                 delegate: delegate
             )
-            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
 
             let group = DispatchGroup()
             let results = ThreadSafeKeyValueStore<Int, Result<RepositoryManager.RepositoryHandle, Error>>()
@@ -399,7 +402,7 @@ class RepositoryManagerTests: XCTestCase {
                 provider: provider,
                 delegate: delegate
             )
-            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
 
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
@@ -589,7 +592,7 @@ extension RepositoryManager {
     }
 
     fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
-        return try tsc_await {
+        return try temp_await {
             self.lookup(
                 package: .init(url: repository.url),
                 repository: repository,
@@ -665,7 +668,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         assert(!self.fileSystem.exists(path))
         try self.fileSystem.createDirectory(path, recursive: true)
-        try self.fileSystem.writeFileContents(path.appending("readme.md"), bytes: ByteString(encodingAsUTF8: repository.location.description))
+        try self.fileSystem.writeFileContents(path.appending("readme.md"), string: repository.location.description)
 
         self.lock.withLock {
             self._numClones += 1

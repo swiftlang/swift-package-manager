@@ -15,8 +15,13 @@ import Dispatch
 import PackageLoading
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.PathValidationError
+
+import func TSCTestSupport.withCustomEnv
 
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -33,7 +38,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
-                    .package(url: "\(AbsolutePath(path: "/foo1").escapedPathString())", from: "1.0.0"),
+                    .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
                 ],
                 targets: [
                     .target(
@@ -68,7 +73,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         // Check dependencies.
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
         // Check products.
         let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -248,15 +253,15 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "\(AbsolutePath(path: "/foo1").escapedPathString())", from: "1.0.0"),
-                   .package(url: "\(AbsolutePath(path: "/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
-                   .package(path: "\(AbsolutePath(path: "/path/to/foo4").escapedPathString())"),
-                   .package(url: "\(AbsolutePath(path: "/foo5").escapedPathString())", .exact("1.2.3")),
-                   .package(url: "\(AbsolutePath(path: "/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
-                   .package(url: "\(AbsolutePath(path: "/foo7").escapedPathString())", .branch("master")),
-                   .package(url: "\(AbsolutePath(path: "/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "\(AbsolutePath(path: "/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString())"),
+                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .exact("1.2.3")),
+                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
+                   .package(url: "\(AbsolutePath("/foo7").escapedPathString())", .branch("master")),
+                   .package(url: "\(AbsolutePath("/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "\(AbsolutePath("/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
                    .package(path: "~foo11"),
                    .package(path: "~/path/to/~/foo12"),
@@ -272,26 +277,26 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init(path: "/foo2"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
         if case .fileSystem(let dep) = deps["foo3"] {
-            XCTAssertEqual(dep.path, AbsolutePath(path: "/foo3"))
+            XCTAssertEqual(dep.path, "/foo3")
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo4"] {
-            XCTAssertEqual(dep.path, AbsolutePath(path: "/path/to/foo4"))
+            XCTAssertEqual(dep.path, "/path/to/foo4")
         } else {
             XCTFail("expected to be local dependency")
         }
 
-        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init(path: "/foo5"), requirement: .exact("1.2.3")))
-        XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init(path: "/foo6"), requirement: .range("1.2.3"..<"2.0.0")))
-        XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init(path: "/foo7"), requirement: .branch("master")))
-        XCTAssertEqual(deps["foo8"], .localSourceControl(path: .init(path: "/foo8"), requirement: .upToNextMinor(from: "1.3.4")))
-        XCTAssertEqual(deps["foo9"], .localSourceControl(path: .init(path: "/foo9"), requirement: .upToNextMajor(from: "1.3.4")))
+        XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .exact("1.2.3")))
+        XCTAssertEqual(deps["foo6"], .localSourceControl(path: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
+        XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .branch("master")))
+        XCTAssertEqual(deps["foo8"], .localSourceControl(path: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
+        XCTAssertEqual(deps["foo9"], .localSourceControl(path: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
 
         let homeDir = "/home/user"
         if case .fileSystem(let dep) = deps["foo10"] {
@@ -301,7 +306,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
 
         if case .fileSystem(let dep) = deps["~foo11"] {
-            XCTAssertEqual(dep.path, AbsolutePath(path: "/~foo11"))
+            XCTAssertEqual(dep.path, "/~foo11")
         } else {
             XCTFail("expected to be local dependency")
         }
@@ -313,13 +318,13 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
 
         if case .fileSystem(let dep) = deps["~"] {
-            XCTAssertEqual(dep.path, AbsolutePath(path: "/~"))
+            XCTAssertEqual(dep.path, "/~")
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo13"] {
-            XCTAssertEqual(dep.path, AbsolutePath(path: "/path/to/foo13"))
+            XCTAssertEqual(dep.path, "/path/to/foo13")
         } else {
             XCTFail("expected to be local dependency")
         }
@@ -366,7 +371,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     /// Check that we load the manifest appropriate for the current version, if
     /// version specific customization is used.
     func testVersionSpecificLoading() throws {
-        let bogusManifest: ByteString = "THIS WILL NOT PARSE"
+        let bogusManifest = "THIS WILL NOT PARSE"
         let trivialManifest =
         """
         // swift-tools-version:4.2
@@ -395,7 +400,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             try badManifests.forEach {
                 try fs.writeFileContents(
                     root.appending(component: $0),
-                    bytes: bogusManifest)
+                    string: bogusManifest
+                )
             }
             // Check we can load the repository.
             let manifest = try manifestLoader.load(
@@ -420,10 +426,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         let manifestContents = "import PackageDescription\nlet package = Package(name: \"Trivial\")"
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + ".swift"),
-            bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
+            string: "// swift-tools-version:4.0\n" + manifestContents
+        )
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + "@swift-3.swift"),
-            bytes: ByteString(encodingAsUTF8: manifestContents))
+            string: manifestContents
+        )
         // Check we can load the manifest.
         let manifest = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -432,10 +440,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         // Switch it around so that the main manifest is now the one that doesn't have a comment.
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + ".swift"),
-            bytes: ByteString(encodingAsUTF8: manifestContents))
+            string: manifestContents
+        )
         try fs.writeFileContents(
             packageDir.appending(component: Manifest.basename + "@swift-4.swift"),
-            bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
+            string: "// swift-tools-version:4.0\n" + manifestContents
+        )
         // Check we can load the manifest.
         let manifest2 = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -571,8 +581,10 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Trivial",
@@ -583,23 +595,23 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         ]
                     )
                     """
-            }
+            )
 
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
-            func check(loader: ManifestLoader, expectCached: Bool) {
+            func check(loader: ManifestLoader, expectCached: Bool) throws {
                 delegate.clear()
                 delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try! loader.load(
+                let manifest = try XCTUnwrap(loader.load(
                     manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
                     observabilityScope: observability.topScope
-                )
+                ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
@@ -608,20 +620,20 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            check(loader: manifestLoader, expectCached: false)
-            check(loader: manifestLoader, expectCached: true)
+            try check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: true)
 
             try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
-                check(loader: manifestLoader, expectCached: false)
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: false)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
             try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
-                check(loader: manifestLoader, expectCached: false)
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: false)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
-            check(loader: manifestLoader, expectCached: true)
+            try check(loader: manifestLoader, expectCached: true)
         }
     }
 
@@ -631,8 +643,10 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                     import PackageDescription
                     let package = Package(
                         name: "Trivial",
@@ -643,23 +657,23 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         ]
                     )
                     """
-            }
+            )
 
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
-            func check(loader: ManifestLoader, expectCached: Bool) {
+            func check(loader: ManifestLoader, expectCached: Bool) throws {
                 delegate.clear()
                 delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try! loader.load(
+                let manifest = try XCTUnwrap(loader.load(
                     manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
                     observabilityScope: observability.topScope
-                )
+                ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
@@ -668,13 +682,14 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
+            try fs.writeFileContents(
+                manifestPath,
+                string: """
                     import PackageDescription
 
                     let package = Package(
@@ -688,16 +703,16 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     )
 
                     """
-            }
+            )
 
-            check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
-                check(loader: manifestLoader, expectCached: true)
+                try check(loader: manifestLoader, expectCached: true)
             }
 
             let noCacheLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: delegate)
             for _ in 0..<2 {
-                check(loader: noCacheLoader, expectCached: false)
+                try check(loader: noCacheLoader, expectCached: false)
             }
 
             // Resetting the cache should allow us to remove the cache
@@ -710,8 +725,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testContentBasedCaching() throws {
         try testWithTemporaryDirectory { path in
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -719,18 +733,18 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         .target(name: "foo"),
                     ]
                 )
-                """
+            """
 
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
-            func check(loader: ManifestLoader) throws {
+            func check(loader: ManifestLoader, manifest: String) throws {
                 let fs = InMemoryFileSystem()
                 let observability = ObservabilitySystem.makeForTesting()
 
                 let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-                try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+                try fs.writeFileContents(manifestPath, string: manifest)
 
                 let m = try manifestLoader.load(
                     manifestPath: manifestPath,
@@ -746,22 +760,21 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             do {
                 delegate.prepare()
-                try check(loader: manifestLoader)
+                try check(loader: manifestLoader, manifest: manifest)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 1)
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
             }
 
             do {
                 delegate.prepare(expectParsing: false)
-                try check(loader: manifestLoader)
+                try check(loader: manifestLoader, manifest: manifest)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 2)
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
             }
 
             do {
-                stream <<< "\n\n"
                 delegate.prepare()
-                try check(loader: manifestLoader)
+                try check(loader: manifestLoader, manifest: manifest + "\n\n")
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 2)
             }
@@ -799,8 +812,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let total = 1000
             let manifestPath = path.appending(components: "pkg", "Package.swift")
             try localFileSystem.createDirectory(manifestPath.parentDirectory)
-            try localFileSystem.writeFileContents(manifestPath) {
-                """
+            try localFileSystem.writeFileContents(
+                manifestPath,
+                string: """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -811,7 +825,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     ]
                 )
                 """
-            }
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
@@ -820,7 +834,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             // warm up caches
             delegate.prepare()
-            let manifest = try tsc_await {
+            let manifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: .v4_2,
@@ -905,8 +919,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
                 if !localFileSystem.exists(manifestPath) {
                     try localFileSystem.createDirectory(manifestPath.parentDirectory)
-                    try localFileSystem.writeFileContents(manifestPath) {
-                        """
+                    try localFileSystem.writeFileContents(
+                        manifestPath,
+                        string: """
                         import PackageDescription
                         let package = Package(
                             name: "Trivial-\(random)",
@@ -917,7 +932,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                             ]
                         )
                         """
-                    }
+                    )
                 }
 
                 sync.enter()

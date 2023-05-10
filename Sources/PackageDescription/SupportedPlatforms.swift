@@ -601,8 +601,11 @@ extension SupportedPlatform {
         public static let v22: DriverKitVersion = .init(string: "22.0")
     }
 
+    /// A supported custom platform version.
     public struct CustomPlatformVersion: AppleOSVersion {
+        /// The name of the custom platform.
         static var name: String = "custom platform"
+        /// The minimum valid major version number.
         static var minimumMajorVersion = 0
 
         fileprivate init(uncheckedVersion version: String) {

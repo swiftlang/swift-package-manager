@@ -35,18 +35,12 @@ public final class Target {
         case system
         /// A target that references a binary artifact.
         case binary
-        /// A target that provides a package plugin.
+        /// A target that provides a package plug-in.
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
     }
 
-    /// A group a target belongs to that allows customizing access boundaries. A target is treated as
-    /// a client outside of the package if `excluded`, inside the package boundary if `package`.
-    public enum TargetGroup {
-        case package
-        case excluded
-    }
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         /// A dependency on a target.
@@ -140,9 +134,8 @@ public final class Target {
     /// The type of the target.
     public let type: TargetType
 
-    /// The group this target belongs to, where access to the target's group-specific
-    /// APIs is not allowed from outside.
-    public let group: TargetGroup
+    /// If true, access to package declarations from other targets in the package is allowed.
+    public let packageAccess: Bool
 
     /// The name of the package configuration file, without extension, for the system library target.
     ///
@@ -154,40 +147,40 @@ public final class Target {
     /// The providers array for a system library target.
     public let providers: [SystemPackageProvider]?
 
-    /// The capability provided by a package plugin target.
+    /// The capability provided by a package plug-in target.
     @available(_PackageDescription, introduced: 5.5)
     public var pluginCapability: PluginCapability?
 
-    /// The different types of capability that a plugin can provide.
+    /// The different types of capability that a plug-in can provide.
     ///
-    /// In this version of SwiftPM, only build tool and command plugins are supported;
-    /// this enum will be extended as new plugin capabilities are added.
+    /// In this version of SwiftPM, only build tool and command plug-ins are supported;
+    /// this enumeration will be extended as new plug-in capabilities are added.
     public enum PluginCapability {
-        /// Specifies that the plugin provides a build tool capability.
+        /// Specifies that the plug-in provides a build tool capability.
         ///
-        /// The plugin will be applied to each target that uses it and should create commands
-        /// that will run before or during the build of the target.
+        /// The plug-in to apply to each target that uses it, and creates commands
+        /// that run before or during the build of the target.
         @available(_PackageDescription, introduced: 5.5)
         case buildTool
 
-        /// Specifies that the plugin provides a user command capability.
+        /// Specifies that the plug-in provides a user command capability.
         ///
         ///- Parameters:
-        ///   - intent: The semantic intent of the plugin (either one of the predefined intents,
-        ///     or a custom intent).
-        ///   - permissions: Any permissions needed by the command plugin. This affects what the
-        ///     sandbox in which the plugin is run allows. Some permissions may require
-        ///     approval by the user.
+        ///   - intent: The semantic intent of the plug-in; either one of the predefined intents,
+        ///     or a custom intent.
+        ///   - permissions: Any permissions needed by the command plug-in. This affects what the
+        ///     sandbox in which the plug-in is run allows. Some permissions may require
+        ///     user approval.
         ///
-        /// Plugins that specify a `command` capability define commands that can be run
+        /// Plug-ins that specify a `command` capability define commands that can run
         /// using the SwiftPM command line interface, or in an IDE that supports
-        /// Swift Packages. The command will be available to invoke manually on one or more targets in a package.
+        /// Swift packages. You can invoke the command manually on one or more targets in a package.
         ///
         ///```swift
         ///swift package <verb>
         ///```
         ///
-        /// The package can specify the verb that is used to invoke the command.
+        /// The package can specify the _verb_ used to invoke the command.
         @available(_PackageDescription, introduced: 5.6)
         case command(intent: PluginCommandIntent, permissions: [PluginPermission] = [])
     }
@@ -222,18 +215,18 @@ public final class Target {
     @available(_PackageDescription, introduced: 5.3)
     public var checksum: String?
 
-    /// The uses of package plugins by the target.
+    /// The uses of package plug-ins by the target.
     @available(_PackageDescription, introduced: 5.5)
     public var plugins: [PluginUsage]?
     
-    /// A plugin used in a target.
+    /// A plug-in used in a target.
     @available(_PackageDescription, introduced: 5.5)
     public enum PluginUsage {
-        /// Specifies use of a plugin product in a package dependency.
+        /// Specifies the use of a plug-in product in a package dependency.
         ///
         /// - Parameters:
-        ///   - name: The name of the plugin target.
-        ///   - package: The name of the package in which the plugin target is defined.
+        ///   - name: The name of the plug-in target.
+        ///   - package: The name of the package that defines the plug-in target.
         case plugin(name: String, package: String?)
     }
 
@@ -241,7 +234,6 @@ public final class Target {
     @_spi(PackageDescriptionInternal)
     public init(
         name: String,
-        group: TargetGroup,
         dependencies: [Dependency],
         path: String?,
         url: String? = nil,
@@ -250,6 +242,7 @@ public final class Target {
         resources: [Resource]? = nil,
         publicHeadersPath: String?,
         type: TargetType,
+        packageAccess: Bool,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         pluginCapability: PluginCapability? = nil,
@@ -261,7 +254,6 @@ public final class Target {
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
-        self.group = group
         self.dependencies = dependencies
         self.path = path
         self.url = url
@@ -270,6 +262,7 @@ public final class Target {
         self.resources = resources
         self.exclude = exclude
         self.type = type
+        self.packageAccess = packageAccess
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.pluginCapability = pluginCapability
@@ -344,10 +337,7 @@ public final class Target {
                 providers == nil &&
                 pluginCapability == nil &&
                 cSettings == nil &&
-                cxxSettings == nil &&
-                swiftSettings == nil &&
-                linkerSettings == nil &&
-                plugins == nil
+                cxxSettings == nil
             )
         }
     }
@@ -381,13 +371,13 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: publicHeadersPath,
-            type: .regular
+            type: .regular,
+            packageAccess: false
         )
     }
 
@@ -428,13 +418,13 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -481,7 +471,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -489,6 +478,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -519,7 +509,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    ///   - plugins: The plugins used by this target.
+    ///   - plugins: The plug-ins used by this target.
     @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func target(
         name: String,
@@ -537,7 +527,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -545,6 +534,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -556,12 +546,11 @@ public final class Target {
     /// Creates a regular target.
     ///
     /// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
-    /// a regular module that can be included in a library or executable product, but that cannot itself be used as
+    /// a regular module for inclusion in a library or executable product, but that cannot itself be used as
     /// the main target of an executable product.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
     ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
@@ -570,24 +559,25 @@ public final class Target {
     ///       A path is relative to the target's directory.
     ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
-    ///       the Swift Package Manager searches for valid source files recursively.
+    ///       Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
-    ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    ///   - plugins: The plugins used by this target
+    ///   - plugins: The plug-ins used by this target
     @available(_PackageDescription, introduced: 999.0)
     public static func target(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
         publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -596,7 +586,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -604,6 +593,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: packageAccess,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -652,7 +642,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -660,6 +649,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .executable,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -691,7 +681,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    ///   - plugins: The plugins used by this target.
+    ///   - plugins: The plug-ins used by this target.
     @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func executableTarget(
         name: String,
@@ -709,7 +699,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -717,6 +706,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .executable,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -727,39 +717,39 @@ public final class Target {
     /// Creates an executable target.
     ///
     /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
-    /// is built as an executable module that can be used as the main target of an executable product. The target
+    /// is built as an executable module for use as the main target of an executable product. The target
     /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
     /// file that contains the `@main` keyword.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
-    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
     ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
-    ///       the Swift Package Manager searches for valid source files recursively.
+    ///       Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
-    ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    ///   - plugins: The plugins used by this target
+    ///   - plugins: The plug-ins used by this target
     @available(_PackageDescription, introduced: 999.0)
     public static func executableTarget(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
         publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -768,7 +758,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -776,6 +765,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .executable,
+            packageAccess: packageAccess,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -810,13 +800,13 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
-            type: .test
+            type: .test,
+            packageAccess: false
         )
     }
 
@@ -854,13 +844,13 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -904,7 +894,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -912,6 +901,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -940,7 +930,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    ///   - plugins: The plugins used by this target.
+    ///   - plugins: The plug-ins used by this target.
     @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func testTarget(
         name: String,
@@ -957,7 +947,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -965,6 +954,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -980,31 +970,31 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
-    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
     ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
-    ///       the Swift Package Manager searches for valid source files recursively.
+    ///       Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    ///   - plugins: The plugins used by this target.
+    ///   - plugins: The plug-ins used by this target.
     @available(_PackageDescription, introduced: 999.0)
     public static func testTarget(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
+        packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -1013,7 +1003,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -1021,6 +1010,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: packageAccess,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -1053,13 +1043,13 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // access to only public APIs is allowed for system libs
             dependencies: [],
             path: path,
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
             type: .system,
+            packageAccess: false,
             pkgConfig: pkgConfig,
             providers: providers)
     }
@@ -1082,7 +1072,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: [],
             path: nil,
             url: url,
@@ -1090,6 +1079,7 @@ public final class Target {
             sources: nil,
             publicHeadersPath: nil,
             type: .binary,
+            packageAccess: false,
             checksum: checksum)
     }
 
@@ -1109,13 +1099,13 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: [],
             path: path,
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
-            type: .binary)
+            type: .binary,
+            packageAccess: false)
     }
     
     /// Defines a new package plugin target.
@@ -1157,8 +1147,8 @@ public final class Target {
     ///   - capability: The type of capability the plugin target provides.
     ///   - dependencies: The plugin target's dependencies.
     ///   - path: The path of the plugin target, relative to the package root.
-    ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
-    ///   - sources: The source files in the plugin target.
+    ///   - exclude: The paths to source and resource files that you want to exclude from the plug-in target.
+    ///   - sources: The source files in the plug-in target.
     /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func plugin(
@@ -1171,78 +1161,78 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
             type: .plugin,
+            packageAccess: false,
             pluginCapability: capability)
     }
 
-    /// Defines a new package plugin target.
+    /// Defines a new package plug-in target.
     ///
-    /// A plugin target provides custom build commands to SwiftPM (and to
+    /// A plug-in target provides custom build commands to SwiftPM (and to
     /// any IDEs based on libSwiftPM).
     ///
     /// The capability determines what kind of build commands it can add. Besides
     /// determining at what point in the build those commands run, the capability
-    /// determines the context that is available to the plugin and the kinds of
+    /// determines the context that is available to the plug-in and the kinds of
     /// commands it can create.
     ///
     /// In the initial version of this proposal, three capabilities are provided:
-    /// prebuild, build tool, and postbuild. See the declaration of each capability
-    /// under ``PluginCapability-swift.enum`` for more information.
+    /// prebuild, build tool, and postbuild. For more information, see the declaration of each capability
+    /// under ``PluginCapability-swift.enum``.
     ///
-    /// The package plugin itself is implemented using a Swift script that is
+    /// The package plug-in itself is implemented using a Swift script that is
     /// invoked for each target that uses it. The script is invoked after the
     /// package graph has been resolved, but before the build system creates its
-    /// dependency graph. It is also invoked after changes to the target or the
+    /// dependency graph. It's also invoked after changes to the target or the
     /// build parameters.
     ///
-    /// Note that the role of the package plugin is only to define the commands
-    /// that will run before, during, or after the build. It does not itself run
-    /// those commands. The commands are defined in an IDE-neutral way, and are
+    /// Note that the role of the package plug-in is only to define the commands
+    /// that run before, during, or after the build. It doesn't run
+    /// those commands itself. The commands are defined in an IDE-neutral way, and are
     /// run as appropriate by the build system that builds the package. The extension
     /// itself is only a procedural way of generating commands and their input
     /// and output dependencies.
     ///
-    /// The package plugin may specify the executable targets or binary targets
-    /// that provide the build tools that will be used by the generated commands
+    /// The package plug-in may specify the executable or binary targets
+    /// that provide the build tools used by the generated commands
     /// during the build. In the initial implementation, prebuild actions can only
-    /// depend on binary targets. Build tool and postbuild plugins can depend
+    /// depend on binary targets. Build tool and postbuild plug-ins can depend
     /// on executables as well as binary targets. This is due to how
     /// Swift Package Manager constructs its build plan.
     ///
     /// - Parameters:
-    ///   - name: The name of the plugin target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
-    ///   - capability: The type of capability the plugin target provides.
-    ///   - dependencies: The plugin target's dependencies.
-    ///   - path: The path of the plugin target, relative to the package root.
-    ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
-    ///   - sources: The source files in the plugin target.
+    ///   - name: The name of the plug-in target.
+    ///   - capability: The type of capability the plug-in target provides.
+    ///   - dependencies: The plug-in target's dependencies.
+    ///   - path: The path of the plug-in target relative to the package root.
+    ///   - exclude: The paths to source and resource files that you want to exclude from the plug-in target.
+    ///   - sources: The source files in the plug-in target.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
     /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 999.0)
     public static func plugin(
         name: String,
-        group: TargetGroup = .package,
         capability: PluginCapability,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil
+        sources: [String]? = nil,
+        packageAccess: Bool = true
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
             type: .plugin,
+            packageAccess: packageAccess,
             pluginCapability: capability)
     }
 }
@@ -1412,40 +1402,40 @@ public struct TargetDependencyCondition {
 
 extension Target.PluginCapability {
     
-    /// Specifies that the plugin provides a build tool capability.
+    /// The plug-in is a build tool.
     ///
-    /// The plugin will be applied to each target that uses it and should create commands
-    /// that will run before or during the build of the target.
+    /// The plug-in to apply to each target that uses it, and creates commands
+    /// that run before or during the build of the target.
     ///
-    ///  - Returns: A plugin capability that defines a build tool.
+    ///  - Returns: A plug-in capability that defines a build tool.
     @available(_PackageDescription, introduced: 5.5)
     public static func buildTool() -> Target.PluginCapability {
         return .buildTool
     }
 }
 
-/// The intended use case of the command plugin.
+/// The intended use case of the command plug-in.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginCommandIntent {
-    /// The plugin generates documentation.
+    /// The plug-in generates documentation.
     ///
-    /// The intent of the command is to generate documentation, either by parsing the
+    /// The command used to generate documentation, either by parsing the
     /// package contents directly or by using the build system support for generating
     /// symbol graphs. Invoked by a `generate-documentation` verb to `swift package`.
     case documentationGeneration
 
-    /// The plugin formats source code.
+    /// The plug-in formats source code.
     ///
-    /// The intent of the command is to modify the source code in the package based
+    /// The command used to modify the source code in the package based
     /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
     case sourceCodeFormatting
 
-    /// A custom command plugin intent.
+    /// A custom command plug-in intent.
     ///
-    ///  Use this case when none of the predefined cases fit the role of the plugin.
+    ///  Use this case when none of the predefined cases fulfill the role of the plug-in.
     ///  - Parameters:
-    ///    - verb: The invocation verb of the plugin.
-    ///    - description: A human readable description of the plugin's role.
+    ///    - verb: The invocation verb of the plug-in.
+    ///    - description: A human readable description of the plug-in's role.
     case custom(verb: String, description: String)
 }
 
@@ -1462,7 +1452,7 @@ public extension PluginCommandIntent {
         return documentationGeneration
     }
 
-    /// The plugin formats source code.
+    /// The plug-in formats source code.
     ///
     /// The intent of the command is to modify the source code in the package based
     /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
@@ -1473,50 +1463,50 @@ public extension PluginCommandIntent {
     }
 }
 
-/// The type of permission a plugin requires.
+/// The type of permission a plug-in requires.
 ///
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginPermission {
     /// Create a permission to make network connections.
     ///
-    /// The command plugin wants permission to make network connections. The `reason` string is shown
-    /// to the user at the time of request for approval, explaining why the plugin is requesting this access.
+    /// The command plug-in requires permission to make network connections. The `reason` string is shown
+    /// to the user at the time of request for approval, explaining why the plug-in is requesting access.
     ///   - Parameter scope: The scope of the permission.
-    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
+    ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
     @available(_PackageDescription, introduced: 5.9)
     case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
 
     /// Create a permission to modify files in the package's directory.
     ///
-    /// The command plugin wants permission to modify the files under the package
+    /// The command plug-in requires permission to modify the files under the package
     /// directory. The `reason` string is shown to the user at the time of request
-    /// for approval, explaining why the plugin is requesting this access.
-    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
+    /// for approval, explaining why the plug-in requests access.
+    ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
     case writeToPackageDirectory(reason: String)
 }
 
-/// The scope of a network permission. This can be none, local connections only or all connections.
+/// The scope of a network permission. This can be none, local connections only, or all connections.
 @available(_PackageDescription, introduced: 5.9)
 public enum PluginNetworkPermissionScope {
     /// Do not allow network access.
     case none
-    /// Allow local network connections, can be limited to a list of allowed ports.
-    case local(ports: [UInt8] = [])
-    /// Allow local and outgoing network connections, can be limited to a list of allowed ports.
-    case all(ports: [UInt8] = [])
-    /// Allow connections to Docker through unix domain sockets.
+    /// Allow local network connections; can be limited to a list of allowed ports.
+    case local(ports: [Int] = [])
+    /// Allow local and outgoing network connections; can be limited to a list of allowed ports.
+    case all(ports: [Int] = [])
+    /// Allow connections to Docker through UNIX domain sockets.
     case docker
-    /// Allow connections to any unix domain socket.
+    /// Allow connections to any UNIX domain socket.
     case unixDomainSocket
 
-    /// Allow local and outgoing network connections,  limited to a range of allowed ports.
-    public static func all(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
+    /// Allow local and outgoing network connections, limited to a range of allowed ports.
+    public static func all(ports: Range<Int>) -> PluginNetworkPermissionScope {
         return .all(ports: Array(ports))
     }
 
-    /// Allow local network connections,  limited to a range of allowed ports.
-    public static func local(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
+    /// Allow local network connections, limited to a range of allowed ports.
+    public static func local(ports: Range<Int>) -> PluginNetworkPermissionScope {
         return .local(ports: Array(ports))
     }
 }
@@ -1558,3 +1548,4 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
+

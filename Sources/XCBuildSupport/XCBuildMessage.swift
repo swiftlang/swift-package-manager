@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
-import TSCBasic
 
 /// Represents a message output by xcbuild.
 public enum XCBuildMessage {

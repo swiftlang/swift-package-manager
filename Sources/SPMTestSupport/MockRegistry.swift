@@ -18,7 +18,8 @@ import PackageLoading
 import PackageModel
 import PackageRegistry
 import PackageSigning
-import TSCBasic
+
+import protocol TSCBasic.HashAlgorithm
 
 import struct TSCUtility.Version
 

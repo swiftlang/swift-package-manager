@@ -15,8 +15,6 @@ import Basics
 import CoreCommands
 import PackageModel
 
-import struct TSCBasic.AbsolutePath
-
 struct ResetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "reset",

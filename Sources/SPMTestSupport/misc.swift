@@ -20,13 +20,30 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
+import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
 
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+
 import enum TSCUtility.Git
 
-@_exported import TSCTestSupport
+@_exported import func TSCTestSupport.systemQuietly
+@_exported import enum TSCTestSupport.StringPattern
+
+public func testWithTemporaryDirectory(
+    function: StaticString = #function,
+    body: (AbsolutePath) throws -> Void
+) throws {
+    let body2 = { (path: TSCAbsolutePath) in
+        try body(AbsolutePath(path))
+    }
+    try TSCTestSupport.testWithTemporaryDirectory(
+        function: function,
+        body: body2
+    )
+}
 
 /// Test-helper function that runs a block of code on a copy of a test fixture
 /// package.  The copy is made into a temporary directory, and the block is
@@ -43,7 +60,7 @@ public func fixture(
 ) throws {
     do {
         // Make a suitable test directory name from the fixture subpath.
-        let fixtureSubpath = RelativePath(name)
+        let fixtureSubpath = try RelativePath(validating: name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
@@ -57,7 +74,7 @@ public func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(path: #file))
+            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
                 .appending(fixtureSubpath)
 
             // Check that the fixture is really there.
@@ -98,7 +115,7 @@ public func fixture(
                 try body(tmpDirPath)
             }
         }
-    } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
         print("**** FAILURE EXECUTING SUBPROCESS ****")
         print("output:", output)
         print("stderr:", stderr)
@@ -144,7 +161,7 @@ public func initGitRepo(
         }
         try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
     } catch {
-        XCTFail("\(error)", file: file, line: line)
+        XCTFail("\(error.interpolationDescription)", file: file, line: line)
     }
 }
 
@@ -159,7 +176,7 @@ public func executeSwiftBuild(
     env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -175,7 +192,7 @@ public func executeSwiftRun(
 ) throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
-    return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -189,7 +206,7 @@ public func executeSwiftPackage(
     env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
 @discardableResult
@@ -203,7 +220,7 @@ public func executeSwiftTest(
     env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-    return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath, env: env)
+    return try SwiftPM.Test.execute(args, packagePath: packagePath, env: env)
 }
 
 private func swiftArgs(
@@ -270,33 +287,15 @@ public func loadPackageGraph(
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
-extension AbsolutePath: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
-        try! self.init(validating: value)
+extension FileSystem {
+    @_disfavoredOverload
+    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
+        self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
     }
-}
 
-extension AbsolutePath: ExpressibleByStringInterpolation {
-    public init(stringLiteral value: String) {
-        try! self.init(validating: value)
-    }
-}
-
-extension AbsolutePath {
-    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
-        try! self.init(validating: path, relativeTo: basePath)
-    }
-}
-
-extension RelativePath: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
-        try! self.init(validating: value)
-    }
-}
-
-extension RelativePath: ExpressibleByStringInterpolation {
-    public init(stringLiteral value: String) {
-        try! self.init(validating: value)
+    @_disfavoredOverload
+    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+        self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
     }
 }
 
@@ -323,5 +322,45 @@ extension PackageIdentity: ExpressibleByStringInterpolation {
 extension PackageIdentity {
     public static func registry(_ value: String) -> RegistryIdentity {
         Self.plain(value).registry!
+    }
+}
+
+extension AbsolutePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension AbsolutePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
+    }
+}
+
+extension AbsolutePath {
+    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
+        try! self.init(validating: path, relativeTo: basePath)
+    }
+}
+
+extension RelativePath {
+    @available(*, deprecated, message: "use direct string instead")
+    public init(static path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+}
+
+extension RelativePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension RelativePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
     }
 }

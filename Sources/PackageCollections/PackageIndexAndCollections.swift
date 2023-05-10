@@ -14,7 +14,8 @@ import Basics
 import Dispatch
 import struct Foundation.URL
 import PackageModel
-import TSCBasic
+
+import protocol TSCBasic.Closable
 
 public struct PackageIndexAndCollections: Closable {
     private let index: PackageIndexProtocol

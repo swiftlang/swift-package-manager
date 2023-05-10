@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import TSCBasic
 
 import Basics
 
@@ -35,7 +34,7 @@ class TemporaryAsyncFileTests: XCTestCase {
             // Do some async task
             try await Task.sleep(nanoseconds: 1_000)
             
-            try localFileSystem.writeFileContents(filePath, bytes: ByteString())
+            try localFileSystem.writeFileContents(filePath, bytes: [])
             return tempDirPath
         }.value
         XCTAssertTrue(localFileSystem.isDirectory(path2))
@@ -50,7 +49,7 @@ class TemporaryAsyncFileTests: XCTestCase {
             // Do some async task
             try await Task.sleep(nanoseconds: 1_000)
             
-            try localFileSystem.writeFileContents(filePath, bytes: ByteString())
+            try localFileSystem.writeFileContents(filePath, bytes: [])
             return tempDirPath
         }.value
         XCTAssertFalse(localFileSystem.isDirectory(path3))

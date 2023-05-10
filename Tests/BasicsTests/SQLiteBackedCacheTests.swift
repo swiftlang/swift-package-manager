@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import tsan_utils
 import XCTest
 
@@ -122,7 +121,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
             try cache.close()
 
             XCTAssertTrue(cache.fileSystem.exists(cachePath), "expected file to exist at \(path)")
-            try cache.fileSystem.writeFileContents(cachePath, bytes: ByteString("blah".utf8))
+            try cache.fileSystem.writeFileContents(cachePath, string: "blah")
 
             XCTAssertThrowsError(try cache.get(key: mockData.first!.key), "expected error") { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
