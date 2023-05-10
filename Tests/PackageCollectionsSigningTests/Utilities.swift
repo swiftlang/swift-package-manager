@@ -56,17 +56,16 @@ struct TestCertificatePolicy: CertificatePolicy {
         validationTime: Date,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        var policies = [VerifierPolicy]()
-        // Must be a code signing certificate
-        policies.append(_CodeSigningPolicy())
-        // Basic validations including expiry check
-        policies.append(RFC5280Policy(validationTime: validationTime))
-        // Doesn't require OCSP
-
         self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
-            policies: policies,
+            policies: {
+                // Must be a code signing certificate
+                _CodeSigningPolicy()
+                // Basic validations including expiry check
+                RFC5280Policy(validationTime: validationTime)
+                // Doesn't require OCSP
+            },
             observabilityScope: ObservabilitySystem.NOOP,
             callbackQueue: callbackQueue,
             callback: callback

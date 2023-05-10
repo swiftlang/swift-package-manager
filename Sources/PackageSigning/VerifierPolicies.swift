@@ -20,56 +20,49 @@ import Basics
 @_implementationOnly @_spi(DisableValidityCheck) import X509
 
 extension SignatureProviderProtocol {
-    func buildPolicySet(configuration: VerifierConfiguration, httpClient: HTTPClient) -> PolicySet {
-        var policies: [VerifierPolicy] = [
-            _CodeSigningPolicy(),
-            _ADPCertificatePolicy(),
-        ]
-
+    @PolicyBuilder
+    func buildPolicySet(configuration: VerifierConfiguration, httpClient: HTTPClient) -> some VerifierPolicy {
+        _CodeSigningPolicy()
+        _ADPCertificatePolicy()
+        
         let now = Date()
         switch (configuration.certificateExpiration, configuration.certificateRevocation) {
         case (.enabled(let expiryValidationTime), .strict(let revocationValidationTime)):
-            policies.append(RFC5280Policy(validationTime: expiryValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .hard,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
+            RFC5280Policy(validationTime: expiryValidationTime ?? now)
+            _OCSPVerifierPolicy(
+                failureMode: .hard,
+                httpClient: httpClient,
+                validationTime: revocationValidationTime ?? now
+            )
         case (.enabled(let expiryValidationTime), .allowSoftFail(let revocationValidationTime)):
-            policies.append(RFC5280Policy(validationTime: expiryValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .soft,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
+            RFC5280Policy(validationTime: expiryValidationTime ?? now)
+            _OCSPVerifierPolicy(
+                failureMode: .soft,
+                httpClient: httpClient,
+                validationTime: revocationValidationTime ?? now
+            )
         case (.enabled(let expiryValidationTime), .disabled):
-            policies.append(RFC5280Policy(validationTime: expiryValidationTime ?? now))
+            RFC5280Policy(validationTime: expiryValidationTime ?? now)
         case (.disabled, .strict(let revocationValidationTime)):
             // Always do expiry check (and before) if revocation check is enabled
-            policies.append(RFC5280Policy(validationTime: revocationValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .hard,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
+            RFC5280Policy(validationTime: revocationValidationTime ?? now)
+            _OCSPVerifierPolicy(
+                failureMode: .hard,
+                httpClient: httpClient,
+                validationTime: revocationValidationTime ?? now
+            )
         case (.disabled, .allowSoftFail(let revocationValidationTime)):
             // Always do expiry check (and before) if revocation check is enabled
-            policies.append(RFC5280Policy(validationTime: revocationValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .soft,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
+            RFC5280Policy(validationTime: revocationValidationTime ?? now)
+            _OCSPVerifierPolicy(
+                failureMode: .soft,
+                httpClient: httpClient,
+                validationTime: revocationValidationTime ?? now
+            )
         case (.disabled, .disabled):
             // We should still do basic certificate validations even if expiry check is disabled
-            policies.append(RFC5280Policy.withValidityCheckDisabled())
+            RFC5280Policy.withValidityCheckDisabled()
         }
-
-        return PolicySet(policies: policies)
     }
 }
 

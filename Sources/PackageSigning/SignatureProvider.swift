@@ -280,9 +280,11 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
                 // the WWDR roots are in the trust store or not, which by default
                 // they are but user may disable that through configuration.
                 additionalIntermediateCertificates: Certificates.wwdrIntermediates,
-                trustRoots: CertificateStore(trustRoots),
-                policy: self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
-            )
+                trustRoots: CertificateStore(trustRoots)
+            ) {
+                self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
+            }
+            
 
             switch result {
             case .success(let valid):
@@ -341,9 +343,9 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
                 // For self-signed certificate, the signature should include intermediate(s).
                 untrustedIntermediates.append(contentsOf: cmsSignature.certificates)
 
-                let policySet = self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
-
-                var verifier = Verifier(rootCertificates: CertificateStore(trustRoots), policy: policySet)
+                var verifier = Verifier(rootCertificates: CertificateStore(trustRoots)) {
+                    self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
+                }
                 let result = await verifier.validate(
                     leafCertificate: signingCertificate,
                     intermediates: CertificateStore(untrustedIntermediates)
