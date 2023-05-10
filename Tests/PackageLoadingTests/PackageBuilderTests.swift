@@ -1440,8 +1440,14 @@ class PackageBuilderTests: XCTestCase {
                     try TargetDescription(name: "Random", type: .system),
                 ]
             )
+            let map = "/\(predefinedSourceDir)/module.modulemap"
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '/\(predefinedSourceDir)/module.modulemap'", severity: .error)
+#if _runtime(_ObjC)
+                diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '\(map)'", severity: .error)
+#else
+                // FIXME: there is a memory leak here
+                diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '\(String(cString: map.fileSystemRepresentation))'", severity: .error)
+#endif
             }
         }
         do {
