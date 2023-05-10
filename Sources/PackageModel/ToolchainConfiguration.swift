@@ -88,7 +88,7 @@ extension ToolchainConfiguration {
             } else if let manifestLibraryMinimumDeploymentTarget = try? MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: Self.macOSManifestLibraryPath(for: manifestLibraryPath), platform: .macOS) {
                 self.manifestLibraryMinimumDeploymentTarget = manifestLibraryMinimumDeploymentTarget
             } else {
-                self.manifestLibraryMinimumDeploymentTarget = Self.defaultMinimumDeploymentTarget
+                self.manifestLibraryMinimumDeploymentTarget = nil
             }
 
             if let pluginLibraryMinimumDeploymentTarget = pluginLibraryMinimumDeploymentTarget {
@@ -96,7 +96,7 @@ extension ToolchainConfiguration {
             } else if let pluginLibraryMinimumDeploymentTarget = try? MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: Self.macOSPluginLibraryPath(for: pluginLibraryPath), platform: .macOS) {
                 self.pluginLibraryMinimumDeploymentTarget = pluginLibraryMinimumDeploymentTarget
             } else {
-                self.pluginLibraryMinimumDeploymentTarget = Self.defaultMinimumDeploymentTarget
+                self.pluginLibraryMinimumDeploymentTarget = nil
             }
             #else
             precondition(manifestLibraryMinimumDeploymentTarget == nil && pluginLibraryMinimumDeploymentTarget == nil, "deployment targets can only be specified on macOS")
@@ -123,10 +123,8 @@ extension ToolchainConfiguration {
         }
 
 #if os(macOS)
-        private static let defaultMinimumDeploymentTarget = PlatformVersion("10.15")
-
-        public var manifestLibraryMinimumDeploymentTarget: PlatformVersion
-        public var pluginLibraryMinimumDeploymentTarget: PlatformVersion
+        public var manifestLibraryMinimumDeploymentTarget: PlatformVersion?
+        public var pluginLibraryMinimumDeploymentTarget: PlatformVersion?
 
         private static func macOSManifestLibraryPath(for manifestAPI: AbsolutePath) -> AbsolutePath {
             if manifestAPI.extension == "framework" {
