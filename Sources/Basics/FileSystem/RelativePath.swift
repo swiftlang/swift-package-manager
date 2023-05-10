@@ -86,7 +86,7 @@ public struct RelativePath: Hashable, Sendable {
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var pathString: String {
-        self.underlying.string
+        self.underlying.pathString
     }
 }
 
@@ -152,7 +152,7 @@ extension RelativePath {
 // using underlying string representation for backward compatibility
 extension RelativePath: Codable {
     public func encode(to encoder: Encoder) throws {
-        try self.underlying.string.encode(to: encoder)
+        try self.underlying.pathString.encode(to: encoder)
     }
 
     public init(from decoder: Decoder) throws {
@@ -174,7 +174,7 @@ extension RelativePath: CustomStringConvertible {
 
 extension TSCRelativePath {
     public init(_ path: FilePath) {
-        self = .init(path.string)
+        self = .init(path.pathString)
     }
 
     public init(_ path: RelativePath) {

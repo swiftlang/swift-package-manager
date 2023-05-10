@@ -138,7 +138,7 @@ public struct AbsolutePath: Hashable, Sendable {
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var pathString: String {
-        self.underlying.string
+        self.underlying.pathString
     }
 }
 
@@ -339,7 +339,7 @@ extension AbsolutePath {
 // using underlying string representation for backward compatibility
 extension AbsolutePath: Codable {
     public func encode(to encoder: Encoder) throws {
-        try self.underlying.string.encode(to: encoder)
+        try self.underlying.pathString.encode(to: encoder)
     }
 
     public init(from decoder: Decoder) throws {
@@ -351,7 +351,7 @@ extension AbsolutePath: Codable {
 // Make absolute paths Comparable.
 extension AbsolutePath: Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        lhs.underlying.string < rhs.underlying.string
+        lhs.underlying.pathString < rhs.underlying.pathString
     }
 }
 
@@ -399,53 +399,9 @@ extension AbsolutePath {
     }
 }
 
-extension FilePath {
-    /// Directory component.  An absolute path always has a non-empty directory
-    /// component (the directory component of the root path is the root itself).
-    var dirname: String {
-        self.removingLastComponent().string
-    }
-
-    /// Last path component (including the suffix, if any).  it is never empty.
-    var basename: String {
-        self.lastComponent?.string ?? self.root?.string ?? "."
-    }
-
-    /// Returns the basename without the extension.
-    var basenameWithoutExt: String {
-        self.lastComponent?.stem ?? self.root?.string ?? "."
-    }
-
-    /// Suffix (including leading `.` character) if any.  Note that a basename
-    /// that starts with a `.` character is not considered a suffix, nor is a
-    /// trailing `.` character.
-    var suffix: String? {
-        if let ext = self.extension {
-            return "." + ext
-        } else {
-            return .none
-        }
-    }
-
-    /// Absolute path of parent directory.  This always returns a path, because
-    /// every directory has a parent (the parent directory of the root directory
-    /// is considered to be the root directory itself).
-    var parentDirectory: Self {
-        self.removingLastComponent()
-    }
-
-    func appending(_ components: [String]) -> Self {
-        self.appending(components.filter{ !$0.isEmpty }.map(FilePath.Component.init))
-    }
-
-    var componentsAsString: [String] {
-        self.components.map{ $0.string }
-    }
-}
-
 extension TSCAbsolutePath {
     public init(_ path: FilePath) {
-        self = .init(path.string)
+        self = .init(path.pathString)
     }
 
     public init(_ path: AbsolutePath) {
