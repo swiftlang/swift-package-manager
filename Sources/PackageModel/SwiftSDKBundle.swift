@@ -12,9 +12,6 @@
 
 import Basics
 
-import class TSCBasic.Process
-import func TSCBasic.tsc_await
-import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct Foundation.URL
 import struct TSCBasic.RegEx
@@ -249,6 +246,13 @@ public struct SwiftSDKBundle {
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
     ) throws {
+        #if os(macOS)
+        // Check the quarantine attribute on bundles downloaded manually in the browser.
+        guard fileSystem.hasAttribute(.quarantine, bundlePath.underlying) else {
+            throw DestinationError.quarantineAttributePresent(bundlePath: bundlePath)
+        }
+        #endif
+
         let unpackedBundlePath = try unpackIfNeeded(
             bundlePath: bundlePath,
             destinationsDirectory: destinationsDirectory,
@@ -292,20 +296,6 @@ public struct SwiftSDKBundle {
         }
 
         try fileSystem.copy(from: unpackedBundlePath, to: installedBundlePath)
-
-        #if os(macOS)
-        // Remove the quarantine attribute from bundles downloaded manually in the browser.
-        let result = try Process.popen(
-            arguments: ["xattr", "-d", "-r", "-s", "com.apple.quarantine", installedBundlePath.pathString]
-        )
-
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw DestinationError.failedToRemoveQuarantineBit(
-                bundlePath: installedBundlePath,
-                xattrExitStatus: result.exitStatus
-            )
-        }
-        #endif
     }
 
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing

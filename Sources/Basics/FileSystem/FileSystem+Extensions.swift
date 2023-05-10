@@ -19,6 +19,7 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.FileInfo
 import class TSCBasic.FileLock
 import enum TSCBasic.FileMode
+import enum TSCBasic.FileSystemAttribute
 import protocol TSCBasic.FileSystem
 import var TSCBasic.localFileSystem
 import protocol TSCBasic.WritableByteStream
@@ -71,8 +72,8 @@ extension FileSystem {
 
     /// Returns `true` if a given path has a quarantine attribute applied if when file system supports this attribute.
     /// Returns `false` if such attribute is not applied or it isn't supported.
-    public func hasQuarantineAttribute(_ path: AbsolutePath) -> Bool {
-        self.hasQuarantineAttribute(path.underlying)
+    public func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool {
+        self.hasAttribute(name, path.underlying)
     }
 
     /// Get the contents of the given directory, in an undefined order.
