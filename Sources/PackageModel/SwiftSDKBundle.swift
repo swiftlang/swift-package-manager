@@ -12,9 +12,9 @@
 
 import Basics
 
-import protocol TSCBasic.FileSystem
 import struct Foundation.URL
 import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
 
 /// Represents an `.artifactbundle` on the filesystem that contains a Swift SDK.
@@ -123,7 +123,7 @@ public struct SwiftSDKBundle {
 
         return selectedDestination
     }
-    
+
     /// Installs a destination bundle from a given path or URL to a destinations installation directory.
     /// - Parameters:
     ///   - bundlePathOrURL: A string passed on the command line, which is either an absolute or relative to a current
@@ -369,7 +369,8 @@ extension ArtifactsArchiveMetadata {
 
                 do {
                     let destinations = try Destination.decode(
-                        fromFile: variantConfigurationPath, fileSystem: fileSystem, observabilityScope: observabilityScope
+                        fromFile: variantConfigurationPath, fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
                     )
 
                     variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
@@ -389,7 +390,7 @@ extension ArtifactsArchiveMetadata {
     }
 }
 
-extension Array where Element == SwiftSDKBundle {
+extension [SwiftSDKBundle] {
     /// Select a destination with a given artifact ID from a `self` array of available destinations.
     /// - Parameters:
     ///   - id: artifact ID of the destination to look up.
