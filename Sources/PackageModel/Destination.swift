@@ -52,8 +52,8 @@ public enum DestinationError: Swift.Error {
     case destinationArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
 
     #if os(macOS)
-    /// Quarantine attribute could not be removed by `xattr` command from an installed bundle.
-    case failedToRemoveQuarantineBit(bundlePath: AbsolutePath, xattrExitStatus: ProcessResult.ExitStatus)
+    /// Quarantine attribute should be removed by the `xattr` command from an installed bundle.
+    case quarantineAttributePresent(bundlePath: AbsolutePath)
     #endif
 }
 
@@ -97,19 +97,14 @@ extension DestinationError: CustomStringConvertible {
             are expected to be unique across all installed Swift SDK bundles.
             """
         #if os(macOS)
-        case .failedToRemoveQuarantineBit(let bundlePath, let xattrExitStatus):
-            let exitStatusDescription: String
-
-            switch xattrExitStatus {
-            case .signalled(let signal):
-                exitStatusDescription = "the command received a signal with code \(signal)"
-            case .terminated(let code):
-                exitStatusDescription = "the command terminated with exit code \(code)"
-            }
-
+        case .quarantineAttributePresent(let bundlePath):
             return """
-            Failed to remove quarantine attribute with `xattr` command from a bundle installed at path \
-            `\(bundlePath)`, \(exitStatusDescription).
+            Quarantine attribute is present on a Swift SDK bundle at path `\(bundlePath)`. If you're certain that the \
+            bundle was downloaded from a trusted source, you can remove the attribute with this command:
+
+            xattr -d -r -s com.apple.quarantine "\(bundlePath)"
+
+            and try to install this bundle again.
             """
         #endif
         }
