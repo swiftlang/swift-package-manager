@@ -318,6 +318,10 @@ extension Triple {
     }
 }
 
+extension Triple: CustomStringConvertible {
+    public var description: String { tripleString }
+}
+
 extension Triple.Error: CustomNSError {
     public var errorUserInfo: [String: Any] {
         [NSLocalizedDescriptionKey: "\(self)"]
