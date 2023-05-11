@@ -10,13 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageLoading
 import PackageModel
 import TSCBasic
 
-import struct Basics.InternalError
 import class PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
+import struct SPMBuildCore.BuildToolPluginInvocationResult
+import struct SPMBuildCore.PrebuildCommandResult
 
 /// Target description for a Clang target i.e. C language family target.
 public final class ClangTargetBuildDescription {
@@ -41,9 +43,22 @@ public final class ClangTargetBuildDescription {
         buildParameters.buildEnvironment
     }
 
+    /// The list of all resource files in the target, including the derived ones.
+    public var resources: [Resource] {
+        self.target.underlyingTarget.resources + self.pluginDerivedResources
+    }
+
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        target.underlyingTarget.bundleName.map(buildParameters.bundlePath(named:))
+        guard !resources.isEmpty else {
+            return .none
+        }
+
+        if let bundleName = target.underlyingTarget.potentialBundleName {
+            return self.buildParameters.bundlePath(named: bundleName)
+        } else {
+            return .none
+        }
     }
 
     /// The modulemap file for this target, if any.
@@ -56,6 +71,12 @@ public final class ClangTargetBuildDescription {
     ///
     /// These are the source files generated during the build.
     private var derivedSources: Sources
+
+    /// These are the source files derived from plugins.
+    private var pluginDerivedSources: Sources
+
+    /// These are the resource files derived from plugins.
+    private var pluginDerivedResources: [Resource]
 
     /// Path to the resource accessor header file, if generated.
     public private(set) var resourceAccessorHeaderFile: AbsolutePath?
@@ -84,12 +105,19 @@ public final class ClangTargetBuildDescription {
         target.type == .test
     }
 
+    /// The results of applying any build tool plugins to this target.
+    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
+        additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
-        fileSystem: FileSystem
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
+        prebuildCommandResults: [PrebuildCommandResult] = [],
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws {
         guard target.underlyingTarget is ClangTarget else {
             throw InternalError("underlying target type mismatch \(target)")
@@ -101,6 +129,25 @@ public final class ClangTargetBuildDescription {
         self.buildParameters = buildParameters
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
+
+        // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.
+        if toolsVersion >= .v5_9 {
+            self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
+
+            (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+                target: target,
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                buildParameters: buildParameters,
+                buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+                prebuildCommandResults: prebuildCommandResults,
+                observabilityScope: observabilityScope
+            )
+        } else {
+            self.buildToolPluginInvocationResults = []
+            self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
+            self.pluginDerivedResources = []
+        }
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
         if target.type == .library {
@@ -141,6 +188,7 @@ public final class ClangTargetBuildDescription {
         let sources = [
             target.sources.root: target.sources.relativePaths,
             derivedSources.root: derivedSources.relativePaths,
+            pluginDerivedSources.root: pluginDerivedSources.relativePaths
         ]
 
         return try sources.flatMap { root, relativePaths in
