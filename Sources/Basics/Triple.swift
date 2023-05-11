@@ -18,7 +18,7 @@ import class TSCBasic.Process
 
 /// Triple - Helper class for working with Destination.target values
 ///
-/// Used for parsing values such as x86_64-apple-macosx10.10 into
+/// Used for parsing values such as `x86_64-apple-macosx10.10` into
 /// set of enums. For os/arch/abi based conditions in build plan.
 ///
 /// @see Destination.target
