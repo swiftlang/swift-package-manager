@@ -52,6 +52,11 @@ public enum DestinationError: Swift.Error {
     /// A destination with this artifact ID is already installed. Can't install a new bundle with this artifact,
     /// installed artifact IDs are expected to be unique.
     case destinationArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
+
+    #if os(macOS)
+    /// Quarantine attribute should be removed by the `xattr` command from an installed bundle.
+    case quarantineAttributePresent(bundlePath: AbsolutePath)
+    #endif
 }
 
 extension DestinationError: CustomStringConvertible {
@@ -93,6 +98,17 @@ extension DestinationError: CustomStringConvertible {
             `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
             are expected to be unique across all installed Swift SDK bundles.
             """
+        #if os(macOS)
+        case .quarantineAttributePresent(let bundlePath):
+            return """
+            Quarantine attribute is present on a Swift SDK bundle at path `\(bundlePath)`. If you're certain that the \
+            bundle was downloaded from a trusted source, you can remove the attribute with this command:
+
+            xattr -d -r -s com.apple.quarantine "\(bundlePath)"
+
+            and try to install this bundle again.
+            """
+        #endif
         }
     }
 }
