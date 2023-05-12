@@ -47,7 +47,7 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
         cancellator.installSignalHandlers()
         try SwiftSDKBundle.install(
             bundlePathOrURL: bundlePathOrURL,
-            destinationsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: destinationsDirectory,
             self.fileSystem,
             UniversalArchiver(self.fileSystem, cancellator),
             observabilityScope
