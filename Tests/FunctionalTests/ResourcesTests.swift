@@ -10,10 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import XCTest
 import SPMTestSupport
 
-import TSCBasic
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
+import func TSCBasic.withTemporaryDirectory
 
 class ResourcesTests: XCTestCase {
     func testSimpleResources() throws {
@@ -103,6 +106,7 @@ class ResourcesTests: XCTestCase {
     func testFoundationlessClient() throws {
         try fixture(name: "Resources/FoundationlessClient") { fixturePath in
             #if os(Linux) && swift(>=5.8)
+            try XCTSkipIf(!SwiftVersion.current.isDevelopment, "test needs tools-version 999.0")
             let pkgPath = fixturePath.appending(components: "AppPkg")
             guard let failure = XCTAssertBuildFails(pkgPath) else {
                 XCTFail("missing expected command execution error")
