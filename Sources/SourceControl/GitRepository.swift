@@ -14,18 +14,18 @@ import Basics
 import Dispatch
 import class Foundation.NSLock
 
-import class TSCBasic.Process
 import struct TSCBasic.ByteString
-import enum TSCBasic.FileMode
-import struct TSCBasic.FileInfo
-import struct TSCBasic.ProcessResult
 import protocol TSCBasic.DiagnosticLocation
-import struct TSCBasic.RegEx
-import enum TSCBasic.ProcessEnv
+import struct TSCBasic.FileInfo
+import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.RegEx
 
-import enum TSCUtility.Git
 import protocol TSCUtility.DiagnosticLocationProviding
+import enum TSCUtility.Git
 
 // MARK: - GitShellHelper
 
@@ -40,8 +40,16 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
-        let process = TSCBasic.Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
+    func run(
+        _ args: [String],
+        environment: EnvironmentVariables = Git.environment,
+        outputRedirection: TSCBasic.Process.OutputRedirection = .collect
+    ) throws -> String {
+        let process = TSCBasic.Process(
+            arguments: [Git.tool] + args,
+            environment: environment,
+            outputRedirection: outputRedirection
+        )
         let result: ProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
@@ -58,11 +66,13 @@ private struct GitShellHelper {
             throw error
         } catch {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
-            let result = ProcessResult(arguments: process.arguments,
-                                       environment: process.environment,
-                                       exitStatus: .terminated(code: -1),
-                                       output: .failure(error),
-                                       stderrOutput: .failure(error))
+            let result = ProcessResult(
+                arguments: process.arguments,
+                environment: process.environment,
+                exitStatus: .terminated(code: -1),
+                output: .failure(error),
+                stderrOutput: .failure(error)
+            )
             throw GitShellError(result: result)
         }
     }
@@ -83,27 +93,38 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     @discardableResult
-    private func callGit(_ args: String...,
-                         environment: EnvironmentVariables = Git.environment,
-                         repository: RepositorySpecifier,
-                         failureMessage: String = "",
-                         progress: FetchProgress.Handler? = nil) throws -> String {
+    private func callGit(
+        _ args: String...,
+        environment: EnvironmentVariables = Git.environment,
+        repository: RepositorySpecifier,
+        failureMessage: String = "",
+        progress: FetchProgress.Handler? = nil
+    ) throws -> String {
         if let progress {
             var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
-                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
+                // handler. We count on it being line-buffered.
                 let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
                     gitFetchStatusFilter($0, progress: progress)
                 })
-                return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputHandler)
-            }
-            catch let error as GitShellError {
-                let result = ProcessResult(arguments: error.result.arguments, environment: error.result.environment, exitStatus: error.result.exitStatus, output: .success(stdoutBytes), stderrOutput: .success(stderrBytes))
+                return try self.git.run(
+                    args + ["--progress"],
+                    environment: environment,
+                    outputRedirection: outputHandler
+                )
+            } catch let error as GitShellError {
+                let result = ProcessResult(
+                    arguments: error.result.arguments,
+                    environment: error.result.environment,
+                    exitStatus: error.result.exitStatus,
+                    output: .success(stdoutBytes),
+                    stderrOutput: .success(stderrBytes)
+                )
                 throw GitCloneError(repository: repository, message: failureMessage, result: result)
             }
-        }
-        else {
+        } else {
             do {
                 return try self.git.run(args, environment: environment)
             } catch let error as GitShellError {
@@ -112,7 +133,11 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: Basics.AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
+    public func fetch(
+        repository: RepositorySpecifier,
+        to path: Basics.AbsolutePath,
+        progressHandler: FetchProgress.Handler? = nil
+    ) throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -125,13 +150,19 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
         // NOTE: Explicitly set `core.fsmonitor` on `git clone` to ensure that we do not spawn a monitor on the repository.  This is
         //       particularly important for Windows where the process can prevent future operations.
-        try self.callGit("clone",
-                         "-c", "core.symlinks=true",
-                         "-c", "core.fsmonitor=false",
-                         "--mirror", repository.location.gitURL, path.pathString,
-                         repository: repository,
-                         failureMessage: "Failed to clone repository \(repository.location)",
-                         progress: progressHandler)
+        try self.callGit(
+            "clone",
+            "-c",
+            "core.symlinks=true",
+            "-c",
+            "core.fsmonitor=false",
+            "--mirror",
+            repository.location.gitURL,
+            path.pathString,
+            repository: repository,
+            failureMessage: "Failed to clone repository \(repository.location)",
+            progress: progressHandler
+        )
     }
 
     public func repositoryExists(at directory: Basics.AbsolutePath) -> Bool {
@@ -140,7 +171,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
         return self.isValidDirectory(directory)
     }
-    
+
     public func isValidDirectory(_ directory: Basics.AbsolutePath) -> Bool {
         do {
             let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
@@ -159,13 +190,13 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             return false
         }
     }
-    
+
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
 
     public func open(repository: RepositorySpecifier, at path: Basics.AbsolutePath) -> Repository {
-        return GitRepository(git: self.git, path: path, isWorkingRepo: false)
+        GitRepository(git: self.git, path: path, isWorkingRepo: false)
     }
 
     public func createWorkingCopy(
@@ -180,9 +211,16 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // present in the bare repository.
             //
             // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-            try self.callGit("clone", "-c", "core.symlinks=true", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
-                             repository: repository,
-                             failureMessage: "Failed to clone repository \(repository.location)")
+            try self.callGit(
+                "clone",
+                "-c",
+                "core.symlinks=true",
+                "--no-checkout",
+                sourcePath.pathString,
+                destinationPath.pathString,
+                repository: repository,
+                failureMessage: "Failed to clone repository \(repository.location)"
+            )
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
@@ -202,9 +240,17 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // object storage.
             //
             // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-            try self.callGit("clone", "-c", "core.symlinks=true", "--shared", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
-                             repository: repository,
-                             failureMessage: "Failed to clone repository \(repository.location)")
+            try self.callGit(
+                "clone",
+                "-c",
+                "core.symlinks=true",
+                "--shared",
+                "--no-checkout",
+                sourcePath.pathString,
+                destinationPath.pathString,
+                repository: repository,
+                failureMessage: "Failed to clone repository \(repository.location)"
+            )
         }
         return try self.openWorkingCopy(at: destinationPath)
     }
@@ -219,7 +265,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func openWorkingCopy(at path: Basics.AbsolutePath) throws -> WorkingCheckout {
-        return GitRepository(git: self.git, path: path)
+        GitRepository(git: self.git, path: path)
     }
 
     public func cancel(deadline: DispatchTime) throws {
@@ -373,26 +419,37 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// path of the repository as the one to operate on.  The specified failure message is used only in case of error.
     /// This function waits for the invocation to finish and returns the output as a string.
     @discardableResult
-    private func callGit(_ args: String...,
-                         environment: EnvironmentVariables = Git.environment,
-                         failureMessage: String = "",
-                         progress: FetchProgress.Handler? = nil) throws -> String {
+    private func callGit(
+        _ args: String...,
+        environment: EnvironmentVariables = Git.environment,
+        failureMessage: String = "",
+        progress: FetchProgress.Handler? = nil
+    ) throws -> String {
         if let progress {
             var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
-                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
+                // handler. We count on it being line-buffered.
                 let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
                     gitFetchStatusFilter($0, progress: progress)
                 })
-                return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputHandler)
-            }
-            catch let error as GitShellError {
-                let result = ProcessResult(arguments: error.result.arguments, environment: error.result.environment, exitStatus: error.result.exitStatus, output: .success(stdoutBytes), stderrOutput: .success(stderrBytes))
+                return try self.git.run(
+                    ["-C", self.path.pathString] + args,
+                    environment: environment,
+                    outputRedirection: outputHandler
+                )
+            } catch let error as GitShellError {
+                let result = ProcessResult(
+                    arguments: error.result.arguments,
+                    environment: error.result.environment,
+                    exitStatus: error.result.exitStatus,
+                    output: .success(stdoutBytes),
+                    stderrOutput: .success(stderrBytes)
+                )
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
-        }
-        else {
+        } else {
             do {
                 return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
             } catch let error as GitShellError {
@@ -409,9 +466,13 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func setURL(remote: String, url: String) throws {
         // use barrier for write operations
         try self.lock.withLock {
-            try callGit("remote", "set-url", remote, url,
-                        failureMessage: "Couldn’t set the URL of the remote ‘\(remote)’ to ‘\(url)’")
-            return
+            try callGit(
+                "remote",
+                "set-url",
+                remote,
+                url,
+                failureMessage: "Couldn’t set the URL of the remote ‘\(remote)’ to ‘\(url)’"
+            )
         }
     }
 
@@ -419,15 +480,21 @@ public final class GitRepository: Repository, WorkingCheckout {
     ///
     /// - Returns: An array of tuple containing name and url of the remote.
     public func remotes() throws -> [(name: String, url: String)] {
-        return try self.lock.withLock {
+        try self.lock.withLock {
             // Get the remote names.
-            let remoteNamesOutput = try callGit("remote",
-                                                failureMessage: "Couldn’t get the list of remotes")
+            let remoteNamesOutput = try callGit(
+                "remote",
+                failureMessage: "Couldn’t get the list of remotes"
+            )
             let remoteNames = remoteNamesOutput.split(separator: "\n").map(String.init)
             return try remoteNames.map { name in
                 // For each remote get the url.
-                let url = try callGit("config", "--get", "remote.\(name).url",
-                                      failureMessage: "Couldn’t get the URL of the remote ‘\(name)’")
+                let url = try callGit(
+                    "config",
+                    "--get",
+                    "remote.\(name).url",
+                    failureMessage: "Couldn’t get the URL of the remote ‘\(name)’"
+                )
                 return (name, url)
             }
         }
@@ -436,7 +503,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     // MARK: Helpers for package search functionality
 
     public func getDefaultBranch() throws -> String {
-        return try callGit("rev-parse", "--abbrev-ref", "HEAD", failureMessage: "Couldn’t get the default branch")
+        try callGit("rev-parse", "--abbrev-ref", "HEAD", failureMessage: "Couldn’t get the default branch")
     }
 
     public func getBranches() throws -> [String] {
@@ -455,19 +522,22 @@ public final class GitRepository: Repository, WorkingCheckout {
         // Get the contents using `ls-tree`.
         try self.cachedTags.memoize {
             try self.lock.withLock {
-                let tagList = try callGit("tag", "-l",
-                                          failureMessage: "Couldn’t get the list of tags")
+                let tagList = try callGit(
+                    "tag",
+                    "-l",
+                    failureMessage: "Couldn’t get the list of tags"
+                )
                 return tagList.split(separator: "\n").map(String.init)
             }
         }
     }
 
     public func resolveRevision(tag: String) throws -> Revision {
-        return try Revision(identifier: self.resolveHash(treeish: tag, type: "commit").bytes.description)
+        try Revision(identifier: self.resolveHash(treeish: tag, type: "commit").bytes.description)
     }
 
     public func resolveRevision(identifier: String) throws -> Revision {
-        return try Revision(identifier: self.resolveHash(treeish: identifier, type: "commit").bytes.description)
+        try Revision(identifier: self.resolveHash(treeish: identifier, type: "commit").bytes.description)
     }
 
     public func fetch() throws {
@@ -477,8 +547,14 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func fetch(progress: FetchProgress.Handler? = nil) throws {
         // use barrier for write operations
         try self.lock.withLock {
-            try callGit("remote", "-v", "update", "-p",
-                        failureMessage: "Couldn’t fetch updates from remote repositories", progress: progress)
+            try callGit(
+                "remote",
+                "-v",
+                "update",
+                "-p",
+                failureMessage: "Couldn’t fetch updates from remote repositories",
+                progress: progress
+            )
             self.cachedTags.clear()
         }
     }
@@ -495,27 +571,36 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
-        return try GitFileSystemView(repository: self, revision: revision)
+        try GitFileSystemView(repository: self, revision: revision)
     }
 
     public func openFileView(tag: String) throws -> FileSystem {
-        return try GitFileSystemView(repository: self, tag: tag)
+        try GitFileSystemView(repository: self, tag: tag)
     }
 
     // MARK: Working Checkout Interface
 
     public func hasUnpushedCommits() throws -> Bool {
-        return try self.lock.withLock {
-            let hasOutput = try callGit("log", "--branches", "--not", "--remotes",
-                                        failureMessage: "Couldn’t check for unpushed commits").isEmpty
+        try self.lock.withLock {
+            let hasOutput = try callGit(
+                "log",
+                "--branches",
+                "--not",
+                "--remotes",
+                failureMessage: "Couldn’t check for unpushed commits"
+            ).isEmpty
             return !hasOutput
         }
     }
 
     public func getCurrentRevision() throws -> Revision {
-        return try self.lock.withLock {
-            return try Revision(identifier: callGit("rev-parse", "--verify", "HEAD",
-                                                    failureMessage: "Couldn’t get current revision"))
+        try self.lock.withLock {
+            try Revision(identifier: callGit(
+                "rev-parse",
+                "--verify",
+                "HEAD",
+                failureMessage: "Couldn’t get current revision"
+            ))
         }
     }
 
@@ -524,8 +609,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         // use barrier for write operations
         try self.lock.withLock {
-            try callGit("reset", "--hard", tag,
-                        failureMessage: "Couldn’t check out tag ‘\(tag)’")
+            try callGit(
+                "reset",
+                "--hard",
+                tag,
+                failureMessage: "Couldn’t check out tag ‘\(tag)’"
+            )
             try self.updateSubmoduleAndCleanNotOnQueue()
         }
     }
@@ -535,16 +624,23 @@ public final class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         // use barrier for write operations
         try self.lock.withLock {
-            try callGit("checkout", "-f", revision.identifier,
-                        failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’")
+            try callGit(
+                "checkout",
+                "-f",
+                revision.identifier,
+                failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"
+            )
             try self.updateSubmoduleAndCleanNotOnQueue()
         }
     }
 
     internal func isBare() throws -> Bool {
         do {
-            let output = try callGit("rev-parse", "--is-bare-repository",
-                                     failureMessage: "Couldn’t test for bare repository")
+            let output = try callGit(
+                "rev-parse",
+                "--is-bare-repository",
+                failureMessage: "Couldn’t test for bare repository"
+            )
             return output == "true"
         }
     }
@@ -552,8 +648,11 @@ public final class GitRepository: Repository, WorkingCheckout {
     internal func checkoutExists() throws -> Bool {
         self.lock.withLock {
             do {
-                let output = try callGit("rev-parse", "--is-bare-repository",
-                                         failureMessage: "Couldn’t test if check-out exists")
+                let output = try callGit(
+                    "rev-parse",
+                    "--is-bare-repository",
+                    failureMessage: "Couldn’t test if check-out exists"
+                )
                 return output == "false"
             } catch {
                 return false
@@ -563,16 +662,24 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
     private func updateSubmoduleAndCleanNotOnQueue() throws {
-        try self.callGit("submodule", "update", "--init", "--recursive",
-                         failureMessage: "Couldn’t update repository submodules")
-        try self.callGit("clean", "-ffdx",
-                         failureMessage: "Couldn’t clean repository submodules")
+        try self.callGit(
+            "submodule",
+            "update",
+            "--init",
+            "--recursive",
+            failureMessage: "Couldn’t update repository submodules"
+        )
+        try self.callGit(
+            "clean",
+            "-ffdx",
+            failureMessage: "Couldn’t clean repository submodules"
+        )
     }
 
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
-        return self.lock.withLock {
-            return (try? callGit("rev-parse", "--verify", revision.identifier)) != nil
+        self.lock.withLock {
+            (try? callGit("rev-parse", "--verify", revision.identifier)) != nil
         }
     }
 
@@ -582,9 +689,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
         // use barrier for write operations
         try self.lock.withLock {
-            try callGit("checkout", "-b", newBranch,
-                        failureMessage: "Couldn’t check out new branch ‘\(newBranch)’")
-            return
+            try callGit(
+                "checkout",
+                "-b",
+                newBranch,
+                failureMessage: "Couldn’t check out new branch ‘\(newBranch)’"
+            )
         }
     }
 
@@ -594,13 +704,17 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
 
         try self.lock.withLock {
-            try callGit("archive",
-                        "--format", "zip",
-                        "--prefix", "\(path.basenameWithoutExt)/",
-                        "--output", path.pathString,
-                        "HEAD",
-                        failureMessage: "Couldn’t create an archive")
-            return
+            try callGit(
+                "archive",
+                "--format",
+                "zip",
+                "--prefix",
+                "\(path.basenameWithoutExt)/",
+                "--output",
+                path.pathString,
+                "HEAD",
+                failureMessage: "Couldn’t create an archive"
+            )
         }
     }
 
@@ -619,15 +733,19 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if the file at `path` is ignored by `git`
     public func areIgnored(_ paths: [Basics.AbsolutePath]) throws -> [Bool] {
-        return try self.lock.withLock {
-            let stringPaths = paths.map { $0.pathString }
+        try self.lock.withLock {
+            let stringPaths = paths.map(\.pathString)
 
             let output: String
             do {
                 output = try self.git.run(["-C", self.path.pathString, "check-ignore"] + stringPaths)
             } catch let error as GitShellError {
                 guard error.result.exitStatus == .terminated(code: 1) else {
-                    throw GitRepositoryError(path: self.path, message: "unable to check ignored files", result: error.result)
+                    throw GitRepositoryError(
+                        path: self.path,
+                        message: "unable to check ignored files",
+                        result: error.result
+                    )
                 }
                 output = try error.result.utf8Output().spm_chomp()
             }
@@ -657,8 +775,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
         return try self.cachedHashes.memoize(specifier) {
             try self.lock.withLock {
-                let output = try callGit("rev-parse", "--verify", specifier,
-                                         failureMessage: "Couldn’t get revision ‘\(specifier)’")
+                let output = try callGit(
+                    "rev-parse",
+                    "--verify",
+                    specifier,
+                    failureMessage: "Couldn’t get revision ‘\(specifier)’"
+                )
                 guard let hash = Hash(output) else {
                     throw GitInterfaceError.malformedResponse("expected an object hash in \(output)")
                 }
@@ -690,8 +812,11 @@ public final class GitRepository: Repository, WorkingCheckout {
         let hashString = hash.bytes.description
         return try self.cachedTrees.memoize(hashString) {
             try self.lock.withLock {
-                let output = try callGit("ls-tree", hashString,
-                                         failureMessage: "Couldn’t read '\(hashString)'")
+                let output = try callGit(
+                    "ls-tree",
+                    hashString,
+                    failureMessage: "Couldn’t read '\(hashString)'"
+                )
                 let entries = try self.parseTree(output)
                 return Tree(location: .hash(hash), contents: entries)
             }
@@ -701,8 +826,11 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func readTree(tag: String) throws -> Tree {
         try self.cachedTrees.memoize(tag) {
             try self.lock.withLock {
-                let output = try callGit("ls-tree", tag,
-                                         failureMessage: "Couldn’t read '\(tag)'")
+                let output = try callGit(
+                    "ls-tree",
+                    tag,
+                    failureMessage: "Couldn’t read '\(tag)'"
+                )
                 let entries = try self.parseTree(output)
                 return Tree(location: .tag(tag), contents: entries)
             }
@@ -725,11 +853,12 @@ public final class GitRepository: Repository, WorkingCheckout {
             let bytes = ByteString(encodingAsUTF8: line)
             let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
             guard bytes.count > expectedBytesCount,
-                bytes.contents[6] == UInt8(ascii: " "),
-                // Search for the second space since `type` is of variable length.
-                let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
-                bytes.contents[secondSpace] == UInt8(ascii: " "),
-                bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
+                  bytes.contents[6] == UInt8(ascii: " "),
+                  // Search for the second space since `type` is of variable length.
+                  let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
+                  bytes.contents[secondSpace] == UInt8(ascii: " "),
+                  bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t")
+            else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
             }
 
@@ -738,8 +867,9 @@ public final class GitRepository: Repository, WorkingCheckout {
                 (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
             }
             guard let type = Tree.Entry.EntryType(mode: mode),
-                let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
-                let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription else {
+                  let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
+                  let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription
+            else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
             }
 
@@ -760,8 +890,12 @@ public final class GitRepository: Repository, WorkingCheckout {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.
-                let output = try callGit("cat-file", "-p", hash.bytes.description,
-                                         failureMessage: "Couldn’t read ‘\(hash.bytes.description)’")
+                let output = try callGit(
+                    "cat-file",
+                    "-p",
+                    hash.bytes.description,
+                    failureMessage: "Couldn’t read ‘\(hash.bytes.description)’"
+                )
                 return ByteString(encodingAsUTF8: output)
             }
         }
@@ -787,12 +921,12 @@ private class GitFileSystemView: FileSystem {
     let repository: GitRepository
 
     /// The root tree hash.
-    //let root: GitRepository.Hash
+    // let root: GitRepository.Hash
     let root: Tree.Location
 
     init(repository: GitRepository, revision: Revision) throws {
         self.repository = repository
-        self.root = .hash(try repository.readCommit(hash: Hash(revision.identifier)!).tree)
+        self.root = try .hash(repository.readCommit(hash: Hash(revision.identifier)!).tree)
     }
 
     init(repository: GitRepository, tag: String) throws {
@@ -805,7 +939,7 @@ private class GitFileSystemView: FileSystem {
     private func getEntry(_ path: TSCAbsolutePath) throws -> Tree.Entry? {
         // Walk the components resolving the tree (starting with a synthetic
         // root entry).
-        var current: Tree.Entry = Tree.Entry(location: self.root, type: .tree, name: AbsolutePath.root.pathString)
+        var current = Tree.Entry(location: self.root, type: .tree, name: AbsolutePath.root.pathString)
         var currentPath = AbsolutePath.root
         for component in path.components {
             // Skip the root pseudo-component.
@@ -894,15 +1028,15 @@ private class GitFileSystemView: FileSystem {
     }
 
     func isReadable(_ path: TSCAbsolutePath) -> Bool {
-        return self.exists(path)
+        self.exists(path)
     }
 
-    func isWritable(_ path: TSCAbsolutePath) -> Bool {
-        return false
+    func isWritable(_: TSCAbsolutePath) -> Bool {
+        false
     }
 
     public var currentWorkingDirectory: TSCAbsolutePath? {
-        return TSCAbsolutePath.root
+        TSCAbsolutePath.root
     }
 
     func changeCurrentWorkingDirectory(to path: TSCAbsolutePath) throws {
@@ -916,7 +1050,7 @@ private class GitFileSystemView: FileSystem {
         guard entry.type == .tree else {
             throw FileSystemError(.notDirectory, path)
         }
-        return try self.getTree(entry.location).contents.map { $0.name }
+        return try self.getTree(entry.location).contents.map(\.name)
     }
 
     func readFileContents(_ path: TSCAbsolutePath) throws -> ByteString {
@@ -1007,12 +1141,12 @@ public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLoca
     public struct Location: DiagnosticLocation {
         public let path: AbsolutePath
         public var description: String {
-            return self.path.pathString
+            self.path.pathString
         }
     }
 
     public var diagnosticLocation: DiagnosticLocation? {
-        return Location(path: self.path)
+        Location(path: self.path)
     }
 
     public var description: String {
@@ -1031,12 +1165,12 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
     public struct Location: DiagnosticLocation {
         public let repository: RepositorySpecifier
         public var description: String {
-            return self.repository.location.description
+            self.repository.location.description
         }
     }
 
     public var diagnosticLocation: DiagnosticLocation? {
-        return Location(repository: self.repository)
+        Location(repository: self.repository)
     }
 
     public var description: String {
@@ -1051,33 +1185,40 @@ public enum GitProgressParser: FetchProgress {
     case enumeratingObjects(currentObjects: Int)
     case countingObjects(progress: Double, currentObjects: Int, totalObjects: Int)
     case compressingObjects(progress: Double, currentObjects: Int, totalObjects: Int)
-    case receivingObjects(progress: Double, currentObjects: Int, totalObjects: Int, downloadProgress: String?, downloadSpeed: String?)
+    case receivingObjects(
+        progress: Double,
+        currentObjects: Int,
+        totalObjects: Int,
+        downloadProgress: String?,
+        downloadSpeed: String?
+    )
     case resolvingDeltas(progress: Double, currentObjects: Int, totalObjects: Int)
 
     /// The pattern used to match git output. Capture groups are labeled from ?<i0> to ?<i19>.
     static let pattern = #"""
-(?xi)
-(?:
-    remote: \h+ (?<i0>Enumerating \h objects): \h+ (?<i1>[0-9]+)
-)|
-(?:
-    remote: \h+ (?<i2>Counting \h objects): \h+ (?<i3>[0-9]+)% \h+ \((?<i4>[0-9]+)\/(?<i5>[0-9]+)\)
-)|
-(?:
-    remote: \h+ (?<i6>Compressing \h objects): \h+ (?<i7>[0-9]+)% \h+ \((?<i8>[0-9]+)\/(?<i9>[0-9]+)\)
-)|
-(?:
-    (?<i10>Resolving \h deltas): \h+ (?<i11>[0-9]+)% \h+ \((?<i12>[0-9]+)\/(?<i13>[0-9]+)\)
-)|
-(?:
-    (?<i14>Receiving \h objects): \h+ (?<i15>[0-9]+)% \h+ \((?<i16>[0-9]+)\/(?<i17>[0-9]+)\)
-    (?:, \h+ (?<i18>[0-9]+.?[0-9]+ \h [A-Z]iB) \h+ \| \h+ (?<i19>[0-9]+.?[0-9]+ \h [A-Z]iB\/s))?
-)
-"""#
+    (?xi)
+    (?:
+        remote: \h+ (?<i0>Enumerating \h objects): \h+ (?<i1>[0-9]+)
+    )|
+    (?:
+        remote: \h+ (?<i2>Counting \h objects): \h+ (?<i3>[0-9]+)% \h+ \((?<i4>[0-9]+)\/(?<i5>[0-9]+)\)
+    )|
+    (?:
+        remote: \h+ (?<i6>Compressing \h objects): \h+ (?<i7>[0-9]+)% \h+ \((?<i8>[0-9]+)\/(?<i9>[0-9]+)\)
+    )|
+    (?:
+        (?<i10>Resolving \h deltas): \h+ (?<i11>[0-9]+)% \h+ \((?<i12>[0-9]+)\/(?<i13>[0-9]+)\)
+    )|
+    (?:
+        (?<i14>Receiving \h objects): \h+ (?<i15>[0-9]+)% \h+ \((?<i16>[0-9]+)\/(?<i17>[0-9]+)\)
+        (?:, \h+ (?<i18>[0-9]+.?[0-9]+ \h [A-Z]iB) \h+ \| \h+ (?<i19>[0-9]+.?[0-9]+ \h [A-Z]iB\/s))?
+    )
+    """#
     static let regex = try? RegEx(pattern: pattern)
 
     init?(from string: String) {
-        guard let matches = GitProgressParser.regex?.matchGroups(in: string).first, matches.count == 20 else { return nil }
+        guard let matches = GitProgressParser.regex?.matchGroups(in: string).first,
+              matches.count == 20 else { return nil }
 
         if matches[0] == "Enumerating objects" {
             guard let currentObjects = Int(matches[1]) else { return nil }
@@ -1088,21 +1229,33 @@ public enum GitProgressParser: FetchProgress {
                   let currentObjects = Int(matches[4]),
                   let totalObjects = Int(matches[5]) else { return nil }
 
-            self = .countingObjects(progress: progress / 100, currentObjects: currentObjects, totalObjects: totalObjects)
+            self = .countingObjects(
+                progress: progress / 100,
+                currentObjects: currentObjects,
+                totalObjects: totalObjects
+            )
 
         } else if matches[6] == "Compressing objects" {
             guard let progress = Double(matches[7]),
                   let currentObjects = Int(matches[8]),
                   let totalObjects = Int(matches[9]) else { return nil }
 
-            self = .compressingObjects(progress: progress / 100, currentObjects: currentObjects, totalObjects: totalObjects)
+            self = .compressingObjects(
+                progress: progress / 100,
+                currentObjects: currentObjects,
+                totalObjects: totalObjects
+            )
 
         } else if matches[10] == "Resolving deltas" {
             guard let progress = Double(matches[11]),
                   let currentObjects = Int(matches[12]),
                   let totalObjects = Int(matches[13]) else { return nil }
 
-            self = .resolvingDeltas(progress: progress / 100, currentObjects: currentObjects, totalObjects: totalObjects)
+            self = .resolvingDeltas(
+                progress: progress / 100,
+                currentObjects: currentObjects,
+                totalObjects: totalObjects
+            )
 
         } else if matches[14] == "Receiving objects" {
             guard let progress = Double(matches[15]),
@@ -1112,7 +1265,13 @@ public enum GitProgressParser: FetchProgress {
             let downloadProgress = matches[18]
             let downloadSpeed = matches[19]
 
-            self = .receivingObjects(progress: progress / 100, currentObjects: currentObjects, totalObjects: totalObjects, downloadProgress: downloadProgress, downloadSpeed: downloadSpeed)
+            self = .receivingObjects(
+                progress: progress / 100,
+                currentObjects: currentObjects,
+                totalObjects: totalObjects,
+                downloadProgress: downloadProgress,
+                downloadSpeed: downloadSpeed
+            )
 
         } else {
             return nil
@@ -1132,7 +1291,7 @@ public enum GitProgressParser: FetchProgress {
     public var step: Int {
         switch self {
         case .enumeratingObjects(let currentObjects):
-            return  currentObjects
+            return currentObjects
         case .countingObjects(_, let currentObjects, _):
             return currentObjects
         case .compressingObjects(_, let currentObjects, _):
@@ -1179,7 +1338,7 @@ public enum GitProgressParser: FetchProgress {
 }
 
 /// Processes stdout output and calls the progress callback with `GitStatus` objects.
-fileprivate func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
+private func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
     guard let string = String(bytes: bytes, encoding: .utf8) else { return }
     let lines = string
         .split { $0.isNewline }
