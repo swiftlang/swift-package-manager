@@ -94,7 +94,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
 
     @discardableResult
     private func callGit(
-        _ args: String...,
+        _ args: [String],
         environment: EnvironmentVariables = Git.environment,
         repository: RepositorySpecifier,
         failureMessage: String = "",
@@ -133,6 +133,46 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
 
+    @discardableResult
+    private func callGit(
+        _ args: String...,
+        environment: EnvironmentVariables = Git.environment,
+        repository: RepositorySpecifier,
+        failureMessage: String = "",
+        progress: FetchProgress.Handler? = nil
+    ) throws -> String {
+        try callGit(
+            args.map { $0 },
+            environment: environment,
+            repository: repository,
+            failureMessage: failureMessage,
+            progress: progress
+        )
+    }
+
+    private func clone(
+        _ repository: RepositorySpecifier,
+        _ origin: String,
+        _ destination: String,
+        _ options: [String],
+        progress: FetchProgress.Handler? = nil
+    ) throws {
+        let invocation: [String] = [
+            "clone",
+            // Enable symbolic links for Windows support.
+            "-c", "core.symlinks=true",
+            // Disable fsmonitor to avoid spawning a monitor process.
+            "-c", "core.fsmonitor=false",
+        ] + options + [origin, destination]
+
+        try self.callGit(
+            invocation,
+            repository: repository,
+            failureMessage: "Failed to clone repository \(repository.location)",
+            progress: progress
+        )
+    }
+
     public func fetch(
         repository: RepositorySpecifier,
         to path: Basics.AbsolutePath,
@@ -147,20 +187,11 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             throw InternalError("\(path) already exists")
         }
 
-        // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-        // NOTE: Explicitly set `core.fsmonitor` on `git clone` to ensure that we do not spawn a monitor on the repository.  This is
-        //       particularly important for Windows where the process can prevent future operations.
-        try self.callGit(
-            "clone",
-            "-c",
-            "core.symlinks=true",
-            "-c",
-            "core.fsmonitor=false",
-            "--mirror",
+        try self.clone(
+            repository,
             repository.location.gitURL,
             path.pathString,
-            repository: repository,
-            failureMessage: "Failed to clone repository \(repository.location)",
+            ["--mirror"],
             progress: progressHandler
         )
     }
@@ -209,18 +240,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
             // present in the bare repository.
-            //
-            // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-            try self.callGit(
-                "clone",
-                "-c",
-                "core.symlinks=true",
-                "--no-checkout",
+
+            try self.clone(
+                repository,
                 sourcePath.pathString,
                 destinationPath.pathString,
-                repository: repository,
-                failureMessage: "Failed to clone repository \(repository.location)"
+                ["--no-checkout"]
             )
+
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
@@ -238,18 +265,12 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // re-resolve such that the objects in this repository changed, we would
             // only ever expect to get back a revision that remains present in the
             // object storage.
-            //
-            // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-            try self.callGit(
-                "clone",
-                "-c",
-                "core.symlinks=true",
-                "--shared",
-                "--no-checkout",
+
+            try self.clone(
+                repository,
                 sourcePath.pathString,
                 destinationPath.pathString,
-                repository: repository,
-                failureMessage: "Failed to clone repository \(repository.location)"
+                ["--shared", "--no-checkout"]
             )
         }
         return try self.openWorkingCopy(at: destinationPath)
