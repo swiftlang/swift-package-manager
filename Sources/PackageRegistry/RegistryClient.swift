@@ -1823,7 +1823,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         ):
             return "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(previous)' for version \(previousVersion)"
         case .loginFailed(let url, let error):
-            return "registry login using \(url) failed: \(error)"
+            return "registry login using \(url) failed: \(error.interpolationDescription)"
         }
     }
 }
