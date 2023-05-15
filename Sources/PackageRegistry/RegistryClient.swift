@@ -1319,20 +1319,22 @@ public final class RegistryClient: Cancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "logging-in into \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    observabilityScope
-                        .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-                        )
-                    switch response.statusCode {
-                    case 200:
-                        return ()
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
-                    }
+            switch result {
+            case .success(let response):
+                observabilityScope
+                    .emit(
+                        debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                    )
+                switch response.statusCode {
+                case 200:
+                    return completion(.success(()))
+                default:
+                    let error = self.unexpectedStatusError(response, expectedStatus: [200])
+                    return completion(.failure(RegistryError.loginFailed(url: loginURL, error: error)))
                 }
-            )
+            case .failure(let error):
+                return completion(.failure(RegistryError.loginFailed(url: loginURL, error: error)))
+            }
         }
     }
 
@@ -1674,6 +1676,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case unauthorized
     case authenticationMethodNotSupported
     case forbidden
+    case loginFailed(url: URL, error: Error)
     case availabilityCheckFailed(registry: Registry, error: Error)
     case registryNotAvailable(Registry)
     case packageNotFound
@@ -1819,6 +1822,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             let previousVersion
         ):
             return "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(previous)' for version \(previousVersion)"
+        case .loginFailed(let url, let error):
+            return "registry login using \(url) failed: \(error.interpolationDescription)"
         }
     }
 }

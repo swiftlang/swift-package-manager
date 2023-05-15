@@ -3165,7 +3165,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try registryClient.login(loginURL: loginURL)) { error in
-            guard case RegistryError.unauthorized = error else {
+            guard case RegistryError.loginFailed(_, _) = error else {
                 return XCTFail("Expected RegistryError.unauthorized, got \(error)")
             }
         }
@@ -3210,7 +3210,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try registryClient.login(loginURL: loginURL)) { error in
-            guard case RegistryError.authenticationMethodNotSupported = error else {
+            guard case RegistryError.loginFailed = error else {
                 return XCTFail("Expected RegistryError.authenticationMethodNotSupported, got \(error)")
             }
         }
