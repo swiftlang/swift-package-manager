@@ -6,3 +6,7 @@
 
 - ``allowNetworkConnections(scope:reason:)``
 - ``writeToPackageDirectory(reason:)``
+
+### Allow network connection
+
+- ``PluginNetworkPermissionScope``

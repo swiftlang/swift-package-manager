@@ -1486,7 +1486,9 @@ public enum PluginPermission {
     case writeToPackageDirectory(reason: String)
 }
 
-/// The scope of a network permission. This can be none, local connections only, or all connections.
+/// The scope of a network permission.
+///
+/// The scope can be none, local connections only, or all connections.
 @available(_PackageDescription, introduced: 5.9)
 public enum PluginNetworkPermissionScope {
     /// Do not allow network access.
