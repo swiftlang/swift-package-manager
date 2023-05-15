@@ -271,7 +271,7 @@ public final class InitPackage {
                 if packageType == .executable {
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)")
+                                name: "\(pkgname)"),
                         ]
                     """
                 } else if packageType == .tool {
