@@ -163,6 +163,9 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             "-c", "core.symlinks=true",
             // Disable fsmonitor to avoid spawning a monitor process.
             "-c", "core.fsmonitor=false",
+            // Enable long path support on Windows as otherwise we are limited
+            // to 261 characters in the complete path.
+            "-c", "core.longpaths=true",
         ] + options + [origin, destination]
 
         try self.callGit(
