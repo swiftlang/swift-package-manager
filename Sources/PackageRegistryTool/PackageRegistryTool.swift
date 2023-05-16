@@ -136,6 +136,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         case unknownRegistry
         case unknownCredentialStore
         case invalidCredentialStore(Error)
+        case credentialLengthLimitExceeded(Int)
     }
 
     static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
@@ -180,6 +181,8 @@ extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
             return "no credential store available"
         case .invalidCredentialStore(let error):
             return "credential store is invalid: \(error.interpolationDescription)"
+        case .credentialLengthLimitExceeded(let limit):
+            return "password or access token must be \(limit) characters or less"
         }
     }
 }
