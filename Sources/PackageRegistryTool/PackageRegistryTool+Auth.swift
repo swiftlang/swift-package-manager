@@ -64,13 +64,22 @@ private func readpassword(_ prompt: String) throws -> String {
 }
 #else
 private func readpassword(_ prompt: String) throws -> String {
+    let password: String
+
+    #if canImport(Darwin)
     var buffer = [CChar](repeating: 0, count: SwiftPackageRegistryTool.Login.passwordBufferSize)
 
     guard let passwordPtr = readpassphrase(prompt, &buffer, buffer.count, 0) else {
         throw StringError("unable to read input")
     }
 
-    let password = String(cString: passwordPtr)
+    password = String(cString: passwordPtr)
+    #else
+    // GNU C implementation of getpass has no limit on the password length
+    // (https://man7.org/linux/man-pages/man3/getpass.3.html)
+    password = String(cString: getpass(prompt))
+    #endif
+
     guard password.count <= SwiftPackageRegistryTool.Login.maxPasswordLength else {
         throw SwiftPackageRegistryTool.ValidationError
             .credentialLengthLimitExceeded(SwiftPackageRegistryTool.Login.maxPasswordLength)
