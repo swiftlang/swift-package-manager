@@ -83,6 +83,12 @@ extension SwiftPackageRegistryTool {
         @Option(help: "Access token")
         var token: String?
 
+        @Option(
+            name: .customLong("token-file"),
+            help: "Path to the file containing access token"
+        )
+        var tokenFilePath: AbsolutePath?
+
         @Flag(help: "Allow writing to netrc file without confirmation")
         var noConfirm: Bool = false
 
@@ -145,6 +151,10 @@ extension SwiftPackageRegistryTool {
                 if let token {
                     // User provided token
                     storePassword = token
+                } else if let tokenFilePath {
+                    print("Reading access token from \(tokenFilePath).")
+                    storePassword = try localFileSystem.readFileContents(tokenFilePath).cString
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
                           stored.user == storeUsername
                 {
