@@ -36,6 +36,9 @@ public struct ExecutableInfo: Equatable {
     public let supportedTriples: [Triple]
 }
 
+/// Triple: arm64-apple-darwin (ios-simulator) should be arm64-apple-ios-simulator
+///XCFramework: id: ios-arm64_x86_64-simulator archs: arm64, x86_64 platform: ios variant: simulator
+
 extension BinaryTarget {
     public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
@@ -44,7 +47,8 @@ extension BinaryTarget {
         // FIXME: this filter needs to become more sophisticated
         guard let library = metadata.libraries.first(where: {
             $0.platform == triple.os.asXCFrameworkPlatformString &&
-                $0.architectures.contains(triple.arch.rawValue)
+            $0.platformVariant == triple.abi.asXCFrameworkPlatformVariantString &&
+            $0.architectures.contains(triple.arch.rawValue)
         }) else {
             return []
         }
@@ -98,8 +102,22 @@ extension Triple.OS {
         switch self {
         case .darwin, .linux, .wasi, .windows, .openbsd, .noneOS:
             return nil // XCFrameworks do not support any of these platforms today.
+        case .iOS:
+            return "ios"
         case .macOS:
             return "macos"
+        }
+    }
+}
+
+extension Triple.ABI {
+    /// Returns a representation of the receiver that can be compared with platform variant strings declared in an XCFramework.
+    fileprivate var asXCFrameworkPlatformVariantString: String? {
+        switch self {
+        case .unknown, .other, .android:
+            return nil // XCFrameworks do not support any of these variants today.
+        case .simulator:
+            return "simulator"
         }
     }
 }

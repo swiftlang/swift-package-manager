@@ -72,6 +72,7 @@ public struct Triple: Encodable, Equatable, Sendable {
     public enum OS: String, Encodable, CaseIterable, Sendable {
         case darwin
         case macOS = "macosx"
+        case iOS = "ios"
         case linux
         case windows
         case wasi
@@ -83,11 +84,14 @@ public struct Triple: Encodable, Equatable, Sendable {
     public enum ABI: Encodable, Equatable, RawRepresentable, Sendable {
         case unknown
         case android
+        case simulator
         case other(name: String)
 
         public init?(rawValue: String) {
             if rawValue.hasPrefix(ABI.android.rawValue) {
                 self = .android
+            } else if rawValue.hasPrefix(ABI.simulator.rawValue) {
+                self = .simulator
             } else if let version = rawValue.firstIndex(where: { $0.isNumber }) {
                 self = .other(name: String(rawValue[..<version]))
             } else {
@@ -98,6 +102,7 @@ public struct Triple: Encodable, Equatable, Sendable {
         public var rawValue: String {
             switch self {
             case .android: return "android"
+            case .simulator: return "simulator"
             case .other(let name): return name
             case .unknown: return "unknown"
             }
@@ -176,7 +181,7 @@ public struct Triple: Encodable, Equatable, Sendable {
         switch (vendor, os) {
         case (.apple, .noneOS):
             return false
-        case (.apple, _), (_, .macOS), (_, .darwin):
+        case (.apple, _), (_, .macOS), (_, .iOS), (_, .darwin):
             return true
         default:
             return false
@@ -273,7 +278,7 @@ extension Triple {
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .iOS:
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
@@ -288,7 +293,7 @@ extension Triple {
 
     public var executableExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .iOS:
             return ""
         case .linux, .openbsd:
             return ""
@@ -309,7 +314,7 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .iOS:
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
