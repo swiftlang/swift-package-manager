@@ -36,9 +36,6 @@ public struct ExecutableInfo: Equatable {
     public let supportedTriples: [Triple]
 }
 
-/// Triple: arm64-apple-darwin (ios-simulator) should be arm64-apple-ios-simulator
-///XCFramework: id: ios-arm64_x86_64-simulator archs: arm64, x86_64 platform: ios variant: simulator
-
 extension BinaryTarget {
     public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
