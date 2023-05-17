@@ -1611,9 +1611,14 @@ public final class RegistryClient: Cancellable {
             return RegistryError.unauthorized
         case 403:
             return RegistryError.forbidden
+        case 400...499:
+            return RegistryError.clientError(
+                code: response.statusCode,
+                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            )
         case 501:
             return RegistryError.authenticationMethodNotSupported
-        case 500, 502, 503:
+        case 500...599:
             return RegistryError.serverError(
                 code: response.statusCode,
                 details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
@@ -1673,6 +1678,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedPublishing(Error)
     case missingPublishingLocation
     case serverError(code: Int, details: String)
+    case clientError(code: Int, details: String)
     case unauthorized
     case authenticationMethodNotSupported
     case forbidden
@@ -1771,6 +1777,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "response missing registry source archive"
         case .serverError(let code, let details):
             return "server error \(code): \(details)"
+        case .clientError(let code, let details):
+            return "client error \(code): \(details)"
         case .unauthorized:
             return "missing or invalid authentication credentials"
         case .authenticationMethodNotSupported:
