@@ -153,7 +153,7 @@ extension SwiftPackageRegistryTool {
                     storePassword = token
                 } else if let tokenFilePath {
                     print("Reading access token from \(tokenFilePath).")
-                    storePassword = try localFileSystem.readFileContents(tokenFilePath).cString
+                    storePassword = try localFileSystem.readFileContents(tokenFilePath)
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
                           stored.user == storeUsername
