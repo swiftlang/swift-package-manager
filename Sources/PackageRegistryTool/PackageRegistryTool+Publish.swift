@@ -22,8 +22,8 @@ import Workspace
 @_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.SHA256
 import struct TSCBasic.RegEx
+import struct TSCBasic.SHA256
 
 import struct TSCUtility.Version
 
