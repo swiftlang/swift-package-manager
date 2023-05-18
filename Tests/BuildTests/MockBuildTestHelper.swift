@@ -45,6 +45,7 @@ struct MockToolchain: PackageModel.Toolchain {
 
 
 extension Basics.Triple {
+    static let x86_64MacOS = try! Self("x86_64-apple-macosx")
     static let x86_64Linux = try! Self("x86_64-unknown-linux-gnu")
     static let arm64Linux = try! Self("aarch64-unknown-linux-gnu")
     static let arm64Android = try! Self("aarch64-unknown-linux-android")
