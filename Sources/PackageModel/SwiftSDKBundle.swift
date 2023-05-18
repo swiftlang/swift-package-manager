@@ -12,12 +12,12 @@
 
 import Basics
 
-import func TSCBasic.tsc_await
-import func TSCBasic.withTemporaryDirectory
-import protocol TSCBasic.FileSystem
 import struct Foundation.URL
 import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
+import func TSCBasic.tsc_await
+import func TSCBasic.withTemporaryDirectory
 
 /// Represents an `.artifactbundle` on the filesystem that contains a Swift SDK.
 public struct SwiftSDKBundle {
@@ -124,7 +124,7 @@ public struct SwiftSDKBundle {
 
         return selectedDestination
     }
-    
+
     /// Installs a destination bundle from a given path or URL to a destinations installation directory.
     /// - Parameters:
     ///   - bundlePathOrURL: A string passed on the command line, which is either an absolute or relative to a current
@@ -249,6 +249,13 @@ public struct SwiftSDKBundle {
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
     ) throws {
+        #if os(macOS)
+        // Check the quarantine attribute on bundles downloaded manually in the browser.
+        guard !fileSystem.hasAttribute(.quarantine, bundlePath) else {
+            throw DestinationError.quarantineAttributePresent(bundlePath: bundlePath)
+        }
+        #endif
+
         let unpackedBundlePath = try unpackIfNeeded(
             bundlePath: bundlePath,
             destinationsDirectory: destinationsDirectory,
@@ -363,7 +370,8 @@ extension ArtifactsArchiveMetadata {
 
                 do {
                     let destinations = try Destination.decode(
-                        fromFile: variantConfigurationPath, fileSystem: fileSystem, observabilityScope: observabilityScope
+                        fromFile: variantConfigurationPath, fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
                     )
 
                     variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
@@ -382,7 +390,7 @@ extension ArtifactsArchiveMetadata {
     }
 }
 
-extension Array where Element == SwiftSDKBundle {
+extension [SwiftSDKBundle] {
     /// Select a destination with a given artifact ID from a `self` array of available destinations.
     /// - Parameters:
     ///   - id: artifact ID of the destination to look up.
