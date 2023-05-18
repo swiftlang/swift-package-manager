@@ -88,8 +88,8 @@ public struct SwiftSDKBundle {
         guard let destinationsDirectory = destinationsDirectory else {
             throw StringError(
                 """
-                No cross-compilation destinations directory found, specify one
-                with `experimental-destinations-path` option.
+                No directory found for installed Swift SDKs, specify one
+                with `--experimental-swift-sdks-path` option.
                 """
             )
         }
@@ -102,7 +102,7 @@ public struct SwiftSDKBundle {
 
         guard !validBundles.isEmpty else {
             throw StringError(
-                "No valid cross-compilation destination bundles found at \(destinationsDirectory)."
+                "No valid Swift SDK bundles found at \(destinationsDirectory)."
             )
         }
 
@@ -113,8 +113,8 @@ public struct SwiftSDKBundle {
         ) else {
             throw StringError(
                 """
-                No cross-compilation destination found matching query `\(selector)` and host triple
-                `\(hostTriple.tripleString)`. Use `swift package experimental-destination list` command to see
+                No Swift SDK found matching query `\(selector)` and host triple
+                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see
                 available destinations.
                 """
             )
@@ -170,7 +170,7 @@ public struct SwiftSDKBundle {
 
                 bundlePath = downloadedBundlePath
 
-                print("Destination artifact bundle successfully downloaded from `\(bundleURL)`.")
+                print("Swift SDK bundle successfully downloaded from `\(bundleURL)`.")
             } else if
                 let cwd = fileSystem.currentWorkingDirectory,
                 let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
@@ -190,7 +190,7 @@ public struct SwiftSDKBundle {
             )
         }
 
-        print("Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+        print("Swift SDK bundle at `\(bundlePathOrURL)` successfully installed.")
     }
 
     /// Unpacks a destination bundle if it has an archive extension in its filename.
@@ -461,7 +461,7 @@ extension [SwiftSDKBundle] {
                                 observabilityScope.emit(
                                     warning:
                                     """
-                                    multiple destinations match target triple `\(selector)` and host triple \(
+                                    multiple Swift SDKs match target triple `\(selector)` and host triple \(
                                         hostTriple.tripleString
                                     ), selected one at \(
                                         matchedByTriple.path.appending(matchedByTriple.variant.metadata.path)
@@ -481,7 +481,7 @@ extension [SwiftSDKBundle] {
             observabilityScope.emit(
                 warning:
                 """
-                multiple destinations match the query `\(selector)` and host triple \(
+                multiple Swift SDKs match the query `\(selector)` and host triple \(
                     hostTriple.tripleString
                 ), selected one at \(matchedByID.path.appending(matchedByID.variant.metadata.path))
                 """
