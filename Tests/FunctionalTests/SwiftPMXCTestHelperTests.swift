@@ -49,7 +49,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
 
     func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) throws {
         #if os(macOS)
-        let env = ["DYLD_FRAMEWORK_PATH": try Destination.sdkPlatformFrameworkPaths().fwk.pathString]
+        let env = ["DYLD_FRAMEWORK_PATH": try Destination.sdkPlatformPaths(os: .macOS).frameworkPath.pathString]
         let outputFile = bundlePath.parentDirectory.appending("tests.txt")
         try SwiftPM.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
         guard let data = NSData(contentsOfFile: outputFile.pathString) else {

@@ -405,14 +405,7 @@ public struct Destination: Equatable {
             sdkPath = value
         } else {
             // No value in env, so search for it.
-            let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
-                arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environment: environment
-            ).spm_chomp()
-            guard !sdkPathStr.isEmpty else {
-                throw DestinationError.invalidInstallation("default SDK not found")
-            }
-            sdkPath = try AbsolutePath(validating: sdkPathStr)
+            sdkPath = try Destination.sdkPlatformPaths(os: .macOS, environment: environment).sdkPath
         }
         #else
         sdkPath = nil
@@ -422,11 +415,11 @@ public struct Destination: Equatable {
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
-        let sdkPaths = try Destination.sdkPlatformFrameworkPaths(environment: environment)
-        extraCCFlags += ["-F", sdkPaths.fwk.pathString]
-        extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
-        extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
-        extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
+        let sdkPaths = try Destination.sdkPlatformPaths(os: .macOS, environment: environment)
+        extraCCFlags += ["-F", sdkPaths.frameworkPath.pathString]
+        extraSwiftCFlags += ["-F", sdkPaths.frameworkPath.pathString]
+        extraSwiftCFlags += ["-I", sdkPaths.libraryPath.pathString]
+        extraSwiftCFlags += ["-L", sdkPaths.libraryPath.pathString]
         #endif
 
         #if !os(Windows)
@@ -445,43 +438,69 @@ public struct Destination: Equatable {
         )
     }
 
-    /// Returns `macosx` sdk platform framework path.
-    public static func sdkPlatformFrameworkPaths(
+    /// Returns sdk platform framework path. Works with Apple platforms
+    public static func sdkPlatformPaths(
+        os: Triple.OS,
+        abi: Triple.ABI? = nil,
         environment: EnvironmentVariables = .process()
-    ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
-        if let path = _sdkPlatformFrameworkPath {
-            return path
+    ) throws -> PlatformSDKPaths {
+        if let sdkPlatform = _sdkPlatform {
+            return sdkPlatform
         }
+
+        guard let sdkName = sdkName(os: os, abi: abi) else {
+            throw StringError("Could not provide SDK name for the OS")
+        }
+
         let platformPath = try TSCBasic.Process.checkNonZeroExit(
-            arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
+            arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"],
+            environment: environment
+        ).spm_chomp()
+
+        let platformSDKPath = try TSCBasic.Process.checkNonZeroExit(
+            arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-path"],
             environment: environment
         ).spm_chomp()
 
         guard !platformPath.isEmpty else {
-            throw StringError("could not determine SDK platform path")
+            throw StringError("Could not determine SDK platform path")
         }
 
         // For XCTest framework.
-        let fwk = try AbsolutePath(validating: platformPath).appending(
+        let framework = try AbsolutePath(validating: platformPath).appending(
             components: "Developer", "Library", "Frameworks"
         )
 
         // For XCTest Swift library.
-        let lib = try AbsolutePath(validating: platformPath).appending(
+        let library = try AbsolutePath(validating: platformPath).appending(
             components: "Developer", "usr", "lib"
         )
 
-        let sdkPlatformFrameworkPath = (fwk, lib)
-        _sdkPlatformFrameworkPath = sdkPlatformFrameworkPath
-        return sdkPlatformFrameworkPath
+        // For building on Apple platforms other than macOS
+        let sdk = try AbsolutePath(validating: platformSDKPath)
+
+        let platformSDK = PlatformSDKPaths(
+            libraryPath: library,
+            frameworkPath: framework,
+            sdkPath: sdk
+        )
+
+        return platformSDK
     }
 
-    // FIXME: convert this from a tuple to a proper struct with documented properties
-    /// Cache storage for sdk platform path.
-    private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
+    private static func sdkName(os: Triple.OS, abi: Triple.ABI?) -> String? {
+        switch (os, abi) {
+            case (.macOS, _): return "macosx"
+            case (.iOS, .simulator): return "iphonesimulator"
+            case (.iOS, _): return "iphoneos"
+            default: return nil
+        }
+    }
+
+    private static var _sdkPlatform: PlatformSDKPaths? = nil
 
     /// Returns a default destination of a given target environment
-    public static func defaultDestination(for triple: Triple, host: Destination) -> Destination? {
+    public static func defaultDestination(for triple: Triple, host: Destination) throws -> Destination {
         if triple.isWASI() {
             let wasiSysroot = host.toolset.rootPaths.first?
                 .parentDirectory // usr
@@ -491,9 +510,56 @@ public struct Destination: Equatable {
                 toolset: host.toolset,
                 pathsConfiguration: .init(sdkRootPath: wasiSysroot)
             )
+        } else if triple.isApple() {
+            return try applePlatformDestination(triple: triple, host: host)
         }
-        return nil
+
+        throw StringError("Unsupported triple")
     }
+
+    private static func applePlatformDestination(triple: Triple, host: Destination) throws -> Destination {
+        guard triple.arch == .arm64 || triple.arch == .x86_64 else {
+            throw StringError("Unsupported arch for Apple platforms. Supported arch: \([Triple.Arch.arm64.rawValue, Triple.Arch.x86_64.rawValue])")
+        }
+
+        guard triple.osVersion != nil else {
+            throw StringError("Explicit OS version required when specifying triples for Apple platforms")
+        }
+
+        if triple.arch == .x86_64 {
+            switch (triple.os, triple.abi) {
+                case (.iOS, .simulator): break
+                case (.macOS, _): break
+                default: throw StringError("Provided OS and ABI don't support x86_64 arch. x86_64 arch supproted by ios-simulator and macosx")
+            }
+        }
+
+
+        let sdkPaths = try Destination.sdkPlatformPaths(os: triple.os, abi: triple.abi)
+        var extraCCFlags = [String]()
+        var extraSwiftCFlags = [String]()
+
+        extraCCFlags += ["-F", sdkPaths.frameworkPath.pathString]
+        extraCCFlags += ["-target", triple.tripleString]
+
+        extraSwiftCFlags += ["-F", sdkPaths.frameworkPath.pathString]
+        extraSwiftCFlags += ["-I", sdkPaths.libraryPath.pathString]
+        extraSwiftCFlags += ["-L", sdkPaths.libraryPath.pathString]
+        extraSwiftCFlags += ["-target", triple.tripleString]
+
+        return Destination(
+            toolset: .init(
+                knownTools: [
+                    .cCompiler: .init(extraCLIOptions: extraCCFlags),
+                    .swiftCompiler: .init(extraCLIOptions: extraSwiftCFlags),
+                ],
+                rootPaths: host.toolset.rootPaths
+            ),
+            pathsConfiguration: .init(sdkRootPath: sdkPaths.sdkPath)
+        )
+    }
+
+
 
     /// Propagates toolchain and SDK paths known to the destination to `swiftc` CLI options.
     public mutating func applyPathCLIOptions() {
@@ -747,4 +813,10 @@ struct SerializedDestinationV3: Decodable {
 
     /// Mapping of triple strings to corresponding properties of such run-time triple.
     let runTimeTriples: [String: TripleProperties]
+}
+
+public struct PlatformSDKPaths {
+    public let libraryPath: AbsolutePath
+    public let frameworkPath: AbsolutePath
+    public let sdkPath: AbsolutePath
 }

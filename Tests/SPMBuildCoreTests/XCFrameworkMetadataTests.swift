@@ -55,6 +55,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
                                libraryPath: "MyFramework.framework",
                                headersPath: nil,
                                platform: "macos",
+                               platformVariant: nil,
                                architectures: ["x86_64"]
                            ),
                        ]))
@@ -82,6 +83,8 @@ final class XCFrameworkMetadataTests: XCTestCase {
                         </array>
                         <key>SupportedPlatform</key>
                         <string>macos</string>
+                        <key>SupportedPlatformVariant</key>
+                        <string>simulator</string>
                     </dict>
                 </array>
                 <key>CFBundlePackageType</key>
@@ -102,6 +105,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
                                    libraryPath: "MyLibrary.a",
                                    headersPath: "Headers",
                                    platform: "macos",
+                                   platformVariant: "simulator",
                                    architectures: ["x86_64"]
                                ),
                            ]))

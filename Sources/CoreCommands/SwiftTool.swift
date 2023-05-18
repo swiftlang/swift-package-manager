@@ -678,31 +678,34 @@ public final class SwiftTool {
                 component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
             )
 
+            var buildFlags = self.options.build.buildFlags
+            buildFlags.append(destinationToolchain.extraFlags)
+
             return try BuildParameters(
                 dataPath: dataPath,
-                configuration: options.build.configuration,
+                configuration: self.options.build.configuration,
                 toolchain: destinationToolchain,
                 destinationTriple: destinationTriple,
-                flags: options.build.buildFlags,
-                pkgConfigDirectories: options.locations.pkgConfigDirectories,
-                architectures: options.build.architectures,
-                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
+                flags: buildFlags,
+                pkgConfigDirectories: self.options.locations.pkgConfigDirectories,
+                architectures: self.options.build.architectures,
+                workers: self.options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+                shouldLinkStaticSwiftStdlib: self.options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], toolchain: destinationToolchain, fileSystem: self.fileSystem
                 ),
                 sanitizers: options.build.enabledSanitizers,
                 enableCodeCoverage: false, // set by test commands when appropriate
-                indexStoreMode: options.build.indexStoreMode.buildParameter,
-                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
-                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                testEntryPointPath: options.build.testEntryPointPath,
-                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
-                linkerDeadStrip: options.linker.linkerDeadStrip,
+                indexStoreMode: self.options.build.indexStoreMode.buildParameter,
+                enableParseableModuleInterfaces: self.options.build.shouldEnableParseableModuleInterfaces,
+                emitSwiftModuleSeparately: self.options.build.emitSwiftModuleSeparately,
+                useIntegratedSwiftDriver: self.options.build.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: self.options.build.useExplicitModuleBuild,
+                isXcodeBuildSystemEnabled: self.options.build.buildSystem == .xcode,
+                forceTestDiscovery: self.options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                testEntryPointPath: self.options.build.testEntryPointPath,
+                explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck.modeParameter,
+                linkerDeadStrip: self.options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info
             )
         })
@@ -734,10 +737,8 @@ public final class SwiftTool {
                 } else {
                     return .failure(DestinationError.noDestinationsDecoded(customDestination))
                 }
-            } else if let triple = options.build.customCompileTriple,
-                      let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
-            {
-                destination = targetDestination
+            } else if let triple = options.build.customCompileTriple {
+                destination = try Destination.defaultDestination(for: triple, host: hostDestination)
             } else if let swiftSDKSelector = options.build.swiftSDKSelector {
                 destination = try SwiftSDKBundle.selectBundle(
                     fromBundlesAt: sharedSwiftSDKsDirectory,

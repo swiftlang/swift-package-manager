@@ -87,10 +87,10 @@ enum TestingSupport {
             )
 
             // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-            let sdkPlatformFrameworksPath = try Destination.sdkPlatformFrameworkPaths()
+            let sdkPlatformFrameworksPath = try Destination.sdkPlatformPaths(os: .macOS)
             // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.frameworkPath.pathString)
+            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.libraryPath.pathString)
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
