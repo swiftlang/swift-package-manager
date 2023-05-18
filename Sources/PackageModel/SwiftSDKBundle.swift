@@ -85,7 +85,7 @@ public struct SwiftSDKBundle {
         guard let destinationsDirectory else {
             throw StringError(
                 """
-                No cross-compilation destinations directory found, specify one
+                No directory found for installed Swift SDKs, specify one
                 with `--experimental-swift-sdks-path` option.
                 """
             )
