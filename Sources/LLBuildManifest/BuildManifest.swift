@@ -174,7 +174,8 @@ public struct BuildManifest {
         otherArguments: [String],
         sources: [AbsolutePath],
         isLibrary: Bool,
-        wholeModuleOptimization: Bool
+        wholeModuleOptimization: Bool,
+        outputFileMapPath: AbsolutePath
     ) {
         assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = SwiftCompilerTool(
@@ -190,7 +191,8 @@ public struct BuildManifest {
             otherArguments: otherArguments,
             sources: sources,
             isLibrary: isLibrary,
-            wholeModuleOptimization: wholeModuleOptimization
+            wholeModuleOptimization: wholeModuleOptimization,
+            outputFileMapPath: outputFileMapPath
         )
         commands[name] = Command(name: name, tool: tool)
     }

@@ -677,7 +677,7 @@ public final class SwiftTargetBuildDescription {
         self.buildParameters.triple.isDarwin() && self.target.type == .library
     }
 
-    private func writeOutputFileMap() throws -> AbsolutePath {
+    func writeOutputFileMap() throws -> AbsolutePath {
         let path = self.tempsPath.appending("output-file-map.json")
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
 

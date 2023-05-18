@@ -629,7 +629,8 @@ extension LLBuildManifestBuilder {
             otherArguments: try target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
-            wholeModuleOptimization: self.buildParameters.configuration == .release
+            wholeModuleOptimization: self.buildParameters.configuration == .release,
+            outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.
         )
     }
 
