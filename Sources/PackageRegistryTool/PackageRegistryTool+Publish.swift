@@ -22,8 +22,8 @@ import Workspace
 @_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.SHA256
 import struct TSCBasic.RegEx
+import struct TSCBasic.SHA256
 
 import struct TSCUtility.Version
 
@@ -199,41 +199,36 @@ extension SwiftPackageRegistryTool {
                 return
             }
 
-            do {
-                swiftTool.observabilityScope
-                    .emit(info: "publishing \(self.packageIdentity) archive at '\(archivePath)' to \(registryURL)")
-                let result = try temp_await {
-                    registryClient.publish(
-                        registryURL: registryURL,
-                        packageIdentity: self.packageIdentity,
-                        packageVersion: self.packageVersion,
-                        packageArchive: archivePath,
-                        packageMetadata: metadataLocation?.path,
-                        signature: archiveSignature,
-                        metadataSignature: metadataSignature,
-                        signatureFormat: self.signatureFormat,
-                        fileSystem: localFileSystem,
-                        observabilityScope: swiftTool.observabilityScope,
-                        callbackQueue: .sharedConcurrent,
-                        completion: $0
-                    )
-                }
-                
-                switch result {
-                case .published(.none):
-                    print("\(packageIdentity) version \(packageVersion) was successfully published to \(registryURL)")
-                case .published(.some(let location)):
-                    print(
-                        "\(packageIdentity) version \(packageVersion) was successfully published to \(registryURL) and is available at '\(location)'"
-                    )
-                case .processing(let statusURL, _):
-                    print(
-                        "\(packageIdentity) version \(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at '\(statusURL)'."
-                    )
-                }
-            } catch RegistryError.failedPublishing(let error) {
-                // Throw the error that has more details
-                throw error
+            swiftTool.observabilityScope
+                .emit(info: "publishing \(self.packageIdentity) archive at '\(archivePath)' to \(registryURL)")
+            let result = try temp_await {
+                registryClient.publish(
+                    registryURL: registryURL,
+                    packageIdentity: self.packageIdentity,
+                    packageVersion: self.packageVersion,
+                    packageArchive: archivePath,
+                    packageMetadata: metadataLocation?.path,
+                    signature: archiveSignature,
+                    metadataSignature: metadataSignature,
+                    signatureFormat: self.signatureFormat,
+                    fileSystem: localFileSystem,
+                    observabilityScope: swiftTool.observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    completion: $0
+                )
+            }
+
+            switch result {
+            case .published(.none):
+                print("\(packageIdentity) version \(packageVersion) was successfully published to \(registryURL)")
+            case .published(.some(let location)):
+                print(
+                    "\(packageIdentity) version \(packageVersion) was successfully published to \(registryURL) and is available at '\(location)'"
+                )
+            case .processing(let statusURL, _):
+                print(
+                    "\(packageIdentity) version \(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at '\(statusURL)'."
+                )
             }
         }
     }
