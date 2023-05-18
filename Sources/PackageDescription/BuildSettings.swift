@@ -377,22 +377,15 @@ public struct SwiftSetting {
     ///
     /// - Parameters:
     ///   - mode: The language mode, either C or CXX.
-    ///   - version: When using the CXX language mode, pass either the version
-    /// of Swift and C++ interoperability or `nil`; otherwise, `nil`.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
     public static func interoperabilityMode(
       _ mode: InteroperabilityMode,
-      version: String? = nil,
       _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
-        var values: [String] = [mode.rawValue]
-        if let version {
-            values.append(version)
-        }
         return SwiftSetting(
-          name: "interoperabilityMode", value: values, condition: condition)
+          name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
     }
 }
 

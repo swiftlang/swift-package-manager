@@ -513,11 +513,8 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .interoperabilityMode(let lang, let version):
+        case .interoperabilityMode(let lang):
             params.append(SourceCodeFragment(enum: lang.rawValue))
-            if let version {
-                params.append(SourceCodeFragment(key: "version", string: version))
-            }
             self.init(enum: setting.kind.name, subnodes: params)
         case .unsafeFlags(let values):
             params.append(SourceCodeFragment(strings: values))
