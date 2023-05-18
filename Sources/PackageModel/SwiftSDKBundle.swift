@@ -17,6 +17,7 @@ import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
 import func TSCBasic.tsc_await
+import func TSCBasic.withTemporaryDirectory
 
 /// Represents an `.artifactbundle` on the filesystem that contains a Swift SDK.
 public struct SwiftSDKBundle {

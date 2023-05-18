@@ -70,7 +70,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         let invalidPath = "foobar"
         do {
             try SwiftSDKBundle.install(
-                bundlePathOrURL: "foobar",
+                bundlePathOrURL: invalidPath,
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
                 archiver,
