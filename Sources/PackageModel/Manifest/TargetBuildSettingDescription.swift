@@ -33,7 +33,7 @@ public enum TargetBuildSettingDescription {
         case linkedLibrary(String)
         case linkedFramework(String)
 
-        case interoperabilityMode(InteroperabilityMode, String?)
+        case interoperabilityMode(InteroperabilityMode)
 
         case enableUpcomingFeature(String)
         case enableExperimentalFeature(String)

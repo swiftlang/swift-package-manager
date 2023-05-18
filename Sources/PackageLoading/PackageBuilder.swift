@@ -1079,7 +1079,7 @@ public final class PackageBuilder {
                     decl = .LINK_FRAMEWORKS
                 }
 
-            case .interoperabilityMode(let lang, let version):
+            case .interoperabilityMode(let lang):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError("only Swift supports interoperability")
@@ -1089,10 +1089,7 @@ public final class PackageBuilder {
                 }
 
                 if lang == .Cxx {
-                    // `version` is the compatibility version of Swift/C++ interop,
-                    // which is meant to preserve source compatibility for
-                    // user projects while Swift/C++ interop is evolving.
-                    values = ["-cxx-interoperability-mode=\(version ?? "default")"]
+                    values = ["-cxx-interoperability-mode=default"]
                 } else {
                     values = []
                 }
