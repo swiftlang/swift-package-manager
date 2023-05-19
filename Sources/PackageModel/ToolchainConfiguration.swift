@@ -42,6 +42,9 @@ public struct ToolchainConfiguration {
     /// This is optional for example on macOS w/o Xcode.
     public var xctestPath: AbsolutePath?
 
+    /// Path to the Swift plugin server utility.
+    public var swiftPluginServerPath: AbsolutePath?
+
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
@@ -52,6 +55,7 @@ public struct ToolchainConfiguration {
     ///     - swiftPMLibrariesRootPath: Custom path for SwiftPM libraries. Computed based on the compiler path by default.
     ///     - sdkRootPath: Optional path to SDK root.
     ///     - xctestPath: Optional path to XCTest.
+    ///     - swiftPluginServerPath: Optional path to the Swift plugin server executable.
     public init(
         librarianPath: AbsolutePath,
         swiftCompilerPath: AbsolutePath,
@@ -59,7 +63,8 @@ public struct ToolchainConfiguration {
         swiftCompilerEnvironment: EnvironmentVariables = .process(),
         swiftPMLibrariesLocation: SwiftPMLibrariesLocation? = nil,
         sdkRootPath: AbsolutePath? = nil,
-        xctestPath: AbsolutePath? = nil
+        xctestPath: AbsolutePath? = nil,
+        swiftPluginServerPath: AbsolutePath? = nil
     ) {
         let swiftPMLibrariesLocation = swiftPMLibrariesLocation ?? {
             return .init(swiftCompilerPath: swiftCompilerPath)
@@ -72,6 +77,7 @@ public struct ToolchainConfiguration {
         self.swiftPMLibrariesLocation = swiftPMLibrariesLocation
         self.sdkRootPath = sdkRootPath
         self.xctestPath = xctestPath
+        self.swiftPluginServerPath = swiftPluginServerPath
     }
 }
 
