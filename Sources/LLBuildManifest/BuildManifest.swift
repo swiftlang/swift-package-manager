@@ -164,7 +164,6 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node],
         executable: AbsolutePath,
-        packageName: String,
         moduleName: String,
         moduleAliases: [String: String]?,
         moduleOutputPath: AbsolutePath,
