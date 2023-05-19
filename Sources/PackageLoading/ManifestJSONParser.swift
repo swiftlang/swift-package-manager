@@ -683,16 +683,10 @@ extension TargetBuildSettingDescription.Kind {
             guard let lang = TargetBuildSettingDescription.InteroperabilityMode(rawValue: rawLang) else {
                 throw InternalError("unknown interoperability mode: \(rawLang)")
             }
-            if values.count > 2 {
+            if values.count > 1 {
                 throw InternalError("invalid build settings value")
             }
-            let version: String?
-            if values.count == 2 {
-                version = values[1]
-            } else {
-                version = nil
-            }
-            return .interoperabilityMode(lang, version)
+            return .interoperabilityMode(lang)
         case "enableUpcomingFeature":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
