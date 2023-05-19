@@ -134,7 +134,7 @@ public struct SwiftSDKBundle {
     ///   - observabilityScope: Observability scope for reporting warnings and errors.
     public static func install(
         bundlePathOrURL: String,
-        destinationsDirectory: AbsolutePath,
+        swiftSDKsDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
@@ -182,7 +182,7 @@ public struct SwiftSDKBundle {
 
             try installIfValid(
                 bundlePath: bundlePath,
-                destinationsDirectory: destinationsDirectory,
+                destinationsDirectory: swiftSDKsDirectory,
                 temporaryDirectory: temporaryDirectory,
                 fileSystem,
                 archiver,
