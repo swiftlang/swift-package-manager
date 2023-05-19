@@ -444,8 +444,8 @@ public struct Destination: Equatable {
         abi: Triple.ABI? = nil,
         environment: EnvironmentVariables = .process()
     ) throws -> PlatformSDKPaths {
-        if let sdkPlatform = _sdkPlatform {
-            return sdkPlatform
+        if let sdkPlatformPaths = _sdkPlatformPaths {
+            return sdkPlatformPaths
         }
 
         guard let sdkName = sdkName(os: os, abi: abi) else {
@@ -479,14 +479,17 @@ public struct Destination: Equatable {
         // For building on Apple platforms other than macOS
         let sdk = try AbsolutePath(validating: platformSDKPath)
 
-        let platformSDK = PlatformSDKPaths(
+        let sdkPlatformPaths = PlatformSDKPaths(
             libraryPath: library,
             frameworkPath: framework,
             sdkPath: sdk
         )
 
-        return platformSDK
+        _sdkPlatformPaths = sdkPlatformPaths
+        return sdkPlatformPaths
     }
+
+    private static var _sdkPlatformPaths: PlatformSDKPaths? = nil
 
     private static func sdkName(os: Triple.OS, abi: Triple.ABI?) -> String? {
         switch (os, abi) {
@@ -496,8 +499,6 @@ public struct Destination: Equatable {
             default: return nil
         }
     }
-
-    private static var _sdkPlatform: PlatformSDKPaths? = nil
 
     /// Returns a default destination of a given target environment
     public static func defaultDestination(for triple: Triple, host: Destination) throws -> Destination {
