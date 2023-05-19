@@ -16,6 +16,7 @@ import SPMTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
+import protocol TSCBasic.FileSystem
 import class TSCBasic.InMemoryFileSystem
 
 private let testArtifactID = "test-artifact"
@@ -121,7 +122,6 @@ final class SwiftSDKBundleTests: XCTestCase {
                 return
             }
 
-            print(error)
             switch error {
             case .invalidBundleName(let bundleName):
                 XCTAssertEqual(bundleName, invalidPath)
