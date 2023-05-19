@@ -207,8 +207,6 @@ public struct Triple: Encodable, Equatable, Sendable {
         return String(self.tripleString.dropLast(self.osVersion?.count ?? 0)) + version
     }
 
-    public static let macOS = try! Triple("x86_64-apple-macosx")
-
     /// Determine the versioned host triple using the Swift compiler.
     public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
         // Call the compiler to get the target info JSON.
@@ -217,13 +215,7 @@ public struct Triple: Encodable, Equatable, Sendable {
             let result = try Process.popen(args: swiftCompiler.pathString, "-print-target-info")
             compilerOutput = try result.utf8Output().spm_chomp()
         } catch {
-            // FIXME: Remove the macOS special-casing once the latest version of Xcode comes with
-            // a Swift compiler that supports -print-target-info.
-            #if os(macOS)
-            return .macOS
-            #else
             throw InternalError("Failed to get target info (\(error.interpolationDescription))")
-            #endif
         }
         // Parse the compiler's JSON output.
         let parsedTargetInfo: JSON
