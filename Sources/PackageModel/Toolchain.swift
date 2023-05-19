@@ -19,6 +19,12 @@ public protocol Toolchain {
     /// Path of the `swiftc` compiler.
     var swiftCompilerPath: AbsolutePath { get }
 
+    /// Whether the used compiler is from a open source development toolchain.
+    var isSwiftDevelopmentToolchain: Bool { get }
+
+    /// Path to the Swift plugin server utility.
+    var swiftPluginServerPath: AbsolutePath? { get }
+
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
 

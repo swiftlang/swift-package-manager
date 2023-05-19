@@ -60,6 +60,8 @@ public final class UserToolchain: Toolchain {
 
     private let environment: EnvironmentVariables
 
+    public let isSwiftDevelopmentToolchain: Bool
+
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
         // FIXME: This is only for SwiftPM development time support. It is OK
@@ -452,6 +454,22 @@ public final class UserToolchain: Toolchain {
         self.swiftCompilerPath = swiftCompilers.compile
         self.architectures = destination.architectures
 
+        #if canImport(Darwin)
+        let toolchainPlistPath = self.swiftCompilerPath.parentDirectory.parentDirectory.parentDirectory
+            .appending(component: "Info.plist")
+        if localFileSystem.exists(toolchainPlistPath), let toolchainPlist = try? NSDictionary(
+            contentsOf: URL(fileURLWithPath: toolchainPlistPath.pathString),
+            error: ()
+        ), let overrideBuildSettings = toolchainPlist["OverrideBuildSettings"] as? NSDictionary,
+        let isSwiftDevelopmentToolchainStringValue = overrideBuildSettings["SWIFT_DEVELOPMENT_TOOLCHAIN"] as? String {
+            self.isSwiftDevelopmentToolchain = isSwiftDevelopmentToolchainStringValue == "YES"
+        } else {
+            self.isSwiftDevelopmentToolchain = false
+        }
+        #else
+        self.isSwiftDevelopmentToolchain = false
+        #endif
+
         // Use the triple from destination or compute the host triple using swiftc.
         var triple = try destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
@@ -535,10 +553,13 @@ public final class UserToolchain: Toolchain {
             environment: environment
         )
 
+        let swiftPluginServerPath: AbsolutePath?
         let xctestPath: AbsolutePath?
         if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
+            swiftPluginServerPath = nil
             xctestPath = nil
         } else {
+            swiftPluginServerPath = try Self.derivePluginServerPath(triple: triple)
             xctestPath = try Self.deriveXCTestPath(
                 destination: self.destination,
                 triple: triple,
@@ -553,7 +574,8 @@ public final class UserToolchain: Toolchain {
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.destination.pathsConfiguration.sdkRootPath,
-            xctestPath: xctestPath
+            xctestPath: xctestPath,
+            swiftPluginServerPath: swiftPluginServerPath
         )
     }
 
@@ -623,6 +645,17 @@ public final class UserToolchain: Toolchain {
 
         // we are using a SwiftPM outside a toolchain, use the compiler path to compute the location
         return .init(swiftCompilerPath: swiftCompilerPath)
+    }
+
+    private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
+        if triple.isDarwin() {
+            let xctestFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: [:])
+                .spm_chomp() {
+                return try AbsolutePath(validating: path)
+            }
+        }
+        return .none
     }
 
     // TODO: We should have some general utility to find tools.
@@ -746,5 +779,9 @@ public final class UserToolchain: Toolchain {
 
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
+    }
+
+    public var swiftPluginServerPath: AbsolutePath? {
+        configuration.swiftPluginServerPath
     }
 }
