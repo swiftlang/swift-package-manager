@@ -93,7 +93,7 @@ func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
     case .macOS:
-        triple = Triple.macOS
+        triple = Triple.x86_64MacOS
     case .linux:
         triple = Triple.arm64Linux
     case .android:

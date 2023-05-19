@@ -9130,7 +9130,8 @@ final class WorkspaceTests: XCTestCase {
 
         let hostToolchain = try UserToolchain(destination: .hostDestination())
         let androidTriple = try Triple("x86_64-unknown-linux-android")
-        let notHostTriple = hostToolchain.triple == androidTriple ? .macOS : androidTriple
+        let macTriple = try Triple("arm64-apple-macosx")
+        let notHostTriple = hostToolchain.triple == androidTriple ? macTriple : androidTriple
 
         let ari = """
         {

@@ -3078,7 +3078,7 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             ))
         }
-        let supportingTriples: [Basics.Triple] = [.x86_64Linux, .macOS]
+        let supportingTriples: [Basics.Triple] = [.x86_64Linux, .x86_64MacOS]
         for triple in supportingTriples {
             let result = try createResult(for: triple)
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -3252,7 +3252,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertThrows(Diagnostics.fatalError) {
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(destinationTriple: .macOS),
+                buildParameters: mockBuildParameters(destinationTriple: .x86_64MacOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3391,7 +3391,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = try createResult(for: .macOS)
+            let result = try createResult(for: .x86_64MacOS)
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
@@ -4481,7 +4481,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testXCFrameworkBinaryTargets() throws {
-        try testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .x86_64MacOS)
 
         let arm64Triple = try Basics.Triple("arm64-apple-macosx")
         try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
@@ -4559,7 +4559,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testArtifactsArchiveBinaryTargets() throws {
-        XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.macOS], destinationTriple: .macOS))
+        XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.x86_64MacOS], destinationTriple: .x86_64MacOS))
 
         do {
             let triples = try ["arm64-apple-macosx",  "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
@@ -4568,7 +4568,7 @@ final class BuildPlanTests: XCTestCase {
 
         do {
             let triples = try ["x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
-            XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: .macOS))
+            XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: .x86_64MacOS))
         }
     }
 
