@@ -16,51 +16,90 @@ import SPMTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
+import protocol TSCBasic.FileSystem
 import class TSCBasic.InMemoryFileSystem
 
 private let testArtifactID = "test-artifact"
 
-private let infoJSON = """
-{
-  "artifacts" : {
-    "\(testArtifactID)" : {
-      "type" : "swiftSDK",
-      "version" : "0.0.1",
-      "variants" : [
-        {
-          "path" : "\(testArtifactID)/aarch64-unknown-linux",
-          "supportedTriples" : [
-            "arm64-apple-macosx13.0"
-          ]
-        }
-      ]
+private func generateInfoJSON(artifacts: [MockArtifact]) -> String {
+    """
+    {
+        "artifacts" : {
+            \(artifacts.map {
+                    """
+                    "\($0.id)" : {
+                        "type" : "swiftSDK",
+                        "version" : "0.0.1",
+                        "variants" : [
+                            {
+                                "path" : "\($0.id)/aarch64-unknown-linux",
+                                "supportedTriples" : \($0.supportedTriples.map(\.tripleString))
+                            }
+                        ]
+                    }
+                    """
+                }.joined(separator: ",\n")
+            )
+        },
+        "schemaVersion" : "1.0"
     }
-  },
-  "schemaVersion" : "1.0"
+    """
 }
-"""
+
+private struct MockBundle {
+    let name: String
+    let path: String
+    let artifacts: [MockArtifact]
+}
+
+private struct MockArtifact {
+    let id: String
+    let supportedTriples: [Triple]
+}
+
+private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
+    let bundles = bundleArtifacts.enumerated().map { (i, artifacts) in
+        let bundleName = "test\(i).artifactbundle"
+        return MockBundle(name: "test\(i).artifactbundle", path: "/\(bundleName)", artifacts: [artifacts])
+    }
+
+    let fileSystem = InMemoryFileSystem(
+        files: Dictionary(uniqueKeysWithValues: bundles.map {
+            (
+                "\($0.path)/info.json",
+                ByteString(
+                    encodingAsUTF8: generateInfoJSON(artifacts: $0.artifacts)
+                )
+            )
+        })
+    )
+
+    let swiftSDKsDirectory = try AbsolutePath(validating: "/sdks")
+    try fileSystem.createDirectory(fileSystem.tempDirectory)
+    try fileSystem.createDirectory(swiftSDKsDirectory)
+
+    return (fileSystem, bundles, swiftSDKsDirectory)
+}
+
+private let arm64Triple = try! Triple("arm64-apple-macosx13.0")
+let i686Triple = try! Triple("i686-apple-macosx13.0")
 
 final class SwiftSDKBundleTests: XCTestCase {
     func testInstall() async throws {
         let system = ObservabilitySystem.makeForTesting()
 
-        let bundleName1 = "test1.artifactbundle"
-        let bundleName2 = "test2.artifactbundle"
-        let bundlePath1 = "/\(bundleName1)"
-        let bundlePath2 = "/\(bundleName2)"
-        let destinationsDirectory = try AbsolutePath(validating: "/destinations")
-        let fileSystem = InMemoryFileSystem(files: [
-            "\(bundlePath1)/info.json": ByteString(encodingAsUTF8: infoJSON),
-            "\(bundlePath2)/info.json": ByteString(encodingAsUTF8: infoJSON),
-        ])
-        try fileSystem.createDirectory(fileSystem.tempDirectory)
-        try fileSystem.createDirectory(destinationsDirectory)
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: testArtifactID, supportedTriples: [arm64Triple]),
+                .init(id: testArtifactID, supportedTriples: [arm64Triple])
+            ]
+        )
 
         let archiver = MockArchiver()
 
         try SwiftSDKBundle.install(
-            bundlePathOrURL: bundlePath1,
-            destinationsDirectory: destinationsDirectory,
+            bundlePathOrURL: bundles[0].path,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem,
             archiver,
             system.topScope
@@ -70,7 +109,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         do {
             try SwiftSDKBundle.install(
                 bundlePathOrURL: "foobar",
-                destinationsDirectory: destinationsDirectory,
+                swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,
                 archiver,
                 system.topScope
@@ -83,7 +122,6 @@ final class SwiftSDKBundleTests: XCTestCase {
                 return
             }
 
-            print(error)
             switch error {
             case .invalidBundleName(let bundleName):
                 XCTAssertEqual(bundleName, invalidPath)
@@ -94,8 +132,8 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         do {
             try SwiftSDKBundle.install(
-                bundlePathOrURL: bundlePath1,
-                destinationsDirectory: destinationsDirectory,
+                bundlePathOrURL: bundles[0].path,
+                swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,
                 archiver,
                 system.topScope
@@ -110,7 +148,7 @@ final class SwiftSDKBundleTests: XCTestCase {
 
             switch error {
             case .destinationBundleAlreadyInstalled(let installedBundleName):
-                XCTAssertEqual(bundleName1, installedBundleName)
+                XCTAssertEqual(bundles[0].name, installedBundleName)
             default:
                 XCTFail("Unexpected error value")
             }
@@ -118,8 +156,8 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         do {
             try SwiftSDKBundle.install(
-                bundlePathOrURL: bundlePath2,
-                destinationsDirectory: destinationsDirectory,
+                bundlePathOrURL: bundles[1].path,
+                swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,
                 archiver,
                 system.topScope
@@ -134,12 +172,40 @@ final class SwiftSDKBundleTests: XCTestCase {
 
             switch error {
             case .destinationArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
-                XCTAssertEqual(bundleName1, installedBundleName)
-                XCTAssertEqual(bundleName2, newBundleName)
+                XCTAssertEqual(bundles[0].name, installedBundleName)
+                XCTAssertEqual(bundles[1].name, newBundleName)
                 XCTAssertEqual(artifactID, testArtifactID)
             default:
                 XCTFail("Unexpected error value")
             }
         }
+    }
+
+    func testList() async throws {
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
+                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple])
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+
+        for bundle in bundles {
+            try SwiftSDKBundle.install(
+                bundlePathOrURL: bundle.path,
+                swiftSDKsDirectory: swiftSDKsDirectory,
+                fileSystem,
+                MockArchiver(),
+                system.topScope
+            )
+        }
+
+        let validBundles = try SwiftSDKBundle.getAllValidBundles(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope
+        )
+
+        XCTAssertEqual(validBundles.count, bundles.count)
     }
 }
