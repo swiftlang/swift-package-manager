@@ -443,8 +443,11 @@ public struct Destination: Equatable {
         os: Triple.OS,
         abi: Triple.ABI? = nil,
         environment: EnvironmentVariables = .process()
-    ) throws -> PlatformSDKPaths {
-        if let sdkPlatformPaths = _sdkPlatformPaths {
+    ) throws -> PlatformSDK {
+        /// Naive caching will replace old cache each time the paths request for new OS/ABI pair
+        if let sdkPlatformPaths = _sdkPlatformPaths,
+            sdkPlatformPaths.os == os,
+            sdkPlatformPaths.abi == abi {
             return sdkPlatformPaths
         }
 
@@ -479,7 +482,9 @@ public struct Destination: Equatable {
         // For building on Apple platforms other than macOS
         let sdk = try AbsolutePath(validating: platformSDKPath)
 
-        let sdkPlatformPaths = PlatformSDKPaths(
+        let sdkPlatformPaths = PlatformSDK(
+            os: os,
+            abi: abi,
             libraryPath: library,
             frameworkPath: framework,
             sdkPath: sdk
@@ -489,7 +494,7 @@ public struct Destination: Equatable {
         return sdkPlatformPaths
     }
 
-    private static var _sdkPlatformPaths: PlatformSDKPaths? = nil
+    private static var _sdkPlatformPaths: PlatformSDK? = nil
 
     private static func sdkName(os: Triple.OS, abi: Triple.ABI?) -> String? {
         switch (os, abi) {
@@ -816,7 +821,10 @@ struct SerializedDestinationV3: Decodable {
     let runTimeTriples: [String: TripleProperties]
 }
 
-public struct PlatformSDKPaths {
+/// Represetns platform sdk metadata including paths to libraries, sdk and specifies the platform details
+public struct PlatformSDK {
+    public let os: Triple.OS
+    public let abi: Triple.ABI?
     public let libraryPath: AbsolutePath
     public let frameworkPath: AbsolutePath
     public let sdkPath: AbsolutePath
