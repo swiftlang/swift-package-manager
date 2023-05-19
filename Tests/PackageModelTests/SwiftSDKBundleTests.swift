@@ -20,19 +20,19 @@ import class TSCBasic.InMemoryFileSystem
 
 private let testArtifactID = "test-artifact"
 
-private func generateInfoJSON(artifacts: [String: [Triple]]) -> String {
+private func generateInfoJSON(artifacts: [MockArtifact]) -> String {
     """
     {
         "artifacts" : {
             \(artifacts.map {
                     """
-                    "\($0)" : {
+                    "\($0.id)" : {
                         "type" : "swiftSDK",
                         "version" : "0.0.1",
                         "variants" : [
                             {
-                                "path" : "\($0)/aarch64-unknown-linux",
-                                "supportedTriples" : \($1.map(\.tripleString))
+                                "path" : "\($0.id)/aarch64-unknown-linux",
+                                "supportedTriples" : \($0.supportedTriples.map(\.tripleString))
                             }
                         ]
                     }
@@ -48,13 +48,18 @@ private func generateInfoJSON(artifacts: [String: [Triple]]) -> String {
 private struct MockBundle {
     let name: String
     let path: String
-    let artifacts: [String: Triple]
+    let artifacts: [MockArtifact]
 }
 
-private func generateTestFileSystem(bundleArtifacts: [[String: Triple]]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
+private struct MockArtifact {
+    let id: String
+    let supportedTriples: [Triple]
+}
+
+private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
     let bundles = bundleArtifacts.enumerated().map { (i, artifacts) in
         let bundleName = "test\(i).artifactbundle"
-        return MockBundle(name: "test\(i).artifactbundle", path: "/\(bundleName)", artifacts: artifacts)
+        return MockBundle(name: "test\(i).artifactbundle", path: "/\(bundleName)", artifacts: [artifacts])
     }
 
     let fileSystem = InMemoryFileSystem(
@@ -75,7 +80,7 @@ private func generateTestFileSystem(bundleArtifacts: [[String: Triple]]) throws 
     return (fileSystem, bundles, swiftSDKsDirectory)
 }
 
-let arm64Triple = try! Triple("arm64-apple-macosx13.0")
+private let arm64Triple = try! Triple("arm64-apple-macosx13.0")
 let i686Triple = try! Triple("i686-apple-macosx13.0")
 
 final class SwiftSDKBundleTests: XCTestCase {
@@ -83,7 +88,10 @@ final class SwiftSDKBundleTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
 
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
-            bundleArtifacts: [arm64Triple, arm64Triple]
+            bundleArtifacts: [
+                .init(id: testArtifactID, supportedTriples: [arm64Triple]),
+                .init(id: testArtifactID, supportedTriples: [arm64Triple])
+            ]
         )
 
         let archiver = MockArchiver()
@@ -175,7 +183,10 @@ final class SwiftSDKBundleTests: XCTestCase {
 
     func testList() async throws {
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
-            bundleArtifacts: [arm64Triple, i686Triple]
+            bundleArtifacts: [
+                .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
+                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple])
+            ]
         )
         let system = ObservabilitySystem.makeForTesting()
 
