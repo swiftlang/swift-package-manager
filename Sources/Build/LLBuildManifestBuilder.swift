@@ -619,7 +619,6 @@ extension LLBuildManifestBuilder {
             inputs: inputs,
             outputs: cmdOutputs,
             executable: self.buildParameters.toolchain.swiftCompilerPath,
-            packageName: target.package.identity.description.spm_mangledToC99ExtendedIdentifier(),
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
