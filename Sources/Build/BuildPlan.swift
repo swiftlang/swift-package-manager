@@ -629,9 +629,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                if buildParameters.hostTriple.isDarwin() {
+                if buildParameters.triple.isDarwin() {
                     buildProduct.additionalFlags += ["-lc++"]
-                } else if buildParameters.hostTriple.isWindows() {
+                } else if buildParameters.triple.isWindows() {
                     // Don't link any C++ library.
                 } else {
                     buildProduct.additionalFlags += ["-lstdc++"]

@@ -2165,7 +2165,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: BuildPlan(
+        var result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -2173,13 +2173,26 @@ final class BuildPlanTests: XCTestCase {
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
-        let linkArgs = try result.buildProduct(for: "exe").linkArguments()
+        var linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
       #if os(macOS)
         XCTAssertMatch(linkArgs, ["-lc++"])
       #elseif !os(Windows)
         XCTAssertMatch(linkArgs, ["-lstdc++"])
       #endif
+
+        // Verify that `-lstdc++` is passed instead of `-lc++` when cross-compiling to Linux.
+        result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(destinationTriple: .arm64Linux),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+        linkArgs = try result.buildProduct(for: "exe").linkArguments()
+
+        XCTAssertMatch(linkArgs, ["-lstdc++"])
     }
 
     func testDynamicProducts() throws {
