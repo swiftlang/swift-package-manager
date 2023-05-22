@@ -226,7 +226,7 @@ public struct SwiftFrontendTool: ToolProtocol {
 
 /// Swift compiler llbuild tool.
 public struct SwiftCompilerTool: ToolProtocol {
-    public static let name: String = "swift-compiler"
+    public static let name: String = "shell"
 
     public static let numThreads: Int = ProcessInfo.processInfo.activeProcessorCount
 
@@ -244,6 +244,7 @@ public struct SwiftCompilerTool: ToolProtocol {
     public var sources: [AbsolutePath]
     public var isLibrary: Bool
     public var wholeModuleOptimization: Bool
+    public var outputFileMapPath: AbsolutePath
 
     init(
         inputs: [Node],
@@ -258,7 +259,8 @@ public struct SwiftCompilerTool: ToolProtocol {
         otherArguments: [String],
         sources: [AbsolutePath],
         isLibrary: Bool,
-        wholeModuleOptimization: Bool
+        wholeModuleOptimization: Bool,
+        outputFileMapPath: AbsolutePath
     ) {
         self.inputs = inputs
         self.outputs = outputs
@@ -273,24 +275,43 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.sources = sources
         self.isLibrary = isLibrary
         self.wholeModuleOptimization = wholeModuleOptimization
+        self.outputFileMapPath = outputFileMapPath
+    }
+
+    var description: String {
+        return "Compiling Swift Module '\(moduleName)' (\(sources.count) sources)"
+    }
+
+    var arguments: [String] {
+        var arguments = [
+            executable.pathString,
+            "-module-name", moduleName,
+        ]
+        if let moduleAliases = moduleAliases {
+            for (original, alias) in moduleAliases {
+                arguments += ["-module-alias", "\(original)=\(alias)"]
+            }
+        }
+        arguments += [
+            "-incremental",
+            "-emit-dependencies",
+            "-emit-module",
+            "-emit-module-path", moduleOutputPath.pathString,
+            "-output-file-map", outputFileMapPath.pathString,
+        ]
+        if isLibrary {
+            arguments += ["-parse-as-library"]
+        }
+        if wholeModuleOptimization {
+            arguments += ["-whole-module-optimization", "-num-threads", "\(Self.numThreads)"]
+        }
+        arguments += ["-c"] + sources.map { $0.pathString }
+        arguments += ["-I", importPath.pathString]
+        arguments += otherArguments
+        return arguments
     }
 
     public func write(to stream: ManifestToolStream) {
-        stream["executable"] = executable
-        stream["module-name"] = moduleName
-        if let moduleAliases {
-            // Format the key and value to pass to -module-alias flag
-            let formatted = moduleAliases.map {$0.key + "=" + $0.value}
-            stream["module-aliases"] = formatted
-        }
-        stream["module-output-path"] = moduleOutputPath
-        stream["import-paths"] = [importPath]
-        stream["temps-path"] = tempsPath
-        stream["objects"] = objects
-        stream["other-args"] = otherArguments
-        stream["sources"] = sources
-        stream["is-library"] = isLibrary
-        stream["enable-whole-module-optimization"] = wholeModuleOptimization
-        stream["num-threads"] = Self.numThreads
-     }
+        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: stream)
+    }
 }

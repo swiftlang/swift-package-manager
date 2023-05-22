@@ -41,7 +41,13 @@ final class BuildToolTests: CommandsTestCase {
         defer { try! SwiftPM.Package.execute(["clean"], packagePath: packagePath) }
         let (binPathOutput, _) = try execute(["--show-bin-path"], packagePath: packagePath)
         let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
-        let binContents = try localFileSystem.getDirectoryContents(binPath)
+        let binContents = try localFileSystem.getDirectoryContents(binPath).filter {
+            guard let contents = try? localFileSystem.getDirectoryContents(binPath.appending(component: $0)) else {
+                return true
+            }
+            // Filter directories which only contain an output file map since we didn't build anything for those which is what `binContents` is meant to represent.
+            return contents != ["output-file-map.json"]
+        }
         return BuildResult(binPath: binPath, output: output, binContents: binContents)
     }
     
