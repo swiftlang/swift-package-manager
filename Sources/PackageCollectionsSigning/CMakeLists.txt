@@ -43,6 +43,6 @@ target_link_libraries(PackageCollectionsSigning PUBLIC
   PackageCollectionsModel
   TSCBasic)
 target_link_libraries(PackageCollectionsSigning PRIVATE
-  PackageCollectionsSigningLibc
-  $<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>)
-
+  PackageCollectionsSigningLibc)
+target_link_options(PackageCollectionsSigning PRIVATE
+  "$<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>")
