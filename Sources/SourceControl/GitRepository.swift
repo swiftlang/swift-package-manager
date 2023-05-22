@@ -24,7 +24,6 @@ import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
 import struct Basics.AsyncProcessResult
-import struct TSCBasic.RegEx
 
 import protocol TSCUtility.DiagnosticLocationProviding
 import enum TSCUtility.Git
@@ -1243,7 +1242,7 @@ public enum GitProgressParser: FetchProgress {
     case resolvingDeltas(progress: Double, currentObjects: Int, totalObjects: Int)
 
     /// The pattern used to match git output. Capture groups are labeled from ?<i0> to ?<i19>.
-    static let pattern = #"""
+    private static let regex = #/
     (?xi)
     (?:
         remote: \h+ (?<i0>Enumerating \h objects): \h+ (?<i1>[0-9]+)
@@ -1261,58 +1260,53 @@ public enum GitProgressParser: FetchProgress {
         (?<i14>Receiving \h objects): \h+ (?<i15>[0-9]+)% \h+ \((?<i16>[0-9]+)\/(?<i17>[0-9]+)\)
         (?:, \h+ (?<i18>[0-9]+.?[0-9]+ \h [A-Z]iB) \h+ \| \h+ (?<i19>[0-9]+.?[0-9]+ \h [A-Z]iB\/s))?
     )
-    """#
-    static let regex = try? RegEx(pattern: pattern)
+    /#
 
     init?(from string: String) {
-        guard let matches = GitProgressParser.regex?.matchGroups(in: string).first,
-              matches.count == 20 else { return nil }
-
-        if matches[0] == "Enumerating objects" {
-            guard let currentObjects = Int(matches[1]) else { return nil }
-
+        guard let match = try? Self.regex.firstMatch(in: string)
+        else { return nil }
+        let captures = match.output
+        if captures.i0 == "Enumerating objects" {
+            guard let currentObjects = captures.i1.flatMap({ Int($0) })
+            else { return nil }
             self = .enumeratingObjects(currentObjects: currentObjects)
-        } else if matches[2] == "Counting objects" {
-            guard let progress = Double(matches[3]),
-                  let currentObjects = Int(matches[4]),
-                  let totalObjects = Int(matches[5]) else { return nil }
-
+        } else if captures.i2 == "Counting objects" {
+            guard let progress = captures.i3.flatMap({ Double($0) }),
+                  let currentObjects = captures.i4.flatMap({ Int($0) }),
+                  let totalObjects = captures.i5.flatMap({ Int($0) })
+            else { return nil }
             self = .countingObjects(
                 progress: progress / 100,
                 currentObjects: currentObjects,
                 totalObjects: totalObjects
             )
-
-        } else if matches[6] == "Compressing objects" {
-            guard let progress = Double(matches[7]),
-                  let currentObjects = Int(matches[8]),
-                  let totalObjects = Int(matches[9]) else { return nil }
-
+        } else if captures.i6 == "Compressing objects" {
+            guard let progress = captures.i7.flatMap({ Double($0) }),
+                  let currentObjects = captures.i8.flatMap({ Int($0) }),
+                  let totalObjects = captures.i9.flatMap({ Int($0) })
+            else { return nil }
             self = .compressingObjects(
                 progress: progress / 100,
                 currentObjects: currentObjects,
                 totalObjects: totalObjects
             )
-
-        } else if matches[10] == "Resolving deltas" {
-            guard let progress = Double(matches[11]),
-                  let currentObjects = Int(matches[12]),
-                  let totalObjects = Int(matches[13]) else { return nil }
-
+        } else if captures.i10 == "Resolving deltas" {
+            guard let progress = captures.i11.flatMap({ Double($0) }),
+                  let currentObjects = captures.i12.flatMap({ Int($0) }),
+                  let totalObjects = captures.i13.flatMap({ Int($0) })
+            else { return nil }
             self = .resolvingDeltas(
                 progress: progress / 100,
                 currentObjects: currentObjects,
                 totalObjects: totalObjects
             )
-
-        } else if matches[14] == "Receiving objects" {
-            guard let progress = Double(matches[15]),
-                  let currentObjects = Int(matches[16]),
-                  let totalObjects = Int(matches[17]) else { return nil }
-
-            let downloadProgress = matches[18]
-            let downloadSpeed = matches[19]
-
+        } else if captures.i14 == "Receiving objects" {
+            guard let progress = captures.i15.flatMap({ Double($0) }),
+                  let currentObjects = captures.i16.flatMap({ Int($0) }),
+                  let totalObjects = captures.i17.flatMap({ Int($0) })
+            else { return nil }
+            let downloadProgress = captures.i18.map(String.init)
+            let downloadSpeed = captures.i19.map(String.init)
             self = .receivingObjects(
                 progress: progress / 100,
                 currentObjects: currentObjects,
@@ -1320,7 +1314,6 @@ public enum GitProgressParser: FetchProgress {
                 downloadProgress: downloadProgress,
                 downloadSpeed: downloadSpeed
             )
-
         } else {
             return nil
         }
