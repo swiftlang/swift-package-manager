@@ -31,18 +31,18 @@ private func readpassword(_ prompt: String) throws -> String {
 
     let hStdIn: HANDLE = GetStdHandle(STD_INPUT_HANDLE)
     if hStdIn == INVALID_HANDLE_VALUE {
-        throw StringError("unable to read input")
+        throw StringError("unable to read input: GetStdHandle returns INVALID_HANDLE_VALUE")
     }
 
     var dwMode: DWORD = 0
     guard GetConsoleMode(hStdIn, &dwMode) else {
-        throw StringError("unable to read input")
+        throw StringError("unable to read input: GetConsoleMode failed")
     }
 
     print(prompt, terminator: "")
 
     guard SetConsoleMode(hStdIn, DWORD(ENABLE_LINE_INPUT)) else {
-        throw StringError("unable to read input")
+        throw StringError("unable to read input: SetConsoleMode failed")
     }
     defer { SetConsoleMode(hStdIn, dwMode) }
 
