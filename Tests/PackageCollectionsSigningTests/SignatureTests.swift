@@ -20,149 +20,160 @@ import X509
 import XCTest
 
 class SignatureTests: XCTestCase {
-    func test_RS256_generateAndValidate_happyCase() throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let jsonEncoder = JSONEncoder()
-            let jsonDecoder = JSONDecoder()
+    func test_RS256_generateAndValidate_happyCase() async throws {
+        let jsonEncoder = JSONEncoder.makeWithDefaults()
+        let jsonDecoder = JSONDecoder.makeWithDefaults()
 
-            let payload = ["foo": "bar"]
+        let certData = try temp_await { callback in
+            self.readTestCertData(
+                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa.cer") },
+                callback: callback
+            )
+        }
+        let certBase64Encoded = certData.base64EncodedString()
+        let certificate = try Certificate(derEncoded: Array(certData))
 
-            let certPath = fixturePath.appending(components: "Certificates", "Test_rsa.cer")
-            let certData: Data = try localFileSystem.readFileContents(certPath)
-            let certBase64Encoded = certData.base64EncodedString()
-            let certificate = try Certificate(derEncoded: Array(certData))
+        let payload = ["foo": "bar"]
+        let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: certRSAPrivateKey)
+        let signature = try Signature.generate(
+            payload: payload,
+            certChainData: [certData],
+            jsonEncoder: jsonEncoder,
+            signatureAlgorithm: .RS256
+        ) {
+            try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
+        }
 
-            let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: certRSAPrivateKey)
-            let signature = try Signature.generate(
-                payload: payload,
-                certChainData: [certData],
-                jsonEncoder: jsonEncoder,
-                signatureAlgorithm: .RS256
-            ) {
-                try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
+        let parsedSignature = try await Signature.parse(
+            signature,
+            certChainValidate: { _ in [certificate] },
+            jsonDecoder: jsonDecoder
+        )
+        XCTAssertEqual(try jsonDecoder.decode([String: String].self, from: parsedSignature.payload), payload)
+        XCTAssertEqual(parsedSignature.header.algorithm, Signature.Algorithm.RS256)
+        XCTAssertEqual(parsedSignature.header.certChain, [certBase64Encoded])
+    }
+
+    func test_RS256_generateAndValidate_keyMismatch() async throws {
+        let jsonEncoder = JSONEncoder.makeWithDefaults()
+        let jsonDecoder = JSONDecoder.makeWithDefaults()
+
+        let certData = try temp_await { callback in
+            self.readTestCertData(
+                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa.cer") },
+                callback: callback
+            )
+        }
+        let certificate = try Certificate(derEncoded: Array(certData))
+
+        let payload = ["foo": "bar"]
+        // This is not cert's key so `parse` will fail
+        let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: rsaPrivateKey)
+        let signature = try Signature.generate(
+            payload: payload,
+            certChainData: [certData],
+            jsonEncoder: jsonEncoder,
+            signatureAlgorithm: .RS256
+        ) {
+            try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
+        }
+
+        do {
+            _ = try await Signature.parse(
+                signature,
+                certChainValidate: { _ in [certificate] },
+                jsonDecoder: jsonDecoder
+            )
+            XCTFail("Expected error")
+        } catch {
+            guard SignatureError.invalidSignature == error as? SignatureError else {
+                return XCTFail("Expected SignatureError.invalidSignature")
             }
-
-            let parsedSignature = try temp_await { callback in
-                Signature.parse(
-                    signature,
-                    certChainValidate: { _, cb in cb(.success([certificate])) },
-                    jsonDecoder: jsonDecoder,
-                    callback: callback
-                )
-            }
-            XCTAssertEqual(try jsonDecoder.decode([String: String].self, from: parsedSignature.payload), payload)
-            XCTAssertEqual(parsedSignature.header.algorithm, Signature.Algorithm.RS256)
-            XCTAssertEqual(parsedSignature.header.certChain, [certBase64Encoded])
         }
     }
 
-    func test_RS256_generateAndValidate_keyMismatch() throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let jsonEncoder = JSONEncoder()
-            let jsonDecoder = JSONDecoder()
+    func test_ES256_generateAndValidate_happyCase() async throws {
+        let jsonEncoder = JSONEncoder.makeWithDefaults()
+        let jsonDecoder = JSONDecoder.makeWithDefaults()
 
-            let payload = ["foo": "bar"]
+        let certData = try temp_await { callback in
+            self.readTestCertData(
+                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec.cer") },
+                callback: callback
+            )
+        }
+        let certBase64Encoded = certData.base64EncodedString()
+        let certificate = try Certificate(derEncoded: Array(certData))
 
-            let certPath = fixturePath.appending(components: "Certificates", "Test_rsa.cer")
-            let certData: Data = try localFileSystem.readFileContents(certPath)
-            let certificate = try Certificate(derEncoded: Array(certData))
+        let payload = ["foo": "bar"]
+        let privateKey = try P256.Signing.PrivateKey(pemRepresentation: certECPrivateKey)
+        let signature = try Signature.generate(
+            payload: payload,
+            certChainData: [certData],
+            jsonEncoder: jsonEncoder,
+            signatureAlgorithm: .ES256
+        ) {
+            try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
+        }
 
-            // This is not cert's key so `parse` will fail
-            let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: rsaPrivateKey)
-            let signature = try Signature.generate(
-                payload: payload,
-                certChainData: [certData],
-                jsonEncoder: jsonEncoder,
-                signatureAlgorithm: .RS256
-            ) {
-                try privateKey.signature(for: SHA256.hash(data: $0), padding: Signature.rsaSigningPadding).rawRepresentation
-            }
+        let parsedSignature = try await Signature.parse(
+            signature,
+            certChainValidate: { _ in [certificate] },
+            jsonDecoder: jsonDecoder
+        )
 
-            XCTAssertThrowsError(try temp_await { callback in
-                Signature.parse(
-                    signature,
-                    certChainValidate: { _, cb in cb(.success([certificate])) },
-                    jsonDecoder: jsonDecoder,
-                    callback: callback
-                )
-            }) { error in
-                guard SignatureError.invalidSignature == error as? SignatureError else {
-                    return XCTFail("Expected SignatureError.invalidSignature")
-                }
+        XCTAssertEqual(try jsonDecoder.decode([String: String].self, from: parsedSignature.payload), payload)
+        XCTAssertEqual(parsedSignature.header.algorithm, Signature.Algorithm.ES256)
+        XCTAssertEqual(parsedSignature.header.certChain, [certBase64Encoded])
+    }
+
+    func test_ES256_generateAndValidate_keyMismatch() async throws {
+        let jsonEncoder = JSONEncoder.makeWithDefaults()
+        let jsonDecoder = JSONDecoder.makeWithDefaults()
+
+        let certData = try temp_await { callback in
+            self.readTestCertData(
+                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec.cer") },
+                callback: callback
+            )
+        }
+        let certificate = try Certificate(derEncoded: Array(certData))
+
+        let payload = ["foo": "bar"]
+        // This is not cert's key so `parse` will fail
+        let privateKey = try P256.Signing.PrivateKey(pemRepresentation: ecPrivateKey)
+        let signature = try Signature.generate(
+            payload: payload,
+            certChainData: [certData],
+            jsonEncoder: jsonEncoder,
+            signatureAlgorithm: .ES256
+        ) {
+            try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
+        }
+
+        do {
+            _ = try await Signature.parse(
+                signature,
+                certChainValidate: { _ in [certificate] },
+                jsonDecoder: jsonDecoder
+            )
+            XCTFail("Expected error")
+        } catch {
+            guard SignatureError.invalidSignature == error as? SignatureError else {
+                return XCTFail("Expected SignatureError.invalidSignature")
             }
         }
     }
 
-    func test_ES256_generateAndValidate_happyCase() throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let jsonEncoder = JSONEncoder()
-            let jsonDecoder = JSONDecoder()
-
-            let payload = ["foo": "bar"]
-
-            let certPath = fixturePath.appending(components: "Certificates", "Test_ec.cer")
-            let certData: Data = try localFileSystem.readFileContents(certPath)
-            let certBase64Encoded = certData.base64EncodedString()
-            let certificate = try Certificate(derEncoded: Array(certData))
-
-            let privateKey = try P256.Signing.PrivateKey(pemRepresentation: certECPrivateKey)
-            let signature = try Signature.generate(
-                payload: payload,
-                certChainData: [certData],
-                jsonEncoder: jsonEncoder,
-                signatureAlgorithm: .ES256
-            ) {
-                try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
+    private func readTestCertData(path: (AbsolutePath) -> AbsolutePath, callback: (Result<Data, Error>) -> Void) {
+        do {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let certPath = path(fixturePath)
+                let certData: Data = try localFileSystem.readFileContents(certPath)
+                callback(.success(certData))
             }
-
-            let parsedSignature = try temp_await { callback in
-                Signature.parse(
-                    signature,
-                    certChainValidate: { _, cb in cb(.success([certificate])) },
-                    jsonDecoder: jsonDecoder,
-                    callback: callback
-                )
-            }
-            XCTAssertEqual(try jsonDecoder.decode([String: String].self, from: parsedSignature.payload), payload)
-            XCTAssertEqual(parsedSignature.header.algorithm, Signature.Algorithm.ES256)
-            XCTAssertEqual(parsedSignature.header.certChain, [certBase64Encoded])
-        }
-    }
-
-    func test_ES256_generateAndValidate_keyMismatch() throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let jsonEncoder = JSONEncoder()
-            let jsonDecoder = JSONDecoder()
-
-            let payload = ["foo": "bar"]
-
-            let certPath = fixturePath.appending(components: "Certificates", "Test_ec.cer")
-            let certData: Data = try localFileSystem.readFileContents(certPath)
-            let certificate = try Certificate(derEncoded: Array(certData))
-
-            // This is not cert's key so `parse` will fail
-            let privateKey = try P256.Signing.PrivateKey(pemRepresentation: ecPrivateKey)
-            let signature = try Signature.generate(
-                payload: payload,
-                certChainData: [certData],
-                jsonEncoder: jsonEncoder,
-                signatureAlgorithm: .ES256
-            ) {
-                try privateKey.signature(for: SHA256.hash(data: $0)).rawRepresentation
-            }
-
-            XCTAssertThrowsError(try temp_await { callback in
-                Signature.parse(
-                    signature,
-                    certChainValidate: { _, cb in cb(.success([certificate])) },
-                    jsonDecoder: jsonDecoder,
-                    callback: callback
-                )
-            }) { error in
-                guard SignatureError.invalidSignature == error as? SignatureError else {
-                    return XCTFail("Expected SignatureError.invalidSignature")
-                }
-            }
+        } catch {
+            callback(.failure(error))
         }
     }
 }
