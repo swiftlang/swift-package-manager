@@ -34,6 +34,12 @@ public final class UserToolchain: Toolchain {
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath
 
+    /// An array of paths to search for headers and modules at compile time.
+    public let includeSearchPaths: [AbsolutePath]
+
+    /// An array of paths to search for libraries at link time.
+    public let librarySearchPaths: [AbsolutePath]
+
     /// Additional flags to be passed to the build tools.
     public var extraFlags: BuildFlags
 
@@ -482,6 +488,7 @@ public final class UserToolchain: Toolchain {
         }
 
         self.triple = triple
+
         self.extraFlags = BuildFlags(
             cCompilerFlags: destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
             cxxCompilerFlags: destination.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
@@ -491,6 +498,9 @@ public final class UserToolchain: Toolchain {
                 environment: environment),
             linkerFlags: destination.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
             xcbuildFlags: destination.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
+
+        self.includeSearchPaths = destination.pathsConfiguration.includeSearchPaths ?? []
+        self.librarySearchPaths = destination.pathsConfiguration.includeSearchPaths ?? []
 
         self.librarianPath = try UserToolchain.determineLibrarian(
             triple: triple,

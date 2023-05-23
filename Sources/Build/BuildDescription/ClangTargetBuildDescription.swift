@@ -304,6 +304,11 @@ public final class ClangTargetBuildDescription {
             args += ["-flto=thin"]
         }
 
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            args += ["-I", includeSearchPath.pathString]
+        }
+
         return args
     }
 

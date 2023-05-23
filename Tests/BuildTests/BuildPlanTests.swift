@@ -3554,10 +3554,7 @@ final class BuildPlanTests: XCTestCase {
             runTimeTriple: runtimeTriple,
             properties: .init(
                 sdkRootPath: "/fake/sdk",
-                swiftStaticResourcesPath: "/usr/lib/swift_static/none",
-                includeSearchPaths: ["/usr/lib/swift_static/none"],
-                librarySearchPaths: ["/usr/lib/swift_static/none"],
-                toolsetPaths: []),
+                swiftStaticResourcesPath: "/usr/lib/swift_static/none"),
             toolset: toolSet,
             destinationDirectory: nil)
         let toolchain = try UserToolchain(destination: destination)
@@ -3667,6 +3664,64 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertCount(0, exeLinkArguments, cliFlag(tool: .cxxCompiler))
         XCTAssertCount(1, exeLinkArguments, jsonFlag(tool: .linker))
         XCTAssertCount(1, exeLinkArguments, cliFlag(tool: .linker))
+    }
+
+    func testUserToolchainWithSDKSearchPaths() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/cLib/cLib.c",
+            "/Pkg/Sources/cLib/include/cLib.h"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["cLib"]),
+                        TargetDescription(name: "cLib", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let runtimeTriple = try UserToolchain.default.triple
+        let sdkIncludeSearchPath = "/usr/lib/swift_static/none/include"
+        let sdkLibrarySearchPath = "/usr/lib/swift_static/none/lib"
+        let destination = try Destination(
+            runTimeTriple: runtimeTriple,
+            properties: .init(
+                sdkRootPath: "/fake/sdk",
+                includeSearchPaths: [sdkIncludeSearchPath],
+                librarySearchPaths: [sdkLibrarySearchPath]))
+        let toolchain = try UserToolchain(destination: destination)
+        let buildParameters = mockBuildParameters(toolchain: toolchain)
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        // Compile C Target
+        let cLibCompileArguments = try result.target(for: "cLib").clangTarget().basicArguments(isCXX: false)
+        let cLibCompileArgumentsPattern: [StringPattern] = ["-I", "\(sdkIncludeSearchPath)"]
+        XCTAssertMatch(cLibCompileArguments, cLibCompileArgumentsPattern)
+
+        // Compile Swift Target
+        let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
+        let exeCompileArgumentsPattern: [StringPattern] = ["-I", "\(sdkIncludeSearchPath)"]
+        XCTAssertMatch(exeCompileArguments, exeCompileArgumentsPattern)
+
+        // Link Product
+        let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
+        let exeLinkArgumentsPattern: [StringPattern] = ["-L", "\(sdkIncludeSearchPath)"]
+        XCTAssertMatch(exeLinkArguments, exeLinkArgumentsPattern)
     }
 
     func testExecBuildTimeDependency() throws {
