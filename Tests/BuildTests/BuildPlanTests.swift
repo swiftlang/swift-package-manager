@@ -865,9 +865,11 @@ final class BuildPlanTests: XCTestCase {
 
             let buildPath: AbsolutePath = plan.buildParameters.dataPath.appending(components: "release")
 
-            let linkedFileList: String = try fs.readFileContents("/path/to/build/release/exe.product/Objects.LinkFileList")
-            XCTAssertMatch(linkedFileList, .contains("PkgLib"))
-            XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
+            let result = try BuildPlanResult(plan: plan)
+            let buildProduct = try result.buildProduct(for: "exe")
+            let objectDirectoryNames = buildProduct.objects.map { $0.parentDirectory.basename }
+            XCTAssertTrue(objectDirectoryNames.contains("PkgLib.build"))
+            XCTAssertFalse(objectDirectoryNames.contains("ExtLib.build"))
 
             let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "release.yaml")
             try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -891,9 +893,11 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let linkedFileList: String = try fs.readFileContents("/path/to/build/debug/exe.product/Objects.LinkFileList")
-            XCTAssertNoMatch(linkedFileList, .contains("PkgLib"))
-            XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
+            let result = try BuildPlanResult(plan: plan)
+            let buildProduct = try result.buildProduct(for: "exe")
+            let objectDirectoryNames = buildProduct.objects.map { $0.parentDirectory.basename }
+            XCTAssertFalse(objectDirectoryNames.contains("PkgLib.build"))
+            XCTAssertFalse(objectDirectoryNames.contains("ExtLib.build"))
 
             let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
             try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -1260,13 +1264,12 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
-      let linkedFileList: String = try fs.readFileContents(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))
-      XCTAssertEqual(linkedFileList, """
-          \(buildPath.appending(components: "exe.build", "main.c.o"))
-          \(buildPath.appending(components: "extlib.build", "extlib.c.o"))
-          \(buildPath.appending(components: "lib.build", "lib.c.o"))
-
-          """)
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
+        XCTAssertEqual(Array(buildProduct.objects), [
+            buildPath.appending(components: "exe.build", "main.c.o"),
+            buildPath.appending(components: "extlib.build", "extlib.c.o"),
+            buildPath.appending(components: "lib.build", "lib.c.o")
+        ])
     }
 
     func testClangConditionalDependency() throws {
@@ -4009,75 +4012,75 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testArchiving() throws {
-        let fs: FileSystem = InMemoryFileSystem(emptyFiles:
-            "/Package/Sources/rary/rary.swift"
-        )
+            let fs: FileSystem = InMemoryFileSystem(emptyFiles:
+                "/Package/Sources/rary/rary.swift"
+            )
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "Package",
-                    path: "/Package",
-                    products: [
-                        ProductDescription(name: "rary", type: .library(.static), targets: ["rary"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "rary", dependencies: []),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "Package",
+                        path: "/Package",
+                        products: [
+                            ProductDescription(name: "rary", type: .library(.static), targets: ["rary"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "rary", dependencies: []),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(),
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+            let result = try BuildPlanResult(plan: BuildPlan(
+                buildParameters: mockBuildParameters(),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+            let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
-        let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
-        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+            let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+            try fs.createDirectory(yaml.parentDirectory, recursive: true)
 
-        let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
-        try llbuild.generateManifest(at: yaml)
+            let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
+            try llbuild.generateManifest(at: yaml)
 
-        let contents: String = try fs.readFileContents(yaml)
+            let contents: String = try fs.readFileContents(yaml)
 
-        if result.plan.buildParameters.triple.isWindows() {
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
-            """))
-        } else if result.plan.buildParameters.triple.isDarwin() {
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
-            """))
-        } else {    // assume Unix `ar` is the librarian
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","crs","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
-            """))
+            if result.plan.buildParameters.triple.isWindows() {
+                XCTAssertMatch(contents, .contains("""
+                  "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
+                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                """))
+            } else if result.plan.buildParameters.triple.isDarwin() {
+                XCTAssertMatch(contents, .contains("""
+                  "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
+                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                """))
+            } else {    // assume Unix `ar` is the librarian
+                XCTAssertMatch(contents, .contains("""
+                  "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
+                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","crs","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                """))
+            }
         }
-    }
 
     func testSwiftBundleAccessor() throws {
         // This has a Swift and ObjC target in the same package.

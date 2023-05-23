@@ -682,12 +682,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
 
-        // Write the link filelist file.
-        //
-        // FIXME: We should write this as a custom llbuild task once we adopt it
-        // as a library.
-        try buildProduct.writeLinkFilelist(fileSystem)
-
         buildProduct.availableTools = dependencies.availableTools
     }
 
