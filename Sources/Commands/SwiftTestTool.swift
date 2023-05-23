@@ -125,17 +125,18 @@ struct TestToolOptions: ParsableArguments {
     var enableCodeCoverage: Bool = false
 }
 
-/// Tests filtering specifier
-///
-/// This is used to filter tests to run
-///   .none     => No filtering
-///   .specific => Specify test with fully quantified name
-///   .regex    => RegEx patterns for tests to run
-///   .skip     => RegEx patterns for tests to skip
+/// Tests filtering specifier, which is used to filter tests to run.
 public enum TestCaseSpecifier {
+    /// No filtering
     case none
+    
+    /// Specify test with fully quantified name
     case specific(String)
+    
+    /// RegEx patterns for tests to run
     case regex([String])
+    
+    /// RegEx patterns for tests to skip
     case skip([String])
 }
 
