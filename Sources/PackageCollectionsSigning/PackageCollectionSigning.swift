@@ -33,6 +33,8 @@ public protocol PackageCollectionSigner {
         certChainPaths: [URL],
         privateKeyPEM: Data,
         certPolicyKey: CertificatePolicyKey,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void
     )
 }
@@ -52,6 +54,8 @@ extension PackageCollectionSigner {
         certChainPaths: [URL],
         certPrivateKeyPath: URL,
         certPolicyKey: CertificatePolicyKey = .default,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void
     ) {
         do {
@@ -61,6 +65,8 @@ extension PackageCollectionSigner {
                 certChainPaths: certChainPaths,
                 privateKeyPEM: privateKey,
                 certPolicyKey: certPolicyKey,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
                 callback: callback
             )
         } catch {
@@ -79,6 +85,8 @@ public protocol PackageCollectionSignatureValidator {
     func validate(
         signedCollection: PackageCollectionModel.V1.SignedCollection,
         certPolicyKey: CertificatePolicyKey,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     )
 }
@@ -95,57 +103,28 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     /// Root certificates to be trusted in additional to those found in `trustedRootCertsDir`
     private let additionalTrustedRootCerts: [Certificate]?
 
-    /// The `DispatchQueue` to use for callbacks
-    private let callbackQueue: DispatchQueue
-
     /// Internal cache/storage of `CertificatePolicy`s
     private let certPolicies: [CertificatePolicyKey: CertificatePolicy]
 
-    private let encoder: JSONEncoder
-    private let decoder: JSONDecoder
-
-    private let observabilityScope: ObservabilityScope
-
     public init(
         trustedRootCertsDir: URL? = nil,
-        additionalTrustedRootCerts: [String]? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        additionalTrustedRootCerts: [String]? = nil
     ) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
             guard let data = Data(base64Encoded: $0) else {
-                observabilityScope.emit(error: "The certificate \($0) is not in valid base64 encoding")
                 return nil
             }
-            do {
-                return try Certificate(derEncoded: Array(data))
-            } catch {
-                observabilityScope.emit(
-                    error: "The certificate \($0) is not in valid DER format",
-                    underlyingError: error
-                )
-                return nil
-            }
+            return try? Certificate(derEncoded: Array(data))
         } }
-
-        self.callbackQueue = callbackQueue
         self.certPolicies = [:]
-        self.encoder = JSONEncoder.makeWithDefaults()
-        self.decoder = JSONDecoder.makeWithDefaults()
-        self.observabilityScope = observabilityScope
     }
 
-    init(certPolicy: CertificatePolicy, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
+    init(certPolicy: CertificatePolicy) {
         // These should be set through the given CertificatePolicy
         self.trustedRootCertsDir = nil
         self.additionalTrustedRootCerts = nil
-
-        self.callbackQueue = callbackQueue
         self.certPolicies = [CertificatePolicyKey.custom: certPolicy]
-        self.encoder = JSONEncoder.makeWithDefaults()
-        self.decoder = JSONDecoder.makeWithDefaults()
-        self.observabilityScope = observabilityScope
     }
 
     private func getCertificatePolicy(key: CertificatePolicyKey) throws -> CertificatePolicy {
@@ -156,9 +135,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 trustedRootCertsDir: self.trustedRootCertsDir,
                 additionalTrustedRootCerts: self.additionalTrustedRootCerts,
                 expectedSubjectUserID: subjectUserID,
-                expectedSubjectOrganizationalUnit: subjectOrganizationalUnit,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: self.callbackQueue
+                expectedSubjectOrganizationalUnit: subjectOrganizationalUnit
             )
         case .appleSwiftPackageCollection(let subjectUserID, let subjectOrganizationalUnit):
             // Create new instance each time since contents of trustedRootCertsDir might change
@@ -166,9 +143,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 trustedRootCertsDir: self.trustedRootCertsDir,
                 additionalTrustedRootCerts: self.additionalTrustedRootCerts,
                 expectedSubjectUserID: subjectUserID,
-                expectedSubjectOrganizationalUnit: subjectOrganizationalUnit,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: self.callbackQueue
+                expectedSubjectOrganizationalUnit: subjectOrganizationalUnit
             )
         case .appleDistribution(let subjectUserID, let subjectOrganizationalUnit):
             // Create new instance each time since contents of trustedRootCertsDir might change
@@ -176,9 +151,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 trustedRootCertsDir: self.trustedRootCertsDir,
                 additionalTrustedRootCerts: self.additionalTrustedRootCerts,
                 expectedSubjectUserID: subjectUserID,
-                expectedSubjectOrganizationalUnit: subjectOrganizationalUnit,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: self.callbackQueue
+                expectedSubjectOrganizationalUnit: subjectOrganizationalUnit
             )
         case .custom:
             // Custom `CertificatePolicy` can be set using the internal initializer only
@@ -194,12 +167,19 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
         certChainPaths: [URL],
         privateKeyPEM: Data,
         certPolicyKey: CertificatePolicyKey = .default,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         callback: @escaping (Result<Model.SignedCollection, Error>) -> Void
     ) {
         do {
             let certChainData = try certChainPaths.map { try Data(contentsOf: $0) }
             // Check that the certificate is valid
-            self.validateCertChain(certChainData, certPolicyKey: certPolicyKey) { result in
+            self.validateCertChain(
+                certChainData,
+                certPolicyKey: certPolicyKey,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { result in
                 switch result {
                 case .failure(let error):
                     return callback(.failure(error))
@@ -240,7 +220,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                         let signatureData = try Signature.generate(
                             payload: collection,
                             certChainData: certChainData,
-                            jsonEncoder: self.encoder,
+                            jsonEncoder: JSONEncoder.makeWithDefaults(),
                             signatureAlgorithm: signatureAlgorithm,
                             signatureProvider: signatureProvider
                         )
@@ -280,6 +260,8 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     public func validate(
         signedCollection: Model.SignedCollection,
         certPolicyKey: CertificatePolicyKey = .default,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
         guard let signature = signedCollection.signature.signature.data(using: .utf8)?.copyBytes() else {
@@ -288,16 +270,24 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
         // Parse the signature
         let certChainValidate = { certChainData, validateCallback in
-            self.validateCertChain(certChainData, certPolicyKey: certPolicyKey, callback: validateCallback)
+            self.validateCertChain(
+                certChainData,
+                certPolicyKey: certPolicyKey,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                callback: validateCallback
+            )
         }
-        Signature.parse(signature, certChainValidate: certChainValidate, jsonDecoder: self.decoder) { result in
+        
+        let decoder = JSONDecoder.makeWithDefaults()
+        Signature.parse(signature, certChainValidate: certChainValidate, jsonDecoder: decoder) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let signature):
                 // Verify the collection embedded in the signature is the same as received
                 // i.e., the signature is associated with the given collection and not another
-                guard let collectionFromSignature = try? self.decoder.decode(
+                guard let collectionFromSignature = try? decoder.decode(
                     Model.Collection.self,
                     from: signature.payload
                 ),
@@ -313,6 +303,8 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     private func validateCertChain(
         _ certChainData: [Data],
         certPolicyKey: CertificatePolicyKey,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         callback: @escaping (Result<[Certificate], Error>) -> Void
     ) {
         guard !certChainData.isEmpty else {
@@ -322,7 +314,8 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
         do {
             let certChain = try certChainData.map { try Certificate(derEncoded: Array($0)) }
             let certPolicy = try self.getCertificatePolicy(key: certPolicyKey)
-            certPolicy.validate(certChain: certChain) { result in
+
+            certPolicy.validate(certChain: certChain, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
                 switch result {
                 case .failure(let error):
                     observabilityScope.emit(
@@ -339,7 +332,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 }
             }
         } catch {
-            self.observabilityScope.emit(
+            observabilityScope.emit(
                 error: "An error has occurred while validating certificate chain",
                 underlyingError: error
             )

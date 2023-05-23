@@ -59,7 +59,13 @@ protocol CertificatePolicy {
     ///   - validationTime: Overrides the timestamp used for checking certificate expiry (e.g., for testing).
     ///                     By default the current time is used.
     ///   - callback: The callback to invoke when the result is available.
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void)
+    func validate(
+        certChain: [Certificate],
+        validationTime: Date,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
 }
 
 extension CertificatePolicy {
@@ -70,8 +76,19 @@ extension CertificatePolicy {
     ///                     element of the array, with its issuer the next element and so on, and the root CA
     ///                     certificate is last.
     ///   - callback: The callback to invoke when the result is available.
-    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
-        self.validate(certChain: certChain, validationTime: Date(), callback: callback)
+    func validate(
+        certChain: [Certificate],
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        self.validate(
+            certChain: certChain,
+            validationTime: Date(),
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 
     func verify(
@@ -136,9 +153,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
 
-    private let callbackQueue: DispatchQueue
     private let httpClient: HTTPClient
-    private let observabilityScope: ObservabilityScope
 
     /// Initializes a `DefaultCertificatePolicy`.
     ///
@@ -155,14 +170,12 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
-        expectedSubjectOrganizationalUnit: String? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        expectedSubjectOrganizationalUnit: String? = nil
     ) {
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir {
             trustedRoots
-                .append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
+                .append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
         }
         if let additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -170,13 +183,17 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.expectedSubjectOrganizationalUnit = expectedSubjectOrganizationalUnit
-        self.callbackQueue = callbackQueue
         self.httpClient = HTTPClient.makeDefault()
-        self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
+    func validate(
+        certChain: [Certificate],
+        validationTime: Date,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
 
         guard !certChain.isEmpty else {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
@@ -207,8 +224,8 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: policies,
-            observabilityScope: self.observabilityScope,
-            callbackQueue: self.callbackQueue,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
             callback: callback
         )
     }
@@ -223,9 +240,7 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
 
-    private let callbackQueue: DispatchQueue
     private let httpClient: HTTPClient
-    private let observabilityScope: ObservabilityScope
 
     /// Initializes a `ADPSwiftPackageCollectionCertificatePolicy`.
     ///
@@ -242,14 +257,12 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
-        expectedSubjectOrganizationalUnit: String? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        expectedSubjectOrganizationalUnit: String? = nil
     ) {
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir {
             trustedRoots
-                .append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
+                .append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
         }
         if let additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -257,13 +270,17 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.expectedSubjectOrganizationalUnit = expectedSubjectOrganizationalUnit
-        self.callbackQueue = callbackQueue
         self.httpClient = HTTPClient.makeDefault()
-        self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
+    func validate(
+        certChain: [Certificate],
+        validationTime: Date,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
 
         guard !certChain.isEmpty else {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
@@ -296,8 +313,8 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: policies,
-            observabilityScope: self.observabilityScope,
-            callbackQueue: self.callbackQueue,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
             callback: callback
         )
     }
@@ -312,9 +329,7 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
 
-    private let callbackQueue: DispatchQueue
     private let httpClient: HTTPClient
-    private let observabilityScope: ObservabilityScope
 
     /// Initializes a `ADPAppleDistributionCertificatePolicy`.
     ///
@@ -331,14 +346,12 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
-        expectedSubjectOrganizationalUnit: String? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        expectedSubjectOrganizationalUnit: String? = nil
     ) {
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir {
             trustedRoots
-                .append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
+                .append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
         }
         if let additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -346,13 +359,17 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.expectedSubjectOrganizationalUnit = expectedSubjectOrganizationalUnit
-        self.callbackQueue = callbackQueue
         self.httpClient = HTTPClient.makeDefault()
-        self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
+    func validate(
+        certChain: [Certificate],
+        validationTime: Date,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
 
         guard !certChain.isEmpty else {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
@@ -385,8 +402,8 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: policies,
-            observabilityScope: self.observabilityScope,
-            callbackQueue: self.callbackQueue,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
             callback: callback
         )
     }
@@ -620,7 +637,7 @@ enum CertificateStores {
 // MARK: - Utils
 
 extension CertificatePolicy {
-    fileprivate static func loadCerts(at directory: URL, observabilityScope: ObservabilityScope) -> [Certificate] {
+    fileprivate static func loadCerts(at directory: URL) -> [Certificate] {
         var certs = [Certificate]()
         if let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) {
             for case let fileURL as URL in enumerator {
@@ -628,10 +645,7 @@ extension CertificatePolicy {
                     let certData = try Data(contentsOf: fileURL)
                     certs.append(try Certificate(derEncoded: Array(certData)))
                 } catch {
-                    observabilityScope.emit(
-                        warning: "The certificate \(fileURL) is invalid",
-                        underlyingError: error
-                    )
+                    // do nothing
                 }
             }
         }

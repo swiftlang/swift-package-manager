@@ -62,9 +62,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
         self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? (try? fileSystem.swiftPMConfigurationDirectory.appending("trust-root-certs").asURL) ?? AbsolutePath.root.asURL,
-            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
-            observabilityScope: observabilityScope,
-            callbackQueue: .sharedConcurrent
+            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) }
         )
         self.sourceCertPolicy = sourceCertPolicy
         self.decoder = JSONDecoder.makeWithDefaults()
@@ -161,7 +159,12 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 // Check the signature
                 let signatureResults = ThreadSafeArrayStore<Result<Void, Error>>()
                 certPolicyKeys.forEach { certPolicyKey in
-                    self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
+                    self.signatureValidator.validate(
+                        signedCollection: signedCollection,
+                        certPolicyKey: certPolicyKey,
+                        observabilityScope: self.observabilityScope,
+                        callbackQueue: .sharedConcurrent
+                    ) { result in
                         let count = signatureResults.append(result)
                         if count == certPolicyKeys.count {
                             if signatureResults.compactMap({ $0.success }).first != nil {
