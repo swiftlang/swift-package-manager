@@ -77,7 +77,7 @@ extension CertificatePolicy {
     func verify(
         certChain: [Certificate],
         trustedRoots: [Certificate]?,
-        policies: [VerifierPolicy],
+        @PolicyBuilder policies: () -> some VerifierPolicy,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
@@ -87,7 +87,7 @@ extension CertificatePolicy {
         guard !certChain.isEmpty else {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
         }
-
+        let policies = policies()
         Task {
             var trustStore = CertificateStores.defaultTrustRoots
             if let trustedRoots {
@@ -98,9 +98,9 @@ extension CertificatePolicy {
                 return wrappedCallback(.failure(CertificatePolicyError.noTrustedRootCertsConfigured))
             }
 
-            let policySet = PolicySet(policies: policies)
-
-            var verifier = Verifier(rootCertificates: CertificateStore(trustStore), policy: policySet)
+            var verifier = Verifier(rootCertificates: CertificateStore(trustStore)) {
+                policies
+            }
             let result = await verifier.validate(
                 leafCertificate: certChain[0],
                 intermediates: CertificateStore(certChain)
@@ -182,31 +182,26 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
         }
 
-        var policies = [VerifierPolicy]()
-        policies.append(_ADPCertificatePolicy()) // included for testing
-        // Check if subject name matches
-        policies.append(
-            _SubjectNamePolicy(
-                expectedUserID: self.expectedSubjectUserID,
-                expectedOrganizationalUnit: self.expectedSubjectOrganizationalUnit
-            )
-        )
-        // Must be a code signing certificate
-        policies.append(_CodeSigningPolicy())
-        // Basic validations including expiry check
-        policies.append(RFC5280Policy(validationTime: validationTime))
-        // Must support OCSP
-        policies.append(
-            _OCSPVerifierPolicy(
-                httpClient: self.httpClient,
-                validationTime: validationTime
-            )
-        )
-
         self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
-            policies: policies,
+            policies: {
+                _ADPCertificatePolicy() // included for testing
+                // Check if subject name matches
+                _SubjectNamePolicy(
+                    expectedUserID: self.expectedSubjectUserID,
+                    expectedOrganizationalUnit: self.expectedSubjectOrganizationalUnit
+                )
+                // Must be a code signing certificate
+                _CodeSigningPolicy()
+                // Basic validations including expiry check
+                RFC5280Policy(validationTime: validationTime)
+                // Must support OCSP
+                _OCSPVerifierPolicy(
+                    httpClient: self.httpClient,
+                    validationTime: validationTime
+                )
+            },
             observabilityScope: self.observabilityScope,
             callbackQueue: self.callbackQueue,
             callback: callback
@@ -269,33 +264,28 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
         }
 
-        var policies = [VerifierPolicy]()
-        // Check for specific markers
-        policies.append(_ADPSwiftPackageCertificatePolicy())
-        policies.append(_ADPCertificatePolicy()) // included for testing
-        // Check if subject name matches
-        policies.append(
-            _SubjectNamePolicy(
-                expectedUserID: self.expectedSubjectUserID,
-                expectedOrganizationalUnit: self.expectedSubjectOrganizationalUnit
-            )
-        )
-        // Must be a code signing certificate
-        policies.append(_CodeSigningPolicy())
-        // Basic validations including expiry check
-        policies.append(RFC5280Policy(validationTime: validationTime))
-        // Must support OCSP
-        policies.append(
-            _OCSPVerifierPolicy(
-                httpClient: self.httpClient,
-                validationTime: validationTime
-            )
-        )
-
         self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
-            policies: policies,
+            policies: {
+                // Check for specific markers
+                _ADPSwiftPackageCertificatePolicy()
+                _ADPCertificatePolicy() // included for testing
+                // Check if subject name matches
+                _SubjectNamePolicy(
+                    expectedUserID: self.expectedSubjectUserID,
+                    expectedOrganizationalUnit: self.expectedSubjectOrganizationalUnit
+                )
+                // Must be a code signing certificate
+                _CodeSigningPolicy()
+                // Basic validations including expiry check
+                RFC5280Policy(validationTime: validationTime)
+                // Must support OCSP
+                _OCSPVerifierPolicy(
+                    httpClient: self.httpClient,
+                    validationTime: validationTime
+                )
+            },
             observabilityScope: self.observabilityScope,
             callbackQueue: self.callbackQueue,
             callback: callback
@@ -358,33 +348,28 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
         }
 
-        var policies = [VerifierPolicy]()
-        // Check for specific markers
-        policies.append(_ADPAppleDistributionCertificatePolicy())
-        policies.append(_ADPCertificatePolicy()) // included for testing
-        // Check if subject name matches
-        policies.append(
-            _SubjectNamePolicy(
-                expectedUserID: self.expectedSubjectUserID,
-                expectedOrganizationalUnit: self.expectedSubjectOrganizationalUnit
-            )
-        )
-        // Must be a code signing certificate
-        policies.append(_CodeSigningPolicy())
-        // Basic validations including expiry check
-        policies.append(RFC5280Policy(validationTime: validationTime))
-        // Must support OCSP
-        policies.append(
-            _OCSPVerifierPolicy(
-                httpClient: self.httpClient,
-                validationTime: validationTime
-            )
-        )
-
         self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
-            policies: policies,
+            policies: {
+                // Check for specific markers
+                _ADPAppleDistributionCertificatePolicy()
+                _ADPCertificatePolicy() // included for testing
+                // Check if subject name matches
+                _SubjectNamePolicy(
+                    expectedUserID: self.expectedSubjectUserID,
+                    expectedOrganizationalUnit: self.expectedSubjectOrganizationalUnit
+                )
+                // Must be a code signing certificate
+                _CodeSigningPolicy()
+                // Basic validations including expiry check
+                RFC5280Policy(validationTime: validationTime)
+                // Must support OCSP
+                _OCSPVerifierPolicy(
+                    httpClient: self.httpClient,
+                    validationTime: validationTime
+                )
+            },
             observabilityScope: self.observabilityScope,
             callbackQueue: self.callbackQueue,
             callback: callback

@@ -1241,7 +1241,10 @@ extension BasicOCSPResponse {
         responses: [OCSPSingleResponse],
         privateKey: P256.Signing.PrivateKey,
         certs: [Certificate]? = [],
-        @ExtensionsBuilder responseExtensions: () -> Certificate.Extensions = { .init() }
+        @ExtensionsBuilder responseExtensions: () throws -> Result<Certificate.Extensions, any Error> = {
+            // workaround for rdar://108897294
+            Result.success(Certificate.Extensions())
+        }
     ) throws -> Self {
         try .signed(
             responseData: .init(
@@ -1249,7 +1252,7 @@ extension BasicOCSPResponse {
                 responderID: responderID,
                 producedAt: producedAt,
                 responses: responses,
-                responseExtensions: responseExtensions()
+                responseExtensions: try .init(builder: responseExtensions)
             ),
             privateKey: privateKey,
             certs: certs
