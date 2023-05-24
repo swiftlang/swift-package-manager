@@ -63,7 +63,7 @@ class ModuleMapGeneration: XCTestCase {
             root.appending(components: "include", "Foo.h").pathString
         )
 
-        let interopHeaderPath = AbsolutePath(path: "/path/to/Foo-Swift.h")
+        let interopHeaderPath = AbsolutePath("/path/to/Foo-Swift.h")
 
         ModuleMapTester("Foo", interopHeaderPath: interopHeaderPath, in: fs) { result in
             result.check(contents: """

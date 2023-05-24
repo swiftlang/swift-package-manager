@@ -1468,8 +1468,8 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    displayName: "Pkg",
+                    path: "/Pkg",
                     // FIXME(ncooke3): Update error message with support version.
                     toolsVersion: .vNext,
                     targets: [
@@ -1599,8 +1599,8 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    displayName: "Pkg",
+                    path: "/Pkg",
                     // FIXME(ncooke3): Update error message with support version.
                     toolsVersion: .vNext,
                     targets: [
@@ -2631,8 +2631,8 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
-                    path: .init(path: "/Bar"),
+                    displayName: "Bar",
+                    path: "/Bar",
                     // FIXME(ncooke3): Update with next version of SPM.
                     toolsVersion: .vNext,
                     products: [
@@ -2646,11 +2646,11 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createRootManifest(
-                    name: "Foo",
-                    path: .init(path: "/Foo"),
+                    displayName: "Foo",
+                    path: "/Foo",
                     dependencies: [
                         .localSourceControl(
-                            path: .init(path: "/Bar"),
+                            path: "/Bar",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ],
@@ -2738,8 +2738,8 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
-                    path: .init(path: "/Bar"),
+                    displayName: "Bar",
+                    path: "/Bar",
                     // FIXME(ncooke3): Update with next version of SPM.
                     toolsVersion: .vNext,
                     products: [
@@ -2753,11 +2753,11 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createRootManifest(
-                    name: "Foo",
-                    path: .init(path: "/Foo"),
+                    displayName: "Foo",
+                    path: "/Foo",
                     dependencies: [
                         .localSourceControl(
-                            path: .init(path: "/Bar"),
+                            path: "/Bar",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ],

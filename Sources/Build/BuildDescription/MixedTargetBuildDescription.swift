@@ -16,7 +16,6 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 
 public final class MixedTargetBuildDescription {
     /// The target described by this target.
@@ -99,7 +98,8 @@ public final class MixedTargetBuildDescription {
             toolsVersion: toolsVersion,
             buildParameters: buildParameters,
             fileSystem: fileSystem,
-            isWithinMixedTarget: true
+            isWithinMixedTarget: true,
+            observabilityScope: observabilityScope
         )
 
         let swiftResolvedTarget = ResolvedTarget(
@@ -176,8 +176,8 @@ public final class MixedTargetBuildDescription {
             interopSupportDirectory = tempsPath.appending(component: "InteropSupport")
             let generatedUmbrellaHeaderPath = interopSupportDirectory!
                 .appending(components: umbrellaHeaderPathComponents)
-            // Populate a stream that will become the generated umbrella header.
-            let stream = BufferedOutputByteStream()
+
+          var generatedUmbrellaHeader = ""
             mixedTarget.clangTarget.headers
                 // One of the requirements for a Swift API to be Objective-C
                 // compatible and therefore included in the generated interop
@@ -193,12 +193,12 @@ public final class MixedTargetBuildDescription {
                 // Add each remaining header to the generated umbrella header.
                 .forEach {
                     // Import the header, followed by a newline.
-                    stream <<< "#import \"\($0)\"\n"
+                    generatedUmbrellaHeader.append("#import \"\($0)\"\n")
                 }
 
             try fileSystem.writeFileContentsIfNeeded(
                 generatedUmbrellaHeaderPath,
-                bytes: stream.bytes
+                string: generatedUmbrellaHeader
             )
         } else {
             // An umbrella header in the desired format already exists so the
@@ -243,9 +243,8 @@ public final class MixedTargetBuildDescription {
             }
 
             // Extend the contents and write it to disk, if needed.
-            let stream = BufferedOutputByteStream()
-            stream <<< customModuleMapContents
-            stream <<< """
+            let productModuleMap = """
+            \(customModuleMapContents)
             module \(target.c99name).Swift {
                 header "\(interopHeaderPath)"
                 requires objc
@@ -253,7 +252,7 @@ public final class MixedTargetBuildDescription {
             """
             try fileSystem.writeFileContentsIfNeeded(
                 productModuleMapPath,
-                bytes: stream.bytes
+                string: productModuleMap
             )
 
             // Set the original custom module map path as the module map path

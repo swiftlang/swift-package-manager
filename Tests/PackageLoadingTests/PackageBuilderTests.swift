@@ -42,7 +42,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMixedSourcesWhenUnsupportedToolsVersion() throws {
-        let foo: AbsolutePath = AbsolutePath(path: "/Sources/foo")
+        let foo: AbsolutePath = AbsolutePath("/Sources/foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
             foo.appending(components: "Foo.swift").pathString,
@@ -50,7 +50,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         let manifest = Manifest.createRootManifest(
-            name: "pkg",
+            displayName: "pkg",
             path: .root,
             // Use older tools version where mixed targets are not supported.
             toolsVersion: .v5,
@@ -98,7 +98,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMixedSourcesWithCustomModuleMap() throws {
-        let foo: AbsolutePath = AbsolutePath(path: "/Sources/foo")
+        let foo: AbsolutePath = AbsolutePath("/Sources/foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
             foo.appending(components: "Foo.swift").pathString,
@@ -108,7 +108,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         let manifest = Manifest.createRootManifest(
-            name: "pkg",
+            displayName: "pkg",
             path: .root,
             // FIXME(ncooke3): Update with next version of SPM.
             toolsVersion: .vNext,
@@ -127,7 +127,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMixedTargetsDoNotSupportExecutables() throws {
-        let foo: AbsolutePath = AbsolutePath(path: "/Sources/foo")
+        let foo: AbsolutePath = AbsolutePath("/Sources/foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
             foo.appending(components: "Foo.swift").pathString,
@@ -135,7 +135,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         let manifest = Manifest.createRootManifest(
-            name: "pkg",
+            displayName: "pkg",
             path: .root,
             // FIXME(ncooke3): Update with next version of SPM.
             toolsVersion: .vNext,

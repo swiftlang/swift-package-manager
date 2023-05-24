@@ -187,32 +187,41 @@ public struct ModuleMapGenerator {
         excludeHeaders: [AbsolutePath] = [],
         interopHeaderPath: AbsolutePath? = nil
     ) throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< "module \(moduleName) {\n"
+        var moduleMap = "module \(moduleName) {\n"
         if let type = type {
             switch type {
             case .umbrellaHeader(let hdr):
-                stream <<< "    umbrella header \"\(hdr.moduleEscapedPathString)\"\n"
+                moduleMap.append("    umbrella header \"\(hdr.moduleEscapedPathString)\"\n")
             case .umbrellaDirectory(let dir):
-                stream <<< "    umbrella \"\(dir.moduleEscapedPathString)\"\n"
+                moduleMap.append("    umbrella \"\(dir.moduleEscapedPathString)\"\n")
             }
             excludeHeaders.forEach {
-                stream <<< "    exclude header \"\($0.moduleEscapedPathString)\"\n"
+                moduleMap.append("    exclude header \"\($0.moduleEscapedPathString)\"\n")
             }
         }
+        moduleMap.append(
+            """
+                export *
+            }
 
-        stream <<< "    export *\n"
-        stream <<< "}\n"
+            """
+        )
+
         if let interopHeaderPath = interopHeaderPath {
-            stream <<< "module \(moduleName).Swift {\n"
-            stream <<< "    header \"\(interopHeaderPath.moduleEscapedPathString)\"\n"
-            stream <<< "    requires objc\n"
-            stream <<< "}\n"
+            moduleMap.append(
+                """
+                module \(moduleName).Swift {
+                    header \"\(interopHeaderPath.moduleEscapedPathString)\"
+                    requires objc
+                }
+
+                """
+            )
         }
 
         // If the file exists with the identical contents, we don't need to rewrite it.
         // Otherwise, compiler will recompile even if nothing else has changed.
-        try fileSystem.writeFileContentsIfNeeded(path, bytes: stream.bytes)
+        try fileSystem.writeFileContentsIfNeeded(path, string: moduleMap)
     }
 }
 

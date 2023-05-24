@@ -836,7 +836,7 @@ extension LLBuildManifestBuilder {
             // don't need to block building of a module until its resources are assembled but
             // we don't currently have a good way to express that resources should be built
             // whenever a module is being built.
-            if let resourcesNode = createResourcesBundle(for: .clang(target)) {
+            if let resourcesNode = try createResourcesBundle(for: .clang(target)) {
                 inputs.append(resourcesNode)
             }
         }

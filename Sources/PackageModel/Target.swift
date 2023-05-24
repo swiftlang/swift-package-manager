@@ -630,9 +630,11 @@ public final class MixedTarget: Target {
         ignored: [AbsolutePath] = [],
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
+        packageAccess: Bool,
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init(),
-        pluginUsages: [PluginUsage] = []
+        pluginUsages: [PluginUsage] = [],
+        usesUnsafeFlags: Bool
     ) throws {
         guard type == .library || type == .test else {
             throw StringError(
@@ -660,9 +662,11 @@ public final class MixedTarget: Target {
             ignored: ignored,
             others: others,
             dependencies: dependencies,
+            packageAccess: packageAccess,
             swiftVersion: swiftVersion,
             buildSettings: buildSettings,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            usesUnsafeFlags: usesUnsafeFlags
         )
 
         let clangSources = Sources(
@@ -687,7 +691,8 @@ public final class MixedTarget: Target {
             resources: resources,
             ignored: ignored,
             others: others,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            usesUnsafeFlags: usesUnsafeFlags
         )
 
         super.init(
@@ -700,8 +705,10 @@ public final class MixedTarget: Target {
             ignored: ignored,
             others: others,
             dependencies: dependencies,
+            packageAccess: packageAccess,
             buildSettings: buildSettings,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            usesUnsafeFlags: usesUnsafeFlags
         )
     }
 

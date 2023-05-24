@@ -122,7 +122,9 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: [
                     "--filter", "MixedTargetWithCustomModuleMapAndResourcesTests"
-// FIXME(ncooke3): Blocked by fix for #5728.
+// FIXME(ncooke3): Blocked by fix for #5728. Even though #5728 regression was
+// addressed in #6055, #5728 is guarded on Swift Tools Version `.vNext`– which
+// is also how the mixed language support is guarded.
 //                ],
 //                // Surface warning where custom umbrella header does not
 //                // include `resource_bundle_accessor.h` in `build` directory.

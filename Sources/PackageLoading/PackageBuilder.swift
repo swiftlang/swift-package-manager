@@ -992,8 +992,12 @@ public final class PackageBuilder {
                 ignored: ignored,
                 others: others,
                 dependencies: dependencies,
+                packageAccess: potentialModule.packageAccess,
                 swiftVersion: try swiftVersion(),
-                buildSettings: buildSettings)
+                buildSettings: buildSettings,
+                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+
+            )
 
         } else if sources.hasSwiftSources {
             return SwiftTarget(

@@ -104,6 +104,9 @@ public enum TargetBuildDescription {
             return target.buildToolPluginInvocationResults
         case .clang(let target):
             return target.buildToolPluginInvocationResults
+        // TODO(ncooke3): How should we handle this for mixed-lang targets?
+        case .mixed:
+            return []
         }
     }
 }
