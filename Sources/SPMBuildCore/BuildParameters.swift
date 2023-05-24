@@ -26,6 +26,32 @@ public struct BuildParameters: Encodable {
         case auto
     }
 
+    /// An optional intermodule optimization to run at link time.
+    ///
+    /// When using Link Time Optimization (LTO for short) the swift and clang
+    /// compilers produce objects containing containing a higher level
+    /// representation of the program bitcode instead of machine code. The
+    /// linker combines these objects together performing additional
+    /// optimizations with visibility into each module/object, resulting in a
+    /// further optimized version of the executable.
+    ///
+    /// Using LTO can have significant impact on compile times, however can be
+    /// used to dramatically reduce code-size in some cases.
+    ///
+    /// Note: Bitcode objects and machine code objects can be linked together.
+    public enum LinkTimeOptimizationMode: String, Encodable {
+        /// The "standard" LTO mode designed to produce minimal code sign.
+        ///
+        /// Full LTO can lead to large link times. Consider using thin LTO if
+        /// build time is more important than minimizing binary size.
+        case full
+        /// An LTO mode designed to scale better with input size.
+        ///
+        /// Thin LTO typically results in faster link times than traditional LTO.
+        /// However, thin LTO may not result in binary as small as full LTO.
+        case thin
+    }
+
     /// Represents the debugging strategy.
     ///
     /// Swift binaries requires the swiftmodule files in order for lldb to work.
@@ -219,6 +245,8 @@ public struct BuildParameters: Encodable {
 
     public var verboseOutput: Bool
 
+    public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -247,7 +275,8 @@ public struct BuildParameters: Encodable {
         explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
-        verboseOutput: Bool = false
+        verboseOutput: Bool = false,
+        linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil
     ) throws {
         let triple = try destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
@@ -288,6 +317,7 @@ public struct BuildParameters: Encodable {
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput
         self.verboseOutput = verboseOutput
+        self.linkTimeOptimizationMode = linkTimeOptimizationMode
     }
 
     public func withDestination(_ destinationTriple: Triple) throws -> BuildParameters {
@@ -330,7 +360,8 @@ public struct BuildParameters: Encodable {
             explicitTargetDependencyImportCheckingMode: self.explicitTargetDependencyImportCheckingMode,
             linkerDeadStrip: self.linkerDeadStrip,
             colorizedOutput: self.colorizedOutput,
-            verboseOutput: self.verboseOutput
+            verboseOutput: self.verboseOutput,
+            linkTimeOptimizationMode: self.linkTimeOptimizationMode
         )
     }
 

@@ -470,6 +470,13 @@ public struct BuildOptions: ParsableArguments {
     )
     public var testEntryPointPath: AbsolutePath?
 
+    /// The lto mode to use if any.
+    @Option(
+        name: .customLong("experimental-lto-mode"),
+        help: .hidden
+    )
+    public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
@@ -483,6 +490,14 @@ public struct BuildOptions: ParsableArguments {
         case none
         case warn
         case error
+    }
+
+    /// See `BuildParameters.LinkTimeOptimizationMode` for details.
+    public enum LinkTimeOptimizationMode: String, Codable, ExpressibleByArgument {
+        /// See `BuildParameters.LinkTimeOptimizationMode.full` for details.
+        case full
+        /// See `BuildParameters.LinkTimeOptimizationMode.thin` for details.
+        case thin
     }
 }
 

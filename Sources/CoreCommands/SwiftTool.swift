@@ -703,7 +703,8 @@ public final class SwiftTool {
                 testEntryPointPath: options.build.testEntryPointPath,
                 explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
                 linkerDeadStrip: options.linker.linkerDeadStrip,
-                verboseOutput: self.logLevel <= .info
+                verboseOutput: self.logLevel <= .info,
+                linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter
             )
         })
     }()
@@ -962,6 +963,17 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
             return .warn
         case .error:
             return .error
+        }
+    }
+}
+
+extension BuildOptions.LinkTimeOptimizationMode {
+    fileprivate var buildParameter: BuildParameters.LinkTimeOptimizationMode? {
+        switch self {
+        case .full:
+            return .full
+        case .thin:
+            return .thin
         }
     }
 }
