@@ -34,6 +34,14 @@ import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
+#if canImport(Darwin)
+import func Darwin.fflush
+import let Darwin.stdout
+#elseif canImport(Glibc)
+import func Glibc.fflush
+import let Glibc.stdout
+#endif
+
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
