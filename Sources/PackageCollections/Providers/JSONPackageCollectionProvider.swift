@@ -206,50 +206,53 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 callback(.failure(StringError("Unsupported platform")))
             } else {
                 // Check the signature
-                let signatureResults = ThreadSafeArrayStore<Result<Void, Error>>()
-                certPolicyKeys.forEach { certPolicyKey in
-                    Task {
-                        let count: Int
-                        do {
-                            try await self.signatureValidator.validate(
-                                signedCollection: signedCollection,
-                                certPolicyKey: certPolicyKey
-                            )
-                            count = signatureResults.append(.success(()))
-                        } catch {
-                            count = signatureResults.append(.failure(error))
-                        }
-
-                        if count == certPolicyKeys.count {
-                            if signatureResults.compactMap(\.success).first != nil {
-                                callback(self.makeCollection(
-                                    from: signedCollection.collection,
-                                    source: source,
-                                    signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)
-                                ))
-                            } else {
-                                guard let error = signatureResults.compactMap(\.failure).first else {
-                                    return callback(
-                                        .failure(
-                                            InternalError(
-                                                "Expected at least one package collection signature validation failure but got none"
-                                            )
-                                        )
+                Task {
+                    let signatureResults = await withTaskGroup(of: Result<Void, Error>.self) { group in
+                        for certPolicyKey in certPolicyKeys {
+                            group.addTask {
+                                do {
+                                    try await self.signatureValidator.validate(
+                                        signedCollection: signedCollection,
+                                        certPolicyKey: certPolicyKey
                                     )
-                                }
-
-                                self.observabilityScope.emit(
-                                    warning: "The signature of package collection [\(source)] is invalid",
-                                    underlyingError: error
-                                )
-                                if PackageCollectionSigningError
-                                    .noTrustedRootCertsConfigured == error as? PackageCollectionSigningError
-                                {
-                                    callback(.failure(PackageCollectionError.cannotVerifySignature))
-                                } else {
-                                    callback(.failure(PackageCollectionError.invalidSignature))
+                                    return .success(())
+                                } catch {
+                                    return .failure(error)
                                 }
                             }
+                        }
+                        return await group.reduce(into: []) { partialResult, validateResult in
+                            partialResult.append(validateResult)
+                        }
+                    }
+                    
+                    if signatureResults.compactMap(\.success).first != nil {
+                        callback(self.makeCollection(
+                            from: signedCollection.collection,
+                            source: source,
+                            signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)
+                        ))
+                    } else {
+                        guard let error = signatureResults.compactMap(\.failure).first else {
+                            return callback(
+                                .failure(
+                                    InternalError(
+                                        "Expected at least one package collection signature validation failure but got none"
+                                    )
+                                )
+                            )
+                        }
+
+                        self.observabilityScope.emit(
+                            warning: "The signature of package collection [\(source)] is invalid",
+                            underlyingError: error
+                        )
+                        if PackageCollectionSigningError
+                            .noTrustedRootCertsConfigured == error as? PackageCollectionSigningError
+                        {
+                            callback(.failure(PackageCollectionError.cannotVerifySignature))
+                        } else {
+                            callback(.failure(PackageCollectionError.invalidSignature))
                         }
                     }
                 }
