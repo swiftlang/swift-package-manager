@@ -252,6 +252,7 @@ public struct SwiftTestTool: SwiftCommand {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print($0)
+                fflush(stdout)
             })
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
