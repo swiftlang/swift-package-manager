@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
+
 import Basics
 import Dispatch
 import struct Foundation.Data
