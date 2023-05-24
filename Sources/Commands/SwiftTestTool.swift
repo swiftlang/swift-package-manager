@@ -37,7 +37,7 @@ import protocol TSCUtility.ProgressAnimationProtocol
 #if os(Windows)
 import func CRT.fflush
 import let CRT.stdout
-#if canImport(Darwin)
+#elseif canImport(Darwin)
 import func Darwin.fflush
 import let Darwin.stdout
 #elseif canImport(Glibc)
