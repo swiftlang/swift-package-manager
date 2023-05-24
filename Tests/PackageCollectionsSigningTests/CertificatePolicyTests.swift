@@ -19,7 +19,7 @@ import XCTest
 
 class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() async throws {
-        let certChain = try temp_await { callback in self.readTestRSACertChain(callback: callback) }
+        let certChain = try await self.readTestRSACertChain()
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
 
         try await policy.validate(
@@ -29,7 +29,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_EC_validate_happyCase() async throws {
-        let certChain = try temp_await { callback in self.readTestECCertChain(callback: callback) }
+        let certChain = try await self.readTestECCertChain()
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
 
         try await policy.validate(
@@ -39,7 +39,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_untrustedRoot() async throws {
-        let certChain = try temp_await { callback in self.readTestRSACertChain(callback: callback) }
+        let certChain = try await self.readTestRSACertChain()
         // Test root is not trusted
         let policy = TestCertificatePolicy(trustedRoots: nil)
 
@@ -57,7 +57,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_expiredCert() async throws {
-        let certChain = try temp_await { callback in self.readTestRSACertChain(callback: callback) }
+        let certChain = try await self.readTestRSACertChain()
         let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
 
         // Use verify date outside of cert's validity period
@@ -80,18 +80,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "development-revoked.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "development-revoked.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                ]
+            }
+        )
 
         // Apple root certs are in SwiftPM's default trust store
         let policy = DefaultCertificatePolicy(
@@ -116,18 +113,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "development.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "development.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                ]
+            }
+        )
 
         do {
             // Apple root certs are in SwiftPM's default trust store
@@ -179,18 +173,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                ]
+            }
+        )
 
         do {
             // Apple root certs are in SwiftPM's default trust store
@@ -242,18 +233,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "swift_package.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "swift_package.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
+                ]
+            }
+        )
 
         do {
             // Apple root certs are in SwiftPM's default trust store
@@ -305,18 +293,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "development.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "development.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                ]
+            }
+        )
 
         do {
             // Apple root certs are in SwiftPM's default trust store
@@ -393,18 +378,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                ]
+            }
+        )
 
         do {
             // Apple root certs are in SwiftPM's default trust store
@@ -481,18 +463,15 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let certChain = try temp_await { callback in
-            self.readTestCertChain(
-                paths: { fixturePath in
-                    [
-                        fixturePath.appending(components: "Certificates", "swift_package.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
-                        fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
-                    ]
-                },
-                callback: callback
-            )
-        }
+        let certChain = try await self.readTestCertChain(
+            paths: { fixturePath in
+                [
+                    fixturePath.appending(components: "Certificates", "swift_package.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
+                    fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
+                ]
+            }
+        )
 
         do {
             // Apple root certs are in SwiftPM's default trust store
@@ -563,46 +542,43 @@ class CertificatePolicyTests: XCTestCase {
         }
     }
 
-    private func readTestRSACertChain(callback: (Result<[Certificate], Error>) -> Void) {
-        self.readTestCertChain(
+    private func readTestRSACertChain() async throws -> [Certificate] {
+        try await self.readTestCertChain(
             paths: { fixturePath in
                 [
                     fixturePath.appending(components: "Certificates", "Test_rsa.cer"),
                     fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
                     fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
                 ]
-            },
-            callback: callback
+            }
         )
     }
 
-    private func readTestECCertChain(callback: (Result<[Certificate], Error>) -> Void) {
-        self.readTestCertChain(
+    private func readTestECCertChain() async throws -> [Certificate] {
+        try await self.readTestCertChain(
             paths: { fixturePath in
                 [
                     fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
                     fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
                 ]
-            },
-            callback: callback
+            }
         )
     }
 
-    private func readTestCertChain(
-        paths: (AbsolutePath) -> [AbsolutePath],
-        callback: (Result<[Certificate], Error>) -> Void
-    ) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let certPaths = paths(fixturePath)
-                let certificates = try certPaths.map { certPath in
-                    try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
+    private func readTestCertChain(paths: (AbsolutePath) -> [AbsolutePath]) async throws -> [Certificate] {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                    let certPaths = paths(fixturePath)
+                    let certificates = try certPaths.map { certPath in
+                        try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
+                    }
+                    continuation.resume(returning: certificates)
                 }
-                callback(.success(certificates))
+            } catch {
+                continuation.resume(throwing: error)
             }
-        } catch {
-            callback(.failure(error))
         }
     }
 }

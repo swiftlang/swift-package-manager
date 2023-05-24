@@ -21,21 +21,18 @@ import XCTest
 class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() async throws {
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "Test_rsa.cer"),
-                            fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
-                            fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa_key.pem") },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "Test_rsa.cer"),
+                        fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
+                        fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa_key.pem") },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(certPaths.last!).contents)
             let certPolicy = TestCertificatePolicy(trustedRoots: [rootCA])
@@ -80,20 +77,17 @@ class PackageCollectionSigningTests: XCTestCase {
         )
 
         try await withTemporaryDirectory { tmp in
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "Test_rsa.cer"),
-                            fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
-                            fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa_key.pem") },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "Test_rsa.cer"),
+                        fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
+                        fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa_key.pem") },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(certPaths.last!).contents)
             let certPolicy = TestCertificatePolicy(trustedRoots: [rootCA])
@@ -130,21 +124,18 @@ class PackageCollectionSigningTests: XCTestCase {
 
     func test_EC_signAndValidate_happyCase() async throws {
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "Test_ec.cer"),
-                            fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
-                            fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec_key.pem") },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "Test_ec.cer"),
+                        fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
+                        fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec_key.pem") },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(certPaths.last!).contents)
             let certPolicy = TestCertificatePolicy(trustedRoots: [rootCA])
@@ -189,20 +180,17 @@ class PackageCollectionSigningTests: XCTestCase {
         )
 
         try await withTemporaryDirectory { tmp in
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "Test_ec.cer"),
-                            fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
-                            fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec_key.pem") },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "Test_ec.cer"),
+                        fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
+                        fixturePath.appending(components: "Certificates", "TestRootCA.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec_key.pem") },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(certPaths.last!).contents)
             let certPolicy = TestCertificatePolicy(trustedRoots: [rootCA])
@@ -244,23 +232,20 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "development.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in
-                        fixturePath.appending(components: "Certificates", "development_key.pem")
-                    },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "development.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in
+                    fixturePath.appending(components: "Certificates", "development_key.pem")
+                },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCAData: Data = try localFileSystem.readFileContents(certPaths.last!)
             let certPolicyKey: CertificatePolicyKey = .default
@@ -340,23 +325,20 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in
-                        fixturePath.appending(components: "Certificates", "swift_package_collection_key.pem")
-                    },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in
+                    fixturePath.appending(components: "Certificates", "swift_package_collection_key.pem")
+                },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCAData: Data = try localFileSystem.readFileContents(certPaths.last!)
             let certPolicyKey: CertificatePolicyKey = .appleSwiftPackageCollection
@@ -436,23 +418,20 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "swift_package.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in
-                        fixturePath.appending(components: "Certificates", "swift_package_key.pem")
-                    },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "swift_package.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in
+                    fixturePath.appending(components: "Certificates", "swift_package_key.pem")
+                },
+                tmpDirectoryPath: tmp
+            )
 
             let rootCAData: Data = try localFileSystem.readFileContents(certPaths.last!)
             let certPolicyKey: CertificatePolicyKey = .appleSwiftPackageCollection
@@ -532,23 +511,20 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "development.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in
-                        fixturePath.appending(components: "Certificates", "development_key.pem")
-                    },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "development.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in
+                    fixturePath.appending(components: "Certificates", "development_key.pem")
+                },
+                tmpDirectoryPath: tmp
+            )
 
             // Apple root certs are in SwiftPM's default trust store
             do {
@@ -600,23 +576,20 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in
-                        fixturePath.appending(components: "Certificates", "swift_package_collection_key.pem")
-                    },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "swift_package_collection.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleIncRoot.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in
+                    fixturePath.appending(components: "Certificates", "swift_package_collection_key.pem")
+                },
+                tmpDirectoryPath: tmp
+            )
 
             // Apple root certs are in SwiftPM's default trust store
             do {
@@ -670,23 +643,20 @@ class PackageCollectionSigningTests: XCTestCase {
         #endif
 
         try await withTemporaryDirectory { tmp in
-            let collection = try temp_await { callback in self.readTestPackageCollection(callback: callback) }
-            let (certPaths, privateKeyPath) = try temp_await { callback in
-                self.copyTestCertChainAndKey(
-                    certPaths: { fixturePath in
-                        [
-                            fixturePath.appending(components: "Certificates", "swift_package.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
-                            fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
-                        ]
-                    },
-                    keyPath: { fixturePath in
-                        fixturePath.appending(components: "Certificates", "swift_package_key.pem")
-                    },
-                    tmpDirectoryPath: tmp,
-                    callback: callback
-                )
-            }
+            let collection = try await self.readTestPackageCollection()
+            let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
+                certPaths: { fixturePath in
+                    [
+                        fixturePath.appending(components: "Certificates", "swift_package.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer"),
+                        fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer"),
+                    ]
+                },
+                keyPath: { fixturePath in
+                    fixturePath.appending(components: "Certificates", "swift_package_key.pem")
+                },
+                tmpDirectoryPath: tmp
+            )
 
             // Apple root certs are in SwiftPM's default trust store
             do {
@@ -733,47 +703,53 @@ class PackageCollectionSigningTests: XCTestCase {
         }
     }
 
-    private func readTestPackageCollection(callback: (Result<PackageCollectionModel.V1.Collection, Error>) -> Void) {
-        do {
-            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-                let jsonDecoder = JSONDecoder.makeWithDefaults()
-                let collectionPath = fixturePath.appending(components: "JSON", "good.json")
-                let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
-                let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
-                callback(.success(collection))
+    private func readTestPackageCollection() async throws -> PackageCollectionModel.V1.Collection {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+                    let jsonDecoder = JSONDecoder.makeWithDefaults()
+                    let collectionPath = fixturePath.appending(components: "JSON", "good.json")
+                    let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
+                    let collection = try jsonDecoder.decode(
+                        PackageCollectionModel.V1.Collection.self,
+                        from: collectionData
+                    )
+                    continuation.resume(returning: collection)
+                }
+            } catch {
+                continuation.resume(throwing: error)
             }
-        } catch {
-            callback(.failure(error))
         }
     }
 
     private func copyTestCertChainAndKey(
         certPaths: (AbsolutePath) -> [AbsolutePath],
         keyPath: (AbsolutePath) -> AbsolutePath,
-        tmpDirectoryPath: AbsolutePath,
-        callback: (Result<([AbsolutePath], AbsolutePath), Error>) -> Void
-    ) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let certSourcePaths = certPaths(fixturePath)
+        tmpDirectoryPath: AbsolutePath
+    ) async throws -> ([AbsolutePath], AbsolutePath) {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                    let certSourcePaths = certPaths(fixturePath)
 
-                let certDirectoryPath = tmpDirectoryPath.appending("Certificates")
-                try localFileSystem.createDirectory(certDirectoryPath, recursive: true)
+                    let certDirectoryPath = tmpDirectoryPath.appending("Certificates")
+                    try localFileSystem.createDirectory(certDirectoryPath, recursive: true)
 
-                let certDestPaths = certPaths(tmpDirectoryPath)
-                for (i, sourceCertPath) in certSourcePaths.enumerated() {
-                    let destCertPath = certDestPaths[i]
-                    try localFileSystem.copy(from: sourceCertPath, to: destCertPath)
+                    let certDestPaths = certPaths(tmpDirectoryPath)
+                    for (i, sourceCertPath) in certSourcePaths.enumerated() {
+                        let destCertPath = certDestPaths[i]
+                        try localFileSystem.copy(from: sourceCertPath, to: destCertPath)
+                    }
+
+                    let keySourcePath = keyPath(fixturePath)
+                    let keyDestPath = keyPath(tmpDirectoryPath)
+                    try localFileSystem.copy(from: keySourcePath, to: keyDestPath)
+
+                    continuation.resume(returning: (certDestPaths, keyDestPath))
                 }
-
-                let keySourcePath = keyPath(fixturePath)
-                let keyDestPath = keyPath(tmpDirectoryPath)
-                try localFileSystem.copy(from: keySourcePath, to: keyDestPath)
-
-                callback(.success((certDestPaths, keyDestPath)))
+            } catch {
+                continuation.resume(throwing: error)
             }
-        } catch {
-            callback(.failure(error))
         }
     }
 }

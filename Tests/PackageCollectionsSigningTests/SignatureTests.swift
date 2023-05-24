@@ -24,12 +24,9 @@ class SignatureTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let jsonDecoder = JSONDecoder.makeWithDefaults()
 
-        let certData = try temp_await { callback in
-            self.readTestCertData(
-                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa.cer") },
-                callback: callback
-            )
-        }
+        let certData = try await self.readTestCertData(
+            path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa.cer") }
+        )
         let certBase64Encoded = certData.base64EncodedString()
         let certificate = try Certificate(derEncoded: Array(certData))
 
@@ -58,12 +55,9 @@ class SignatureTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let jsonDecoder = JSONDecoder.makeWithDefaults()
 
-        let certData = try temp_await { callback in
-            self.readTestCertData(
-                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa.cer") },
-                callback: callback
-            )
-        }
+        let certData = try await self.readTestCertData(
+            path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_rsa.cer") }
+        )
         let certificate = try Certificate(derEncoded: Array(certData))
 
         let payload = ["foo": "bar"]
@@ -96,12 +90,9 @@ class SignatureTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let jsonDecoder = JSONDecoder.makeWithDefaults()
 
-        let certData = try temp_await { callback in
-            self.readTestCertData(
-                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec.cer") },
-                callback: callback
-            )
-        }
+        let certData = try await self.readTestCertData(
+            path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec.cer") }
+        )
         let certBase64Encoded = certData.base64EncodedString()
         let certificate = try Certificate(derEncoded: Array(certData))
 
@@ -131,12 +122,9 @@ class SignatureTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let jsonDecoder = JSONDecoder.makeWithDefaults()
 
-        let certData = try temp_await { callback in
-            self.readTestCertData(
-                path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec.cer") },
-                callback: callback
-            )
-        }
+        let certData = try await self.readTestCertData(
+            path: { fixturePath in fixturePath.appending(components: "Certificates", "Test_ec.cer") }
+        )
         let certificate = try Certificate(derEncoded: Array(certData))
 
         let payload = ["foo": "bar"]
@@ -165,15 +153,17 @@ class SignatureTests: XCTestCase {
         }
     }
 
-    private func readTestCertData(path: (AbsolutePath) -> AbsolutePath, callback: (Result<Data, Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let certPath = path(fixturePath)
-                let certData: Data = try localFileSystem.readFileContents(certPath)
-                callback(.success(certData))
+    private func readTestCertData(path: (AbsolutePath) -> AbsolutePath) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                    let certPath = path(fixturePath)
+                    let certData: Data = try localFileSystem.readFileContents(certPath)
+                    continuation.resume(returning: certData)
+                }
+            } catch {
+                continuation.resume(throwing: error)
             }
-        } catch {
-            callback(.failure(error))
         }
     }
 }
