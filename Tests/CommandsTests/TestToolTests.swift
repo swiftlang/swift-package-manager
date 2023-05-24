@@ -319,9 +319,9 @@ final class TestToolTests: CommandsTestCase {
     func testOutputLineBuffering() async throws {
         try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
             // Pre-build tests so that `swift test` command takes as little time as possible to start the hanging test.
-            _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
+            _ = try SwiftPMProduct.SwiftBuild.execute(["--build-tests"], packagePath: fixturePath)
 
-            let completeArgs = [SwiftPM.Test.path.pathString, "--package-path", fixturePath.pathString]
+            let completeArgs = [SwiftPMProduct.SwiftTest.path.pathString, "--package-path", fixturePath.pathString]
 
             var output = [UInt8]()
             let outputRedirection = TSCBasic.Process.OutputRedirection.stream(
