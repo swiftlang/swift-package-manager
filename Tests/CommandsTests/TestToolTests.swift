@@ -16,6 +16,8 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
+import class TSCBasic.Process
+
 final class TestToolTests: CommandsTestCase {
     
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> (stdout: String, stderr: String) {
@@ -253,6 +255,38 @@ final class TestToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
                 XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
             }
+        }
+    }
+
+    func testOutputLineBuffering() async throws {
+        try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
+            _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
+
+            let completeArgs = [SwiftPM.Test.path.pathString, "--package-path", fixturePath.pathString]
+
+            var output = [UInt8]()
+            let outputRedirection = TSCBasic.Process.OutputRedirection.stream(
+                stdout: {
+                    output.append(contentsOf: $0)
+                },
+                stderr: {
+                    output.append(contentsOf: $0)
+                }
+            )
+
+            let process = TSCBasic.Process(
+                arguments: completeArgs,
+                outputRedirection: outputRedirection
+            )
+            try process.launch()
+
+            // This time interval should be enough for the test to start and get its output into the pipe.
+            Thread.sleep(forTimeInterval: 2)
+
+            process.signal(9)
+
+            let outputString = String(bytes: output, encoding: .utf8)
+            XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
         }
     }
 }
