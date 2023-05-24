@@ -340,7 +340,7 @@ final class TestToolTests: CommandsTestCase {
             try process.launch()
 
             // This time interval should be enough for the test to start and get its output into the pipe.
-            Thread.sleep(forTimeInterval: 2)
+            Thread.sleep(forTimeInterval: 5)
 
             process.signal(9)
 
