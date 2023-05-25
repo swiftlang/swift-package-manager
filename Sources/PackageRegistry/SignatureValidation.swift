@@ -62,15 +62,13 @@ struct SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> SigningEntity? {
         guard !self.skipSignatureValidation else {
-            return completion(.success(.none))
+            return .none
         }
 
-        self.getAndValidateSourceArchiveSignature(
+        let signingEntity = try await self.getAndValidateSourceArchiveSignature(
             registry: registry,
             package: package,
             version: version,
@@ -78,27 +76,20 @@ struct SignatureValidation {
             configuration: configuration,
             timeout: timeout,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let signingEntity):
-                // Always do signing entity TOFU check at the end,
-                // whether the package is signed or not.
-                self.signingEntityTOFU.validate(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    signingEntity: signingEntity,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
-                ) { _ in
-                    completion(.success(signingEntity))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+            observabilityScope: observabilityScope
+        )
+
+        // Always do signing entity TOFU check at the end,
+        // whether the package is signed or not.
+        try await self.signingEntityTOFU.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            observabilityScope: observabilityScope
+        )
+
+        return signingEntity
     }
 
     private func getAndValidateSourceArchiveSignature(
@@ -298,7 +289,7 @@ struct SignatureValidation {
 
         // Always do signing entity TOFU check at the end,
         // whether the manifest is signed or not.
-        self.signingEntityTOFU.validate(
+        try await self.signingEntityTOFU.validate(
             registry: registry,
             package: package,
             version: version,
@@ -355,7 +346,7 @@ struct SignatureValidation {
                 throw RegistryError.unknownSignatureFormat(manifestSignature.signatureFormat)
             }
 
-            self.validateManifestSignature(
+            return try await self.validateManifestSignature(
                 registry: registry,
                 package: package,
                 version: version,
@@ -386,14 +377,12 @@ struct SignatureValidation {
             // from source archive to minimize duplicate loggings).
             switch onUnsigned {
             case .prompt:
-                self.delegate
-                    .onUnsigned(registry: registry, package: package.underlying, version: version) { `continue` in
-                        if `continue` {
-                            completion(.success(.none))
+                if await self.delegate
+                    .onUnsigned(registry: registry, package: package.underlying, version: version) {
+                            return .none
                         } else {
-                            completion(.failure(sourceArchiveNotSignedError))
+                            throw sourceArchiveNotSignedError
                         }
-                    }
             default:
                 return .none
             }

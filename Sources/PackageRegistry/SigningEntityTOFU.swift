@@ -35,55 +35,42 @@ struct PackageSigningEntityTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         signingEntity: SigningEntity?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws {
         guard let signingEntityStorage else {
-            return completion(.success(()))
+            return
         }
 
-        signingEntityStorage.get(
-            package: package.underlying,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let packageSigners):
-                self.validateSigningEntity(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    signingEntity: signingEntity,
-                    packageSigners: packageSigners,
-                    observabilityScope: observabilityScope
-                ) { validateResult in
-                    switch validateResult {
-                    case .success(let shouldWrite):
-                        // We only use certain type(s) of signing entity for TOFU
-                        guard shouldWrite, let signingEntity = signingEntity, case .recognized = signingEntity else {
-                            return completion(.success(()))
-                        }
-                        self.writeToStorage(
-                            registry: registry,
-                            package: package,
-                            version: version,
-                            signingEntity: signingEntity,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue,
-                            completion: completion
-                        )
-                    case .failure(let error):
-                        completion(.failure(error))
-                    }
-                }
-            case .failure(let error):
-                observabilityScope.emit(
-                    error: "Failed to get signing entity for \(package) from storage",
-                    underlyingError: error
-                )
-                completion(.failure(error))
+        do {
+            let packageSigners = try await signingEntityStorage.get(
+                package: package.underlying,
+                observabilityScope: observabilityScope
+            )
+            let shouldWrite = try self.validateSigningEntity(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                packageSigners: packageSigners,
+                observabilityScope: observabilityScope
+            )
+            // We only use certain type(s) of signing entity for TOFU
+            guard shouldWrite, let signingEntity = signingEntity, case .recognized = signingEntity else {
+                return
             }
+            try await self.writeToStorage(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                observabilityScope: observabilityScope
+            )
+        } catch {
+            observabilityScope.emit(
+                error: "Failed to get signing entity for \(package) from storage",
+                underlyingError: error
+            )
+            throw error
         }
     }
 
@@ -94,7 +81,7 @@ struct PackageSigningEntityTOFU {
         signingEntity: SigningEntity?,
         packageSigners: PackageSigners,
         observabilityScope: ObservabilityScope
-    ) async throws -> Bool {
+    ) throws -> Bool {
         // Package is never signed.
         // If signingEntity is nil, it means package remains unsigned, which is OK. (none -> none)
         // Otherwise, package has gained a signer, which is also OK. (none -> some)
@@ -241,7 +228,7 @@ struct PackageSigningEntityTOFU {
         version: Version,
         signingEntity: SigningEntity,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         guard let signingEntityStorage else {
             return
         }
