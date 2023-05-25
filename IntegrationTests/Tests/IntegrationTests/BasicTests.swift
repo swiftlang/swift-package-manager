@@ -215,7 +215,7 @@ final class BasicTests: XCTestCase {
 
             // Check the build.
             let buildOutput = try sh(swiftBuild, "--package-path", packagePath, "-v").stdout
-            XCTAssertMatch(buildOutput, .regex(#"swiftc.* -module-name special_tool .* '.*/more spaces/special tool/some file.swift'"#))
+            XCTAssertMatch(buildOutput, .regex(#"swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'"#))
             XCTAssertMatch(buildOutput, .contains("Build complete"))
 
             // Verify that the tool exists and works.
