@@ -20,8 +20,6 @@ import X509
 let expectedSubjectUserID = ProcessInfo.processInfo.environment["REAL_CERT_USER_ID"] ?? "<USER ID>"
 let expectedSubjectOrgUnit = ProcessInfo.processInfo.environment["REAL_CERT_ORG_UNIT"] ?? "<ORG UNIT>"
 
-let callbackQueue = DispatchQueue(label: "org.swift.swiftpm.PackageCollectionsSigningTests", attributes: .concurrent)
-
 // MARK: - CertificatePolicy for test certs
 
 struct TestCertificatePolicy: CertificatePolicy {
@@ -53,10 +51,9 @@ struct TestCertificatePolicy: CertificatePolicy {
 
     func validate(
         certChain: [Certificate],
-        validationTime: Date,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.verify(
+        validationTime: Date
+    ) async throws {
+        try await self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: {
@@ -66,9 +63,7 @@ struct TestCertificatePolicy: CertificatePolicy {
                 RFC5280Policy(validationTime: validationTime)
                 // Doesn't require OCSP
             },
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: callbackQueue,
-            callback: callback
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }

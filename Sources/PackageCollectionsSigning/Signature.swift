@@ -61,7 +61,7 @@ extension Signature {
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTSerializer.swift
 extension Signature {
     static let rsaSigningPadding = _RSA.Signing.Padding.insecurePKCS1v1_5
-    
+
     static func generate(
         payload: some Encodable,
         certChainData: [Data],
@@ -96,27 +96,25 @@ extension Signature {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTParser.swift
 extension Signature {
-    typealias CertChainValidate = ([Data], @escaping (Result<[Certificate], Error>) -> Void) -> Void
+    typealias CertChainValidate = ([Data]) async throws -> [Certificate]
 
     static func parse(
         _ signature: String,
         certChainValidate: CertChainValidate,
-        jsonDecoder: JSONDecoder,
-        callback: @escaping (Result<Signature, Error>) -> Void
-    ) {
+        jsonDecoder: JSONDecoder
+    ) async throws -> Signature {
         let bytes = Array(signature.utf8)
-        Self.parse(bytes, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder, callback: callback)
+        return try await Self.parse(bytes, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder)
     }
 
     static func parse(
         _ signature: some DataProtocol,
         certChainValidate: CertChainValidate,
-        jsonDecoder: JSONDecoder,
-        callback: @escaping (Result<Signature, Error>) -> Void
-    ) {
+        jsonDecoder: JSONDecoder
+    ) async throws -> Signature {
         let parts = signature.copyBytes().split(separator: .period)
         guard parts.count == 3 else {
-            return callback(.failure(SignatureError.malformedSignature))
+            throw SignatureError.malformedSignature
         }
 
         let encodedHeader = parts[0]
@@ -126,58 +124,53 @@ extension Signature {
         guard let headerBytes = encodedHeader.base64URLDecodedBytes(),
               let header = try? jsonDecoder.decode(Header.self, from: headerBytes)
         else {
-            return callback(.failure(SignatureError.malformedSignature))
+            throw SignatureError.malformedSignature
         }
 
         // Signature header contains the certificate and public key for verification
         let certChainData = header.certChain.compactMap { Data(base64Encoded: $0) }
         // Make sure we restore all certs successfully
         guard certChainData.count == header.certChain.count else {
-            return callback(.failure(SignatureError.malformedSignature))
+            throw SignatureError.malformedSignature
         }
 
-        certChainValidate(certChainData) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let certChain):
-                do {
-                    guard let payloadBytes = encodedPayload.base64URLDecodedBytes(),
-                          let signatureBytes = encodedSignature.base64URLDecodedBytes()
-                    else {
-                        throw SignatureError.malformedSignature
-                    }
+        let certChain = try await certChainValidate(certChainData)
 
-                    // Extract public key from the certificate
-                    let certificate = certChain.first! // !-safe because certChain is not empty at this point
-                    // Verify the key was used to generate the signature
-                    let message: Data = Data(encodedHeader) + .period + Data(encodedPayload)
-                    let digest = SHA256.hash(data: message)
+        guard let payloadBytes = encodedPayload.base64URLDecodedBytes(),
+              let signatureBytes = encodedSignature.base64URLDecodedBytes()
+        else {
+            throw SignatureError.malformedSignature
+        }
 
-                    switch header.algorithm {
-                    case .ES256:
-                        guard let publicKey = P256.Signing.PublicKey(certificate.publicKey) else {
-                            throw SignatureError.invalidPublicKey
-                        }
-                        guard try publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest)
-                        else {
-                            throw SignatureError.invalidSignature
-                        }
-                    case .RS256:
-                        guard let publicKey = _RSA.Signing.PublicKey(certificate.publicKey) else {
-                            throw SignatureError.invalidPublicKey
-                        }
-                        guard publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest, padding: .insecurePKCS1v1_5) else {
-                            throw SignatureError.invalidSignature
-                        }
-                    }
+        // Extract public key from the certificate
+        let certificate = certChain.first! // !-safe because certChain is not empty at this point
+        // Verify the key was used to generate the signature
+        let message = Data(encodedHeader) + .period + Data(encodedPayload)
+        let digest = SHA256.hash(data: message)
 
-                    callback(.success(Signature(header: header, payload: payloadBytes, signature: signatureBytes)))
-                } catch {
-                    callback(.failure(error))
-                }
+        switch header.algorithm {
+        case .ES256:
+            guard let publicKey = P256.Signing.PublicKey(certificate.publicKey) else {
+                throw SignatureError.invalidPublicKey
+            }
+            guard try publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest)
+            else {
+                throw SignatureError.invalidSignature
+            }
+        case .RS256:
+            guard let publicKey = _RSA.Signing.PublicKey(certificate.publicKey) else {
+                throw SignatureError.invalidPublicKey
+            }
+            guard publicKey.isValidSignature(
+                .init(rawRepresentation: signatureBytes),
+                for: digest,
+                padding: .insecurePKCS1v1_5
+            ) else {
+                throw SignatureError.invalidSignature
             }
         }
+
+        return Signature(header: header, payload: payloadBytes, signature: signatureBytes)
     }
 }
 
