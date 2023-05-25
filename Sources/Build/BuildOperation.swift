@@ -694,6 +694,7 @@ extension BuildDescription {
         let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
         let testEntryPointCommands = llbuild.manifest.getCmdToolMap(kind: TestEntryPointTool.self)
         let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
+        let writeCommands = llbuild.manifest.getCmdToolMap(kind: WriteAuxiliaryFile.self)
 
         // Create the build description.
         let buildDescription = try BuildDescription(
@@ -703,6 +704,7 @@ extension BuildDescription {
             testDiscoveryCommands: testDiscoveryCommands,
             testEntryPointCommands: testEntryPointCommands,
             copyCommands: copyCommands,
+            writeCommands: writeCommands,
             pluginDescriptions: plan.pluginDescriptions
         )
         try fileSystem.createDirectory(

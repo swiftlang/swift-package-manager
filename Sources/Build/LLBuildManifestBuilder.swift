@@ -986,13 +986,13 @@ extension LLBuildManifestBuilder {
             try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Archiving \(buildProduct.binaryPath.prettyPath())",
-                inputs: buildProduct.objects.map(Node.file),
+                inputs: (buildProduct.objects + [buildProduct.linkFileListPath]).map(Node.file),
                 outputs: [.file(buildProduct.binaryPath)],
                 arguments: try buildProduct.archiveArguments()
             )
 
         default:
-            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath }
+            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath } + [buildProduct.linkFileListPath]
 
             try self.manifest.addShellCmd(
                 name: cmdName,
@@ -1020,6 +1020,8 @@ extension LLBuildManifestBuilder {
             }
             self.addNode(output, toTarget: .test)
         }
+
+        self.manifest.addWriteLinkFileListCommand(objects: Array(buildProduct.objects), linkFileListPath: buildProduct.linkFileListPath)
     }
 }
 

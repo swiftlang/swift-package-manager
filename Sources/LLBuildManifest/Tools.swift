@@ -151,6 +151,26 @@ public struct ShellTool: ToolProtocol {
     }
 }
 
+public struct WriteAuxiliaryFile: ToolProtocol {
+    public static let name: String = "write-auxiliary-file"
+
+    public let inputs: [Node]
+    private let outputFilePath: AbsolutePath
+
+    public init(inputs: [Node], outputFilePath: AbsolutePath) {
+        self.inputs = inputs
+        self.outputFilePath = outputFilePath
+    }
+
+    public var outputs: [Node] {
+        return [.file(outputFilePath)]
+    }
+
+    public func write(to stream: ManifestToolStream) {
+        stream["description"] = "Write auxiliary file \(outputFilePath.pathString)"
+    }
+}
+
 public struct ClangTool: ToolProtocol {
     public static let name: String = "clang"
 

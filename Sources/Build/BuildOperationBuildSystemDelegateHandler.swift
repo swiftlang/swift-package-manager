@@ -297,6 +297,9 @@ public struct BuildDescription: Codable {
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
+    /// The map of write commands.
+    let writeCommands: [BuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile]
+
     /// A flag that inidcates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
     let explicitTargetDependencyImportCheckingMode: BuildParameters.TargetDependencyImportCheckingMode
@@ -323,6 +326,7 @@ public struct BuildDescription: Codable {
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
         testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
+        writeCommands: [BuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
@@ -330,6 +334,7 @@ public struct BuildDescription: Codable {
         self.testDiscoveryCommands = testDiscoveryCommands
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
+        self.writeCommands = writeCommands
         self.explicitTargetDependencyImportCheckingMode = plan.buildParameters
             .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
@@ -458,6 +463,76 @@ public final class BuildExecutionContext {
     }
 }
 
+final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
+    override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
+        guard let buildDescription = self.context.buildDescription else {
+            return []
+        }
+        guard let tool = buildDescription.copyCommands[command.name] else {
+            return []
+        }
+
+        do {
+            let encoder = JSONEncoder.makeWithDefaults()
+            var hash = Data()
+            hash += try encoder.encode(tool.inputs)
+            hash += try encoder.encode(tool.outputs)
+            return [UInt8](hash)
+        } catch {
+            self.context.observabilityScope.emit(error: "getSignature() failed: \(error.interpolationDescription)")
+            return []
+        }
+    }
+
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
+        let outputFilePath: AbsolutePath
+        let tool: WriteAuxiliaryFile!
+
+        do {
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let _tool = buildDescription.writeCommands[command.name] else {
+                throw StringError("command \(command.name) not registered")
+            }
+            tool = _tool
+
+            guard let output = tool.outputs.first, output.kind == .file else {
+                throw StringError("invalid output path")
+            }
+            outputFilePath = try AbsolutePath(validating: output.name)
+        } catch {
+            self.context.observabilityScope.emit(error: "failed to write auxiliary file: \(error.interpolationDescription)")
+            return false
+        }
+
+        do {
+            try self.context.fileSystem.writeFileContents(outputFilePath, string: getFileContents(tool: tool))
+            return true
+        } catch {
+            self.context.observabilityScope.emit(error: "failed to write auxiliary file '\(outputFilePath.pathString)': \(error.interpolationDescription)")
+            return false
+        }
+    }
+
+    func getFileContents(tool: WriteAuxiliaryFile) throws -> String {
+        guard tool.inputs.first?.kind == .virtual, let generatedFileType = tool.inputs.first?.name.dropFirst().dropLast() else {
+            throw StringError("invalid inputs")
+        }
+
+        for fileType in WriteAuxiliary.fileTypes {
+            if generatedFileType == fileType.name {
+                return try fileType.getFileContents(inputs: Array(tool.inputs.dropFirst()))
+            }
+        }
+
+        throw InternalError("unhandled generated file type '\(generatedFileType)'")
+    }
+}
+
 public protocol PackageStructureDelegate {
     func packageStructureChanged() -> Bool
 }
@@ -577,6 +652,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:
             return InProcessTool(buildExecutionContext, type: CopyCommand.self)
+        case WriteAuxiliaryFile.name:
+            return InProcessTool(buildExecutionContext, type: WriteAuxiliaryFileCommand.self)
         default:
             return nil
         }

@@ -339,18 +339,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         return self.stripInvalidArguments(args)
     }
 
-    /// Writes link filelist to the filesystem.
-    func writeLinkFilelist(_ fs: FileSystem) throws {
-        let stream = BufferedOutputByteStream()
-
-        for object in self.objects {
-            stream <<< object.pathString.spm_shellEscaped() <<< "\n"
-        }
-
-        try fs.createDirectory(self.linkFileListPath.parentDirectory, recursive: true)
-        try fs.writeFileContents(self.linkFileListPath, bytes: stream.bytes)
-    }
-
     /// Returns the build flags from the declared build settings.
     private func buildSettingsFlags() -> [String] {
         var flags: [String] = []

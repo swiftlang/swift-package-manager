@@ -13,6 +13,46 @@
 import Basics
 import struct TSCBasic.AbsolutePath
 
+public protocol AuxiliaryFileType {
+    static var name: String { get }
+
+    static func getFileContents(inputs: [Node]) throws -> String
+}
+
+public enum WriteAuxiliary {
+    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self]
+
+    public struct LinkFileList: AuxiliaryFileType {
+        public static let name = "link-file-list"
+
+        // FIXME: We should extend the `InProcessTool` support to allow us to specify these in a typed way, but today we have to flatten all the inputs into a generic `Node` array (rdar://109844243).
+        public static func computeInputs(objects: [AbsolutePath]) -> [Node] {
+            return [.virtual(Self.name)] + objects.map { Node.file($0) }
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            let objects = inputs.compactMap {
+                if $0.kind == .file {
+                    return $0.name
+                } else {
+                    return nil
+                }
+            }
+
+            var content = objects
+                .map { $0.spm_shellEscaped() }
+                .joined(separator: "\n")
+
+            // not sure this is needed, added here for backward compatibility
+            if !content.isEmpty {
+                content.append("\n")
+            }
+
+            return content
+        }
+    }
+}
+
 public struct BuildManifest {
     public typealias TargetName = String
     public typealias CmdName = String
@@ -85,6 +125,16 @@ public struct BuildManifest {
     ) {
         assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = CopyTool(inputs: inputs, outputs: outputs)
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addWriteLinkFileListCommand(
+        objects: [AbsolutePath],
+        linkFileListPath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.LinkFileList.computeInputs(objects: objects)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: linkFileListPath)
+        let name = linkFileListPath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 
