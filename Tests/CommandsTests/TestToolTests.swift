@@ -18,6 +18,9 @@ import XCTest
 
 import class TSCBasic.Process
 
+import Foundation
+import Dispatch
+
 final class TestToolTests: CommandsTestCase {
     
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> (stdout: String, stderr: String) {
@@ -259,11 +262,26 @@ final class TestToolTests: CommandsTestCase {
     }
 
     func testOutputLineBuffering() async throws {
+        defer {
+            print(#line); fflush(stdout)
+        }
+        
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1800) {
+            print(#line); fflush(stdout)
+
+            fatalError()
+        }
+
+        print(#line); fflush(stdout)
+        write(1, "\nfoo\n", 5)
+
         try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
             // Pre-build tests so that `swift test` command takes as little time as possible to start the hanging test.
             _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
+            print(#line); fflush(stdout)
 
             let completeArgs = [SwiftPM.Test.path.pathString, "--package-path", fixturePath.pathString]
+            print(#line); fflush(stdout)
 
             var output = [UInt8]()
             let outputRedirection = TSCBasic.Process.OutputRedirection.stream(
@@ -274,20 +292,27 @@ final class TestToolTests: CommandsTestCase {
                     output.append(contentsOf: $0)
                 }
             )
+            print(#line); fflush(stdout)
 
             let process = TSCBasic.Process(
                 arguments: completeArgs,
                 outputRedirection: outputRedirection
             )
+            print(#line); fflush(stdout)
             try process.launch()
+            print(#line); fflush(stdout)
 
             // This time interval should be enough for the test to start and get its output into the pipe.
             Thread.sleep(forTimeInterval: 10)
+            print(#line); fflush(stdout)
 
             process.signal(9)
+            print(#line); fflush(stdout)
 
             let outputString = String(bytes: output, encoding: .utf8)
             XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
+            print(#line); fflush(stdout)
+
         }
     }
 }
