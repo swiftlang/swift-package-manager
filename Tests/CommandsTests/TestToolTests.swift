@@ -16,6 +16,7 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
+import struct TSCBasic.Lock
 import class TSCBasic.Process
 
 import Foundation
@@ -284,12 +285,17 @@ final class TestToolTests: CommandsTestCase {
             print(#line); fflush(stdout)
 
             var output = [UInt8]()
+            let lock = Lock()
             let outputRedirection = TSCBasic.Process.OutputRedirection.stream(
-                stdout: {
-                    output.append(contentsOf: $0)
+                stdout: { bytes in
+                    lock.withLock {
+                        output.append(contentsOf: bytes)
+                    }
                 },
-                stderr: {
-                    output.append(contentsOf: $0)
+                stderr: { bytes in
+                    lock.withLock {
+                        output.append(contentsOf: bytes)
+                    }
                 }
             )
             print(#line); fflush(stdout)
@@ -309,7 +315,9 @@ final class TestToolTests: CommandsTestCase {
             process.signal(9)
             print(#line); fflush(stdout)
 
-            let outputString = String(bytes: output, encoding: .utf8)
+            let outputString = lock.withLock {
+                String(bytes: output, encoding: .utf8)
+            }
             XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
             print(#line); fflush(stdout)
 
