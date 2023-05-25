@@ -266,7 +266,20 @@ final class TestToolTests: CommandsTestCase {
         defer {
             print(#line); fflush(stdout)
         }
-        
+
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+        timer.setEventHandler(handler: {
+            write(1, String(repeating: "=", count: 9000), 9000);
+            write(1, "\n",1)
+            _ = timer
+        })
+        timer.schedule(deadline: .now()+1, repeating: .seconds(1))
+        timer.resume()
+
+        defer {
+            timer.cancel()
+        }
+
         DispatchQueue.global().asyncAfter(deadline: .now() + 1800) {
             print(#line); fflush(stdout)
 
