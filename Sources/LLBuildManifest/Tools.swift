@@ -262,6 +262,7 @@ public struct SwiftCompilerTool: ToolProtocol {
     public var objects: [AbsolutePath]
     public var otherArguments: [String]
     public var sources: [AbsolutePath]
+    public var fileList: AbsolutePath
     public var isLibrary: Bool
     public var wholeModuleOptimization: Bool
     public var outputFileMapPath: AbsolutePath
@@ -278,6 +279,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         objects: [AbsolutePath],
         otherArguments: [String],
         sources: [AbsolutePath],
+        fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
         outputFileMapPath: AbsolutePath
@@ -293,6 +295,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.objects = objects
         self.otherArguments = otherArguments
         self.sources = sources
+        self.fileList = fileList
         self.isLibrary = isLibrary
         self.wholeModuleOptimization = wholeModuleOptimization
         self.outputFileMapPath = outputFileMapPath
@@ -325,7 +328,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         if wholeModuleOptimization {
             arguments += ["-whole-module-optimization", "-num-threads", "\(Self.numThreads)"]
         }
-        arguments += ["-c"] + sources.map { $0.pathString }
+        arguments += ["-c", "@\(self.fileList.pathString)"]
         arguments += ["-I", importPath.pathString]
         arguments += otherArguments
         return arguments

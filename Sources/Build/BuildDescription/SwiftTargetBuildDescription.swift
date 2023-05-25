@@ -74,6 +74,10 @@ public final class SwiftTargetBuildDescription {
         self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
     }
 
+    public var sourcesFileListPath: AbsolutePath {
+        self.tempsPath.appending(component: "sources")
+    }
+
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
         self.target.underlyingTarget.resources + self.pluginDerivedResources

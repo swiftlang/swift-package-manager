@@ -614,9 +614,10 @@ extension LLBuildManifestBuilder {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: self.buildConfig)
 
+        self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
             name: cmdName,
-            inputs: inputs,
+            inputs: inputs + [Node.file(target.sourcesFileListPath)],
             outputs: cmdOutputs,
             executable: self.buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
@@ -627,6 +628,7 @@ extension LLBuildManifestBuilder {
             objects: try target.objects,
             otherArguments: try target.compileArguments(),
             sources: target.sources,
+            fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
             wholeModuleOptimization: self.buildParameters.configuration == .release,
             outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.

@@ -877,7 +877,7 @@ final class BuildPlanTests: XCTestCase {
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString())"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
                 """))
 
         }
@@ -904,8 +904,9 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
+            let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
                 """))
         }
     }
@@ -3777,17 +3778,16 @@ final class BuildPlanTests: XCTestCase {
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
+
 #if os(Windows)
-        XCTAssertMatch(contents, .contains("""
-                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString())","\(buildPath.appending(components: "exe.exe").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString())","\(buildPath.escapedPathString())
-            """))
-#else   // FIXME(5472) - the suffix is dropped
-        XCTAssertMatch(contents, .contains("""
-                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString())","\(buildPath.appending(components: "exe").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString())","\(buildPath.escapedPathString())
-            """))
+        let suffix = ".exe"
+#else // FIXME(5472) - the suffix is dropped
+        let suffix = ""
 #endif
+        XCTAssertMatch(contents, .contains("""
+                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString())","\(buildPath.appending(components: "exe\(suffix)").escapedPathString())","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString())"]
+                outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString())","\(buildPath.escapedPathString())
+            """))
     }
 
     func testObjCHeader1() throws {

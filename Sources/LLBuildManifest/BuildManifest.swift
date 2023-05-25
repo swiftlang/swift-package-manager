@@ -19,7 +19,7 @@ public protocol AuxiliaryFileType {
 }
 
 public enum WriteAuxiliary {
-    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self]
+    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self, SourcesFileList.self]
 
     public struct LinkFileList: AuxiliaryFileType {
         public static let name = "link-file-list"
@@ -48,6 +48,32 @@ public enum WriteAuxiliary {
             }
 
             return content
+        }
+    }
+
+    public struct SourcesFileList: AuxiliaryFileType {
+        public static let name = "sources-file-list"
+
+        public static func computeInputs(sources: [AbsolutePath]) -> [Node] {
+            return [.virtual(Self.name)] + sources.map { Node.file($0) }
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            let sources = inputs.compactMap {
+                if $0.kind == .file {
+                    return $0.name
+                } else {
+                    return nil
+                }
+            }
+
+            guard sources.count > 0 else { return "" }
+
+            var contents = sources
+                .map { $0.spm_shellEscaped() }
+                .joined(separator: "\n")
+            contents.append("\n")
+            return contents
         }
     }
 }
@@ -137,6 +163,16 @@ public struct BuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
+    public mutating func addWriteSourcesFileListCommand(
+        sources: [AbsolutePath],
+        sourcesFileListPath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
+        let name = sourcesFileListPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
     public mutating func addPkgStructureCmd(
         name: String,
         inputs: [Node],
@@ -222,6 +258,7 @@ public struct BuildManifest {
         objects: [AbsolutePath],
         otherArguments: [String],
         sources: [AbsolutePath],
+        fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
         outputFileMapPath: AbsolutePath
@@ -239,6 +276,7 @@ public struct BuildManifest {
             objects: objects,
             otherArguments: otherArguments,
             sources: sources,
+            fileList: fileList,
             isLibrary: isLibrary,
             wholeModuleOptimization: wholeModuleOptimization,
             outputFileMapPath: outputFileMapPath
