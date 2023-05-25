@@ -143,10 +143,8 @@ struct PackageVersionChecksumTOFU {
         toolsVersion: ToolsVersion?,
         checksum: String,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws {
         let contentType = Fingerprint.ContentType.manifest(toolsVersion)
 
         self.readFromStorage(

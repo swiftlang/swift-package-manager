@@ -22,10 +22,8 @@ public protocol PackageSigningEntityStorage {
     /// For a given package, return the signing entities and the package versions that each of them signed.
     func get(
         package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<PackageSigners, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageSigners
 
     /// Record signer for a given package version.
     ///
@@ -36,10 +34,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) async throws
 
     /// Add signer for a given package version.
     ///
@@ -51,10 +47,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) async throws
 
     /// Make `signingEntity` the package's expected signer starting from the given version.
     func changeSigningEntityFromVersion(
@@ -62,10 +56,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) async throws
 
     /// Make `signingEntity` the only signer for a given package.
     ///
@@ -76,10 +68,8 @@ public protocol PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) async throws
 }
 
 // MARK: - Models
