@@ -237,58 +237,67 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         Task {
-            let parsedManifest = try await self.loadAndCacheManifest(
-                at: manifestPath,
-                toolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageVersion: packageVersion?.version,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue
-            )
-
-            // Convert legacy system packages to the current target‐based model.
-            var products = parsedManifest.products
-            var targets = parsedManifest.targets
-            if products.isEmpty, targets.isEmpty,
-               fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
-                try products.append(ProductDescription(
-                    name: parsedManifest.name,
-                    type: .library(.automatic),
-                    targets: [parsedManifest.name])
+            do {
+                let parsedManifest = try await self.loadAndCacheManifest(
+                    at: manifestPath,
+                    toolsVersion: manifestToolsVersion,
+                    packageIdentity: packageIdentity,
+                    packageKind: packageKind,
+                    packageVersion: packageVersion?.version,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope,
+                    delegateQueue: delegateQueue
                 )
-                targets.append(try TargetDescription(
-                    name: parsedManifest.name,
-                    path: "",
-                    type: .system,
-                    packageAccess: false,
+                
+                // Convert legacy system packages to the current target‐based model.
+                var products = parsedManifest.products
+                var targets = parsedManifest.targets
+                if products.isEmpty, targets.isEmpty,
+                   fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
+                    try products.append(ProductDescription(
+                        name: parsedManifest.name,
+                        type: .library(.automatic),
+                        targets: [parsedManifest.name])
+                    )
+                    targets.append(try TargetDescription(
+                        name: parsedManifest.name,
+                        path: "",
+                        type: .system,
+                        packageAccess: false,
+                        pkgConfig: parsedManifest.pkgConfig,
+                        providers: parsedManifest.providers
+                    ))
+                }
+                
+                let manifest = Manifest(
+                    displayName: parsedManifest.name,
+                    path: manifestPath,
+                    packageKind: packageKind,
+                    packageLocation: packageLocation,
+                    defaultLocalization: parsedManifest.defaultLocalization,
+                    platforms: parsedManifest.platforms,
+                    version: packageVersion?.version,
+                    revision: packageVersion?.revision,
+                    toolsVersion: manifestToolsVersion,
                     pkgConfig: parsedManifest.pkgConfig,
-                    providers: parsedManifest.providers
-                ))
-            }
+                    providers: parsedManifest.providers,
+                    cLanguageStandard: parsedManifest.cLanguageStandard,
+                    cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
+                    swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
+                    dependencies: parsedManifest.dependencies,
+                    products: products,
+                    targets: targets
+                )
 
-            let manifest = Manifest(
-                displayName: parsedManifest.name,
-                path: manifestPath,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                defaultLocalization: parsedManifest.defaultLocalization,
-                platforms: parsedManifest.platforms,
-                version: packageVersion?.version,
-                revision: packageVersion?.revision,
-                toolsVersion: manifestToolsVersion,
-                pkgConfig: parsedManifest.pkgConfig,
-                providers: parsedManifest.providers,
-                cLanguageStandard: parsedManifest.cLanguageStandard,
-                cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
-                swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
-                dependencies: parsedManifest.dependencies,
-                products: products,
-                targets: targets
-            )
-            completion(.success(manifest))
+                return callbackQueue.async {
+                    completion(.success(manifest))
+                }
+            } catch {
+                return callbackQueue.async {
+                    completion(.failure(error))
+                }
+            }
         }
     }
 
