@@ -269,7 +269,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         providers: parsedManifest.providers
                     ))
                 }
-                
+
                 let manifest = Manifest(
                     displayName: parsedManifest.name,
                     path: manifestPath,
