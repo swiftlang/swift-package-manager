@@ -28,6 +28,12 @@ public protocol Toolchain {
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
 
+    /// An array of paths to search for headers and modules at compile time.
+    var includeSearchPaths: [AbsolutePath] { get }
+
+    /// An array of paths to search for libraries at link time.
+    var librarySearchPaths: [AbsolutePath] { get }
+
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
 

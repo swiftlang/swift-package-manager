@@ -513,6 +513,12 @@ public final class SwiftTargetBuildDescription {
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
+
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            args += ["-I", includeSearchPath.pathString]
+        }
+
         // suppress warnings if the package is remote
         if self.package.isRemote {
             args += ["-suppress-warnings"]
@@ -612,6 +618,11 @@ public final class SwiftTargetBuildDescription {
         result += try self.buildSettingsFlags()
         result += try self.macroArguments()
 
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            result += ["-I", includeSearchPath.pathString]
+        }
+
         return result
     }
 
@@ -680,6 +691,12 @@ public final class SwiftTargetBuildDescription {
         // result += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // result += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+
+
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            result += ["-I", includeSearchPath.pathString]
+        }
 
         result += try self.macroArguments()
         return result
