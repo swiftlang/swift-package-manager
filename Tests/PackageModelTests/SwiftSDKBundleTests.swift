@@ -97,7 +97,7 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         let archiver = MockArchiver()
 
-        try SwiftSDKBundle.install(
+        try await SwiftSDKBundle.install(
             bundlePathOrURL: bundles[0].path,
             swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem,
@@ -107,7 +107,7 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         let invalidPath = "foobar"
         do {
-            try SwiftSDKBundle.install(
+            try await SwiftSDKBundle.install(
                 bundlePathOrURL: "foobar",
                 swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,
@@ -131,7 +131,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            try SwiftSDKBundle.install(
+            try await SwiftSDKBundle.install(
                 bundlePathOrURL: bundles[0].path,
                 swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,
@@ -155,7 +155,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            try SwiftSDKBundle.install(
+            try await SwiftSDKBundle.install(
                 bundlePathOrURL: bundles[1].path,
                 swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,
@@ -191,7 +191,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
 
         for bundle in bundles {
-            try SwiftSDKBundle.install(
+            try await SwiftSDKBundle.install(
                 bundlePathOrURL: bundle.path,
                 swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem,

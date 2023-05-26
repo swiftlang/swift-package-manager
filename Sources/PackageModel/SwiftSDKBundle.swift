@@ -135,8 +135,8 @@ public struct SwiftSDKBundle {
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) throws {
-        _ = try withTemporaryDirectory(
+    ) async throws {
+        _ = try await withTemporaryDirectory(
             removeTreeOnDeinit: true
         ) { temporaryDirectory in
             let bundlePath: AbsolutePath
@@ -149,21 +149,18 @@ public struct SwiftSDKBundle {
                 let bundleName = bundleURL.lastPathComponent
                 let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
 
-                let client = LegacyHTTPClient()
-                var request = LegacyHTTPClientRequest.download(
+                let client = HTTPClient()
+                var request = HTTPClientRequest.download(
                     url: bundleURL,
                     fileSystem: fileSystem,
                     destination: downloadedBundlePath
                 )
                 request.options.validResponseCodes = [200]
-                _ = try temp_await {
-                    client.execute(
-                        request,
-                        observabilityScope: observabilityScope,
-                        progress: nil,
-                        completion: $0
-                    )
-                }
+                _ = try await client.execute(
+                    request,
+                    observabilityScope: observabilityScope,
+                    progress: nil
+                )
 
                 bundlePath = downloadedBundlePath
 
@@ -177,7 +174,7 @@ public struct SwiftSDKBundle {
                 throw DestinationError.invalidPathOrURL(bundlePathOrURL)
             }
 
-            try installIfValid(
+            try await installIfValid(
                 bundlePath: bundlePath,
                 destinationsDirectory: swiftSDKsDirectory,
                 temporaryDirectory: temporaryDirectory,
@@ -204,7 +201,7 @@ public struct SwiftSDKBundle {
         temporaryDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let regex = try RegEx(pattern: "(.+\\.artifactbundle).*")
 
         guard let bundleName = bundlePath.components.last else {
@@ -227,7 +224,7 @@ public struct SwiftSDKBundle {
 
         print("\(bundleName) is assumed to be an archive, unpacking...")
 
-        try temp_await { archiver.extract(from: bundlePath, to: temporaryDirectory, completion: $0) }
+        try await archiver.extract(from: bundlePath, to: temporaryDirectory)
 
         return temporaryDirectory.appending(component: unpackedBundleName)
     }
@@ -245,7 +242,7 @@ public struct SwiftSDKBundle {
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         #if os(macOS)
         // Check the quarantine attribute on bundles downloaded manually in the browser.
         guard !fileSystem.hasAttribute(.quarantine, bundlePath) else {
@@ -253,7 +250,7 @@ public struct SwiftSDKBundle {
         }
         #endif
 
-        let unpackedBundlePath = try unpackIfNeeded(
+        let unpackedBundlePath = try await unpackIfNeeded(
             bundlePath: bundlePath,
             destinationsDirectory: destinationsDirectory,
             temporaryDirectory: temporaryDirectory,

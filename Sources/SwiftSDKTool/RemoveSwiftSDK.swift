@@ -35,7 +35,7 @@ public struct RemoveSwiftSDK: SwiftSDKSubcommand {
         buildTimeTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
         let artifactBundleDirectory = destinationsDirectory.appending(component: self.sdkIDOrBundleName)
 

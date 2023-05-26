@@ -12,8 +12,8 @@
 
 import ArgumentParser
 import Basics
-
-public struct SwiftSDKTool: ParsableCommand {
+    
+public struct SwiftSDKTool: AsyncParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "experimental-sdk",
         _superCommandName: "swift",

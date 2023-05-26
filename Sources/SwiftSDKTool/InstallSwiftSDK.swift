@@ -39,10 +39,10 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
         buildTimeTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         let cancellator = Cancellator(observabilityScope: observabilityScope)
         cancellator.installSignalHandlers()
-        try SwiftSDKBundle.install(
+        try await SwiftSDKBundle.install(
             bundlePathOrURL: bundlePathOrURL,
             swiftSDKsDirectory: destinationsDirectory,
             self.fileSystem,
