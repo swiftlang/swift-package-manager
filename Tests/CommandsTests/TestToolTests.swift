@@ -319,10 +319,10 @@ final class TestToolTests: CommandsTestCase {
             )
             print(#line); fflush(stdout)
             try process.launch()
-//            print(#line); fflush(stdout)
-//
-//            // This time interval should be enough for the test to start and get its output into the pipe.
-//            Thread.sleep(forTimeInterval: 10)
+            print(#line); fflush(stdout)
+
+            // This time interval should be enough for the test to start and get its output into the pipe.
+            Thread.sleep(forTimeInterval: 60)
 //            print(#line); fflush(stdout)
 //
 //            process.signal(9)
