@@ -195,7 +195,7 @@ func fixture(
 ) {
     do {
         // Make a suitable test directory name from the fixture subpath.
-        let fixtureSubpath = RelativePath(name)
+        let fixtureSubpath = try RelativePath(validating: name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
