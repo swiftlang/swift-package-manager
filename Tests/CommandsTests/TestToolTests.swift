@@ -262,8 +262,7 @@ final class TestToolTests: CommandsTestCase {
         }
     }
 
-    func testOutputLineBuffering() async throws {
-        fatalError()
+    func testOutputLineBuffering() {
 //        defer {
 //            print(#line); fflush(stdout)
 //        }
@@ -281,11 +280,14 @@ final class TestToolTests: CommandsTestCase {
 //            timer.cancel()
 //        }
 //
-//        DispatchQueue.global().asyncAfter(deadline: .now() + 1800) {
-//            print(#line); fflush(stdout)
-//
-//            fatalError()
-//        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(10)) {
+            print(#line); fflush(stdout)
+
+            fatalError()
+        }
+        while true {
+            Thread.sleep(forTimeInterval: 1)
+        }
 //
 //        print(#line); fflush(stdout)
 //        write(1, "\nfoo\n", 5)
