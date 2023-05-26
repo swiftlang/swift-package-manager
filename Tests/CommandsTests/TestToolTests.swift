@@ -262,25 +262,25 @@ final class TestToolTests: CommandsTestCase {
         }
     }
 
-    func testOutputLineBuffering() {
-//        defer {
-//            print(#line); fflush(stdout)
-//        }
-//
-//        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-//        timer.setEventHandler(handler: {
-//            write(1, String(repeating: "=", count: 9000), 9000);
-//            write(1, "\n",1)
-//            _ = timer
-//        })
-//        timer.schedule(deadline: .now()+1, repeating: .seconds(1))
-//        timer.resume()
-//
-//        defer {
-//            timer.cancel()
-//        }
-//
-        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(10)) {
+    func testOutputLineBuffering() async throws {
+        defer {
+            print(#line); fflush(stdout)
+        }
+
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+        timer.setEventHandler(handler: {
+            write(1, String(repeating: "=", count: 9000), 9000);
+            write(1, "\n",1)
+            _ = timer
+        })
+        timer.schedule(deadline: .now()+1, repeating: .seconds(1))
+        timer.resume()
+
+        defer {
+            timer.cancel()
+        }
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(600)) {
             print(#line); fflush(stdout)
 
             fatalError()
@@ -292,11 +292,11 @@ final class TestToolTests: CommandsTestCase {
 //        print(#line); fflush(stdout)
 //        write(1, "\nfoo\n", 5)
 //
-//        try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
-//            // Pre-build tests so that `swift test` command takes as little time as possible to start the hanging test.
-//            _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
-//            print(#line); fflush(stdout)
-//
+        try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
+            // Pre-build tests so that `swift test` command takes as little time as possible to start the hanging test.
+            _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
+            print(#line); fflush(stdout)
+
 //            let completeArgs = [SwiftPM.Test.path.pathString, "--package-path", fixturePath.pathString]
 //            print(#line); fflush(stdout)
 //
@@ -337,6 +337,6 @@ final class TestToolTests: CommandsTestCase {
 //            XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
 //            print(#line); fflush(stdout)
 //
-//        }
+        }
     }
 }
