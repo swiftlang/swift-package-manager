@@ -22,26 +22,26 @@ import TSCBasic
 #if os(Windows)
 import WinSDK
 
-private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
+private func readpassword(_ prompt: String) throws -> String {
     enum StaticStorage {
         static var buffer: UnsafeMutableBufferPointer<CChar> =
-            .allocate(capacity: 255)
+            .allocate(capacity: SwiftPackageRegistryTool.Login.passwordBufferSize)
     }
 
     let hStdIn: HANDLE = GetStdHandle(STD_INPUT_HANDLE)
     if hStdIn == INVALID_HANDLE_VALUE {
-        return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+        throw StringError("unable to read input: GetStdHandle returns INVALID_HANDLE_VALUE")
     }
 
     var dwMode: DWORD = 0
     guard GetConsoleMode(hStdIn, &dwMode) else {
-        return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+        throw StringError("unable to read input: GetConsoleMode failed")
     }
 
     print(prompt, terminator: "")
 
     guard SetConsoleMode(hStdIn, DWORD(ENABLE_LINE_INPUT)) else {
-        return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+        throw StringError("unable to read input: SetConsoleMode failed")
     }
     defer { SetConsoleMode(hStdIn, dwMode) }
 
@@ -53,7 +53,37 @@ private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
         &dwNumberOfCharsRead,
         nil
     )
-    return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+
+    let password = String(cString: UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!))
+    guard password.count <= SwiftPackageRegistryTool.Login.maxPasswordLength else {
+        throw SwiftPackageRegistryTool.ValidationError
+            .credentialLengthLimitExceeded(SwiftPackageRegistryTool.Login.maxPasswordLength)
+    }
+    return password
+}
+#else
+private func readpassword(_ prompt: String) throws -> String {
+    let password: String
+
+    #if canImport(Darwin)
+    var buffer = [CChar](repeating: 0, count: SwiftPackageRegistryTool.Login.passwordBufferSize)
+
+    guard let passwordPtr = readpassphrase(prompt, &buffer, buffer.count, 0) else {
+        throw StringError("unable to read input")
+    }
+
+    password = String(cString: passwordPtr)
+    #else
+    // GNU C implementation of getpass has no limit on the password length
+    // (https://man7.org/linux/man-pages/man3/getpass.3.html)
+    password = String(cString: getpass(prompt))
+    #endif
+
+    guard password.count <= SwiftPackageRegistryTool.Login.maxPasswordLength else {
+        throw SwiftPackageRegistryTool.ValidationError
+            .credentialLengthLimitExceeded(SwiftPackageRegistryTool.Login.maxPasswordLength)
+    }
+    return password
 }
 #endif
 
@@ -62,6 +92,12 @@ extension SwiftPackageRegistryTool {
         static let configuration = CommandConfiguration(
             abstract: "Log in to a registry"
         )
+
+        static let maxPasswordLength = 512
+        // Define a larger buffer size so we read more than allowed, and
+        // this way we can tell if the entered password is over the length
+        // limit. One space is for \0, another is for the "overflowing" char.
+        static let passwordBufferSize = Self.maxPasswordLength + 2
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -140,7 +176,7 @@ extension SwiftPackageRegistryTool {
                     saveChanges = false
                 } else {
                     // Prompt user for password
-                    storePassword = String(cString: getpass("Enter password for '\(storeUsername)': "))
+                    storePassword = try readpassword("Enter password for '\(storeUsername)': ")
                 }
             } else {
                 authenticationType = .token
@@ -162,7 +198,7 @@ extension SwiftPackageRegistryTool {
                     saveChanges = false
                 } else {
                     // Prompt user for token
-                    storePassword = String(cString: getpass("Enter access token: "))
+                    storePassword = try readpassword("Enter access token: ")
                 }
             }
 
