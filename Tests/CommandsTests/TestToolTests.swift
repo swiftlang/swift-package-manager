@@ -263,77 +263,78 @@ final class TestToolTests: CommandsTestCase {
     }
 
     func testOutputLineBuffering() async throws {
-        defer {
-            print(#line); fflush(stdout)
-        }
-
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-        timer.setEventHandler(handler: {
-            write(1, String(repeating: "=", count: 9000), 9000);
-            write(1, "\n",1)
-            _ = timer
-        })
-        timer.schedule(deadline: .now()+1, repeating: .seconds(1))
-        timer.resume()
-
-        defer {
-            timer.cancel()
-        }
-
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1800) {
-            print(#line); fflush(stdout)
-
-            fatalError()
-        }
-
-        print(#line); fflush(stdout)
-        write(1, "\nfoo\n", 5)
-
-        try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
-            // Pre-build tests so that `swift test` command takes as little time as possible to start the hanging test.
-            _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
-            print(#line); fflush(stdout)
-
-            let completeArgs = [SwiftPM.Test.path.pathString, "--package-path", fixturePath.pathString]
-            print(#line); fflush(stdout)
-
-            var output = [UInt8]()
-            let lock = Lock()
-            let outputRedirection = TSCBasic.Process.OutputRedirection.stream(
-                stdout: { bytes in
-                    lock.withLock {
-                        output.append(contentsOf: bytes)
-                    }
-                },
-                stderr: { bytes in
-                    lock.withLock {
-                        output.append(contentsOf: bytes)
-                    }
-                }
-            )
-            print(#line); fflush(stdout)
-
-            let process = TSCBasic.Process(
-                arguments: completeArgs,
-                outputRedirection: outputRedirection
-            )
-            print(#line); fflush(stdout)
-            try process.launch()
-            print(#line); fflush(stdout)
-
-            // This time interval should be enough for the test to start and get its output into the pipe.
-            Thread.sleep(forTimeInterval: 10)
-            print(#line); fflush(stdout)
-
-            process.signal(9)
-            print(#line); fflush(stdout)
-
-            let outputString = lock.withLock {
-                String(bytes: output, encoding: .utf8)
-            }
-            XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
-            print(#line); fflush(stdout)
-
-        }
+        fatalError()
+//        defer {
+//            print(#line); fflush(stdout)
+//        }
+//
+//        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+//        timer.setEventHandler(handler: {
+//            write(1, String(repeating: "=", count: 9000), 9000);
+//            write(1, "\n",1)
+//            _ = timer
+//        })
+//        timer.schedule(deadline: .now()+1, repeating: .seconds(1))
+//        timer.resume()
+//
+//        defer {
+//            timer.cancel()
+//        }
+//
+//        DispatchQueue.global().asyncAfter(deadline: .now() + 1800) {
+//            print(#line); fflush(stdout)
+//
+//            fatalError()
+//        }
+//
+//        print(#line); fflush(stdout)
+//        write(1, "\nfoo\n", 5)
+//
+//        try fixture(name: "Miscellaneous/HangingTest") { fixturePath in
+//            // Pre-build tests so that `swift test` command takes as little time as possible to start the hanging test.
+//            _ = try SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
+//            print(#line); fflush(stdout)
+//
+//            let completeArgs = [SwiftPM.Test.path.pathString, "--package-path", fixturePath.pathString]
+//            print(#line); fflush(stdout)
+//
+//            var output = [UInt8]()
+//            let lock = Lock()
+//            let outputRedirection = TSCBasic.Process.OutputRedirection.stream(
+//                stdout: { bytes in
+//                    lock.withLock {
+//                        output.append(contentsOf: bytes)
+//                    }
+//                },
+//                stderr: { bytes in
+//                    lock.withLock {
+//                        output.append(contentsOf: bytes)
+//                    }
+//                }
+//            )
+//            print(#line); fflush(stdout)
+//
+//            let process = TSCBasic.Process(
+//                arguments: completeArgs,
+//                outputRedirection: outputRedirection
+//            )
+//            print(#line); fflush(stdout)
+//            try process.launch()
+//            print(#line); fflush(stdout)
+//
+//            // This time interval should be enough for the test to start and get its output into the pipe.
+//            Thread.sleep(forTimeInterval: 10)
+//            print(#line); fflush(stdout)
+//
+//            process.signal(9)
+//            print(#line); fflush(stdout)
+//
+//            let outputString = lock.withLock {
+//                String(bytes: output, encoding: .utf8)
+//            }
+//            XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
+//            print(#line); fflush(stdout)
+//
+//        }
     }
 }
