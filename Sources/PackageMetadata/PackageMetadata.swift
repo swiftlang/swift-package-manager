@@ -183,45 +183,37 @@ public struct PackageSearchClient {
         }
     }
 
-    public func findPackages(
-        _ query: String,
-        callback: @escaping (Result<[Package], Error>) -> Void
-    ) {
+    public func findPackages(_ query: String) async throws -> [Package] {
         let identity = PackageIdentity.plain(query)
 
         // Search the package index and collections for a search term.
-        let search = { (error: Error?) in
-            self.indexAndCollections.findPackages(query) { result in
-                do {
-                    let packages = try result.get().items.map {
-                        let versions = $0.package.versions.sorted(by: >)
-                        let latestVersion = versions.first
-                        
-                        return Package(
-                            identity: $0.package.identity,
-                            location: $0.package.location,
-                            versions: $0.package.versions.map(\.version),
-                            licenseURL: $0.package.license?.url,
-                            readmeURL: $0.package.readmeURL,
-                            repositoryURLs: nil,
-                            resources: [],
-                            author: latestVersion?.author.map { .init($0) },
-                            description: latestVersion?.summary,
-                            publishedAt: latestVersion?.createdAt,
-                            signingEntity: latestVersion?.signer.map { SigningEntity(signer: $0) },
-                            latestVersion: latestVersion?.version,
-                            // this only makes sense in connection with providing versioned metadata
-                            source: .indexAndCollections(collections: $0.collections, indexes: $0.indexes)
-                        )
-                    }
-                    if packages.isEmpty, let error {
-                        // If the search result is empty and we had a previous error, emit it now.
-                        return callback(.failure(error))
-                    } else {
-                        return callback(.success(packages))
-                    }
-                } catch {
-                    return callback(.failure(error))
+        let search = { (error: Error?) async throws -> [Package] in
+            let result = try await self.indexAndCollections.findPackages(query)
+
+            if result.items.isEmpty, let error {
+                // If the search result is empty and we had a previous error, emit it now.
+                throw error
+            } else {
+                return result.items.map {
+                    let versions = $0.package.versions.sorted(by: >)
+                    let latestVersion = versions.first
+
+                    return Package(
+                        identity: $0.package.identity,
+                        location: $0.package.location,
+                        versions: $0.package.versions.map(\.version),
+                        licenseURL: $0.package.license?.url,
+                        readmeURL: $0.package.readmeURL,
+                        repositoryURLs: nil,
+                        resources: [],
+                        author: latestVersion?.author.map { .init($0) },
+                        description: latestVersion?.summary,
+                        publishedAt: latestVersion?.createdAt,
+                        signingEntity: latestVersion?.signer.map { SigningEntity(signer: $0) },
+                        latestVersion: latestVersion?.version,
+                        // this only makes sense in connection with providing versioned metadata
+                        source: .indexAndCollections(collections: $0.collections, indexes: $0.indexes)
+                    )
                 }
             }
         }
@@ -230,13 +222,13 @@ public struct PackageSearchClient {
         // determine the available version tags and branches. If the search term cannot be interpreted
         // as a URL or there are any errors during the process, we fall back to searching the configured
         // index or package collections.
-        let fetchStandalonePackageByURL = { (error: Error?) in
+        let fetchStandalonePackageByURL = { (error: Error?) async throws -> [Package] in
             guard let url = URL(string: query) else {
-                return search(error)
+                return try await search(error)
             }
 
             do {
-                try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
+                return try await withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
                     let tempPath = tempDir.appending(component: url.lastPathComponent)
                     do {
                         let repositorySpecifier = RepositorySpecifier(url: url)
@@ -273,14 +265,14 @@ public struct PackageSearchClient {
                                 // this only makes sense in connection with providing versioned metadata
                                 source: .sourceControl(url: url)
                             )
-                            return callback(.success([package]))
+                            return [package]
                         }
                     } catch {
-                        return search(error)
+                        return try await search(error)
                     }
                 }
             } catch {
-                return search(error)
+                return try await search(error)
             }
         }
 
@@ -289,85 +281,82 @@ public struct PackageSearchClient {
         // or the search term does not work as a registry identity, we will fall back on
         // `fetchStandalonePackageByURL`.
         if identity.isRegistry {
-            return self.registryClient.getPackageMetadata(
-                package: identity,
-                observabilityScope: observabilityScope,
-                callbackQueue: DispatchQueue.sharedConcurrent
-            ) { result in
-                do {
-                    let metadata = try result.get()
-                    let versions = metadata.versions.sorted(by: >)
+            do {
+                let metadata = try await self.registryClient.getPackageMetadata(
+                    package: identity,
+                    observabilityScope: observabilityScope
+                )
+                let versions = metadata.versions.sorted(by: >)
 
-                    // See if the latest package version has readmeURL set
-                    if let version = versions.first {
-                        self.getVersionMetadata(package: identity, version: version) { result in
-                            let licenseURL: URL?
-                            let readmeURL: URL?
-                            let repositoryURLs: [URL]?
-                            let resources: [Package.Resource]
-                            let author: Package.Author?
-                            let description: String?
-                            let publishedAt: Date?
-                            let signingEntity: SigningEntity?
-                            if case .success(let metadata) = result {
-                                licenseURL = metadata.licenseURL
-                                readmeURL = metadata.readmeURL
-                                repositoryURLs = metadata.repositoryURLs
-                                resources = metadata.resources
-                                author = metadata.author
-                                description = metadata.description
-                                publishedAt = metadata.publishedAt
-                                signingEntity = metadata.signingEntity
-                            } else {
-                                licenseURL = nil
-                                readmeURL = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
-                                repositoryURLs = nil
-                                resources = []
-                                author = nil
-                                description = nil
-                                publishedAt = nil
-                                signingEntity = nil
-                            }
-
-                            return callback(.success([Package(
-                                identity: identity,
-                                versions: metadata.versions,
-                                licenseURL: licenseURL,
-                                readmeURL: readmeURL,
-                                repositoryURLs: repositoryURLs,
-                                resources: resources,
-                                author: author,
-                                description: description,
-                                publishedAt: publishedAt,
-                                signingEntity: signingEntity,
-                                latestVersion: version,
-                                source: .registry(url: metadata.registry.url)
-                            )]))
+                // See if the latest package version has readmeURL set
+                if let version = versions.first {
+                    self.getVersionMetadata(package: identity, version: version) { result in
+                        let licenseURL: URL?
+                        let readmeURL: URL?
+                        let repositoryURLs: [URL]?
+                        let resources: [Package.Resource]
+                        let author: Package.Author?
+                        let description: String?
+                        let publishedAt: Date?
+                        let signingEntity: SigningEntity?
+                        if case .success(let metadata) = result {
+                            licenseURL = metadata.licenseURL
+                            readmeURL = metadata.readmeURL
+                            repositoryURLs = metadata.repositoryURLs
+                            resources = metadata.resources
+                            author = metadata.author
+                            description = metadata.description
+                            publishedAt = metadata.publishedAt
+                            signingEntity = metadata.signingEntity
+                        } else {
+                            licenseURL = nil
+                            readmeURL = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
+                            repositoryURLs = nil
+                            resources = []
+                            author = nil
+                            description = nil
+                            publishedAt = nil
+                            signingEntity = nil
                         }
-                    } else {
-                        let readmeURL: URL? = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
-                        return callback(.success([Package(
+
+                        return [Package(
                             identity: identity,
                             versions: metadata.versions,
-                            licenseURL: nil,
+                            licenseURL: licenseURL,
                             readmeURL: readmeURL,
-                            repositoryURLs: nil,
-                            resources: [],
-                            author: nil,
-                            description: nil,
-                            publishedAt: nil,
-                            signingEntity: nil,
-                            latestVersion: nil,
-                            // this only makes sense in connection with providing versioned metadata
+                            repositoryURLs: repositoryURLs,
+                            resources: resources,
+                            author: author,
+                            description: description,
+                            publishedAt: publishedAt,
+                            signingEntity: signingEntity,
+                            latestVersion: version,
                             source: .registry(url: metadata.registry.url)
-                        )]))
+                        )]
                     }
-                } catch {
-                    return fetchStandalonePackageByURL(error)
+                } else {
+                    let readmeURL: URL? = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
+                    return [Package(
+                        identity: identity,
+                        versions: metadata.versions,
+                        licenseURL: nil,
+                        readmeURL: readmeURL,
+                        repositoryURLs: nil,
+                        resources: [],
+                        author: nil,
+                        description: nil,
+                        publishedAt: nil,
+                        signingEntity: nil,
+                        latestVersion: nil,
+                        // this only makes sense in connection with providing versioned metadata
+                        source: .registry(url: metadata.registry.url)
+                    )]
                 }
+            } catch {
+                return try await fetchStandalonePackageByURL(error)
             }
         } else {
-            return fetchStandalonePackageByURL(nil)
+            return try await fetchStandalonePackageByURL(nil)
         }
     }
 
@@ -390,24 +379,15 @@ public struct PackageSearchClient {
     public func lookupSCMURLs(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<URL>, Error>) -> Void
-    ) {
-        registryClient.getPackageMetadata(
+        observabilityScope: ObservabilityScope
+    ) async throws -> Set<URL> {
+        let metadata = try await registryClient.getPackageMetadata(
             package: package,
             timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            do {
-                let metadata = try result.get()
-                let alternateLocations = metadata.alternateLocations ?? []
-                return completion(.success(Set(alternateLocations)))
-            } catch {
-                return completion(.failure(error))
-            }
-        }
+            observabilityScope: observabilityScope
+        )
+
+        return Set(metadata.alternateLocations ?? [])
     }
 }
 

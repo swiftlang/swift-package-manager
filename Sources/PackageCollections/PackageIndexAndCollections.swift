@@ -231,7 +231,23 @@ public struct PackageIndexAndCollections: Closable {
             }
         }
     }
-    
+
+    /// Finds and returns packages that match the query.
+    ///
+    /// - Parameters:
+    ///   - query: The search query
+    ///   - in: Indicates whether to search in the index only, collections only, or both.
+    ///         The optional `Set<CollectionIdentifier>` in some enum cases restricts search within those collections only.
+    ///   - callback: The closure to invoke when result becomes available
+    public func findPackages(
+        _ query: String,
+        in searchIn: SearchIn = .both(collections: nil)
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        try await withCheckedThrowingContinuation {
+            findPackages(query, in: searchIn, callback: $0.resume)
+        }
+    }
+
     /// Finds and returns packages that match the query.
     ///
     /// - Parameters:

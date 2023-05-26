@@ -3536,18 +3536,14 @@ extension Workspace {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-     ) {
-         self.registryClient.changeSigningEntityFromVersion(
+        observabilityScope: ObservabilityScope
+     ) async throws {
+         try await self.registryClient.changeSigningEntityFromVersion(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion
+            observabilityScope: observabilityScope
          )
      }
  }
