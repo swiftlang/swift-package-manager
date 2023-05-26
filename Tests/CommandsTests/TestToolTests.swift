@@ -280,7 +280,7 @@ final class TestToolTests: CommandsTestCase {
             timer.cancel()
         }
 
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1800) {
+        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(600)) {
             print(#line); fflush(stdout)
 
             fatalError()
@@ -318,7 +318,7 @@ final class TestToolTests: CommandsTestCase {
                 outputRedirection: outputRedirection
             )
             print(#line); fflush(stdout)
-//            try process.launch()
+            try process.launch()
 //            print(#line); fflush(stdout)
 //
 //            // This time interval should be enough for the test to start and get its output into the pipe.
@@ -332,7 +332,7 @@ final class TestToolTests: CommandsTestCase {
 //                String(bytes: output, encoding: .utf8)
 //            }
 //            XCTAssertMatch(outputString, .and(.contains("Test Suite"), .contains(" started at ")))
-//            print(#line); fflush(stdout)
+            print(#line); fflush(stdout)
 //
         }
     }
