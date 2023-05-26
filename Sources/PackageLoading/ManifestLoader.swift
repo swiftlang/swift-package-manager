@@ -184,7 +184,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    /// DispatchSemaphore to restrict concurrent manifest evaluations
+    /// A helper token bucket pattern implementation to restrict concurrent manifest evaluations
     private let tokenBucket: TokenBucket
 
     public init(
