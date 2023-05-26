@@ -4693,4 +4693,62 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
+
+    func testBuildParameterLTOMode() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/cLib/cLib.c",
+            "/Pkg/Sources/cLib/include/cLib.h"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["cLib"]),
+                        TargetDescription(name: "cLib", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let toolchain = try UserToolchain.default
+        let buildParameters = mockBuildParameters(
+            toolchain: toolchain,
+            linkTimeOptimizationMode: .full)
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        // Compile C Target
+        let cLibCompileArguments = try result.target(for: "cLib").clangTarget().basicArguments(isCXX: false)
+        let cLibCompileArgumentsPattern: [StringPattern] = ["-flto=full"]
+        XCTAssertMatch(cLibCompileArguments, cLibCompileArgumentsPattern)
+
+        // Compile Swift Target
+        let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
+        let exeCompileArgumentsPattern: [StringPattern] = ["-lto=llvm-full"]
+        XCTAssertMatch(exeCompileArguments, exeCompileArgumentsPattern)
+
+        // Assert the objects built by the Swift Target are actually bitcode
+        // files, indicated by the "bc" extension.
+        let exeCompileObjects = try result.target(for: "exe").swiftTarget().objects
+        XCTAssert(exeCompileObjects.allSatisfy { $0.extension == "bc"})
+
+        // Assert the objects getting linked contain all the bitcode objects
+        // built by the Swift Target
+        let exeProduct = try result.buildProduct(for: "exe")
+        for exeCompileObject in exeCompileObjects {
+            XCTAssertTrue(exeProduct.objects.contains(exeCompileObject))
+        }
+    }
 }

@@ -72,7 +72,8 @@ func mockBuildParameters(
     destinationTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
-    linkerDeadStrip: Bool = true
+    linkerDeadStrip: Bool = true,
+    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil
 ) -> BuildParameters {
     return try! BuildParameters(
         dataPath: buildPath,
@@ -87,7 +88,8 @@ func mockBuildParameters(
         canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
         indexStoreMode: indexStoreMode,
         useExplicitModuleBuild: useExplicitModuleBuild,
-        linkerDeadStrip: linkerDeadStrip
+        linkerDeadStrip: linkerDeadStrip,
+        linkTimeOptimizationMode: linkTimeOptimizationMode
     )
 }
 

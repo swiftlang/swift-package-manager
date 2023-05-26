@@ -293,6 +293,17 @@ public final class ClangTargetBuildDescription {
             // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
             args += self.buildParameters.flags.cxxCompilerFlags
         }
+
+        // Enable the correct lto mode if requested.
+        switch self.buildParameters.linkTimeOptimizationMode {
+        case nil:
+            break
+        case .full:
+            args += ["-flto=full"]
+        case .thin:
+            args += ["-flto=thin"]
+        }
+
         return args
     }
 

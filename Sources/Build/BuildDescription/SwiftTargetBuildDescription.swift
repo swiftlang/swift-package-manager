@@ -79,13 +79,19 @@ public final class SwiftTargetBuildDescription {
         self.target.underlyingTarget.resources + self.pluginDerivedResources
     }
 
-    /// The objects in this target.
+    /// The objects in this target, containing either machine code or bitcode
+    /// depending on the build parameters used.
     public var objects: [AbsolutePath] {
         get throws {
-            let relativePaths = self.target.sources.relativePaths + self.derivedSources.relativePaths + self
-                .pluginDerivedSources.relativePaths
-            return try relativePaths.map {
-                try AbsolutePath(validating: "\($0.pathString).o", relativeTo: tempsPath)
+            let relativeSources = self.target.sources.relativePaths
+                + self.derivedSources.relativePaths
+                + self.pluginDerivedSources.relativePaths
+            let ltoEnabled = self.buildParameters.linkTimeOptimizationMode != nil
+            let objectFileExtension = ltoEnabled ? "bc" : "o"
+            return try relativeSources.map {
+                try AbsolutePath(
+                    validating: "\($0.pathString).\(objectFileExtension)",
+                    relativeTo: self.tempsPath)
             }
         }
     }
@@ -512,6 +518,16 @@ public final class SwiftTargetBuildDescription {
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
+        // Enable the correct lto mode if requested.
+        switch self.buildParameters.linkTimeOptimizationMode {
+        case nil:
+            break
+        case .full:
+            args += ["-lto=llvm-full"]
+        case .thin:
+            args += ["-lto=llvm-thin"]
+        }
+
         // suppress warnings if the package is remote
         if self.package.isRemote {
             args += ["-suppress-warnings"]
@@ -680,6 +696,16 @@ public final class SwiftTargetBuildDescription {
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // result += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
+        // Enable the correct lto mode if requested.
+        switch self.buildParameters.linkTimeOptimizationMode {
+        case nil:
+            break
+        case .full:
+            result += ["-lto=llvm-full"]
+        case .thin:
+            result += ["-lto=llvm-thin"]
+        }
+
         result += try self.macroArguments()
         return result
     }
@@ -729,14 +755,18 @@ public final class SwiftTargetBuildDescription {
 
 
         // Write out the entries for each source file.
-        let sources = self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
-        for (idx, source) in sources.enumerated() {
-            let object = try objects[idx]
-            let objectDir = object.parentDirectory
+        let sources = self.sources
+        let objects = try self.objects
+        let ltoEnabled = self.buildParameters.linkTimeOptimizationMode != nil
+        let objectKey = ltoEnabled ? "llvm-bc" : "object"
+
+        for idx in 0..<sources.count {
+            let source = sources[idx]
+            let object = objects[idx]
 
             let sourceFileName = source.basenameWithoutExt
-
-            let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
+            let partialModulePath = self.tempsPath.appending(component: sourceFileName + "~partial.swiftmodule")
+            let swiftDepsPath = self.tempsPath.appending(component: sourceFileName + ".swiftdeps")
 
             content +=
                 #"""
@@ -745,7 +775,7 @@ public final class SwiftTargetBuildDescription {
                 """#
 
             if !self.buildParameters.useWholeModuleOptimization {
-                let depsPath = objectDir.appending(component: sourceFileName + ".d")
+                let depsPath = self.tempsPath.appending(component: sourceFileName + ".d")
                 content +=
                     #"""
                         "dependencies": "\#(depsPath._nativePathString(escaped: true))",
@@ -754,12 +784,9 @@ public final class SwiftTargetBuildDescription {
                 // FIXME: Need to record this deps file for processing it later.
             }
 
-
-            let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
-
             content +=
                 #"""
-                    "object": "\#(object._nativePathString(escaped: true))",
+                    "\#(objectKey)": "\#(object._nativePathString(escaped: true))",
                     "swiftmodule": "\#(partialModulePath._nativePathString(escaped: true))",
                     "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))"
                   }\#((idx + 1) < sources.count ? "," : "")
