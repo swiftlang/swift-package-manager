@@ -318,6 +318,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
 
+        // Pass default library paths from the toolchain.
+        for librarySearchPath in self.buildParameters.toolchain.librarySearchPaths {
+            args += ["-L", librarySearchPath.pathString]
+        }
+
         // Add toolchain's libdir at the very end (even after the user -Xlinker arguments).
         //
         // This will allow linking to libraries shipped in the toolchain.

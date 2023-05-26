@@ -528,6 +528,11 @@ public final class SwiftTargetBuildDescription {
             args += ["-lto=llvm-thin"]
         }
 
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            args += ["-I", includeSearchPath.pathString]
+        }
+
         // suppress warnings if the package is remote
         if self.package.isRemote {
             args += ["-suppress-warnings"]
@@ -627,6 +632,11 @@ public final class SwiftTargetBuildDescription {
         result += try self.buildSettingsFlags()
         result += try self.macroArguments()
 
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            result += ["-I", includeSearchPath.pathString]
+        }
+
         return result
     }
 
@@ -704,6 +714,11 @@ public final class SwiftTargetBuildDescription {
             result += ["-lto=llvm-full"]
         case .thin:
             result += ["-lto=llvm-thin"]
+        }
+
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            result += ["-I", includeSearchPath.pathString]
         }
 
         result += try self.macroArguments()
