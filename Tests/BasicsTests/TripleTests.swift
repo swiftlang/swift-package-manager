@@ -46,7 +46,7 @@ final class TripleTests: XCTestCase {
                 file: file,
                 line: line)
         }
-
+        
         XCTAssertTriple("x86_64-pc-linux-gnu", isApple: false, isDarwin: false)
         XCTAssertTriple("x86_64-pc-linux-musl", isApple: false, isDarwin: false)
         XCTAssertTriple("powerpc-bgp-linux", isApple: false, isDarwin: false)
@@ -76,9 +76,51 @@ final class TripleTests: XCTestCase {
         XCTAssertTriple("i686-pc-windows-gnu", isApple: false, isDarwin: false)
         XCTAssertTriple("i686-pc-windows-cygnus", isApple: false, isDarwin: false)
     }
-
+    
     func testDescription() throws {
         let triple = try Triple("x86_64-pc-linux-gnu")
         XCTAssertEqual("foo \(triple) bar", "foo x86_64-pc-linux-gnu bar")
+    }
+
+    func testTripleStringForPlatformVersion() throws {
+        func XCTAssertTriple(
+            _ triple: String,
+            forPlatformVersion version: String,
+            is expectedTriple: String,
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) {
+            guard let triple = try? Triple(triple) else {
+                XCTFail("Unknown triple '\(triple)'.", file: file, line: line)
+                return
+            }
+            let actualTriple = triple.tripleString(forPlatformVersion: version)
+            XCTAssert(
+                actualTriple == expectedTriple,
+                """
+                Actual triple '\(actualTriple)' did not match expected triple \
+                '\(expectedTriple)' for platform version '\(version)'.
+                """,
+                file: file,
+                line: line)
+        }
+        
+        XCTAssertTriple("x86_64-apple-macosx", forPlatformVersion: "", is: "x86_64-apple-macosx")
+        XCTAssertTriple("x86_64-apple-macosx", forPlatformVersion: "13.0", is: "x86_64-apple-macosx13.0")
+        
+        XCTAssertTriple("armv7em-apple-macosx10.12", forPlatformVersion: "", is: "armv7em-apple-macosx")
+        XCTAssertTriple("armv7em-apple-macosx10.12", forPlatformVersion: "13.0", is: "armv7em-apple-macosx13.0")
+        
+        XCTAssertTriple("powerpc-apple-macos", forPlatformVersion: "", is: "powerpc-apple-macos")
+        XCTAssertTriple("powerpc-apple-macos", forPlatformVersion: "13.0", is: "powerpc-apple-macos13.0")
+        
+        XCTAssertTriple("i686-apple-macos10.12.0", forPlatformVersion: "", is: "i686-apple-macos")
+        XCTAssertTriple("i686-apple-macos10.12.0", forPlatformVersion: "13.0", is: "i686-apple-macos13.0")
+        
+        XCTAssertTriple("riscv64-apple-darwin", forPlatformVersion: "", is: "riscv64-apple-darwin")
+        XCTAssertTriple("riscv64-apple-darwin", forPlatformVersion: "22", is: "riscv64-apple-darwin22")
+        
+        XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "", is: "mips-apple-darwin")
+        XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "22", is: "mips-apple-darwin22")
     }
 }

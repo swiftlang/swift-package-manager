@@ -382,11 +382,11 @@ public final class UserToolchain: Toolchain {
                             // the merged swiftmodules.  XCTest followed suit.
                             "-I",
                             AbsolutePath(
-                                validating: "usr/lib/swift/windows/\(triple.arch)",
+                                validating: "usr/lib/swift/windows/\(triple.arch?.rawValue ?? "unknown")",
                                 relativeTo: installation
                             ).pathString,
                             "-L",
-                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.arch)", relativeTo: installation)
+                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.arch?.rawValue ?? "unknown")", relativeTo: installation)
                                 .pathString,
                         ]
 
@@ -716,8 +716,8 @@ public final class UserToolchain: Toolchain {
                 // (~5.7), we always had a singular installed SDK.  Prefer the
                 // new variant which has an architecture subdirectory in `bin`
                 // if available.
-                switch triple.arch {
-                case .x86_64, .x86_64h:
+                switch triple.archName {
+                case "x86_64", "x86_64h":
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin64")
@@ -725,7 +725,7 @@ public final class UserToolchain: Toolchain {
                         return path
                     }
 
-                case .i686:
+                case "i686":
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin32")
@@ -733,7 +733,7 @@ public final class UserToolchain: Toolchain {
                         return path
                     }
 
-                case .armv7:
+                case "armv7":
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin32a")
@@ -741,7 +741,7 @@ public final class UserToolchain: Toolchain {
                         return path
                     }
 
-                case .arm64:
+                case "arm64":
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin64a")

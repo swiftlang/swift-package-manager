@@ -10,173 +10,36 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol Foundation.CustomNSError
-import var Foundation.NSLocalizedDescriptionKey
-
 import enum TSCBasic.JSON
 import class TSCBasic.Process
+import struct SwiftDriver.Triple
 
-/// Triple - Helper class for working with Destination.target values
-///
-/// Used for parsing values such as `x86_64-apple-macosx10.10` into
-/// set of enums. For os/arch/abi based conditions in build plan.
-///
-/// @see Destination.target
-/// @see https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
-///
-public struct Triple: Encodable, Equatable, Sendable {
-    public let tripleString: String
+public typealias Triple = SwiftDriver.Triple
 
-    public let arch: Arch
-    public let vendor: Vendor
-    public let os: OS
-    public let abi: ABI
-    public let osVersion: String?
-    public let abiVersion: String?
-
-    public enum Error: Swift.Error {
-        case badFormat(triple: String)
-        case unknownArch(arch: String)
-        case unknownOS(os: String)
+extension Triple {
+    public init(_ description: String) throws {
+        self.init(description, normalizing: false)
     }
+}
 
-    public enum Arch: String, Encodable, Sendable {
-        case x86_64
-        case x86_64h
-        case i686
-        case powerpc
-        case powerpc64le
-        case s390x
-        case aarch64
-        case amd64
-        case armv7
-        case armv7em
-        case armv6
-        case armv5
-        case arm
-        case arm64
-        case arm64e
-        case wasm32
-        case riscv64
-        case mips
-        case mipsel
-        case mips64
-        case mips64el
-    }
+extension Triple {
+    public static let macOS = try! Self("x86_64-apple-macosx")
+}
 
-    public enum Vendor: String, Encodable, Sendable {
-        case unknown
-        case apple
-    }
-
-    public enum OS: String, Encodable, CaseIterable, Sendable {
-        case darwin
-        case macOS = "macosx"
-        case linux
-        case windows
-        case wasi
-        case openbsd
-        // 'OS' suffix purely to avoid name clash with Optional.none
-        case noneOS = "none"
-    }
-
-    public enum ABI: Encodable, Equatable, RawRepresentable, Sendable {
-        case unknown
-        case android
-        case other(name: String)
-
-        public init?(rawValue: String) {
-            if rawValue.hasPrefix(ABI.android.rawValue) {
-                self = .android
-            } else if let version = rawValue.firstIndex(where: { $0.isNumber }) {
-                self = .other(name: String(rawValue[..<version]))
-            } else {
-                self = .other(name: rawValue)
-            }
-        }
-
-        public var rawValue: String {
-            switch self {
-            case .android: return "android"
-            case .other(let name): return name
-            case .unknown: return "unknown"
-            }
-        }
-
-        public static func == (lhs: ABI, rhs: ABI) -> Bool {
-            switch (lhs, rhs) {
-            case (.unknown, .unknown):
-                return true
-            case (.android, .android):
-                return true
-            case (.other(let lhsName), .other(let rhsName)):
-                return lhsName == rhsName
-            default:
-                return false
-            }
-        }
-    }
-
-    public init(_ string: String) throws {
-        let components = string.split(separator: "-").map(String.init)
-
-        guard components.count == 3 || components.count == 4 else {
-            throw Error.badFormat(triple: string)
-        }
-
-        guard let arch = Arch(rawValue: components[0]) else {
-            throw Error.unknownArch(arch: components[0])
-        }
-
-        let vendor = Vendor(rawValue: components[1]) ?? .unknown
-
-        guard let os = Triple.parseOS(components[2]) else {
-            throw Error.unknownOS(os: components[2])
-        }
-
-        let osVersion = Triple.parseVersion(components[2])
-
-        let abi = components.count > 3 ? Triple.ABI(rawValue: components[3]) : nil
-        let abiVersion = components.count > 3 ? Triple.parseVersion(components[3]) : nil
-
-        self.tripleString = string
-        self.arch = arch
-        self.vendor = vendor
-        self.os = os
-        self.osVersion = osVersion
-        self.abi = abi ?? .unknown
-        self.abiVersion = abiVersion
-    }
-
-    fileprivate static func parseOS(_ string: String) -> OS? {
-        var candidates = OS.allCases.map { (name: $0.rawValue, value: $0) }
-        // LLVM target triples support this alternate spelling as well.
-        candidates.append((name: "macos", value: .macOS))
-        return candidates.first(where: { string.hasPrefix($0.name) })?.value
-    }
-
-    fileprivate static func parseVersion(_ string: String) -> String? {
-        let candidate = String(string.drop(while: { $0.isLetter }))
-        if candidate != string && !candidate.isEmpty {
-            return candidate
-        }
-
-        return nil
-    }
-
+extension Triple {
     public func isApple() -> Bool {
         vendor == .apple
     }
 
     public func isAndroid() -> Bool {
-        os == .linux && abi == .android
+        os == .linux && environment == .android
     }
 
     public func isDarwin() -> Bool {
         switch (vendor, os) {
         case (.apple, .noneOS):
             return false
-        case (.apple, _), (_, .macOS), (_, .darwin):
+        case (.apple, _), (_, .macosx), (_, .darwin):
             return true
         default:
             return false
@@ -188,7 +51,7 @@ public struct Triple: Encodable, Equatable, Sendable {
     }
 
     public func isWindows() -> Bool {
-        os == .windows
+        os == .win32
     }
 
     public func isWASI() -> Bool {
@@ -204,7 +67,18 @@ public struct Triple: Encodable, Equatable, Sendable {
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
         precondition(isDarwin())
-        return String(self.tripleString.dropLast(self.osVersion?.count ?? 0)) + version
+        // This function did not handle triples with a specific environments and
+        // object formats previously to using SwiftDriver.Triple and still does
+        // not.
+        return """
+            \(self.archName)-\
+            \(self.vendorName)-\
+            \(self.osNameUnversioned)\(version)
+            """
+    }
+
+    public var tripleString: String {
+        self.triple
     }
 
     /// Determine the versioned host triple using the Swift compiler.
@@ -235,6 +109,7 @@ public struct Triple: Encodable, Equatable, Sendable {
                 "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(parsedTargetInfo)"
             )
         }
+
         // Parse the triple string.
         do {
             return try Triple(tripleString)
@@ -244,18 +119,13 @@ public struct Triple: Encodable, Equatable, Sendable {
             )
         }
     }
-
-    public static func == (lhs: Triple, rhs: Triple) -> Bool {
-        lhs.arch == rhs.arch && lhs.vendor == rhs.vendor && lhs.os == rhs.os && lhs.abi == rhs.abi && lhs
-            .osVersion == rhs.osVersion && lhs.abiVersion == rhs.abiVersion
-    }
 }
 
 extension Triple {
     /// The file prefix for dynamic libraries
     public var dynamicLibraryPrefix: String {
         switch os {
-        case .windows:
+        case .win32:
             return ""
         default:
             return "lib"
@@ -264,31 +134,41 @@ extension Triple {
 
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
+        guard let os = self.os else {
+            fatalError("Cannot create dynamic libraries unknown os.")
+        }
+
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macosx:
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
-        case .windows:
+        case .win32:
             return ".dll"
         case .wasi:
             return ".wasm"
-        case .noneOS:
-            fatalError("Cannot create dynamic libraries for os \"none\".")
+        default:
+            fatalError("Cannot create dynamic libraries for os \"\(os)\".")
         }
     }
 
     public var executableExtension: String {
+        guard let os = self.os else {
+            return ""
+        }
+
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macosx:
             return ""
         case .linux, .openbsd:
             return ""
         case .wasi:
             return ".wasm"
-        case .windows:
+        case .win32:
             return ".exe"
         case .noneOS:
+            return ""
+        default:
             return ""
         }
     }
@@ -301,7 +181,7 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macosx:
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
@@ -314,21 +194,8 @@ extension Triple: CustomStringConvertible {
     public var description: String { tripleString }
 }
 
-extension Triple.Error: CustomNSError {
-    public var errorUserInfo: [String: Any] {
-        [NSLocalizedDescriptionKey: "\(self)"]
-    }
-}
-
-extension Triple.Error: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .badFormat(let triple):
-            return "couldn't parse triple string \(triple)"
-        case .unknownArch(let arch):
-            return "unknown architecture \(arch)"
-        case .unknownOS(let os):
-            return "unknown OS \(os)"
-        }
+extension Triple: Equatable {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.triple == rhs.triple
     }
 }
