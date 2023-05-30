@@ -382,11 +382,11 @@ public final class UserToolchain: Toolchain {
                             // the merged swiftmodules.  XCTest followed suit.
                             "-I",
                             AbsolutePath(
-                                validating: "usr/lib/swift/windows/\(triple.arch?.rawValue ?? "unknown")",
+                                validating: "usr/lib/swift/windows/\(triple.archName)",
                                 relativeTo: installation
                             ).pathString,
                             "-L",
-                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.arch?.rawValue ?? "unknown")", relativeTo: installation)
+                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.archName)", relativeTo: installation)
                                 .pathString,
                         ]
 
@@ -716,7 +716,7 @@ public final class UserToolchain: Toolchain {
                 // (~5.7), we always had a singular installed SDK.  Prefer the
                 // new variant which has an architecture subdirectory in `bin`
                 // if available.
-                switch triple.archName {
+                switch triple.archName.lowercased() {
                 case "x86_64", "x86_64h":
                     let path: AbsolutePath =
                         xctest.appending("usr")

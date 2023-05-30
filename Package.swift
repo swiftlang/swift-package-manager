@@ -152,7 +152,6 @@ let package = Package(
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-                .product(name: "SwiftDriver", package: "swift-driver"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt"]

@@ -12,9 +12,6 @@
 
 import enum TSCBasic.JSON
 import class TSCBasic.Process
-import struct SwiftDriver.Triple
-
-public typealias Triple = SwiftDriver.Triple
 
 extension Triple {
     public init(_ description: String) throws {

@@ -104,22 +104,22 @@ final class TripleTests: XCTestCase {
                 file: file,
                 line: line)
         }
-        
+
         XCTAssertTriple("x86_64-apple-macosx", forPlatformVersion: "", is: "x86_64-apple-macosx")
         XCTAssertTriple("x86_64-apple-macosx", forPlatformVersion: "13.0", is: "x86_64-apple-macosx13.0")
-        
+
         XCTAssertTriple("armv7em-apple-macosx10.12", forPlatformVersion: "", is: "armv7em-apple-macosx")
         XCTAssertTriple("armv7em-apple-macosx10.12", forPlatformVersion: "13.0", is: "armv7em-apple-macosx13.0")
-        
+
         XCTAssertTriple("powerpc-apple-macos", forPlatformVersion: "", is: "powerpc-apple-macos")
         XCTAssertTriple("powerpc-apple-macos", forPlatformVersion: "13.0", is: "powerpc-apple-macos13.0")
-        
+
         XCTAssertTriple("i686-apple-macos10.12.0", forPlatformVersion: "", is: "i686-apple-macos")
         XCTAssertTriple("i686-apple-macos10.12.0", forPlatformVersion: "13.0", is: "i686-apple-macos13.0")
-        
+
         XCTAssertTriple("riscv64-apple-darwin", forPlatformVersion: "", is: "riscv64-apple-darwin")
         XCTAssertTriple("riscv64-apple-darwin", forPlatformVersion: "22", is: "riscv64-apple-darwin22")
-        
+
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "", is: "mips-apple-darwin")
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "22", is: "mips-apple-darwin22")
     }
