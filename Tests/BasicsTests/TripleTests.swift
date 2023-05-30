@@ -123,4 +123,40 @@ final class TripleTests: XCTestCase {
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "", is: "mips-apple-darwin")
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "22", is: "mips-apple-darwin22")
     }
+
+    func testKnownTripleParsing() {
+        func XCTAssertTriple(
+            _ triple: String,
+            matches components: (
+                arch: Triple.Arch?,
+                subArch: Triple.SubArch?,
+                vendor: Triple.Vendor?,
+                os: Triple.OS?,
+                environment: Triple.Environment?,
+                objectFormat: Triple.ObjectFormat?),
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) {
+            guard let triple = try? Triple(triple) else {
+                XCTFail(
+                    "Unknown triple '\(triple)'.",
+                    file: file,
+                    line: line)
+                return
+            }
+            XCTAssertEqual(triple.arch, components.arch, file: file, line: line)
+            XCTAssertEqual(triple.subArch, components.subArch, file: file, line: line)
+            XCTAssertEqual(triple.vendor, components.vendor, file: file, line: line)
+            XCTAssertEqual(triple.os, components.os, file: file, line: line)
+            XCTAssertEqual(triple.environment, components.environment, file: file, line: line)
+            XCTAssertEqual(triple.objectFormat, components.objectFormat, file: file, line: line)
+        }
+        XCTAssertTriple("armv7em-apple-none-eabihf-macho", matches: (.arm, .arm(.v7em), .apple, .noneOS, .eabihf, .macho))
+        XCTAssertTriple("x86_64-apple-macosx", matches: (.x86_64, nil, .apple, .macosx, nil, .macho))
+        XCTAssertTriple("x86_64-unknown-linux-gnu", matches: (.x86_64, nil, nil, .linux, .gnu, .elf))
+        XCTAssertTriple("aarch64-unknown-linux-gnu", matches: (.aarch64, nil, nil, .linux, .gnu, .elf))
+        XCTAssertTriple("aarch64-unknown-linux-android", matches: (.aarch64, nil, nil, .linux, .android, .elf))
+        XCTAssertTriple("x86_64-unknown-windows-msvc", matches: (.x86_64, nil, nil, .win32, .msvc, .coff))
+        XCTAssertTriple("wasm32-unknown-wasi", matches: (.wasm32, nil, nil, .wasi, nil, .wasm))
+    }
 }

@@ -53,9 +53,11 @@ add_library(Basics
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
-  Triple.swift  
+  Triple+Basics.swift
   Version+Extensions.swift
-  WritableByteStream+Extensions.swift)
+  WritableByteStream+Extensions.swift
+  Vendor/Triple.swift
+  Vendor/Triple+Platforms.swift)
 target_link_libraries(Basics PUBLIC
   SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections

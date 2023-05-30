@@ -975,19 +975,19 @@ extension Triple {
         return .arm(.v6k)
       case "v6kz":
         return .arm(.v6kz)
-      case "v6-m":
+      case "v6m", "v6-m":
         return .arm(.v6m)
       case "v6t2":
         return .arm(.v6t2)
-      case "v7-a":
+      case "v7a", "v7-a":
         return .arm(.v7)
       case "v7k":
         return .arm(.v7k)
-      case "v7-m":
+      case "v7m", "v7-m":
         return .arm(.v7m)
-      case "v7e-m":
+      case "v7em", "v7e-m":
         return .arm(.v7em)
-      case "v7-r":
+      case "v7r", "v7-r":
         return .arm(.v7r)
       case "v7s":
         return .arm(.v7s)
