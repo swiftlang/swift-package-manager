@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Dispatch
 @_implementationOnly import Foundation
