@@ -46,7 +46,7 @@ final class TripleTests: XCTestCase {
                 file: file,
                 line: line)
         }
-        
+
         XCTAssertTriple("x86_64-pc-linux-gnu", isApple: false, isDarwin: false)
         XCTAssertTriple("x86_64-pc-linux-musl", isApple: false, isDarwin: false)
         XCTAssertTriple("powerpc-bgp-linux", isApple: false, isDarwin: false)
@@ -76,7 +76,7 @@ final class TripleTests: XCTestCase {
         XCTAssertTriple("i686-pc-windows-gnu", isApple: false, isDarwin: false)
         XCTAssertTriple("i686-pc-windows-cygnus", isApple: false, isDarwin: false)
     }
-    
+
     func testDescription() throws {
         let triple = try Triple("x86_64-pc-linux-gnu")
         XCTAssertEqual("foo \(triple) bar", "foo x86_64-pc-linux-gnu bar")
