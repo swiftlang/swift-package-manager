@@ -348,7 +348,7 @@ public final class SwiftTargetBuildDescription {
             extension Foundation.Bundle {
                 static let module: Bundle = {
                     let mainPath = \(mainPathSubstitution)
-                    let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
+                    let buildPath = "\(self.fileSystem.capitalizeDriveLetterIfOnWindows(bundlePath.pathString.asSwiftStringLiteralConstant))"
 
                     let preferredBundle = Bundle(path: mainPath)
 

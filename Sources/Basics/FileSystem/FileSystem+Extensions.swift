@@ -198,6 +198,18 @@ extension FileSystem {
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
         try self.withLock(on: path.underlying, type: type, body)
     }
+
+    public func capitalizeDriveLetterIfOnWindows(_ path: String) -> String {
+        #if !os(Windows)
+        return path
+        #endif
+        guard path.count > 2,
+            path.prefix(2).last == ":",
+            let drive = path.first,
+            drive >= "a" && drive <= "z"
+        else { return path }
+        return drive.uppercased() + path.suffix(path.count - 1)
+    }
 }
 
 // MARK: - user level
