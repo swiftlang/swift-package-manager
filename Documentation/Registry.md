@@ -1839,6 +1839,7 @@ JSON schema below.
 | `description`     | String | A description of the organization. | |
 | `url`             | String | URL of the organization. | |
 
+[UAX18]: https://unicode.org/reports/tr18/
 [BCP 13]: https://tools.ietf.org/html/rfc6838 "Media Type Specifications and Registration Procedures"
 [RFC 2119]: https://tools.ietf.org/html/rfc2119 "Key words for use in RFCs to Indicate Requirement Levels"
 [RFC 3230]: https://tools.ietf.org/html/rfc5843 "Instance Digests in HTTP"
