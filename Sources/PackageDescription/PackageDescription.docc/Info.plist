@@ -22,5 +22,47 @@
     <string>swift</string>
     <key>CFBundleVersion</key>
     <string>0.1.0</string>
+    <key>CDAppleDefaultAvailability</key>
+        <dict>
+            <key>PackageDescription</key>
+            <array>
+                <dict>
+                    <key>name</key>
+                    <string>Mac Catalyst</string>
+                    <key>version</key>
+                    <string>13.0</string>
+                </dict>
+                <dict>
+                    <key>name</key>
+                    <string>iOS</string>
+                    <key>version</key>
+                    <string>8.0</string>
+                </dict>
+                <dict>
+                    <key>name</key>
+                    <string>tvOS</string>
+                    <key>version</key>
+                    <string>9.0</string>
+                </dict>
+                <dict>
+                    <key>name</key>
+                    <string>watchOS</string>
+                    <key>version</key>
+                    <string>2.0</string>
+                </dict>
+                <dict>
+                    <key>name</key>
+                    <string>macOS</string>
+                    <key>version</key>
+                    <string>10.10</string>
+                </dict>
+                <dict>
+                    <key>name</key>
+                    <string>DriverKit</string>
+                    <key>version</key>
+                    <string>19.0</string>
+                </dict>
+            </array>
+        </dict>
 </dict>
 </plist>
