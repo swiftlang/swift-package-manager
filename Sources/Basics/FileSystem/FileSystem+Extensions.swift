@@ -31,6 +31,180 @@ public var localFileSystem = TSCBasic.localFileSystem
 
 extension FileSystem {
     /// Check whether the given path exists and is accessible.
+    @_disfavoredOverload
+    public func exists(_ path: FilePath, followSymlink: Bool) -> Bool {
+        self.exists(TSCAbsolutePath(path), followSymlink: followSymlink)
+    }
+
+    /// exists override with default value.
+    @_disfavoredOverload
+    public func exists(_ path: FilePath) -> Bool {
+        self.exists(TSCAbsolutePath(path))
+    }
+
+    /// Check whether the given path is accessible and a directory.
+    public func isDirectory(_ path: FilePath) -> Bool {
+        self.isDirectory(TSCAbsolutePath(path))
+    }
+
+    /// Check whether the given path is accessible and a file.
+    public func isFile(_ path: FilePath) -> Bool {
+        self.isFile(TSCAbsolutePath(path))
+    }
+
+    /// Check whether the given path is an accessible and executable file.
+    public func isExecutableFile(_ path: FilePath) -> Bool {
+        self.isExecutableFile(TSCAbsolutePath(path))
+    }
+
+    /// Check whether the given path is accessible and is a symbolic link.
+    public func isSymlink(_ path: FilePath) -> Bool {
+        self.isSymlink(TSCAbsolutePath(path))
+    }
+
+    /// Check whether the given path is accessible and readable.
+    public func isReadable(_ path: FilePath) -> Bool {
+        self.isReadable(TSCAbsolutePath(path))
+    }
+
+    /// Check whether the given path is accessible and writable.
+    public func isWritable(_ path: FilePath) -> Bool {
+        self.isWritable(TSCAbsolutePath(path))
+    }
+
+    /// Returns `true` if a given path has a quarantine attribute applied if when file system supports this attribute.
+    /// Returns `false` if such attribute is not applied or it isn't supported.
+    public func hasQuarantineAttribute(_ path: FilePath) -> Bool {
+        self.hasQuarantineAttribute(TSCAbsolutePath(path))
+    }
+
+    /// Get the contents of the given directory, in an undefined order.
+    public func getDirectoryContents(_ path: FilePath) throws -> [String] {
+        try self.getDirectoryContents(TSCAbsolutePath(path))
+    }
+
+    /// Get the current working directory (similar to `getcwd(3)`), which can be
+    /// different for different (virtualized) implementations of a FileSystem.
+    /// The current working directory can be empty if e.g. the directory became
+    /// unavailable while the current process was still working in it.
+    /// This follows the POSIX `getcwd(3)` semantics.
+    /*public var currentWorkingDirectory: FilePath? {
+        self.currentWorkingDirectory.flatMap { FilePath($0.pathString) }
+    }*/
+
+    /// Change the current working directory.
+    /// - Parameters:
+    ///   - path: The path to the directory to change the current working directory to.
+    public func changeCurrentWorkingDirectory(to path: FilePath) throws {
+        try self.changeCurrentWorkingDirectory(to: TSCAbsolutePath(path))
+    }
+
+    /*
+    /// Get the home directory of current user
+    public var homeDirectory: FilePath {
+        get throws {
+            try FilePath(self.homeDirectory.pathString)
+        }
+    }
+
+    /// Get the caches directory of current user
+    public var cachesDirectory: FilePath? {
+        self.cachesDirectory.flatMap { FilePath($0.pathString) }
+    }
+
+    /// Get the temp directory
+    public var tempDirectory: FilePath {
+        get throws {
+            try FilePath(self.tempDirectory.pathString)
+        }
+    }*/
+
+    /// Create the given directory.
+    public func createDirectory(_ path: FilePath) throws {
+        try self.createDirectory(TSCAbsolutePath(path))
+    }
+
+    /// Create the given directory.
+    ///
+    /// - recursive: If true, create missing parent directories if possible.
+    public func createDirectory(_ path: FilePath, recursive: Bool) throws {
+        try self.createDirectory(TSCAbsolutePath(path), recursive: recursive)
+    }
+
+    /// Creates a symbolic link of the source path at the target path
+    /// - Parameters:
+    ///   - path: The path at which to create the link.
+    ///   - destination: The path to which the link points to.
+    ///   - relative: If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
+    public func createSymbolicLink(_ path: FilePath, pointingAt destination: FilePath, relative: Bool) throws {
+        try self.createSymbolicLink(TSCAbsolutePath(path), pointingAt: TSCAbsolutePath(destination), relative: relative)
+    }
+
+    /// Get the contents of a file.
+    ///
+    /// - Returns: The file contents as bytes, or nil if missing.
+    public func readFileContents(_ path: FilePath) throws -> ByteString {
+        try self.readFileContents(TSCAbsolutePath(path))
+    }
+
+    /// Write the contents of a file.
+    public func writeFileContents(_ path: FilePath, bytes: ByteString) throws {
+        try self.writeFileContents(TSCAbsolutePath(path), bytes: bytes)
+    }
+
+    /// Write the contents of a file.
+    public func writeFileContents(_ path: FilePath, bytes: ByteString, atomically: Bool) throws {
+        try self.writeFileContents(TSCAbsolutePath(path), bytes: bytes, atomically: atomically)
+    }
+
+    /// Write to a file from a stream producer.
+    public func writeFileContents(_ path: FilePath, body: (WritableByteStream) -> Void) throws {
+        try self.writeFileContents(TSCAbsolutePath(path), body: body)
+    }
+
+    /// Recursively deletes the file system entity at `path`.
+    ///
+    /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
+    /// to be an error).
+    public func removeFileTree(_ path: FilePath) throws {
+        try self.removeFileTree(TSCAbsolutePath(path))
+    }
+
+    /// Change file mode.
+    public func chmod(_ mode: FileMode, path: FilePath, options: Set<FileMode.Option>) throws {
+        try self.chmod(mode, path: TSCAbsolutePath(path), options: options)
+    }
+
+    // Change file mode.
+    public func chmod(_ mode: FileMode, path: FilePath) throws {
+        try self.chmod(mode, path: TSCAbsolutePath(path))
+    }
+
+    /// Returns the file info of the given path.
+    ///
+    /// The method throws if the underlying stat call fails.
+    public func getFileInfo(_ path: FilePath) throws -> FileInfo {
+        try self.getFileInfo(TSCAbsolutePath(path))
+    }
+
+    /// Copy a file or directory.
+    public func copy(from source: FilePath, to destination: FilePath) throws {
+        try self.copy(from: TSCAbsolutePath(source), to: TSCAbsolutePath(destination))
+    }
+
+    /// Move a file or directory.
+    public func move(from source: FilePath, to destination: FilePath) throws {
+        try self.move(from: TSCAbsolutePath(source), to: TSCAbsolutePath(destination))
+    }
+
+    /// Execute the given block while holding the lock.
+    public func withLock<T>(on path: FilePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
+        try self.withLock(on: TSCAbsolutePath(path), type: type, body)
+    }
+}
+
+extension FileSystem {
+    /// Check whether the given path exists and is accessible.
     public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         self.exists(path.underlying, followSymlink: followSymlink)
     }

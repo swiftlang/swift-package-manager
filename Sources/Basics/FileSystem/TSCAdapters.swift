@@ -23,16 +23,16 @@ import enum TSCBasic.ProcessEnv
 import class TSCBasic.RecursibleDirectoryContentsGenerator
 
 public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
-    try AbsolutePath(TSCBasic.resolveSymlinks(path.underlying))
+    try AbsolutePath(TSCBasic.resolveSymlinks(TSCAbsolutePath(path)))
 }
 
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory",
     _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) throws -> Result
 ) throws -> Result {
-    try TSCBasic.withTemporaryDirectory(dir: dir?.underlying, prefix: prefix) { path, callback in
+    try TSCBasic.withTemporaryDirectory(dir: dir.flatMap(TSCAbsolutePath.init), prefix: prefix) { path, callback in
         let callback2 = { (path: AbsolutePath) in
-            callback(path.underlying)
+            callback(TSCAbsolutePath(path))
         }
         return try body(AbsolutePath(path), callback2)
     }
@@ -42,9 +42,9 @@ public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory",
     _ body: (AbsolutePath, @escaping (AbsolutePath) async -> Void) async throws -> Result
 ) async throws -> Result {
-    try await TSCBasic.withTemporaryDirectory(dir: dir?.underlying, prefix: prefix) { path, callback in
+    try await TSCBasic.withTemporaryDirectory(dir: dir.flatMap(TSCAbsolutePath.init), prefix: prefix) { path, callback in
         let callback2: (AbsolutePath) async -> Void = { (path: AbsolutePath) in
-            await callback(path.underlying)
+            await callback(TSCAbsolutePath(path))
         }
         return try await body(AbsolutePath(path), callback2)
     }
@@ -54,7 +54,11 @@ public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false,
     _ body: (AbsolutePath) throws -> Result
 ) throws -> Result {
-    try TSCBasic.withTemporaryDirectory(dir: dir?.underlying, prefix: prefix, removeTreeOnDeinit: removeTreeOnDeinit) {
+    try TSCBasic.withTemporaryDirectory(
+        dir: dir.flatMap(TSCAbsolutePath.init),
+        prefix: prefix,
+        removeTreeOnDeinit: removeTreeOnDeinit
+    ) {
         try body(AbsolutePath($0))
     }
 }
@@ -65,7 +69,7 @@ public func withTemporaryDirectory<Result>(
     _ body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
     try await TSCBasic.withTemporaryDirectory(
-        dir: dir?.underlying,
+        dir: dir.flatMap(TSCAbsolutePath.init),
         prefix: prefix,
         removeTreeOnDeinit: removeTreeOnDeinit
     ) {
@@ -93,8 +97,8 @@ public func lookupExecutablePath(
 ) -> AbsolutePath? {
     TSCBasic.lookupExecutablePath(
         filename: filename,
-        currentWorkingDirectory: currentWorkingDirectory?.underlying,
-        searchPaths: searchPaths.map(\.underlying)
+        currentWorkingDirectory: currentWorkingDirectory.flatMap(TSCAbsolutePath.init),
+        searchPaths: searchPaths.map(TSCAbsolutePath.init)
     ).flatMap { AbsolutePath($0) }
 }
 
@@ -111,7 +115,7 @@ public func getEnvSearchPaths(
 ) -> [AbsolutePath] {
     TSCBasic.getEnvSearchPaths(
         pathString: pathString,
-        currentWorkingDirectory: currentWorkingDirectory?.underlying
+        currentWorkingDirectory: currentWorkingDirectory.flatMap(TSCAbsolutePath.init)
     ).map { AbsolutePath($0) }
 }
 
@@ -121,7 +125,7 @@ public func walk(
     recursively: Bool = true
 ) throws -> WalkResult {
     let result = try TSCBasic.walk(
-        path.underlying,
+        TSCAbsolutePath(path),
         fileSystem: fileSystem,
         recursively: recursively
     )
@@ -141,24 +145,24 @@ public class WalkResult: IteratorProtocol, Sequence {
 }
 
 public func makeDirectories(_ path: AbsolutePath) throws {
-    try TSCBasic.makeDirectories(path.underlying)
+    try TSCBasic.makeDirectories(TSCAbsolutePath(path))
 }
 
 extension TSCBasic.LocalFileOutputByteStream {
     public convenience init(_ path: AbsolutePath, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
-        try self.init(path.underlying, closeOnDeinit: closeOnDeinit, buffered: buffered)
+        try self.init(TSCAbsolutePath(path), closeOnDeinit: closeOnDeinit, buffered: buffered)
     }
 }
 
 extension TSCBasic.ProcessEnv {
     public static func chdir(_ path: AbsolutePath) throws {
-        try self.chdir(path.underlying)
+        try self.chdir(TSCAbsolutePath(path))
     }
 }
 
 extension TSCBasic.FileSystemError {
     @_disfavoredOverload
     public init(_ kind: Kind, _ path: AbsolutePath? = nil) {
-        self.init(kind, path?.underlying)
+        self.init(kind, path.flatMap(TSCAbsolutePath.init))
     }
 }

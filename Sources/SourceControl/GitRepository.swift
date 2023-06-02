@@ -972,7 +972,7 @@ private class GitFileSystemView: FileSystem {
             currentPath = currentPath.appending(component: component)
             // We have a component to resolve, so the current entry must be a tree.
             guard current.type == .tree else {
-                throw FileSystemError(.notDirectory, .init(currentPath))
+                throw FileSystemError(.notDirectory, currentPath)
             }
 
             // Fetch the tree.

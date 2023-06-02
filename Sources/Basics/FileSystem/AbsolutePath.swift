@@ -11,7 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import struct Foundation.URL
+@preconcurrency import SystemPackage
+
+import enum TSCBasic.PathValidationError
 import struct TSCBasic.AbsolutePath
+
 
 // public for transition
 public typealias TSCAbsolutePath = TSCBasic.AbsolutePath
@@ -38,13 +42,17 @@ public typealias TSCAbsolutePath = TSCBasic.AbsolutePath
 /// that evaluates the tilde; the `cd` command receives an absolute path).
 public struct AbsolutePath: Hashable, Sendable {
     /// Root directory (whose string representation is just a path separator).
-    public static let root = Self(TSCAbsolutePath.root)
+    public static let root = Self(FilePath("/"))
 
-    internal let underlying: TSCAbsolutePath
+    public let underlying: FilePath
 
-    // public for transition
+    public init(_ underlying: FilePath) {
+        self.underlying = underlying.lexicallyNormalized()
+    }
+
+    // for transition
     public init(_ underlying: TSCAbsolutePath) {
-        self.underlying = underlying
+        self.init(FilePath(underlying.pathString))
     }
 
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
@@ -53,20 +61,32 @@ public struct AbsolutePath: Hashable, Sendable {
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
     public init(validating pathString: String) throws {
-        self.underlying = try .init(validating: pathString)
+        guard pathString.first != "~" else {
+            throw PathValidationError.startsWithTilde(pathString)
+        }
+        let path = FilePath(pathString)
+        guard path.isAbsolute else {
+            throw PathValidationError.invalidAbsolutePath(pathString)
+        }
+        self.init(path)
     }
 
     /// Initializes an AbsolutePath from a string that may be either absolute
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
     public init(validating pathString: String, relativeTo basePath: AbsolutePath) throws {
-        self.underlying = try .init(validating: pathString, relativeTo: basePath.underlying)
+        let path = FilePath(pathString)
+        if path.isRelative {
+            self.init(basePath.underlying.appending(path.components))
+        } else {
+            self.init(path)
+        }
     }
 
     /// Initializes the AbsolutePath by concatenating a relative path to an
     /// existing absolute path, and renormalizing if necessary.
     public init(_ absolutePath: AbsolutePath, _ relativeTo: RelativePath) {
-        self.underlying = .init(absolutePath.underlying, relativeTo.underlying)
+        self.init(absolutePath.underlying.appending(relativeTo.underlying.components))
     }
 
     /// Convenience initializer that appends a string to a relative path.
@@ -112,19 +132,8 @@ public struct AbsolutePath: Hashable, Sendable {
 
     /// True if the path is the root directory.
     public var isRoot: Bool {
-        self.underlying.isRoot
+        self == .root
     }
-
-    /// NOTE: We will most likely want to add other `appending()` methods, such
-    ///       as `appending(suffix:)`, and also perhaps `replacing()` methods,
-    ///       such as `replacing(suffix:)` or `replacing(basename:)` for some
-    ///       of the more common path operations.
-
-    /// NOTE: We may want to consider adding operators such as `+` for appending
-    ///       a path component.
-
-    /// NOTE: We will want to add a method to return the lowest common ancestor
-    ///       path.
 
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
@@ -139,19 +148,19 @@ extension AbsolutePath {
     /// of each successive path component, starting from the root.  Therefore
     /// the first path component of an absolute path is always `/`.
     public var components: [String] {
-        self.underlying.components
+        self.underlying.componentsAsString
     }
 
     /// Returns the absolute path with the relative path applied.
     public func appending(_ relativePath: RelativePath) -> AbsolutePath {
-        Self(self.underlying.appending(relativePath.underlying))
+        Self(self.underlying.appending(relativePath.underlying.components))
     }
 
     /// Returns the absolute path with an additional literal component appended.
     ///
     /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
     public func appending(component: String) -> AbsolutePath {
-        Self(self.underlying.appending(component: component))
+        Self(self.underlying.appending(component))
     }
 
     /// Returns the absolute path with additional literal components appended.
@@ -160,7 +169,7 @@ extension AbsolutePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components: [String]) -> AbsolutePath {
-        Self(self.underlying.appending(components: components))
+        Self(self.underlying.appending(components))
     }
 
     /// Returns the absolute path with additional literal components appended.
@@ -169,7 +178,7 @@ extension AbsolutePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components: String...) -> AbsolutePath {
-        Self(self.underlying.appending(components: components))
+        Self(self.underlying.appending(components))
     }
 
     /// Returns the absolute path with additional literal components appended.
@@ -195,7 +204,7 @@ extension AbsolutePath {
     public func appending(extension: String) -> AbsolutePath {
         guard !self.isRoot else { return self }
         let `extension` = `extension`.spm_dropPrefix(".")
-        return self.parentDirectory.appending("\(basename).\(`extension`)")
+        return self.parentDirectory.appending("\(self.basename).\(`extension`)")
     }
 }
 
@@ -211,8 +220,58 @@ extension AbsolutePath {
     ///
     /// This method is strictly syntactic and does not access the file system
     /// in any way.  Therefore, it does not take symbolic links into account.
+    // FIXME: copied
     public func relative(to base: AbsolutePath) -> RelativePath {
-        RelativePath(self.underlying.relative(to: base.underlying))
+        let result: RelativePath
+        // Split the two paths into their components.
+        // FIXME: The is needs to be optimized to avoid unncessary copying.
+        let pathComps = self.components
+        let baseComps = base.components
+
+        // It's common for the base to be an ancestor, so try that first.
+        if pathComps.starts(with: baseComps) {
+            // Special case, which is a plain path without `..` components.  It
+            // might be an empty path (when self and the base are equal).
+            let relComps = pathComps.dropFirst(baseComps.count)
+#if os(Windows)
+            let pathString = relComps.joined(separator: "\\")
+#else
+            let pathString = relComps.joined(separator: "/")
+#endif
+            do {
+                result = try RelativePath(validating: pathString)
+            } catch {
+                preconditionFailure("invalid relative path computed from \(pathString)")
+            }
+
+        } else {
+            // General case, in which we might well need `..` components to go
+            // "up" before we can go "down" the directory tree.
+            var newPathComps = ArraySlice(pathComps)
+            var newBaseComps = ArraySlice(baseComps)
+            while newPathComps.prefix(1) == newBaseComps.prefix(1) {
+                // First component matches, so drop it.
+                newPathComps = newPathComps.dropFirst()
+                newBaseComps = newBaseComps.dropFirst()
+            }
+            // Now construct a path consisting of as many `..`s as are in the
+            // `newBaseComps` followed by what remains in `newPathComps`.
+            var relComps = Array(repeating: "..", count: newBaseComps.count)
+            relComps.append(contentsOf: newPathComps)
+#if os(Windows)
+            let pathString = relComps.joined(separator: "\\")
+#else
+            let pathString = relComps.joined(separator: "/")
+#endif
+            do {
+                result = try RelativePath(validating: pathString)
+            } catch {
+                preconditionFailure("invalid relative path computed from \(pathString)")
+            }
+        }
+
+        assert(AbsolutePath(base, result) == self)
+        return result
     }
 
     /// Returns true if the path is an ancestor of the given path.
@@ -220,7 +279,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isAncestor(of descendant: AbsolutePath) -> Bool {
-        self.underlying.isAncestor(of: descendant.underlying)
+        return descendant.components.dropLast().starts(with: self.components)
     }
 
     /// Returns true if the path is an ancestor of or equal to the given path.
@@ -228,7 +287,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isAncestorOfOrEqual(to descendant: AbsolutePath) -> Bool {
-        self.underlying.isAncestorOfOrEqual(to: descendant.underlying)
+        return descendant.components.starts(with: self.components)
     }
 
     /// Returns true if the path is a descendant of the given path.
@@ -236,7 +295,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isDescendant(of ancestor: AbsolutePath) -> Bool {
-        self.underlying.isDescendant(of: ancestor.underlying)
+        return self.components.dropLast().starts(with: ancestor.components)
     }
 
     /// Returns true if the path is a descendant of or equal to the given path.
@@ -244,7 +303,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isDescendantOfOrEqual(to ancestor: AbsolutePath) -> Bool {
-        self.underlying.isDescendantOfOrEqual(to: ancestor.underlying)
+        return self.components.starts(with: ancestor.components)
     }
 }
 
@@ -277,20 +336,22 @@ extension AbsolutePath {
     }
 }
 
+// using underlying string representation for backward compatibility
 extension AbsolutePath: Codable {
     public func encode(to encoder: Encoder) throws {
-        try self.underlying.encode(to: encoder)
+        try self.underlying.pathString.encode(to: encoder)
     }
 
     public init(from decoder: Decoder) throws {
-        try self = .init(TSCAbsolutePath(from: decoder))
+        let string = try String(from: decoder)
+        try self.init(validating: string)
     }
 }
 
 // Make absolute paths Comparable.
 extension AbsolutePath: Comparable {
     public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-        lhs.underlying < rhs.underlying
+        lhs.underlying.pathString < rhs.underlying.pathString
     }
 }
 
@@ -307,15 +368,28 @@ extension AbsolutePath: CustomStringConvertible, CustomDebugStringConvertible {
 
 extension AbsolutePath {
     public var asURL: Foundation.URL {
-        self.underlying.asURL
+        return URL(fileURLWithPath: self.pathString)
     }
 }
 
+// FIXME: copied
 extension AbsolutePath {
     /// Returns a path suitable for display to the user (if possible, it is made
     /// to be relative to the current working directory).
     public func prettyPath(cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory) -> String {
-        self.underlying.prettyPath(cwd: cwd?.underlying)
+        guard let dir = cwd else {
+            // No current directory, display as is.
+            return self.pathString
+        }
+        // FIXME: Instead of string prefix comparison we should add a proper API
+        // to AbsolutePath to determine ancestry.
+        if self == dir {
+            return "."
+        } else if self.pathString.hasPrefix(dir.pathString + "/") {
+            return "./" + self.relative(to: dir).pathString
+        } else {
+            return self.pathString
+        }
     }
 }
 
@@ -326,7 +400,11 @@ extension AbsolutePath {
 }
 
 extension TSCAbsolutePath {
+    public init(_ path: FilePath) {
+        self = .init(path.pathString)
+    }
+
     public init(_ path: AbsolutePath) {
-        self = path.underlying
+        self = .init(path.underlying)
     }
 }

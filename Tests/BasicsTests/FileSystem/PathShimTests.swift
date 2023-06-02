@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -13,18 +13,18 @@ import Foundation
 import XCTest
 
 class PathShimTests : XCTestCase {
-    func testRescursiveDirectoryCreation() {
+    func testRecursiveDirectoryCreation() throws {
         // For the tests we'll need a temporary directory.
-        try! withTemporaryDirectory(removeTreeOnDeinit: true) { path in
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { path in
             // Create a directory under several ancestor directories.
             let dirPath = path.appending(components: "abc", "def", "ghi", "mno", "pqr")
-            try! makeDirectories(dirPath)
+            try makeDirectories(dirPath)
 
             // Check that we were able to actually create the directory.
             XCTAssertTrue(localFileSystem.isDirectory(dirPath))
 
             // Check that there's no error if we try to create the directory again.
-            try! makeDirectories(dirPath)
+            try makeDirectories(dirPath)
         }
     }
 }
@@ -47,6 +47,7 @@ class WalkTests : XCTestCase {
         ]
       #endif
         for x in try walk(AbsolutePath(validating: "\(root)/"), recursively: false) {
+            print(x)
             if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }
@@ -59,14 +60,14 @@ class WalkTests : XCTestCase {
         XCTAssertEqual(expected.count, 0)
     }
 
-    func testRecursive() {
+    func testRecursive() throws {
         let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
         var expected = [
             root.appending(component: "Basics"),
             root.appending(component: "Build"),
             root.appending(component: "Commands")
         ]
-        for x in try! walk(root) {
+        for x in try walk(root) {
             if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)
             }

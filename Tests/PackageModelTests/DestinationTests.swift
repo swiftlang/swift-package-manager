@@ -17,7 +17,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain")
+private let bundleRootPath = AbsolutePath("/tmp/cross-toolchain")
 private let toolchainBinDir = RelativePath("swift.xctoolchain/usr/bin")
 private let sdkRootDir = RelativePath("ubuntu-jammy.sdk")
 private let hostTriple = try! Triple("arm64-apple-darwin22.1.0")
