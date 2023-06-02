@@ -203,17 +203,18 @@ struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {
         self.hasTrustedRootCerts = hasTrustedRootCerts
     }
 
-    func validate(signedCollection: PackageCollectionModel.V1.SignedCollection,
-                  certPolicyKey: CertificatePolicyKey,
-                  callback: @escaping (Result<Void, Error>) -> Void) {
+    func validate(
+        signedCollection: PackageCollectionModel.V1.SignedCollection,
+        certPolicyKey: CertificatePolicyKey
+    ) async throws {
         guard self.hasTrustedRootCerts else {
-            return callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
+            throw PackageCollectionSigningError.noTrustedRootCertsConfigured
         }
 
         if self.collections.contains(signedCollection.collection.name) || self.certPolicyKeys.contains(certPolicyKey) {
-            callback(.success(()))
+            return
         } else {
-            callback(.failure(PackageCollectionSigningError.invalidSignature))
+            throw PackageCollectionSigningError.invalidSignature
         }
     }
 }

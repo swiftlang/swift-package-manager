@@ -28,6 +28,8 @@ struct MockToolchain: PackageModel.Toolchain {
     let librarianPath = AbsolutePath("/fake/path/to/ar")
 #endif
     let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
+    let includeSearchPaths = [AbsolutePath]()
+    let librarySearchPaths = [AbsolutePath]()
     let isSwiftDevelopmentToolchain = false
     let swiftPluginServerPath: AbsolutePath? = nil
     let extraFlags = PackageModel.BuildFlags()
@@ -72,7 +74,8 @@ func mockBuildParameters(
     destinationTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
-    linkerDeadStrip: Bool = true
+    linkerDeadStrip: Bool = true,
+    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil
 ) -> BuildParameters {
     return try! BuildParameters(
         dataPath: buildPath,
@@ -87,7 +90,8 @@ func mockBuildParameters(
         canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
         indexStoreMode: indexStoreMode,
         useExplicitModuleBuild: useExplicitModuleBuild,
-        linkerDeadStrip: linkerDeadStrip
+        linkerDeadStrip: linkerDeadStrip,
+        linkTimeOptimizationMode: linkTimeOptimizationMode
     )
 }
 

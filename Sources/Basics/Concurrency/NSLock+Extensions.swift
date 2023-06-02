@@ -14,7 +14,7 @@ import class Foundation.NSLock
 
 extension NSLock {
     /// Execute the given block while holding the lock.
-    public func withLock<T>(_ body: () throws -> T) rethrows -> T {
+    @discardableResult public func withLock<T>(_ body: () throws -> T) rethrows -> T {
         lock()
         defer { unlock() }
         return try body()

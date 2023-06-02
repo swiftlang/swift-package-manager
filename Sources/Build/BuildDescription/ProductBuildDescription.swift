@@ -318,6 +318,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
 
+        // Pass default library paths from the toolchain.
+        for librarySearchPath in self.buildParameters.toolchain.librarySearchPaths {
+            args += ["-L", librarySearchPath.pathString]
+        }
+
         // Add toolchain's libdir at the very end (even after the user -Xlinker arguments).
         //
         // This will allow linking to libraries shipped in the toolchain.
@@ -334,20 +339,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         #endif
 
         return self.stripInvalidArguments(args)
-    }
-
-    /// Writes link filelist to the filesystem.
-    func writeLinkFilelist(_ fs: FileSystem) throws {
-        var content = self.objects
-            .map { $0.pathString.spm_shellEscaped() }
-            .joined(separator: "\n")
-
-        // not sure this is needed, added here for backward compatibility
-        if !content.isEmpty {
-            content.append("\n")
-        }
-
-        try fs.writeFileContents(self.linkFileListPath, string: content)
     }
 
     /// Returns the build flags from the declared build settings.

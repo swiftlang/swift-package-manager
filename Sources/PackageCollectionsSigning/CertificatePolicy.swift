@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
 import Dispatch
 import Foundation
 
@@ -53,66 +52,58 @@ protocol CertificatePolicy {
     /// Validates the given certificate chain.
     ///
     /// - Parameters:
-    ///   - certChainPaths: Paths to each certificate in the chain. The certificate being verified must be the first
-    ///                     element of the array, with its issuer the next element and so on, and the root CA
-    ///                     certificate is last.
+    ///   - certChain: The certificate being verified must be the first element of the array, with its issuer the next
+    ///                element and so on, and the root CA certificate is last.
     ///   - validationTime: Overrides the timestamp used for checking certificate expiry (e.g., for testing).
     ///                     By default the current time is used.
-    ///   - callback: The callback to invoke when the result is available.
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void)
+    func validate(certChain: [Certificate], validationTime: Date) async throws
 }
 
 extension CertificatePolicy {
     /// Validates the given certificate chain.
     ///
     /// - Parameters:
-    ///   - certChainPaths: Paths to each certificate in the chain. The certificate being verified must be the first
-    ///                     element of the array, with its issuer the next element and so on, and the root CA
-    ///                     certificate is last.
-    ///   - callback: The callback to invoke when the result is available.
-    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
-        self.validate(certChain: certChain, validationTime: Date(), callback: callback)
+    ///   - certChain: The certificate being verified must be the first element of the array, with its issuer the next
+    ///                element and so on, and the root CA certificate is last.
+    func validate(certChain: [Certificate]) async throws {
+        try await self.validate(certChain: certChain, validationTime: Date())
     }
 
     func verify(
         certChain: [Certificate],
         trustedRoots: [Certificate]?,
         @PolicyBuilder policies: () -> some VerifierPolicy,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
-
+        observabilityScope: ObservabilityScope
+    ) async throws {
         guard !certChain.isEmpty else {
-            return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
+            throw CertificatePolicyError.emptyCertChain
         }
+
         let policies = policies()
-        Task {
-            var trustStore = CertificateStores.defaultTrustRoots
-            if let trustedRoots {
-                trustStore.append(contentsOf: trustedRoots)
-            }
 
-            guard !trustStore.isEmpty else {
-                return wrappedCallback(.failure(CertificatePolicyError.noTrustedRootCertsConfigured))
-            }
+        var trustStore = CertificateStores.defaultTrustRoots
+        if let trustedRoots {
+            trustStore.append(contentsOf: trustedRoots)
+        }
 
-            var verifier = Verifier(rootCertificates: CertificateStore(trustStore)) {
-                policies
-            }
-            let result = await verifier.validate(
-                leafCertificate: certChain[0],
-                intermediates: CertificateStore(certChain)
-            )
+        guard !trustStore.isEmpty else {
+            throw CertificatePolicyError.noTrustedRootCertsConfigured
+        }
 
-            switch result {
-            case .validCertificate:
-                wrappedCallback(.success(()))
-            case .couldNotValidate(let failures):
-                observabilityScope.emit(error: "Failed to validate certificate chain \(certChain): \(failures)")
-                wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
-            }
+        var verifier = Verifier(rootCertificates: CertificateStore(trustStore)) {
+            policies
+        }
+        let result = await verifier.validate(
+            leafCertificate: certChain[0],
+            intermediates: CertificateStore(certChain)
+        )
+
+        switch result {
+        case .validCertificate:
+            return
+        case .couldNotValidate(let failures):
+            observabilityScope.emit(error: "Failed to validate certificate chain \(certChain): \(failures)")
+            throw CertificatePolicyError.invalidCertChain
         }
     }
 }
@@ -136,7 +127,6 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
 
-    private let callbackQueue: DispatchQueue
     private let httpClient: HTTPClient
     private let observabilityScope: ObservabilityScope
 
@@ -150,14 +140,12 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///                                 user configured and dynamic, while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - expectedSubjectOrganizationalUnit: The subject organizational unit name that must match if specified.
-    ///   - callbackQueue: The `DispatchQueue` to use for callbacks.
     init(
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
         expectedSubjectOrganizationalUnit: String? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) {
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir {
@@ -170,19 +158,16 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.expectedSubjectOrganizationalUnit = expectedSubjectOrganizationalUnit
-        self.callbackQueue = callbackQueue
         self.httpClient = HTTPClient.makeDefault()
         self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
-
+    func validate(certChain: [Certificate], validationTime: Date) async throws {
         guard !certChain.isEmpty else {
-            return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
+            throw CertificatePolicyError.emptyCertChain
         }
 
-        self.verify(
+        try await self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: {
@@ -202,9 +187,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
                     validationTime: validationTime
                 )
             },
-            observabilityScope: self.observabilityScope,
-            callbackQueue: self.callbackQueue,
-            callback: callback
+            observabilityScope: self.observabilityScope
         )
     }
 }
@@ -218,7 +201,6 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
 
-    private let callbackQueue: DispatchQueue
     private let httpClient: HTTPClient
     private let observabilityScope: ObservabilityScope
 
@@ -232,14 +214,12 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     ///                                 user configured and dynamic, while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - expectedSubjectOrganizationalUnit: The subject organizational unit name that must match if specified.
-    ///   - callbackQueue: The `DispatchQueue` to use for callbacks.
     init(
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
         expectedSubjectOrganizationalUnit: String? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) {
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir {
@@ -252,19 +232,16 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.expectedSubjectOrganizationalUnit = expectedSubjectOrganizationalUnit
-        self.callbackQueue = callbackQueue
         self.httpClient = HTTPClient.makeDefault()
         self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
-
+    func validate(certChain: [Certificate], validationTime: Date) async throws {
         guard !certChain.isEmpty else {
-            return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
+            throw CertificatePolicyError.emptyCertChain
         }
 
-        self.verify(
+        try await self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: {
@@ -286,9 +263,7 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
                     validationTime: validationTime
                 )
             },
-            observabilityScope: self.observabilityScope,
-            callbackQueue: self.callbackQueue,
-            callback: callback
+            observabilityScope: self.observabilityScope
         )
     }
 }
@@ -302,7 +277,6 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
 
-    private let callbackQueue: DispatchQueue
     private let httpClient: HTTPClient
     private let observabilityScope: ObservabilityScope
 
@@ -316,14 +290,12 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
     ///                                 user configured and dynamic, while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - expectedSubjectOrganizationalUnit: The subject organizational unit name that must match if specified.
-    ///   - callbackQueue: The `DispatchQueue` to use for callbacks.
     init(
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
         expectedSubjectOrganizationalUnit: String? = nil,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) {
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir {
@@ -336,19 +308,16 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.expectedSubjectOrganizationalUnit = expectedSubjectOrganizationalUnit
-        self.callbackQueue = callbackQueue
         self.httpClient = HTTPClient.makeDefault()
         self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date, callback: @escaping (Result<Void, Error>) -> Void) {
-        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
-
+    func validate(certChain: [Certificate], validationTime: Date) async throws {
         guard !certChain.isEmpty else {
-            return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
+            throw CertificatePolicyError.emptyCertChain
         }
 
-        self.verify(
+        try await self.verify(
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: {
@@ -370,9 +339,7 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
                     validationTime: validationTime
                 )
             },
-            observabilityScope: self.observabilityScope,
-            callbackQueue: self.callbackQueue,
-            callback: callback
+            observabilityScope: self.observabilityScope
         )
     }
 }
