@@ -1951,7 +1951,7 @@ extension Workspace {
             let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: self.fileSystem, currentToolsVersion: self.currentToolsVersion)
             let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: self.fileSystem)
 
-            guard self.currentToolsVersion >= manifestToolsVersion, manifestToolsVersion >= ToolsVersion.minimumRequired else {
+            guard self.currentToolsVersion >= manifestToolsVersion || SwiftVersion.current.isDevelopment, manifestToolsVersion >= ToolsVersion.minimumRequired else {
                 throw StringError("invalid tools version")
             }
             return manifestLoader.interpreterFlags(for: manifestToolsVersion)
