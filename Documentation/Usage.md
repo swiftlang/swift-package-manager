@@ -116,9 +116,9 @@ https://github.com/apple/example-package-fisheryates
 
 ## Requiring System Libraries
 
-You can link against system libraries using the package manager. To do so, there
-needs to be a special package for each system library that contains a modulemap
-for that library. Such a wrapper package does not contain any code of its own.
+You can link against system libraries using the package manager. To do so, you'll
+need to add a special `target` of type `.systemLibrary`, and a `module.modulemap`
+for each system library you're using.
 
 Let's see an example of using [libgit2](https://libgit2.github.com) from an
 executable.
@@ -143,35 +143,47 @@ To `import Clibgit`, the package manager requires that the libgit2 library has
 been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
 following files from the libgit2 system-package are of interest:
 
-    /usr/local/lib/libgit2.dylib      # .so on Linux
-    /usr/local/include/git2.h
-
-Swift packages that provide module maps for system libraries are handled
-differently from regular Swift packages.
+    /opt/homebrew/lib/libgit2.dylib      # .so on Linux
+    /opt/homebrew/include/git2.h
 
 Note that the system library may be located elsewhere on your system, such as
-`/usr/` rather than `/usr/local/`.
+`/usr/local/`, or `/usr/`. The paths above are valid for Homebrew on macOS.
 
-Create a directory called `Clibgit` next to the `example` directory and
-initialize it as a package that builds a system module:
-
-    example$ cd ..
-    $ mkdir Clibgit
-    $ cd Clibgit
-    Clibgit$ swift package init --type empty
-
-This creates a `Package.swift` file in the directory.
-Edit `Package.swift` and add `pkgConfig` parameter:
+Now let's define `Clibgit` dependency in your `Package.swift` in the example project:
 
 ```swift
-// swift-tools-version:5.3
+// swift-tools-version: 5.8
+// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
-    name: "Clibgit",
-    pkgConfig: "libgit2"
+    name: "example",
+    targets: [
+        // Targets are the basic building blocks of a package, defining a module or a test suite.
+        // Targets can depend on other targets in this package and products from dependencies.
+        .executableTarget(
+            name: "example",
+
+            // example executable requires "Clibgit" target as it's dependency.
+            // It's a systemLibrary target defined below.
+            dependencies: ["Clibgit"],
+            path: "Sources"
+        ),
+
+        // systemLibrary is a special type of build target that wraps a system library
+        // in a target that other targets can require as their depencency.
+        .systemLibrary(
+            name: "Clibgit",
+            pkgConfig: "libgit2",
+            providers: [
+                .brew(["libgit2"]),
+                .apt(["libgit2-dev"])
+            ]
+        )
+    ]
 )
+
 ```
 
 The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
@@ -179,48 +191,32 @@ search paths for the system library. Note: If you don't want to use the `pkgConf
 parameter you can pass the path of a directory containing the library using the
 `-L` flag in commandline when building your app:
 
-    example$ swift build -Xlinker -L/usr/local/lib/
+    example$ swift build -Xlinker -L/opt/homebrew/lib/
 
-Create a `module.modulemap` file so it consists of the following:
+Next, we'll create a directory `Sources/Clibgit` in your `example` projcet, and
+add a `module.modulemap` to it:
 
     module Clibgit [system] {
-      header "/usr/local/include/git2.h"
+      header "/opt/homebrew/include/git2.h"
       link "git2"
       export *
     }
+
+Note that the include path in the module map is absolute, more on that below.
 
 > The convention we hope the community will adopt is to prefix such modules
 > with `C` and to camelcase the modules as per Swift module name conventions.
 > Then the community is free to name another module simply `libgit` which
 > contains more “Swifty” function wrappers around the raw C interface.
 
-Packages are Git repositories, tagged with semantic versions, containing a
-`Package.swift` file at their root. Initializing the package created a
-`Package.swift` file, but to make it a usable package we need to initialize a
-Git repository with at least one version tag:
+The `example` directory structure should look like this now:
 
-    Clibgit$ git init
-    Clibgit$ git add .
-    Clibgit$ git commit -m "Initial Commit"
-    Clibgit$ git tag 1.0.0
-
-Now to use the Clibgit package we must declare our dependency in our example
-app’s `Package.swift`:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "example",
-    dependencies: [
-        .package(url: "../Clibgit", from: "1.0.0")
-    ]
-)
-```
-
-Here we used a relative URL to speed up initial development. If you push your
-module map package to a public repository you must change the above URL
-reference so that it is a full, qualified Git URL.
+    .
+    ├── Package.swift
+    └── Sources
+        ├── Clibgit
+        │   └── module.modulemap
+        └── main.swift
 
 Now if we type `swift build` in our example app directory we will create an
 executable:
@@ -471,9 +467,9 @@ In case the current Swift version doesn't match any version-specific manifest,
 the package manager will pick the manifest with the most compatible tools
 version. For example, if there are three manifests:
 
-`Package.swift` (tools version 3.0)  
-`Package@swift-4.swift` (tools version 4.0)  
-`Package@swift-4.2.swift` (tools version 4.2)  
+`Package.swift` (tools version 3.0)
+`Package@swift-4.swift` (tools version 4.0)
+`Package@swift-4.2.swift` (tools version 4.2)
 
 The package manager will pick `Package.swift` on Swift 3, `Package@swift-4.swift` on
 Swift 4, and `Package@swift-4.2.swift` on Swift 4.2 and above because its tools
