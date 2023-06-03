@@ -146,7 +146,7 @@ following files from the libgit2 system-package are of interest:
     /opt/homebrew/lib/libgit2.dylib      # .so on Linux
     /opt/homebrew/include/git2.h
 
-Note that the system library may be located elsewhere on your system, such as
+**Note:** the system library may be located elsewhere on your system, such as
 `/usr/local/`, or `/usr/`. The paths above are valid for Homebrew on macOS.
 
 Now let's define `Clibgit` dependency in your `Package.swift` in the example project:
@@ -187,7 +187,13 @@ let package = Package(
 ```
 
 The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library. Note: If you don't want to use the `pkgConfig`
+search paths for the system library. You can look up pkg-config for a package
+by running the following:
+
+    example$ pkg-config --cflags libgit2
+    -I/opt/homebrew/Cellar/libgit2/1.6.4/include
+
+**Note:** If you don't want to use the `pkgConfig`
 parameter you can pass the path of a directory containing the library using the
 `-L` flag in commandline when building your app:
 
@@ -227,6 +233,8 @@ executable:
     git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
     example$
 
+### Requiring a System Library Without pkg-config
+
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
 from an executable, which has some caveats.
 
@@ -246,22 +254,16 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Install JPEG library using a system packager, e.g, `$ brew install jpeg`
+Install JPEG library using a system packager, e.g, `$ brew install jpeg`.
+`jpeg` is a keg-only formula, meaning it won't be linked to `/opt/homebrew/lib`,
+and you'll have to link it manually at build time.
 
-Create a directory called `CJPEG` next to the `example` directory and
-initialize it as a package that builds a system module:
-
-    example$ cd ..
-    $ mkdir CJPEG
-    $ cd CJPEG
-    CJPEG$ swift package init --type empty
-
-This creates `Package.swift` file in the directory.
-Create a `module.modulemap` file so it consists of the following:
+Just like in the previous example, `mkdir Sources/CJPEG`, and add the
+following `module.modulemap`:
 
     module CJPEG [system] {
         header "shim.h"
-        header "/usr/local/include/jpeglib.h"
+        header "/opt/homebrew/opt/jpeg/include/jpeglib.h"
         link "jpeg"
         export *
     }
@@ -275,23 +277,30 @@ This is because `jpeglib.h` is not a correct module, that is, it does not contai
 the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
 to the top of jpeglib.h to avoid creating the `shim.h` file.
 
-Create a Git repository and tag it:
-
-    CJPEG$ git init
-    CJPEG$ git add .
-    CJPEG$ git commit -m "Initial Commit"
-    CJPEG$ git tag 1.0.0
-
 Now to use the CJPEG package we must declare our dependency in our example
 app’s `Package.swift`:
 
 ```swift
+// swift-tools-version: 5.8
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
 import PackageDescription
 
 let package = Package(
     name: "example",
-    dependencies: [
-        .package(url: "../CJPEG", from: "1.0.0")
+    targets: [
+        // Targets are the basic building blocks of a package, defining a module or a test suite.
+        // Targets can depend on other targets in this package and products from dependencies.
+        .executableTarget(
+            name: "example",
+            dependencies: ["CJPEG"],
+            path: "Sources"
+            ),
+        .systemLibrary(
+            name: "CJPEG",
+            providers: [
+                .brew(["jpeg"])
+            ])
     ]
 )
 ```
@@ -299,7 +308,7 @@ let package = Package(
 Now if we type `swift build` in our example app directory we will create an
 executable:
 
-    example$ swift build -Xlinker -L/usr/local/lib/
+    example$ swift build -Xlinker -L/opt/homebrew/opt/jpeg/lib
     …
     example$ .build/debug/example
     jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
