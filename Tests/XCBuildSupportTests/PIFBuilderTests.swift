@@ -207,6 +207,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "4.0")
+                        XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -252,6 +253,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "4.0")
+                        XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -309,6 +311,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "6.0")
+                        XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -354,6 +357,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "6.0")
+                        XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -839,6 +843,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .visionOS).versionString)
                         }
                     }
 
@@ -871,6 +876,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .visionOS).versionString)
                         }
                     }
 
@@ -917,6 +923,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .visionOS).versionString)
                         }
                     }
 
@@ -952,6 +959,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .visionOS).versionString)
                         }
                     }
 

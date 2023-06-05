@@ -45,6 +45,9 @@ public struct Platform: Equatable {
     /// The watchOS platform.
     public static let watchOS: Platform = Platform(name: "watchos")
 
+    /// The visionOS platform.
+    public static let visionOS: Platform = Platform(name: "visionos")
+
     /// The DriverKit platform
     public static let driverKit: Platform = Platform(name: "driverkit")
 
@@ -222,6 +225,33 @@ public struct SupportedPlatform: Equatable {
     /// - Returns: A `SupportedPlatform` instance.
     public static func watchOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: SupportedPlatform.WatchOSVersion(string: versionString).version)
+    }
+
+    /// Configure the minimum deployment target version for the visionOS
+    /// platform.
+    ///
+    /// - Since: First available in PackageDescription 5.9
+    ///
+    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Returns: A `SupportedPlatform` instance.
+    @available(_PackageDescription, introduced: 5.9)
+    public static func visionOS(_ version: SupportedPlatform.VisionOSVersion) -> SupportedPlatform {
+        return SupportedPlatform(platform: .visionOS, version: version.version)
+    }
+
+    /// Configure the minimum deployment target version for the visionOS
+    /// platform using a custom version string.
+    ///
+    /// The version string must be a series of two or three dot-separated integers, such as `1.0` or `1.0.0`.
+    ///
+    /// - Since: First available in PackageDescription 5.9
+    ///
+    /// - Parameter versionString: The minimum deployment target as a string
+    ///     representation of two or three dot-separated integers, such as `1.0.0`.
+    /// - Returns: A `SupportedPlatform` instance.
+    @available(_PackageDescription, introduced: 5.9)
+    public static func visionOS(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .visionOS, version: SupportedPlatform.VisionOSVersion(string: versionString).version)
     }
 
     /// Configures the minimum deployment target version for the DriverKit platform.
@@ -592,6 +622,25 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.9.
         @available(_PackageDescription, introduced: 5.9)
         public static let v10: WatchOSVersion = .init(string: "10.0")
+    }
+
+    /// The supported visionOS version.
+    public struct VisionOSVersion: AppleOSVersion {
+        fileprivate static let name = "visionOS"
+        fileprivate static let minimumMajorVersion = 1
+
+        /// The underlying version representation.
+        let version: String
+
+        fileprivate init(uncheckedVersion version: String) {
+            self.version = version
+        }
+
+        /// The value that represents visionOS 1.0.
+        ///
+        /// - Since: First available in PackageDescription 5.9.
+        @available(_PackageDescription, introduced: 5.9)
+        public static let v1: VisionOSVersion = .init(string: "1.0")
     }
 
     /// The supported DriverKit version.

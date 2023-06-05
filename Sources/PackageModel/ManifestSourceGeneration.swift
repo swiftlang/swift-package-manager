@@ -141,6 +141,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "tvOS", string: platform.version)
         case "watchos":
             self.init(enum: "watchOS", string: platform.version)
+        case "visionos":
+            self.init(enum: "visionOS", string: platform.version)
         case "driverkit":
             self.init(enum: "driverKit", string: platform.version)
         default:
@@ -366,6 +368,7 @@ fileprivate extension SourceCodeFragment {
             case "ios": return SourceCodeFragment(enum: "iOS")
             case "tvos": return SourceCodeFragment(enum: "tvOS")
             case "watchos": return SourceCodeFragment(enum: "watchOS")
+            case "visionos": return SourceCodeFragment(enum: "visionOS")
             case "driverkit": return SourceCodeFragment(enum: "driverKit")
             default: return SourceCodeFragment(enum: platformName)
             }

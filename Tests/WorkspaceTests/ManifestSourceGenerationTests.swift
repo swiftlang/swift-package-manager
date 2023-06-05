@@ -436,6 +436,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                     .iOS(.v17),
                     .tvOS(.v17),
                     .watchOS(.v10),
+                    .visionOS(.v1),
                     .macCatalyst(.v17),
                     .driverKit(.v23)
                 ],
@@ -460,8 +461,8 @@ class ManifestSourceGenerationTests: XCTestCase {
                         name: "MyExe",
                         dependencies: [
                             .target(name: "MyLib", condition: .when(platforms: [
-                                .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .driverKit,
-                                .linux, .windows, .android, .wasi, .openbsd
+                                .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS,
+                                .driverKit, .linux, .windows, .android, .wasi, .openbsd
                             ]))
                         ]
                     ),

@@ -31,6 +31,6 @@ public final class PlatformRegistry {
 
     /// The static list of known platforms.
     private static var _knownPlatforms: [Platform] {
-        return [.macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .linux, .windows, .android, .wasi, .driverKit, .openbsd]
+        return [.macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS, .linux, .windows, .android, .wasi, .driverKit, .openbsd]
     }
 }

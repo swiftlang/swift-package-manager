@@ -28,7 +28,7 @@ class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
                name: "Foo",
                platforms: [
                    .macOS(.v14), .iOS(.v17),
-                   .tvOS(.v17), .watchOS(.v10),
+                   .tvOS(.v17), .watchOS(.v10), .visionOS(.v1),
                    .macCatalyst(.v17), .driverKit(.v23),
                ]
             )
@@ -44,6 +44,7 @@ class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             PlatformDescription(name: "ios", version: "17.0"),
             PlatformDescription(name: "tvos", version: "17.0"),
             PlatformDescription(name: "watchos", version: "10.0"),
+            PlatformDescription(name: "visionos", version: "1.0"),
             PlatformDescription(name: "maccatalyst", version: "17.0"),
             PlatformDescription(name: "driverkit", version: "23.0"),
         ])

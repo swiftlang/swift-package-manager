@@ -799,6 +799,8 @@ extension PackageModel.Platform {
             return "tvOS"
         case .watchOS:
             return "watchOS"
+        case .visionOS:
+            return "visionOS"
         case .driverKit:
             return "DriverKit"
         default:
@@ -834,6 +836,8 @@ extension SupportedPlatform {
             return (9...14).contains(version.major)
         case .watchOS:
             return (2...7).contains(version.major)
+        case .visionOS:
+            return (1...1).contains(version.major)
         case .driverKit:
             return (19...20).contains(version.major)
 
