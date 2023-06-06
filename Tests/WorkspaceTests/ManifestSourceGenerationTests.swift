@@ -433,12 +433,12 @@ class ManifestSourceGenerationTests: XCTestCase {
             let package = Package(
                 name: "MyPackage",
                 platforms: [
-                    .macOS(.v13),
-                    .iOS(.v16),
-                    .tvOS(.v16),
-                    .watchOS(.v9),
-                    .macCatalyst(.v16),
-                    .driverKit(.v22)
+                    .macOS(.v14),
+                    .iOS(.v17),
+                    .tvOS(.v17),
+                    .watchOS(.v10),
+                    .macCatalyst(.v17),
+                    .driverKit(.v23)
                 ],
                 targets: [
                 ]
