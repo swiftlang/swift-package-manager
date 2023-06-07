@@ -250,7 +250,7 @@ in a process called <dfn>package resolution</dfn>.
 Each external package is uniquely identified
 by a scoped identifier in the form `scope.package-name`.
 
-#### 3.6.1 Package scope
+#### 3.6.1. Package scope
 
 A *scope* provides a namespace for related packages within a package registry.
 A package scope consists of alphanumeric characters and hyphens.
@@ -827,7 +827,7 @@ nested at a top-level `identifiers` key.
 It is RECOMMENDED for clients and servers to support
 caching as described by [RFC 7234].
 
-#### 4.5.1 URL to package identifier mappings
+#### 4.5.1. URL to package identifier mappings
 
 As part of the [package release metadata](#422-package-release-metadata-standards)
 JSON object, the `repositoryURLs` array can be used to specify 
