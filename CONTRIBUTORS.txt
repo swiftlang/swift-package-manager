@@ -25,6 +25,7 @@ needs to be listed here.
 - Alex Blewitt <alblue@apple.com>
 - Alex Hoppen <ahoppen@apple.com>
 - Alex Migicovsky <migi@apple.com>
+- Alex Rouse <pendulumreal@gmail.com>
 - Alexis Laferrière <alaf@apple.com>
 - Anders Bertelrud <anders@apple.com>
 - Andreas Koslowski <andreas@dock13.com>
