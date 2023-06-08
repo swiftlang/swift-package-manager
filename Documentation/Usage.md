@@ -123,7 +123,7 @@ for each system library you're using.
 Let's see an example of using [libgit2](https://libgit2.github.com) from an
 executable.
 
-First, create a directory called `example`, and initialize it as a package that
+Create a directory called `example`, and initialize it as a package that
 builds an executable:
 
     $ mkdir example
@@ -143,13 +143,19 @@ To `import Clibgit`, the package manager requires that the libgit2 library has
 been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
 following files from the libgit2 system-package are of interest:
 
-    /opt/homebrew/lib/libgit2.dylib      # .so on Linux
-    /opt/homebrew/include/git2.h
+    /usr/local/lib/libgit2.dylib      # .so on Linux
+    /usr/local/include/git2.h
 
 **Note:** the system library may be located elsewhere on your system, such as
-`/usr/local/`, or `/usr/`. The paths above are valid for Homebrew on macOS.
+`/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple silicon Mac.
+If you're not sure where `Clibgit` is in your system, you can run this command
+to look it up:
 
-Now let's define `Clibgit` dependency in your `Package.swift` in the example project:
+    example$ pkg-config --cflags libgit2
+    -I/usr/local/libgit2/1.6.4/include
+
+
+**First, let's define the `target` in the package description**:
 
 ```swift
 // swift-tools-version: 5.8
@@ -160,8 +166,63 @@ import PackageDescription
 let package = Package(
     name: "example",
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
+        // systemLibrary is a special type of build target that wraps a system library
+        // in a target that other targets can require as their depencency.
+        .systemLibrary(
+            name: "Clibgit",
+            pkgConfig: "libgit2",
+            providers: [
+                .brew(["libgit2"]),
+                .apt(["libgit2-dev"])
+            ]
+        )
+    ]
+)
+
+```
+
+**Note:** If you don't want to use the `pkgConfig` parameter you can pass the
+path of a directory containing the library using the `-L` flag in command line
+when building your app instead:
+
+    example$ swift build -Xlinker -L/usr/local/lib/
+
+Next, we'll create a directory `Sources/Clibgit` in your `example` projcet, and
+add a `module.modulemap` to it:
+
+    module Clibgit [system] {
+      header "/usr/local/include/git2.h"
+      link "git2"
+      export *
+    }
+
+**Note:** The include path in the module map must be an absolute path, more on
+that below.
+
+> The convention we hope the community will adopt is to prefix such modules
+> with `C` and to camelcase the modules as per Swift module name conventions.
+> Then the community is free to name another module simply `libgit` which
+> contains more “Swifty” function wrappers around the raw C interface.
+
+The `example` directory structure should look like this now:
+
+    .
+    ├── Package.swift
+    └── Sources
+        ├── Clibgit
+        │   └── module.modulemap
+        └── main.swift
+
+At this point, your system library target is fully defined, and you can now use
+that target as a dependency in other targets in your `Package.swift`, like this:
+
+```swift
+
+import PackageDescription
+
+let package = Package(
+    name: "example",
+    targets: [
         .executableTarget(
             name: "example",
 
@@ -185,44 +246,6 @@ let package = Package(
 )
 
 ```
-
-The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library. You can look up pkg-config for a package
-by running the following:
-
-    example$ pkg-config --cflags libgit2
-    -I/opt/homebrew/Cellar/libgit2/1.6.4/include
-
-**Note:** If you don't want to use the `pkgConfig`
-parameter you can pass the path of a directory containing the library using the
-`-L` flag in commandline when building your app:
-
-    example$ swift build -Xlinker -L/opt/homebrew/lib/
-
-Next, we'll create a directory `Sources/Clibgit` in your `example` projcet, and
-add a `module.modulemap` to it:
-
-    module Clibgit [system] {
-      header "/opt/homebrew/include/git2.h"
-      link "git2"
-      export *
-    }
-
-Note that the include path in the module map is absolute, more on that below.
-
-> The convention we hope the community will adopt is to prefix such modules
-> with `C` and to camelcase the modules as per Swift module name conventions.
-> Then the community is free to name another module simply `libgit` which
-> contains more “Swifty” function wrappers around the raw C interface.
-
-The `example` directory structure should look like this now:
-
-    .
-    ├── Package.swift
-    └── Sources
-        ├── Clibgit
-        │   └── module.modulemap
-        └── main.swift
 
 Now if we type `swift build` in our example app directory we will create an
 executable:
@@ -255,7 +278,7 @@ print(jpegData)
 ```
 
 Install JPEG library using a system packager, e.g, `$ brew install jpeg`.
-`jpeg` is a keg-only formula, meaning it won't be linked to `/opt/homebrew/lib`,
+`jpeg` is a keg-only formula, meaning it won't be linked to `/usr/local/lib`,
 and you'll have to link it manually at build time.
 
 Just like in the previous example, `mkdir Sources/CJPEG`, and add the
@@ -263,7 +286,7 @@ following `module.modulemap`:
 
     module CJPEG [system] {
         header "shim.h"
-        header "/opt/homebrew/opt/jpeg/include/jpeglib.h"
+        header "/usr/local/opt/jpeg/include/jpeglib.h"
         link "jpeg"
         export *
     }
@@ -281,16 +304,12 @@ Now to use the CJPEG package we must declare our dependency in our example
 app’s `Package.swift`:
 
 ```swift
-// swift-tools-version: 5.8
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "example",
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .executableTarget(
             name: "example",
             dependencies: ["CJPEG"],
@@ -308,7 +327,7 @@ let package = Package(
 Now if we type `swift build` in our example app directory we will create an
 executable:
 
-    example$ swift build -Xlinker -L/opt/homebrew/opt/jpeg/lib
+    example$ swift build -Xlinker -L/usr/local/jpeg/lib
     …
     example$ .build/debug/example
     jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
@@ -358,9 +377,9 @@ we hope that system libraries and system packagers will provide module maps and
 thus this component of the package manager will become redundant.
 
 *Notably* the above steps will not work if you installed JPEG and JasPer with
-[Homebrew](http://brew.sh) since the files will be installed to `/usr/local`. For
-now adapt the paths, but as said, we plan to support basic relocations like
-these.
+[Homebrew](http://brew.sh) since the files will be installed to `/usr/local` on
+Intel Macs, or /opt/homebrew on Apple silicon Macs. For now adapt the paths,
+but as said, we plan to support basic relocations like these.
 
 ### Module Map Versioning
 
