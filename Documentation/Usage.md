@@ -226,7 +226,7 @@ let package = Package(
         .executableTarget(
             name: "example",
 
-            // example executable requires "Clibgit" target as it's dependency.
+            // example executable requires "Clibgit" target as its dependency.
             // It's a systemLibrary target defined below.
             dependencies: ["Clibgit"],
             path: "Sources"
@@ -277,7 +277,7 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Install JPEG library, on macOS you can use Homebrew package manager: `brew install jpeg`.
+Install the JPEG library, on macOS you can use Homebrew package manager: `brew install jpeg`.
 `jpeg` is a keg-only formula, meaning it won't be linked to `/usr/local/lib`,
 and you'll have to link it manually at build time.
 
