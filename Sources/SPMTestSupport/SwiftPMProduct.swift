@@ -55,7 +55,7 @@ extension SwiftPM {
         }
         fatalError()
         #else
-        return try! AbsolutePath(CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
+        return try! AbsolutePath(validating: CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
             .parentDirectory.appending(self.executableName)
         #endif
     }
