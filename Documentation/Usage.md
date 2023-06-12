@@ -120,8 +120,8 @@ You can link against system libraries using the package manager. To do so, you'l
 need to add a special `target` of type `.systemLibrary`, and a `module.modulemap`
 for each system library you're using.
 
-Let's see an example of using [libgit2](https://libgit2.github.com) from an
-executable.
+Let's see an example of adding [libgit2](https://libgit2.github.com) as a
+dependency to an executable target.
 
 Create a directory called `example`, and initialize it as a package that
 builds an executable:
@@ -147,7 +147,7 @@ following files from the libgit2 system-package are of interest:
     /usr/local/include/git2.h
 
 **Note:** the system library may be located elsewhere on your system, such as
-`/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple silicon Mac.
+`/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple Silicon Mac.
 If you're not sure where `Clibgit` is in your system, you can run this command
 to look it up:
 
@@ -187,7 +187,7 @@ when building your app instead:
 
     example$ swift build -Xlinker -L/usr/local/lib/
 
-Next, we'll create a directory `Sources/Clibgit` in your `example` projcet, and
+Next, create a directory `Sources/Clibgit` in your `example` project, and
 add a `module.modulemap` to it:
 
     module Clibgit [system] {
@@ -256,7 +256,7 @@ executable:
     git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
     example$
 
-### Requiring a System Library Without pkg-config
+### Requiring a System Library Without `pkg-config`
 
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
 from an executable, which has some caveats.
@@ -277,7 +277,7 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Install JPEG library using a system packager, e.g, `$ brew install jpeg`.
+Install JPEG library, on macOS you can use Homebrew package manager: `brew install jpeg`.
 `jpeg` is a keg-only formula, meaning it won't be linked to `/usr/local/lib`,
 and you'll have to link it manually at build time.
 
