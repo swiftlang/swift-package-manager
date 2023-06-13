@@ -538,6 +538,11 @@ extension FileSystem {
         try writeIfChanged(path: path, bytes: .init(encodingAsUTF8: string))
     }
 
+    /// Write data to the path if the given contents are different.
+    public func writeIfChanged(path: AbsolutePath, data: Data) throws {
+        try writeIfChanged(path: path, bytes: .init(data))
+    }
+
     /// Write bytes to the path if the given contents are different.
     public func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
         try createDirectory(path.parentDirectory, recursive: true)
