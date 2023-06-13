@@ -12,7 +12,9 @@
 
 import SwiftSDKTool
 
-// This is quite ugly, but it works in terms of unambiguously specifying the async overload of `main()`.
-_ = await { () async -> () in
-    await SwiftSDKTool.main()
-}()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftSDKTool.main()
+    }
+}

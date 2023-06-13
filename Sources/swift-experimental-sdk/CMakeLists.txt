@@ -7,9 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-experimental-sdk
-  main.swift)
+  Entrypoint.swift)
 target_link_libraries(swift-experimental-sdk PRIVATE
   SwiftSDKTool)
+
+target_compile_options(swift-experimental-sdk PRIVATE
+  -parse-as-library)
 
 if(USE_CMAKE_INSTALL)
 install(TARGETS swift-experimental-sdk
