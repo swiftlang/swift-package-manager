@@ -141,10 +141,8 @@ public class RegistryDownloadsManager: Cancellable {
         version: Version,
         packagePath: AbsolutePath,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<FetchDetails, Error>) -> Void
-    ) {
+        delegateQueue: DispatchQueue
+    ) async throws -> FetchDetails {
         if let cachePath {
             do {
                 let relativePath = try package.downloadPath(version: version)
@@ -166,14 +164,13 @@ public class RegistryDownloadsManager: Cancellable {
                         // it is possible that we already created the directory before from failed attempts, so clear leftover data if present.
                         try? self.fileSystem.removeFileTree(cachedPackagePath)
                         // download the package from the registry
-                        self.registryClient.downloadSourceArchive(
+                        try await self.registryClient.downloadSourceArchive(
                             package: package,
                             version: version,
                             destinationPath: cachedPackagePath,
                             progressHandler: updateDownloadProgress,
                             fileSystem: self.fileSystem,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue
+                            observabilityScope: observabilityScope
                         ) { result in
                             completion(result.tryMap {
                                 // extra validation to defend from racy edge cases
