@@ -1367,7 +1367,9 @@ final class BuildPlanTests: XCTestCase {
             Pkg.appending(components: "Sources", "exe", "main.cpp").pathString,
             Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
             Pkg.appending(components: "Sources", "lib", "libx.cpp").pathString,
-            Pkg.appending(components: "Sources", "lib", "include", "lib.h").pathString
+            Pkg.appending(components: "Sources", "lib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "swiftInteropLib", "lib.swift").pathString,
+            Pkg.appending(components: "Sources", "swiftLib", "lib.swift").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1382,6 +1384,9 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "swiftInteropLib", dependencies: [],
+                                          settings: [.init(tool: .swift, kind: .interoperabilityMode(.Cxx))]),
+                        TargetDescription(name: "swiftLib", dependencies: [])
                     ]),
             ],
             observabilityScope: observability.topScope
@@ -1397,7 +1402,7 @@ final class BuildPlanTests: XCTestCase {
         let result = try BuildPlanResult(plan: plan)
 
         result.checkProductsCount(1)
-        result.checkTargetsCount(2)
+        result.checkTargetsCount(4)
 
         let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
@@ -1447,6 +1452,11 @@ final class BuildPlanTests: XCTestCase {
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","\#(Pkg.appending(components: "Sources", "lib", "lib.c").escapedPathString())"#))
         XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","\#(Pkg.appending(components: "Sources", "lib", "libx.cpp").escapedPathString())"#))
+
+        let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
+        XCTAssertMatch(swiftInteropLib, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .end])
+        let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
+        XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
     }
 
     func testSwiftCMixed() throws {
