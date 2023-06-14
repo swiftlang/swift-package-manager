@@ -874,7 +874,7 @@ public final class PackageBuilder {
         }
 
         // Create the build setting assignment table for this target.
-        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
+        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path, cxxLanguageStandard: self.manifest.cxxLanguageStandard)
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
@@ -1014,7 +1014,7 @@ public final class PackageBuilder {
     }
 
     /// Creates build setting assignment table for the given target.
-    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath) throws -> BuildSettings
+    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath, cxxLanguageStandard: String? = nil) throws -> BuildSettings
         .AssignmentTable
     {
         var table = BuildSettings.AssignmentTable()
@@ -1086,7 +1086,7 @@ public final class PackageBuilder {
                 }
 
                 if lang == .Cxx {
-                    values = ["-cxx-interoperability-mode=default"]
+                    values = ["-cxx-interoperability-mode=default"] + (cxxLanguageStandard.flatMap { ["-Xcc", "-std=\($0)"] } ?? [])
                 } else {
                     values = []
                 }
