@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-experimental-sdk
-  SwiftSDKTool.swift)
+  Entrypoint.swift)
 target_link_libraries(swift-experimental-sdk PRIVATE
   SwiftSDKTool)
 
