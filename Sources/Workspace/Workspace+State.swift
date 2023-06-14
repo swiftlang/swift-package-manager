@@ -254,7 +254,7 @@ extension WorkspaceStateStorage {
                         let version = try container.decode(String.self, forKey: .version)
                         return try self.init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
@@ -603,7 +603,7 @@ extension WorkspaceStateStorage {
                         let version = try container.decode(String.self, forKey: .version)
                         return try self.init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
@@ -899,7 +899,7 @@ extension WorkspaceStateStorage {
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "edited":
-                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
                     default:
                         throw StringError("unknown dependency state \(kind)")
