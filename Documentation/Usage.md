@@ -281,7 +281,7 @@ Install the JPEG library, on macOS you can use Homebrew package manager: `brew i
 `jpeg` is a keg-only formula, meaning it won't be linked to `/usr/local/lib`,
 and you'll have to link it manually at build time.
 
-Just like in the previous example, `mkdir Sources/CJPEG`, and add the
+Just like in the previous example, run `mkdir Sources/CJPEG` and add the
 following `module.modulemap`:
 
     module CJPEG [system] {
