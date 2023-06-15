@@ -188,16 +188,25 @@ when building your app instead:
     example$ swift build -Xlinker -L/usr/local/lib/
 
 Next, create a directory `Sources/Clibgit` in your `example` project, and
-add a `module.modulemap` to it:
+add a `module.modulemap` and the header file to it:
 
     module Clibgit [system] {
-      header "/usr/local/include/git2.h"
+      header "git2.h"
       link "git2"
       export *
     }
 
-**Note:** The include path in the module map must be an absolute path, more on
-that below.
+The header file should look like this:
+
+```c
+# git2.h
+#pragma once
+#include <git2.h>
+```
+
+**Note:** Alternatively, you can provide an absolute path to `git2.h` provided
+by the library in the `modile.modulemap`. However, doing so might break
+cross-platform compatibility of your project.
 
 > The convention we hope the community will adopt is to prefix such modules
 > with `C` and to camelcase the modules as per Swift module name conventions.
@@ -210,6 +219,7 @@ The `example` directory structure should look like this now:
     ├── Package.swift
     └── Sources
         ├── Clibgit
+        │   ├── git2.h
         │   └── module.modulemap
         └── main.swift
 
