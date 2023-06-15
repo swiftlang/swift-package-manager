@@ -135,7 +135,7 @@ fileprivate struct WorkspaceStateStorage {
             let storage = V6(dependencies: dependencies, artifacts: artifacts)
 
             let data = try self.encoder.encode(storage)
-            try self.fileSystem.writeFileContents(self.path, data: data)
+            try self.fileSystem.writeIfChanged(path: self.path, data: data)
         }
     }
 
