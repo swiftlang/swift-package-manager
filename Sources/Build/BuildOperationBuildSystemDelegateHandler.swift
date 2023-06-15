@@ -517,7 +517,7 @@ final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
         }
 
         do {
-            try self.context.fileSystem.writeFileContents(outputFilePath, string: getFileContents(tool: tool))
+            try self.context.fileSystem.writeIfChanged(path: outputFilePath, string: getFileContents(tool: tool))
             return true
         } catch {
             self.context.observabilityScope.emit(error: "failed to write auxiliary file '\(outputFilePath.pathString)': \(error.interpolationDescription)")
