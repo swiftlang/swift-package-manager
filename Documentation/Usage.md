@@ -140,16 +140,16 @@ print(options)
 ```
 
 To `import Clibgit`, the package manager requires that the libgit2 library has
-been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
+been installed by a system packager (eg. `apt`, `brew`, `yum`, `nuget`, etc.). The
 following files from the libgit2 system-package are of interest:
 
     /usr/local/lib/libgit2.dylib      # .so on Linux
     /usr/local/include/git2.h
 
-**Note:** the system library may be located elsewhere on your system, such as
-`/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple Silicon Mac.
-If you're not sure where `Clibgit` is in your system, you can run this command
-to look it up:
+**Note:** the system library may be located elsewhere on your system, such as:
+- `/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple Silicon Mac.
+- `C:\vcpkg\installed\x64-windows\include` on Windows, if you're using `vcpkg`.
+On most Unix-like systems, you can use `pkg-config` to lookup where a library is installed:
 
     example$ pkg-config --cflags libgit2
     -I/usr/local/libgit2/1.6.4/include
@@ -199,7 +199,7 @@ add a `module.modulemap` and the header file to it:
 The header file should look like this:
 
 ```c
-# git2.h
+// git2.h
 #pragma once
 #include <git2.h>
 ```
