@@ -181,9 +181,11 @@ let package = Package(
 
 ```
 
-**Note:** If you don't want to use the `pkgConfig` parameter you can pass the
-path of a directory containing the library using the `-L` flag in command line
-when building your app instead:
+**Note:** For Windows-only packages `pkgConfig` should be omitted as
+`pkg-config` is not expected to be available. If you don't want to use the
+`pkgConfig` parameter you can pass the path of a directory containing the
+library using the `-L` flag in the command line when building your package
+instead.
 
     example$ swift build -Xlinker -L/usr/local/lib/
 
