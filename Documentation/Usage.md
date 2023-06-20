@@ -116,14 +116,14 @@ https://github.com/apple/example-package-fisheryates
 
 ## Requiring System Libraries
 
-You can link against system libraries using the package manager. To do so, there
-needs to be a special package for each system library that contains a modulemap
-for that library. Such a wrapper package does not contain any code of its own.
+You can link against system libraries using the package manager. To do so, you'll
+need to add a special `target` of type `.systemLibrary`, and a `module.modulemap`
+for each system library you're using.
 
-Let's see an example of using [libgit2](https://libgit2.github.com) from an
-executable.
+Let's see an example of adding [libgit2](https://libgit2.github.com) as a
+dependency to an executable target.
 
-First, create a directory called `example`, and initialize it as a package that
+Create a directory called `example`, and initialize it as a package that
 builds an executable:
 
     $ mkdir example
@@ -140,87 +140,124 @@ print(options)
 ```
 
 To `import Clibgit`, the package manager requires that the libgit2 library has
-been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.). The
+been installed by a system packager (eg. `apt`, `brew`, `yum`, `nuget`, etc.). The
 following files from the libgit2 system-package are of interest:
 
     /usr/local/lib/libgit2.dylib      # .so on Linux
     /usr/local/include/git2.h
 
-Swift packages that provide module maps for system libraries are handled
-differently from regular Swift packages.
+**Note:** the system library may be located elsewhere on your system, such as:
+- `/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple Silicon Mac.
+- `C:\vcpkg\installed\x64-windows\include` on Windows, if you're using `vcpkg`.
+On most Unix-like systems, you can use `pkg-config` to lookup where a library is installed:
 
-Note that the system library may be located elsewhere on your system, such as
-`/usr/` rather than `/usr/local/`.
+    example$ pkg-config --cflags libgit2
+    -I/usr/local/libgit2/1.6.4/include
 
-Create a directory called `Clibgit` next to the `example` directory and
-initialize it as a package that builds a system module:
 
-    example$ cd ..
-    $ mkdir Clibgit
-    $ cd Clibgit
-    Clibgit$ swift package init --type empty
-
-This creates a `Package.swift` file in the directory.
-Edit `Package.swift` and add `pkgConfig` parameter:
+**First, let's define the `target` in the package description**:
 
 ```swift
-// swift-tools-version:5.3
+// swift-tools-version: 5.8
+// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
-    name: "Clibgit",
-    pkgConfig: "libgit2"
+    name: "example",
+    targets: [
+        // systemLibrary is a special type of build target that wraps a system library
+        // in a target that other targets can require as their depencency.
+        .systemLibrary(
+            name: "Clibgit",
+            pkgConfig: "libgit2",
+            providers: [
+                .brew(["libgit2"]),
+                .apt(["libgit2-dev"])
+            ]
+        )
+    ]
 )
+
 ```
 
-The `pkgConfig` parameter helps SwiftPM in figuring out the include and library
-search paths for the system library. Note: If you don't want to use the `pkgConfig`
-parameter you can pass the path of a directory containing the library using the
-`-L` flag in commandline when building your app:
+**Note:** For Windows-only packages `pkgConfig` should be omitted as
+`pkg-config` is not expected to be available. If you don't want to use the
+`pkgConfig` parameter you can pass the path of a directory containing the
+library using the `-L` flag in the command line when building your package
+instead.
 
     example$ swift build -Xlinker -L/usr/local/lib/
 
-Create a `module.modulemap` file so it consists of the following:
+Next, create a directory `Sources/Clibgit` in your `example` project, and
+add a `module.modulemap` and the header file to it:
 
     module Clibgit [system] {
-      header "/usr/local/include/git2.h"
+      header "git2.h"
       link "git2"
       export *
     }
+
+The header file should look like this:
+
+```c
+// git2.h
+#pragma once
+#include <git2.h>
+```
+
+**Note:** Alternatively, you can provide an absolute path to `git2.h` provided
+by the library in the `modile.modulemap`. However, doing so might break
+cross-platform compatibility of your project.
 
 > The convention we hope the community will adopt is to prefix such modules
 > with `C` and to camelcase the modules as per Swift module name conventions.
 > Then the community is free to name another module simply `libgit` which
 > contains more “Swifty” function wrappers around the raw C interface.
 
-Packages are Git repositories, tagged with semantic versions, containing a
-`Package.swift` file at their root. Initializing the package created a
-`Package.swift` file, but to make it a usable package we need to initialize a
-Git repository with at least one version tag:
+The `example` directory structure should look like this now:
 
-    Clibgit$ git init
-    Clibgit$ git add .
-    Clibgit$ git commit -m "Initial Commit"
-    Clibgit$ git tag 1.0.0
+    .
+    ├── Package.swift
+    └── Sources
+        ├── Clibgit
+        │   ├── git2.h
+        │   └── module.modulemap
+        └── main.swift
 
-Now to use the Clibgit package we must declare our dependency in our example
-app’s `Package.swift`:
+At this point, your system library target is fully defined, and you can now use
+that target as a dependency in other targets in your `Package.swift`, like this:
 
 ```swift
+
 import PackageDescription
 
 let package = Package(
     name: "example",
-    dependencies: [
-        .package(url: "../Clibgit", from: "1.0.0")
+    targets: [
+        .executableTarget(
+            name: "example",
+
+            // example executable requires "Clibgit" target as its dependency.
+            // It's a systemLibrary target defined below.
+            dependencies: ["Clibgit"],
+            path: "Sources"
+        ),
+
+        // systemLibrary is a special type of build target that wraps a system library
+        // in a target that other targets can require as their depencency.
+        .systemLibrary(
+            name: "Clibgit",
+            pkgConfig: "libgit2",
+            providers: [
+                .brew(["libgit2"]),
+                .apt(["libgit2-dev"])
+            ]
+        )
     ]
 )
-```
 
-Here we used a relative URL to speed up initial development. If you push your
-module map package to a public repository you must change the above URL
-reference so that it is a full, qualified Git URL.
+```
 
 Now if we type `swift build` in our example app directory we will create an
 executable:
@@ -230,6 +267,8 @@ executable:
     example$ .build/debug/example
     git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
     example$
+
+### Requiring a System Library Without `pkg-config`
 
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
 from an executable, which has some caveats.
@@ -250,22 +289,16 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Install JPEG library using a system packager, e.g, `$ brew install jpeg`
+Install the JPEG library, on macOS you can use Homebrew package manager: `brew install jpeg`.
+`jpeg` is a keg-only formula, meaning it won't be linked to `/usr/local/lib`,
+and you'll have to link it manually at build time.
 
-Create a directory called `CJPEG` next to the `example` directory and
-initialize it as a package that builds a system module:
-
-    example$ cd ..
-    $ mkdir CJPEG
-    $ cd CJPEG
-    CJPEG$ swift package init --type empty
-
-This creates `Package.swift` file in the directory.
-Create a `module.modulemap` file so it consists of the following:
+Just like in the previous example, run `mkdir Sources/CJPEG` and add the
+following `module.modulemap`:
 
     module CJPEG [system] {
         header "shim.h"
-        header "/usr/local/include/jpeglib.h"
+        header "/usr/local/opt/jpeg/include/jpeglib.h"
         link "jpeg"
         export *
     }
@@ -279,23 +312,26 @@ This is because `jpeglib.h` is not a correct module, that is, it does not contai
 the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
 to the top of jpeglib.h to avoid creating the `shim.h` file.
 
-Create a Git repository and tag it:
-
-    CJPEG$ git init
-    CJPEG$ git add .
-    CJPEG$ git commit -m "Initial Commit"
-    CJPEG$ git tag 1.0.0
-
 Now to use the CJPEG package we must declare our dependency in our example
 app’s `Package.swift`:
 
 ```swift
+
 import PackageDescription
 
 let package = Package(
     name: "example",
-    dependencies: [
-        .package(url: "../CJPEG", from: "1.0.0")
+    targets: [
+        .executableTarget(
+            name: "example",
+            dependencies: ["CJPEG"],
+            path: "Sources"
+            ),
+        .systemLibrary(
+            name: "CJPEG",
+            providers: [
+                .brew(["jpeg"])
+            ])
     ]
 )
 ```
@@ -303,7 +339,7 @@ let package = Package(
 Now if we type `swift build` in our example app directory we will create an
 executable:
 
-    example$ swift build -Xlinker -L/usr/local/lib/
+    example$ swift build -Xlinker -L/usr/local/jpeg/lib
     …
     example$ .build/debug/example
     jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
@@ -353,9 +389,9 @@ we hope that system libraries and system packagers will provide module maps and
 thus this component of the package manager will become redundant.
 
 *Notably* the above steps will not work if you installed JPEG and JasPer with
-[Homebrew](http://brew.sh) since the files will be installed to `/usr/local`. For
-now adapt the paths, but as said, we plan to support basic relocations like
-these.
+[Homebrew](http://brew.sh) since the files will be installed to `/usr/local` on
+Intel Macs, or /opt/homebrew on Apple silicon Macs. For now adapt the paths,
+but as said, we plan to support basic relocations like these.
 
 ### Module Map Versioning
 
@@ -471,9 +507,9 @@ In case the current Swift version doesn't match any version-specific manifest,
 the package manager will pick the manifest with the most compatible tools
 version. For example, if there are three manifests:
 
-`Package.swift` (tools version 3.0)  
-`Package@swift-4.swift` (tools version 4.0)  
-`Package@swift-4.2.swift` (tools version 4.2)  
+`Package.swift` (tools version 3.0)
+`Package@swift-4.swift` (tools version 4.0)
+`Package@swift-4.2.swift` (tools version 4.2)
 
 The package manager will pick `Package.swift` on Swift 3, `Package@swift-4.swift` on
 Swift 4, and `Package@swift-4.2.swift` on Swift 4.2 and above because its tools
