@@ -447,6 +447,10 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native
 
+    /// The Debug Information Format to use.
+    @Option(name: .customLong("debug-info-format", withSingleDash: true))
+    public var debugInfoFormat: DebugInfoFormat = .dwarf
+
     public var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
@@ -498,6 +502,11 @@ public struct BuildOptions: ParsableArguments {
         case full
         /// See `BuildParameters.LinkTimeOptimizationMode.thin` for details.
         case thin
+    }
+
+    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+        case dwarf
+        case codeview
     }
 }
 
