@@ -716,7 +716,7 @@ public final class UserToolchain: Toolchain {
                 // (~5.7), we always had a singular installed SDK.  Prefer the
                 // new variant which has an architecture subdirectory in `bin`
                 // if available.
-                switch triple.arch { // Name.lowercased() {
+                switch triple.arch {
                 case .x86_64: // amd64 x86_64 x86_64h
                     let path: AbsolutePath =
                         xctest.appending("usr")
