@@ -40,4 +40,15 @@ public struct BuildFlags: Equatable, Encodable {
         self.linkerFlags = linkerFlags
         self.xcbuildFlags = xcbuildFlags
     }
+
+    public mutating func merging(_ flags: BuildFlags) -> Self {
+        self.cCompilerFlags.insert(contentsOf: flags.cCompilerFlags, at: 0)
+        self.cxxCompilerFlags.insert(contentsOf: flags.cxxCompilerFlags, at: 0)
+        self.swiftCompilerFlags.insert(contentsOf: flags.swiftCompilerFlags, at: 0)
+        self.linkerFlags.insert(contentsOf: flags.linkerFlags, at: 0)
+        if self.xcbuildFlags != nil || flags.xcbuildFlags != nil {
+            self.xcbuildFlags = (self.xcbuildFlags ?? []) + (flags.xcbuildFlags ?? [])
+        }
+        return self
+    }
 }

@@ -678,12 +678,33 @@ public final class SwiftTool {
                 component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
             )
 
+            var flags: BuildFlags = options.build.buildFlags
+            if destinationTriple.isWindows() {
+                switch options.build.debugInfoFormat {
+                case .dwarf:
+                    // DWARF requires lld as link.exe expects CodeView debug info.
+                    flags = flags.merging(BuildFlags(
+                        cCompilerFlags: ["-gdwarf"],
+                        cxxCompilerFlags: ["-gdwarf"],
+                        swiftCompilerFlags: ["-g", "-use-ld=lld"],
+                        linkerFlags: ["-debug:dwarf"]
+                    ))
+                case .codeview:
+                    flags = flags.merging(BuildFlags(
+                        swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
+                        linkerFlags: ["-debug"]
+                    ))
+                }
+            } else if options.build.debugInfoFormat == .codeview {
+                observabilityScope.emit(error: "CodeView debug information is currently not supported for this platform")
+            }
+
             return try BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
                 toolchain: destinationToolchain,
                 destinationTriple: destinationTriple,
-                flags: options.build.buildFlags,
+                flags: flags,
                 pkgConfigDirectories: options.locations.pkgConfigDirectories,
                 architectures: options.build.architectures,
                 workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
