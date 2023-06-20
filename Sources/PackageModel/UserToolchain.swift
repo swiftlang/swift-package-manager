@@ -716,8 +716,8 @@ public final class UserToolchain: Toolchain {
                 // (~5.7), we always had a singular installed SDK.  Prefer the
                 // new variant which has an architecture subdirectory in `bin`
                 // if available.
-                switch triple.archName.lowercased() {
-                case "x86_64", "x86_64h":
+                switch triple.arch { // Name.lowercased() {
+                case .x86_64: // amd64 x86_64 x86_64h
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin64")
@@ -725,7 +725,7 @@ public final class UserToolchain: Toolchain {
                         return path
                     }
 
-                case "i686":
+                case .x86: // i386 i486 i586 i686 i786 i886 i986
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin32")
@@ -733,7 +733,7 @@ public final class UserToolchain: Toolchain {
                         return path
                     }
 
-                case "armv7":
+                case .arm: // armv7 and many more
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin32a")
@@ -741,7 +741,7 @@ public final class UserToolchain: Toolchain {
                         return path
                     }
 
-                case "arm64":
+                case .aarch64: // aarch6 arm64
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin64a")

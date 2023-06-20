@@ -13,8 +13,7 @@
 //===----------------------------------------------------------------------===//
 //
 // Warning: This file has been copied with minimal modifications from
-// swift-driver to avoid a direct dependency (for now). Any modification to this
-// file, must first be made in the original file, then copied here.
+// swift-driver to avoid a direct dependency. See Vendor/README.md for details.
 //
 // Changes:
 // - Replaced usage of `\(_:or:)` string interpolation.
