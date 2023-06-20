@@ -10,7 +10,3 @@ implementation that can be utilized by both SwiftPM and SwiftDriver through a
 package. However, until we reach that point, it is important to keep the files
 in this directory up to date by incorporating any relevant additions from the
 original copies.
-
-Moreover, it is crucial to note that any modifications made to these files
-should be first applied to the original files in SwiftDriver, and then copied
-over to this directory to maintain synchronization.
