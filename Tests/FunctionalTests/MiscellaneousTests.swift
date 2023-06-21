@@ -205,7 +205,7 @@ class MiscellaneousTestCase: XCTestCase {
         #endif
         try fixture(name: "Miscellaneous/DistantFutureDeploymentTarget") { fixturePath in
             let hostTriple = try UserToolchain.default.triple
-            try executeSwiftBuild(fixturePath, Xswiftc: ["-target", "\(hostTriple.arch)-apple-macosx41.0"])
+            try executeSwiftBuild(fixturePath, Xswiftc: ["-target", "\(hostTriple.archName)-apple-macosx41.0"])
         }
     }
 
