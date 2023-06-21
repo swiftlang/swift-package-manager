@@ -2155,6 +2155,7 @@ class PackageGraphTests: XCTestCase {
             "tvos": "11.0",
             "driverkit": "19.0",
             "watchos": "4.0",
+            "visionos": "1.0",
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
@@ -2166,6 +2167,7 @@ class PackageGraphTests: XCTestCase {
             PackageModel.Platform.iOS: PlatformVersion("11.0"),
             PackageModel.Platform.tvOS: PlatformVersion("10.0"),
             PackageModel.Platform.watchOS: PlatformVersion("4.0"),
+            PackageModel.Platform.visionOS: PlatformVersion("1.0"),
         ]
 
         let expectedPlatformsForTests = customXCTestMinimumDeploymentTargets.reduce(into: [Platform : PlatformVersion]()) { partialResult, entry in
@@ -2404,6 +2406,7 @@ class PackageGraphTests: XCTestCase {
             "tvos": "11.0",
             "driverkit": "19.0",
             "watchos": "4.0",
+            "visionos": "1.0",
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
