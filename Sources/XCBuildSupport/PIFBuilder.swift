@@ -273,6 +273,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst] = package.platforms.deploymentTarget(for: .macCatalyst)
         settings[.TVOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .tvOS)
         settings[.WATCHOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .watchOS)
+        settings[.XROS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .visionOS)
         settings[.DRIVERKIT_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .driverKit)
         settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
         settings[.USE_HEADERMAP] = "NO"
@@ -430,6 +431,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS)
             settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS)
             settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS)
+            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .visionOS)
         }
 
         if product.type == .executable {

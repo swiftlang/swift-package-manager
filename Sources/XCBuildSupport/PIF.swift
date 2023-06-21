@@ -953,6 +953,7 @@ public enum PIF {
             case USE_HEADERMAP
             case USES_SWIFTPM_UNSAFE_FLAGS
             case WATCHOS_DEPLOYMENT_TARGET
+            case XROS_DEPLOYMENT_TARGET
             case MARKETING_VERSION
             case CURRENT_PROJECT_VERSION
             case SWIFT_EMIT_MODULE_INTERFACE
