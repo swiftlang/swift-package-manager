@@ -192,7 +192,7 @@ let package = Package(
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt", "Vendor/README.md"]
         ),
 
         .target(
