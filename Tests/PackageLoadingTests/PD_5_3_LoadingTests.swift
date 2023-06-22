@@ -507,6 +507,8 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         let content = """
             #if canImport(Glibc)
             import Glibc
+            #elseif canImport(Musl)
+            import Musl
             #elseif os(Windows)
             import MSVCRT
             import WinSDK

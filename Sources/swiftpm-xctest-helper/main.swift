@@ -140,6 +140,8 @@ do {
 import func ucrt.exit
 #elseif canImport(Glibc)
 import func Glibc.exit
+#elseif canImport(Musl)
+import func Musl.exit
 #endif
 print("Only macOS supported.")
 exit(1)

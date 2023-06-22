@@ -77,27 +77,22 @@ public final class Cancellator: Cancellable {
                 // Terminate all processes on receiving an interrupt signal.
                 try? self?.cancel(deadline: .now() + .seconds(30))
 
+                // Install the default signal handler.
+                var action = sigaction()
                 #if canImport(Darwin) || os(OpenBSD)
-                // Install the default signal handler.
-                var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL
-                sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
+                #elseif canImport(Musl)
+                action.__sa_handler.sa_handler = SIG_DFL
                 #elseif os(Android)
-                // Install the default signal handler.
-                var action = sigaction()
                 action.sa_handler = SIG_DFL
-                sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
                 #else
-                var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
                     to: sigaction.__Unnamed_union___sigaction_handler.self
                 )
+                #endif
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-                #endif
             }
             interruptSignalSource.resume()
             #endif
