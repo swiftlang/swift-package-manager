@@ -441,7 +441,7 @@ public final class SwiftTargetBuildDescription {
         args += self.buildParameters.indexStoreArguments(for: self.target)
         args += self.optimizationArguments
         args += self.testingArguments
-        args += ["-g"]
+
         args += ["-j\(self.buildParameters.workers)"]
         args += self.activeCompilationConditions
         args += self.additionalFlags
@@ -627,7 +627,7 @@ public final class SwiftTargetBuildDescription {
         result += ["-swift-version", self.swiftVersion.rawValue]
         result += self.optimizationArguments
         result += self.testingArguments
-        result += ["-g"]
+
         result += ["-j\(self.buildParameters.workers)"]
         result += self.activeCompilationConditions
         result += self.additionalFlags
@@ -686,7 +686,7 @@ public final class SwiftTargetBuildDescription {
         result += self.buildParameters.indexStoreArguments(for: self.target)
         result += self.optimizationArguments
         result += self.testingArguments
-        result += ["-g"]
+
         result += ["-j\(self.buildParameters.workers)"]
         result += self.activeCompilationConditions
         result += self.additionalFlags

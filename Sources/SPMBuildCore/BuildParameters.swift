@@ -52,6 +52,18 @@ public struct BuildParameters: Encodable {
         case thin
     }
 
+    /// Represents the debug information format.
+    ///
+    /// The debug information format controls the format of the debug information
+    /// that the compiler generates.  Some platforms support debug information
+    // formats other than DWARF.
+    public enum DebugInfoFormat: String, Encodable {
+        /// DWARF debug information format, the default format used by Swift.
+        case dwarf
+        /// CodeView debug information format, used on Windows.
+        case codeview
+    }
+
     /// Represents the debugging strategy.
     ///
     /// Swift binaries requires the swiftmodule files in order for lldb to work.
@@ -247,6 +259,8 @@ public struct BuildParameters: Encodable {
 
     public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
+    public var debugInfoFormat: DebugInfoFormat
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -276,7 +290,8 @@ public struct BuildParameters: Encodable {
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false,
-        linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil
+        linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
+        debugInfoFormat: DebugInfoFormat = .dwarf
     ) throws {
         let triple = try destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
@@ -285,7 +300,28 @@ public struct BuildParameters: Encodable {
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = try hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.triple = triple
-        self.flags = flags
+        switch debugInfoFormat {
+        case .dwarf:
+            var flags = flags
+            // DWARF requires lld as link.exe expects CodeView debug info.
+            self.flags = flags.merging(triple.isWindows() ? BuildFlags(
+                cCompilerFlags: ["-gdwarf"],
+                cxxCompilerFlags: ["-gdwarf"],
+                swiftCompilerFlags: ["-g", "-use-ld=lld"],
+                linkerFlags: ["-debug:dwarf"]
+            ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
+        case .codeview:
+            if !triple.isWindows() {
+                throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
+            }
+            var flags = flags
+            self.flags = flags.merging(BuildFlags(
+                cCompilerFlags: ["-g"],
+                cxxCompilerFlags: ["-g"],
+                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
+                linkerFlags: ["-debug"]
+            ))
+        }
         self.pkgConfigDirectories = pkgConfigDirectories
         self.architectures = architectures
         self.workers = workers
@@ -318,6 +354,7 @@ public struct BuildParameters: Encodable {
         self.colorizedOutput = colorizedOutput
         self.verboseOutput = verboseOutput
         self.linkTimeOptimizationMode = linkTimeOptimizationMode
+        self.debugInfoFormat = debugInfoFormat
     }
 
     public func withDestination(_ destinationTriple: Triple) throws -> BuildParameters {
