@@ -220,10 +220,7 @@ public final class ClangTargetBuildDescription {
             args += ["-fobjc-arc"]
         }
         args += try buildParameters.targetTripleArgs(for: target)
-        args += ["-g"]
-        if buildParameters.triple.isWindows() {
-            args += ["-gcodeview"]
-        }
+
         args += optimizationArguments
         args += activeCompilationConditions
         args += ["-fblocks"]
