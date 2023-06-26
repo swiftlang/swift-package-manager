@@ -25,7 +25,6 @@ public enum SwiftPM {
     case Registry
     case Test
     case Run
-    case XCTestHelper
 }
 
 extension SwiftPM {
@@ -42,8 +41,6 @@ extension SwiftPM {
             return "swift-test"
         case .Run:
             return "swift-run"
-        case .XCTestHelper:
-            return "swiftpm-xctest-helper"
         }
     }
 
