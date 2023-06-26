@@ -1215,6 +1215,8 @@ extension PIF.FileReference {
 
         case "xcassets":
             return "folder.assetcatalog"
+        case "xcstrings":
+            return "text.json.xcstrings"
         case "storyboard":
             return "file.storyboard"
         case "xib":
