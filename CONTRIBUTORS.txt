@@ -34,7 +34,6 @@ needs to be listed here.
 - Alexis Laferrière <alaf@apple.com>
 - Anders Bertelrud <anders@apple.com>
 - Andreas Koslowski <andreas@dock13.com>
-- Andrew Bennett <635596+therealbnut@users.noreply.github.com>
 - Andrew Carter <acarter@flipboard.com>
 - Andrew Clark <acdlite@me.com>
 - Angelo Villegas <gelo.web@gmail.com>
@@ -424,6 +423,7 @@ needs to be listed here.
 - Šimon Javora <s.javora@me.com>
 - ✪ vi4m Marcin Kliks <vi4m@users.noreply.github.com>
 - 冀卓疌 <55120045+WowbaggersLiquidLunch@users.noreply.github.com>
+
 
 **Updating this list**
 
