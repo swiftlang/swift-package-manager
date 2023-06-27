@@ -158,15 +158,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += ["-v"]
         }
 
-        // Pass `-g` during a *release* build so the Swift driver emits a dSYM file for the binary.
-        if self.buildParameters.configuration == .release {
-            if self.buildParameters.triple.isWindows() {
-                args += ["-Xlinker", "-debug"]
-            } else {
-                args += ["-g"]
-            }
-        }
-
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !self.libraryBinaryPaths.isEmpty {
             args += ["-F", self.buildParameters.buildPath.pathString]

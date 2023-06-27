@@ -504,8 +504,11 @@ public struct BuildOptions: ParsableArguments {
         case thin
     }
 
+    /// See `BuildParameters.DebugInfoFormat` for details.
     public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+        /// See `BuildParameters.DebugInfoFormat.dwarf` for details.
         case dwarf
+        /// See `BuildParameters.DebugInfoFormat.codeview` for details.
         case codeview
     }
 }

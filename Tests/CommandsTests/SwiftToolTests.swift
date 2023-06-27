@@ -289,11 +289,11 @@ final class SwiftToolTests: CommandsTestCase {
         // Windows, this would fail otherwise as CodeView is supported on the
         // native host.
         let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
-        let stream = BufferedOutputByteStream()
-        let unsupportedCodeView = try SwiftTool.createSwiftToolForTest(outputStream: stream, options: unsupportedCodeViewOptions)
+        let unsupportedCodeView = try SwiftTool.createSwiftToolForTest(options: unsupportedCodeViewOptions)
 
-        XCTAssertNotNil(try? unsupportedCodeView.buildParameters())
-        XCTAssertMatch(stream.bytes.validDescription, .contains("error: CodeView debug information is currently not supported for this platform"))
+        XCTAssertThrowsError(try unsupportedCodeView.buildParameters()) {
+            XCTAssertEqual($0 as? StringError, StringError("CodeView debug information is currently not supported on linux"))
+        }
     }
 }
 
