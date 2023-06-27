@@ -34,7 +34,7 @@ needs to be listed here.
 - Alexis Laferrière <alaf@apple.com>
 - Anders Bertelrud <anders@apple.com>
 - Andreas Koslowski <andreas@dock13.com>
-- Andrew Bennett <cacoyi@gmail.com>
+- Andrew Bennett <635596+therealbnut@users.noreply.github.com>
 - Andrew Carter <acarter@flipboard.com>
 - Andrew Clark <acdlite@me.com>
 - Angelo Villegas <gelo.web@gmail.com>
@@ -417,7 +417,6 @@ needs to be listed here.
 - swiftix <swiftix@users.noreply.github.com>
 - t_hayashi <t.hayashi0077+github@gmail.com>
 - thecb4 <cavelle@thecb4.io>
-- therealbnut <andrew.charles.bennett@gmail.com>
 - twobitunicorn <joseph.ruskiewicz@gmail.com>
 - uhooi <the_uhooi@yahoo.co.jp>
 - yonihemi <jonathan@hemi.dev>
