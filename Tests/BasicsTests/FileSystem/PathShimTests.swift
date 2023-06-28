@@ -38,6 +38,12 @@ class WalkTests : XCTestCase {
             "\(root)/bin",
             "\(root)/xbin"
         ]
+      #elseif os(Windows)
+        let root = ProcessInfo.processInfo.environment["SystemRoot"]!
+        var expected: [AbsolutePath] = [
+          "\(root)/System32",
+          "\(root)/SysWOW64",
+        ]
       #else
         let root = ""
         var expected: [AbsolutePath] = [
@@ -52,6 +58,8 @@ class WalkTests : XCTestCase {
             }
           #if os(Android)
             XCTAssertEqual(3, x.components.count)
+          #elseif os(Windows)
+            XCTAssertEqual((root as NSString).pathComponents.count + 2, x.components.count)
           #else
             XCTAssertEqual(2, x.components.count)
           #endif
