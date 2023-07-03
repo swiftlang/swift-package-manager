@@ -94,7 +94,7 @@ public final class SwiftTargetBuildDescription {
             let objectFileExtension = ltoEnabled ? "bc" : "o"
             return try relativeSources.map {
                 try AbsolutePath(
-                    validating: "\($0.pathString).\(objectFileExtension)",
+                    validating: "\($0.basename).\(objectFileExtension)",
                     relativeTo: self.tempsPath)
             }
         }
