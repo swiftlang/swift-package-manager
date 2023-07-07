@@ -25,12 +25,12 @@ protocol SwiftSDKSubcommand: AsyncParsableCommand {
 
     /// Run a command operating on cross-compilation destinations, passing it required configuration values.
     /// - Parameters:
-    ///   - buildTimeTriple: triple of the machine this command is running on.
-    ///   - destinationsDirectory: directory containing destination artifact bundles and their configuration.
+    ///   - hostTriple: triple of the machine this command is running on.
+    ///   - swiftSDKsDirectory: directory containing Swift SDK artifact bundles and their configuration.
     ///   - observabilityScope: observability scope used for logging.
     func run(
-        buildTimeTriple: Triple,
-        _ destinationsDirectory: AbsolutePath,
+        hostTriple: Triple,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws
 }
@@ -70,7 +70,7 @@ extension SwiftSDKSubcommand {
 
         var commandError: Error? = nil
         do {
-            try await self.run(buildTimeTriple: triple, destinationsDirectory, observabilityScope)
+            try await self.run(hostTriple: triple, destinationsDirectory, observabilityScope)
             if observabilityScope.errorsReported {
                 throw ExitCode.failure
             }

@@ -3601,7 +3601,7 @@ final class BuildPlanTests: XCTestCase {
         func cliFlag(tool: Toolset.KnownTool) -> String { "-\(tool)-flag-from-cli" }
         func cliFlag(tool: Toolset.KnownTool) -> StringPattern { .equal(cliFlag(tool: tool)) }
 
-        let toolSet = Toolset(
+        let toolset = Toolset(
             knownTools: [
                 .cCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cCompiler)]),
                 .cxxCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cxxCompiler)]),
@@ -3609,14 +3609,13 @@ final class BuildPlanTests: XCTestCase {
                 .linker: .init(extraCLIOptions: [jsonFlag(tool: .linker)]),
             ],
             rootPaths: try UserToolchain.default.destination.toolset.rootPaths)
-        let runtimeTriple = try Triple("armv7em-unknown-none-macho")
+        let targetTriple = try Triple("armv7em-unknown-none-macho")
         let destination = try Destination(
-            runTimeTriple: runtimeTriple,
+            targetTriple: targetTriple,
             properties: .init(
                 sdkRootPath: "/fake/sdk",
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"),
-            toolset: toolSet,
-            destinationDirectory: nil)
+            toolset: toolset)
         let toolchain = try UserToolchain(destination: destination)
         let buildParameters = mockBuildParameters(
             toolchain: toolchain,
@@ -3625,7 +3624,7 @@ final class BuildPlanTests: XCTestCase {
                 cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
                 swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
                 linkerFlags: [cliFlag(tool: .linker)]),
-            destinationTriple: runtimeTriple)
+            destinationTriple: targetTriple)
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
@@ -3749,11 +3748,11 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let runtimeTriple = try UserToolchain.default.triple
+        let targetTriple = try UserToolchain.default.triple
         let sdkIncludeSearchPath = "/usr/lib/swift_static/none/include"
         let sdkLibrarySearchPath = "/usr/lib/swift_static/none/lib"
         let destination = try Destination(
-            runTimeTriple: runtimeTriple,
+            targetTriple: targetTriple,
             properties: .init(
                 sdkRootPath: "/fake/sdk",
                 includeSearchPaths: [sdkIncludeSearchPath],

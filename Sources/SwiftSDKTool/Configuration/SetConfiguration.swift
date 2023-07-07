@@ -67,14 +67,14 @@ struct SetConfiguration: ConfigurationSubcommand {
         identifiers.
         """
     )
-    var destinationID: String
+    var sdkID: String
 
     @Argument(help: "The run-time triple of the destination to configure.")
-    var runTimeTriple: String
+    var targetTriple: String
 
     func run(
-        buildTimeTriple: Triple,
-        runTimeTriple: Triple,
+        hostTriple: Triple,
+        targetTriple: Triple,
         _ destination: Destination,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
@@ -123,7 +123,7 @@ struct SetConfiguration: ConfigurationSubcommand {
         guard !updatedProperties.isEmpty else {
             observabilityScope.emit(
                 error: """
-                No properties of destination `\(destinationID) for run-time triple `\(runTimeTriple)` were updated \
+                No properties of destination `\(sdkID) for run-time triple `\(targetTriple)` were updated \
                 since none were specified. Pass `--help` flag to see the list of all available properties.
                 """
             )
@@ -132,12 +132,12 @@ struct SetConfiguration: ConfigurationSubcommand {
 
         var destination = destination
         destination.pathsConfiguration = configuration
-        try configurationStore.updateConfiguration(destinationID: destinationID, destination: destination)
+        try configurationStore.updateConfiguration(sdkID: sdkID, destination: destination)
 
         observabilityScope.emit(
             info: """
-            These properties of destination `\(destinationID) for run-time triple \
-            `\(runTimeTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
+            These properties of destination `\(sdkID) for run-time triple \
+            `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
             """
         )
     }

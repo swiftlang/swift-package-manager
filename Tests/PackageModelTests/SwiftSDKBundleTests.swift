@@ -117,7 +117,7 @@ final class SwiftSDKBundleTests: XCTestCase {
 
             XCTFail("Function expected to throw")
         } catch {
-            guard let error = error as? DestinationError else {
+            guard let error = error as? SwiftSDKError else {
                 XCTFail("Unexpected error type")
                 return
             }
@@ -141,13 +141,13 @@ final class SwiftSDKBundleTests: XCTestCase {
 
             XCTFail("Function expected to throw")
         } catch {
-            guard let error = error as? DestinationError else {
+            guard let error = error as? SwiftSDKError else {
                 XCTFail("Unexpected error type")
                 return
             }
 
             switch error {
-            case .destinationBundleAlreadyInstalled(let installedBundleName):
+            case .swiftSDKBundleAlreadyInstalled(let installedBundleName):
                 XCTAssertEqual(bundles[0].name, installedBundleName)
             default:
                 XCTFail("Unexpected error value")
@@ -165,13 +165,13 @@ final class SwiftSDKBundleTests: XCTestCase {
 
              XCTFail("Function expected to throw")
          } catch {
-            guard let error = error as? DestinationError else {
+            guard let error = error as? SwiftSDKError else {
                 XCTFail("Unexpected error type")
                 return
             }
 
             switch error {
-            case .destinationArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
+            case .swiftSDKArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
                 XCTAssertEqual(bundles[0].name, installedBundleName)
                 XCTAssertEqual(bundles[1].name, newBundleName)
                 XCTAssertEqual(artifactID, testArtifactID)

@@ -32,7 +32,7 @@ public struct RemoveSwiftSDK: SwiftSDKSubcommand {
     public init() {}
 
     func run(
-        buildTimeTriple: Triple,
+        hostTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws {
