@@ -1130,56 +1130,12 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        try expectedSigningEntities.forEach { identity, expectedSigningEntity in
-            if let package = packageGraph.packages.first(where: { $0.identity == identity }) {
-                if let actualSigningEntity = package.registryMetadata?.signature?.signedBy {
-                    if actualSigningEntity != expectedSigningEntity {
-                        throw SigningError.mismatchedSigningEntity(
-                            package: identity,
-                            expected: expectedSigningEntity,
-                            actual: actualSigningEntity
-                        )
-                    }
-                } else {
-                    throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
-                }
-            } else {
-                if let mirror = self.mirrors.mirror(for: identity.description) {
-                    let mirroredIdentity = PackageIdentity.plain(mirror)
-                    if mirroredIdentity.isRegistry {
-                        if let package = packageGraph.packages.first(where: { $0.identity == mirroredIdentity }) {
-                            if let actualSigningEntity = package.registryMetadata?.signature?.signedBy {
-                                if actualSigningEntity != expectedSigningEntity {
-                                    throw SigningError.mismatchedSigningEntity(
-                                        package: identity,
-                                        expected: expectedSigningEntity,
-                                        actual: actualSigningEntity
-                                    )
-                                }
-                            } else {
-                                throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
-                            }
-                        } else {
-                            // Unsure if this case is reachable in practice.
-                            throw SigningError.expectedIdentityNotFound(package: identity)
-                        }
-                    } else {
-                        throw SigningError.expectedSignedMirroredToSourceControl(package: identity, expected: expectedSigningEntity)
-                    }
-                } else {
-                    throw SigningError.expectedIdentityNotFound(package: identity)
-                }
-            }
-        }
+        try self.validateSignatures(
+            packageGraph: packageGraph,
+            expectedSigningEntities: expectedSigningEntities
+        )
 
         return packageGraph
-    }
-
-    public enum SigningError: Swift.Error {
-        case expectedIdentityNotFound(package: PackageIdentity)
-        case expectedSignedMirroredToSourceControl(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
-        case mismatchedSigningEntity(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity, actual: RegistryReleaseMetadata.SigningEntity)
-        case unsigned(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
     }
 
     @discardableResult
@@ -3551,6 +3507,59 @@ extension Workspace {
          )
      }
  }
+
+// MARK: - Signatures
+
+extension Workspace {
+    private func validateSignatures(
+        packageGraph: PackageGraph,
+        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity]
+    ) throws {
+        try expectedSigningEntities.forEach { identity, expectedSigningEntity in
+            if let package = packageGraph.packages.first(where: { $0.identity == identity }) {
+                guard let actualSigningEntity = package.registryMetadata?.signature?.signedBy else {
+                    throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
+                }
+                if actualSigningEntity != expectedSigningEntity {
+                    throw SigningError.mismatchedSigningEntity(
+                        package: identity,
+                        expected: expectedSigningEntity,
+                        actual: actualSigningEntity
+                    )
+                }
+            } else {
+                guard let mirror = self.mirrors.mirror(for: identity.description) else {
+                    throw SigningError.expectedIdentityNotFound(package: identity)
+                }
+                let mirroredIdentity = PackageIdentity.plain(mirror)
+                guard mirroredIdentity.isRegistry else {
+                    throw SigningError.expectedSignedMirroredToSourceControl(package: identity, expected: expectedSigningEntity)
+                }
+                guard let package = packageGraph.packages.first(where: { $0.identity == mirroredIdentity }) else {
+                    // Unsure if this case is reachable in practice.
+                    throw SigningError.expectedIdentityNotFound(package: identity)
+                }
+                guard let actualSigningEntity = package.registryMetadata?.signature?.signedBy else {
+                    throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
+                }
+                if actualSigningEntity != expectedSigningEntity {
+                    throw SigningError.mismatchedSigningEntity(
+                        package: identity,
+                        expected: expectedSigningEntity,
+                        actual: actualSigningEntity
+                    )
+                }
+            }
+        }
+    }
+    
+    public enum SigningError: Swift.Error {
+        case expectedIdentityNotFound(package: PackageIdentity)
+        case expectedSignedMirroredToSourceControl(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
+        case mismatchedSigningEntity(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity, actual: RegistryReleaseMetadata.SigningEntity)
+        case unsigned(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
+    }
+}
 
 // MARK: - Utility extensions
 
