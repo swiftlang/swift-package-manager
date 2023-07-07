@@ -53,14 +53,14 @@ struct ResetConfiguration: ConfigurationSubcommand {
         identifiers.
         """
     )
-    var destinationID: String
+    var sdkID: String
 
     @Argument(help: "A run-time triple of the destination specified by `destination-id` identifier string.")
-    var runTimeTriple: String
+    var targetTriple: String
 
     func run(
-        buildTimeTriple: Triple,
-        runTimeTriple: Triple,
+        hostTriple: Triple,
+        targetTriple: Triple,
         _ destination: Destination,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
@@ -107,27 +107,27 @@ struct ResetConfiguration: ConfigurationSubcommand {
         }
 
         if shouldResetAll {
-            if try !configurationStore.resetConfiguration(destinationID: destinationID, runTimeTriple: runTimeTriple) {
+            if try !configurationStore.resetConfiguration(sdkID: sdkID, targetTriple: targetTriple) {
                 observabilityScope.emit(
-                    warning: "No configuration for destination \(destinationID)"
+                    warning: "No configuration for destination \(sdkID)"
                 )
             } else {
                 observabilityScope.emit(
                     info: """
-                    All configuration properties of destination `\(destinationID) for run-time triple \
-                    `\(runTimeTriple)` were successfully reset.
+                    All configuration properties of destination `\(sdkID) for run-time triple \
+                    `\(targetTriple)` were successfully reset.
                     """
                 )
             }
         } else {
             var destination = destination
             destination.pathsConfiguration = configuration
-            try configurationStore.updateConfiguration(destinationID: destinationID, destination: destination)
+            try configurationStore.updateConfiguration(sdkID: sdkID, destination: destination)
 
             observabilityScope.emit(
                 info: """
-                These properties of destination `\(destinationID) for run-time triple \
-                `\(runTimeTriple)` were successfully reset: \(resetProperties.joined(separator: ", ")).
+                These properties of destination `\(sdkID) for run-time triple \
+                `\(targetTriple)` were successfully reset: \(resetProperties.joined(separator: ", ")).
                 """
             )
         }

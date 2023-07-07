@@ -34,14 +34,14 @@ struct ShowConfiguration: ConfigurationSubcommand {
         identifiers.
         """
     )
-    var destinationID: String
+    var sdkID: String
 
     @Argument(help: "The run-time triple of the destination to configure.")
-    var runTimeTriple: String
+    var targetTriple: String
 
     func run(
-        buildTimeTriple: Triple,
-        runTimeTriple: Triple,
+        hostTriple: Triple,
+        targetTriple: Triple,
         _ destination: Destination,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,

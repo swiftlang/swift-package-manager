@@ -17,63 +17,63 @@ import PackageModel
 import struct TSCBasic.AbsolutePath
 
 protocol ConfigurationSubcommand: SwiftSDKSubcommand {
-    /// An identifier of an already installed destination.
-    var destinationID: String { get }
+    /// An identifier of an already installed Swift SDK.
+    var sdkID: String { get }
 
-    /// A run-time triple of the destination specified by `destinationID` identifier string.
-    var runTimeTriple: String { get }
+    /// A target triple of the destination.
+    var targetTriple: String { get }
 
     /// Run a command related to configuration of cross-compilation destinations, passing it required configuration
     /// values.
     /// - Parameters:
-    ///   - buildTimeTriple: triple of the machine this command is running on.
-    ///   - runTimeTriple: triple of the machine on which cross-compiled code will run on.
+    ///   - hostTriple: triple of the machine this command is running on.
+    ///   - targetTriple: triple of the machine on which cross-compiled code will run on.
     ///   - destination: destination configuration fetched that matches currently set `destinationID` and
-    ///   `runTimeTriple`.
+    ///   `targetTriple`.
     ///   - configurationStore: storage for configuration properties that this command operates on.
-    ///   - destinationsDirectory: directory containing destination artifact bundles and their configuration.
+    ///   - swiftSDKsDirectory: directory containing Swift SDK artifact bundles and their configuration.
     ///   - observabilityScope: observability scope used for logging.
     func run(
-        buildTimeTriple: Triple,
-        runTimeTriple: Triple,
+        hostTriple: Triple,
+        targetTriple: Triple,
         _ destination: Destination,
         _ configurationStore: SwiftSDKConfigurationStore,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws
 }
 
 extension ConfigurationSubcommand {
     func run(
-        buildTimeTriple: Triple,
-        _ destinationsDirectory: AbsolutePath,
+        hostTriple: Triple,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
         let configurationStore = try SwiftSDKConfigurationStore(
-            buildTimeTriple: buildTimeTriple,
-            destinationsDirectoryPath: destinationsDirectory,
+            hostTimeTriple: hostTriple,
+            swiftSDKsDirectoryPath: swiftSDKsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
-        let runTimeTriple = try Triple(self.runTimeTriple)
+        let targetTriple = try Triple(self.targetTriple)
 
         guard let destination = try configurationStore.readConfiguration(
-            destinationID: destinationID,
-            runTimeTriple: runTimeTriple
+            sdkID: sdkID,
+            targetTriple: targetTriple
         ) else {
-            throw DestinationError.destinationNotFound(
-                artifactID: destinationID,
-                builtTimeTriple: buildTimeTriple,
-                runTimeTriple: runTimeTriple
+            throw SwiftSDKError.swiftSDKNotFound(
+                artifactID: sdkID,
+                hostTriple: hostTriple,
+                targetTriple: targetTriple
             )
         }
 
         try run(
-            buildTimeTriple: buildTimeTriple,
-            runTimeTriple: runTimeTriple,
+            hostTriple: hostTriple,
+            targetTriple: targetTriple,
             destination,
             configurationStore,
-            destinationsDirectory,
+            swiftSDKsDirectory,
             observabilityScope
         )
     }

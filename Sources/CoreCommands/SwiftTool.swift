@@ -737,7 +737,7 @@ public final class SwiftTool {
                 {
                     destination = matchingDestination
                 } else {
-                    return .failure(DestinationError.noDestinationsDecoded(customDestination))
+                    return .failure(SwiftSDKError.noSwiftSDKDecoded(customDestination))
                 }
             } else if let triple = options.build.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
