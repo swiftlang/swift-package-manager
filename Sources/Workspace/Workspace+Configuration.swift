@@ -197,6 +197,8 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
+        public static var resolvedFileName = "Package.resolved"
+
         public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             rootPath.appending(".build")
         }
@@ -206,7 +208,7 @@ extension Workspace {
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending("Package.resolved")
+            rootPath.appending(Self.resolvedFileName)
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {

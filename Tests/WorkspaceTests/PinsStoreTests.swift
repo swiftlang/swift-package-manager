@@ -43,12 +43,12 @@ final class PinsStoreTests: XCTestCase {
             
             // Pins file should not be created right now.
             XCTAssert(!fs.exists(pinsFile))
-            XCTAssert(store.pins.map{$0}.isEmpty)
+            XCTAssert(store.pins.isEmpty)
 
             let revision = UUID().uuidString
             let state = PinsStore.PinState.version(v1, revision: revision)
             store.pin(packageRef: fooRef, state: state)
-            try store.saveState(toolsVersion: ToolsVersion.current)
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
             XCTAssert(fs.exists(pinsFile))
 
@@ -56,7 +56,7 @@ final class PinsStoreTests: XCTestCase {
             let store2 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             // Test basics on the store.
             for s in [store, store2] {
-                XCTAssert(s.pins.map{$0}.count == 1)
+                XCTAssert(s.pins.count == 1)
                 XCTAssertEqual(s.pins[bar], nil)
                 let fooPin = s.pins[foo]!
                 XCTAssertEqual(fooPin.packageRef, fooRef)
@@ -71,10 +71,10 @@ final class PinsStoreTests: XCTestCase {
                 state: .version("1.0.2", revision: revision)
             )
             store.pin(packageRef: barRef, state: state)
-            try store.saveState(toolsVersion: ToolsVersion.current)
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            XCTAssert(store.pins.map{$0}.count == 2)
+            XCTAssert(store.pins.count == 2)
 
         }
 
@@ -90,7 +90,7 @@ final class PinsStoreTests: XCTestCase {
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .version("1.2.3", revision: revision)
             )
-            try store.saveState(toolsVersion: ToolsVersion.current)
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let pin = store.pins[identity]!
@@ -110,7 +110,7 @@ final class PinsStoreTests: XCTestCase {
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .branch(name: "develop", revision: revision)
             )
-            try store.saveState(toolsVersion: ToolsVersion.current)
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let pin = store.pins[identity]!
@@ -130,7 +130,7 @@ final class PinsStoreTests: XCTestCase {
                 packageRef: .localSourceControl(identity: identity, path: path),
                 state: .revision(revision)
             )
-            try store.saveState(toolsVersion: ToolsVersion.current)
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let pin = store.pins[identity]!
@@ -148,7 +148,7 @@ final class PinsStoreTests: XCTestCase {
                 packageRef: .registry(identity: identity),
                 state: .version("1.2.3", revision: .none)
             )
-            try store.saveState(toolsVersion: ToolsVersion.current)
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let pin = store.pins[identity]!
@@ -247,7 +247,7 @@ final class PinsStoreTests: XCTestCase {
         try fs.writeFileContents(pinsFile, string: "{ \"version\": \(version) }");
 
         XCTAssertThrowsError(try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
-            XCTAssertEqual("\(error)", "Package.resolved file is corrupted or malformed; fix or delete the file to continue: unknown 'PinsStorage' version '\(version)' at '\(pinsFile)'.")
+            XCTAssertEqual("\(error)", "\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: unknown 'PinsStorage' version '\(version)' at '\(pinsFile)'.")
         })
 
     }
@@ -259,7 +259,7 @@ final class PinsStoreTests: XCTestCase {
         try fs.writeFileContents(pinsFile, string: "boom")
 
         XCTAssertThrowsError(try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
-            XCTAssertMatch("\(error)", .contains("Package.resolved file is corrupted or malformed; fix or delete the file to continue"))
+            XCTAssertMatch("\(error)", .contains("\(pinsFile) file is corrupted or malformed; fix or delete the file to continue"))
         })
     }
 
@@ -268,7 +268,7 @@ final class PinsStoreTests: XCTestCase {
         let pinsFile = AbsolutePath("/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-        try store.saveState(toolsVersion: ToolsVersion.current)
+        try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssertFalse(fs.exists(pinsFile))
 
         let fooPath = AbsolutePath("/foo")
@@ -279,11 +279,11 @@ final class PinsStoreTests: XCTestCase {
 
         XCTAssert(!fs.exists(pinsFile))
 
-        try store.saveState(toolsVersion: ToolsVersion.current)
+        try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssert(fs.exists(pinsFile))
 
         store.unpinAll()
-        try store.saveState(toolsVersion: ToolsVersion.current)
+        try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssertFalse(fs.exists(pinsFile))
     }
 
@@ -322,7 +322,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssertNil(store.pins[barMirroredIdentity])
         XCTAssertEqual(store.pins[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
 
-        try store.saveState(toolsVersion: ToolsVersion.current)
+        try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssert(fileSystem.exists(pinsFile))
 
         let content: String = try fileSystem.readFileContents(pinsFile)
@@ -368,7 +368,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(store1.pins.count == 1)
         XCTAssertEqual(store1.pins[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
 
-        try store1.saveState(toolsVersion: ToolsVersion.current)
+        try store1.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssert(fileSystem.exists(pinsFile))
 
         let content: String = try fileSystem.readFileContents(pinsFile)

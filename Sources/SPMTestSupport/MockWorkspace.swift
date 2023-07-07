@@ -277,7 +277,7 @@ public final class MockWorkspace {
             location: .init(
                 scratchDirectory: self.sandbox.appending(".build"),
                 editsDirectory: self.sandbox.appending("edits"),
-                resolvedVersionsFile: self.sandbox.appending("Package.resolved"),
+                resolvedVersionsFile: Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.sandbox),
                 localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),
                 sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
                 sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,
@@ -317,9 +317,14 @@ public final class MockWorkspace {
 
     private var _workspace: Workspace?
 
-    public func closeWorkspace(resetState: Bool = true) throws {
+    public func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) throws {
         if resetState {
             try self._workspace?.resetState()
+        }
+        if resetResolvedFile {
+            try self._workspace.map {
+                try self.fileSystem.removeFileTree($0.location.resolvedVersionsFile)
+            }
         }
         self._workspace = nil
     }

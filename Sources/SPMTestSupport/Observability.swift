@@ -142,6 +142,23 @@ public func testDiagnostics(
     }
 }
 
+public func testPartialDiagnostics(
+    _ diagnostics: [Basics.Diagnostic],
+    minSeverity: Basics.Diagnostic.Severity,
+    file: StaticString = #file,
+    line: UInt = #line,
+    handler: (DiagnosticsTestResult) throws -> Void
+) {
+    let diagnostics = diagnostics.filter { $0.severity >= minSeverity }
+    let testResult = DiagnosticsTestResult(diagnostics)
+
+    do {
+        try handler(testResult)
+    } catch {
+        XCTFail("error \(String(describing: error))", file: file, line: line)
+    }
+}
+
 /// Helper to check diagnostics in the engine.
 public class DiagnosticsTestResult {
     fileprivate var uncheckedDiagnostics: [Basics.Diagnostic]
