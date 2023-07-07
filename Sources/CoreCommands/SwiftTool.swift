@@ -207,7 +207,7 @@ public final class SwiftTool {
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath?
 
-    /// Path to the cross-compilation destinations directory.
+    /// Path to the cross-compilation Swift SDKs directory.
     public let sharedSwiftSDKsDirectory: AbsolutePath?
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
@@ -592,8 +592,8 @@ public final class SwiftTool {
     }
 
     /// Returns the user toolchain to compile the actual product.
-    public func getDestinationToolchain() throws -> UserToolchain {
-        try _destinationToolchain.get()
+    public func getTargetToolchain() throws -> UserToolchain {
+        try _targetToolchain.get()
     }
 
     public func getHostToolchain() throws -> UserToolchain {
@@ -670,28 +670,28 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let destinationToolchain = try self.getDestinationToolchain()
-            let destinationTriple = destinationToolchain.triple
+            let targetToolchain = try self.getTargetToolchain()
+            let targetTriple = targetToolchain.targetTriple
 
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = self.scratchDirectory.appending(
-                component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+                component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
             )
 
             return try BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
-                toolchain: destinationToolchain,
-                destinationTriple: destinationTriple,
+                toolchain: targetToolchain,
+                targetTriple: targetTriple,
                 flags: options.build.buildFlags,
                 pkgConfigDirectories: options.locations.pkgConfigDirectories,
                 architectures: options.build.architectures,
                 workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], toolchain: destinationToolchain, fileSystem: self.fileSystem
+                    flags: ["entry-point-function-name"], toolchain: targetToolchain, fileSystem: self.fileSystem
                 ),
                 sanitizers: options.build.enabledSanitizers,
                 enableCodeCoverage: false, // set by test commands when appropriate
@@ -712,38 +712,38 @@ public final class SwiftTool {
         })
     }()
 
-    /// Lazily compute the destination toolchain.
-    private lazy var _destinationToolchain: Result<UserToolchain, Swift.Error> = {
-        var destination: Destination
-        let hostDestination: Destination
+    /// Lazily compute the target toolchain.
+    private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
+        var swiftSDK: SwiftSDK
+        let hostSwiftSDK: SwiftSDK
         do {
             let hostToolchain = try _hostToolchain.get()
-            hostDestination = hostToolchain.destination
+            hostSwiftSDK = hostToolchain.swiftSDK
             let hostTriple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {
-                let destinations = try Destination.decode(
+                let swiftSDKs = try SwiftSDK.decode(
                     fromFile: customDestination,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
-                if destinations.count == 1 {
-                    destination = destinations[0]
-                } else if destinations.count > 1,
+                if swiftSDKs.count == 1 {
+                    swiftSDK = swiftSDKs[0]
+                } else if swiftSDKs.count > 1,
                           let triple = options.build.customCompileTriple,
-                          let matchingDestination = destinations.first(where: { $0.targetTriple == triple })
+                          let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
                 {
-                    destination = matchingDestination
+                    swiftSDK = matchingSDK
                 } else {
                     return .failure(SwiftSDKError.noSwiftSDKDecoded(customDestination))
                 }
             } else if let triple = options.build.customCompileTriple,
-                      let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
+                      let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
             {
-                destination = targetDestination
+                swiftSDK = targetSwiftSDK
             } else if let swiftSDKSelector = options.build.swiftSDKSelector {
-                destination = try SwiftSDKBundle.selectBundle(
+                swiftSDK = try SwiftSDKBundle.selectBundle(
                     fromBundlesAt: sharedSwiftSDKsDirectory,
                     fileSystem: fileSystem,
                     matching: swiftSDKSelector,
@@ -752,35 +752,35 @@ public final class SwiftTool {
                 )
             } else {
                 // Otherwise use the host toolchain.
-                destination = hostDestination
+                swiftSDK = hostSwiftSDK
             }
         } catch {
             return .failure(error)
         }
         // Apply any manual overrides.
         if let triple = options.build.customCompileTriple {
-            destination.targetTriple = triple
+            swiftSDK.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
-            destination.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
+            swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
-            destination.pathsConfiguration.sdkRootPath = sdk
+            swiftSDK.pathsConfiguration.sdkRootPath = sdk
         }
-        destination.architectures = options.build.architectures
+        swiftSDK.architectures = options.build.architectures
 
         // Check if we ended up with the host toolchain.
-        if hostDestination == destination {
+        if hostSwiftSDK == swiftSDK {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(destination: destination) })
+        return Result(catching: { try UserToolchain(swiftSDK: swiftSDK) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
-            try UserToolchain(destination: Destination.hostDestination(
+            try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(
                 originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()

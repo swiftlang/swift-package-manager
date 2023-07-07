@@ -75,7 +75,7 @@ struct SetConfiguration: ConfigurationSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: Destination,
+        _ destination: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
@@ -132,7 +132,7 @@ struct SetConfiguration: ConfigurationSubcommand {
 
         var destination = destination
         destination.pathsConfiguration = configuration
-        try configurationStore.updateConfiguration(sdkID: sdkID, destination: destination)
+        try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: destination)
 
         observabilityScope.emit(
             info: """

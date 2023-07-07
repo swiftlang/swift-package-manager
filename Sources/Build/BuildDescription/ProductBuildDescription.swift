@@ -115,11 +115,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .debug:
             return []
         case .release:
-            if self.buildParameters.triple.isApple() {
+            if self.buildParameters.targetTriple.isApple() {
                 return ["-Xlinker", "-dead_strip"]
-            } else if self.buildParameters.triple.isWindows() {
+            } else if self.buildParameters.targetTriple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
-            } else if self.buildParameters.triple.arch == .wasm32 {
+            } else if self.buildParameters.targetTriple.arch == .wasm32 {
                 // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
                 // during GC, and it removes Swift metadata sections like swift5_protocols
                 // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
@@ -137,7 +137,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     /// The arguments to the librarian to create a static library.
     public func archiveArguments() throws -> [String] {
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
-        let triple = self.buildParameters.triple
+        let triple = self.buildParameters.targetTriple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
             return try [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
         }
@@ -206,7 +206,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += self.deadStripArguments
         case .library(.dynamic):
             args += ["-emit-library"]
-            if self.buildParameters.triple.isDarwin() {
+            if self.buildParameters.targetTriple.isDarwin() {
                 let relativePath = try "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
@@ -214,9 +214,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             if self.buildParameters.shouldLinkStaticSwiftStdlib {
-                if self.buildParameters.triple.isDarwin() {
+                if self.buildParameters.targetTriple.isDarwin() {
                     self.observabilityScope.emit(.swiftBackDeployError)
-                } else if self.buildParameters.triple.isSupportingStaticStdlib {
+                } else if self.buildParameters.targetTriple.isSupportingStaticStdlib {
                     args += ["-static-stdlib"]
                 }
             }
@@ -245,9 +245,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product.
-        if self.buildParameters.triple.isLinux() {
+        if self.buildParameters.targetTriple.isLinux() {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
-        } else if self.buildParameters.triple.isDarwin() {
+        } else if self.buildParameters.targetTriple.isDarwin() {
             let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
             args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
         }
@@ -267,7 +267,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
-            if useStdlibRpath, self.buildParameters.triple.isDarwin(),
+            if useStdlibRpath, self.buildParameters.targetTriple.isDarwin(),
                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
                macOSSupportedPlatform.version.major < 12
             {

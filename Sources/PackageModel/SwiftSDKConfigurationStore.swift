@@ -24,10 +24,10 @@ public final class SwiftSDKConfigurationStore {
     /// `~/.swiftpm/swift-sdks` or a directory to which `~/.swiftpm/swift-sdks` symlinks to.
     private let swiftSDKsDirectoryPath: AbsolutePath
 
-    /// Path to the directory in which destination configuration files are stored.
+    /// Path to the directory in which Swift SDK configuration files are stored.
     private let configurationDirectoryPath: AbsolutePath
 
-    /// File system that stores destination configuration and contains
+    /// File system that stores Swift SDK configuration and contains
     /// ``SwiftSDKConfigurationStore//configurationDirectoryPath``.
     private let fileSystem: FileSystem
 
@@ -75,9 +75,9 @@ public final class SwiftSDKConfigurationStore {
 
     public func updateConfiguration(
         sdkID: String,
-        destination: Destination
+        swiftSDK: SwiftSDK
     ) throws {
-        let (targetTriple, properties) = try destination.serialized
+        let (targetTriple, properties) = try swiftSDK.serialized
 
         let configurationPath = configurationDirectoryPath.appending(
             component: "\(sdkID)_\(targetTriple).json"
@@ -88,22 +88,22 @@ public final class SwiftSDKConfigurationStore {
 
     public func readConfiguration(
         sdkID: String,
-        targetTriple triple: Triple
-    ) throws -> Destination? {
+        targetTriple: Triple
+    ) throws -> SwiftSDK? {
         let configurationPath = configurationDirectoryPath.appending(
-            component: "\(sdkID)_\(triple.tripleString).json"
+            component: "\(sdkID)_\(targetTriple.tripleString).json"
         )
 
-        let destinationBundles = try SwiftSDKBundle.getAllValidBundles(
+        let swiftSDKs = try SwiftSDKBundle.getAllValidBundles(
             swiftSDKsDirectory: swiftSDKsDirectoryPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
 
-        guard var destination = destinationBundles.selectDestination(
+        guard var swiftSDK = swiftSDKs.selectSwiftSDK(
             id: sdkID,
             hostTriple: hostTriple,
-            targetTriple: triple
+            targetTriple: targetTriple
         ) else {
             return nil
         }
@@ -115,20 +115,20 @@ public final class SwiftSDKConfigurationStore {
                 as: SwiftSDKMetadataV4.TripleProperties.self
             )
 
-            destination.pathsConfiguration.merge(
-                with: try Destination(
-                    targetTriple: triple,
+            swiftSDK.pathsConfiguration.merge(
+                with: try SwiftSDK(
+                    targetTriple: targetTriple,
                     properties: properties
                 ).pathsConfiguration
             )
         }
 
-        return destination
+        return swiftSDK
     }
 
-    /// Resets configuration for identified destination triple.
+    /// Resets configuration for identified target triple.
     /// - Parameters:
-    ///   - destinationID: ID of the destination to operate on.
+    ///   - sdkID: ID of the Swift SDK to operate on.
     ///   - tripleString: run-time triple for which the properties should be reset.
     /// - Returns: `true` if custom configuration was successfully removed, `false` if no custom configuration existed.
     public func resetConfiguration(

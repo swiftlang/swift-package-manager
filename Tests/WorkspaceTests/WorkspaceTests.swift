@@ -7496,7 +7496,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain(destination: .hostDestination()),
+            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK()),
             checksumAlgorithm: checksumAlgorithm,
             customHTTPClient: .none,
             customArchiver: .none,
@@ -8535,7 +8535,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ariFiles = [
             """
@@ -8545,7 +8545,7 @@ final class WorkspaceTests: XCTestCase {
                     {
                         "fileName": "a1.zip",
                         "checksum": "a1",
-                        "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                     }
                 ]
             }
@@ -8557,7 +8557,7 @@ final class WorkspaceTests: XCTestCase {
                     {
                         "fileName": "a2/a2.zip",
                         "checksum": "a2",
-                        "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                     }
                 ]
             }
@@ -8823,7 +8823,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ari = """
         {
@@ -8832,7 +8832,7 @@ final class WorkspaceTests: XCTestCase {
                 {
                     "fileName": "a1.zip",
                     "checksum": "a1",
-                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                 }
             ]
         }
@@ -8942,7 +8942,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ari = """
         {
@@ -8951,7 +8951,7 @@ final class WorkspaceTests: XCTestCase {
                 {
                     "fileName": "a.zip",
                     "checksum": "a",
-                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                 }
             ]
         }
@@ -9052,7 +9052,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileArchiveNotFound() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ari = """
         {
@@ -9061,7 +9061,7 @@ final class WorkspaceTests: XCTestCase {
                 {
                     "fileName": "not-found.zip",
                     "checksum": "a",
-                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                 }
             ]
         }
@@ -9128,10 +9128,10 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
         let androidTriple = try Triple("x86_64-unknown-linux-android")
         let macTriple = try Triple("arm64-apple-macosx")
-        let notHostTriple = hostToolchain.triple == androidTriple ? macTriple : androidTriple
+        let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
 
         let ari = """
         {
@@ -9189,7 +9189,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .contains(
-                        "failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.triple.tripleString)'"
+                        "failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.targetTriple.tripleString)'"
                     ),
                     severity: .error
                 )

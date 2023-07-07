@@ -75,7 +75,7 @@ struct APIDiff: SwiftCommand {
     var regenerateBaseline: Bool = false
 
     func run(_ swiftTool: SwiftTool) throws {
-        let apiDigesterPath = try swiftTool.getDestinationToolchain().getSwiftAPIDigester()
+        let apiDigesterPath = try swiftTool.getTargetToolchain().getSwiftAPIDigester()
         let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftTool.fileSystem, tool: apiDigesterPath)
 
         let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()

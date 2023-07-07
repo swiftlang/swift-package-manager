@@ -52,7 +52,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
             XCTAssertBuilds(fixturePath.appending("app"))
-            let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug")
             XCTAssertFileExists(buildDir.appending("FooExec"))
             XCTAssertFileExists(buildDir.appending("FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending("FooLib2.swiftmodule"))
@@ -107,7 +107,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() throws {
         try fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
-            let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Foo").pathString
+            let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Foo").pathString
 
             XCTAssertBuilds(fixturePath)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -131,7 +131,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Dealer").pathString
+            let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Dealer").pathString
 
             let packageRoot = fixturePath.appending("app")
             XCTAssertBuilds(packageRoot)
@@ -158,7 +158,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() throws {
         try fixture(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
-            let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "dep2").pathString]
+            let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "dep2").pathString]
 
             let packageRoot = fixturePath.appending("root")
             XCTAssertBuilds(fixturePath.appending("root"))
@@ -182,7 +182,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() throws {
         try fixture(name: "Miscellaneous/Spaces Fixture") { fixturePath in
             XCTAssertBuilds(fixturePath)
-            XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -204,7 +204,7 @@ class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try fixture(name: "Miscellaneous/DistantFutureDeploymentTarget") { fixturePath in
-            let hostTriple = try UserToolchain.default.triple
+            let hostTriple = try UserToolchain.default.targetTriple
             try executeSwiftBuild(fixturePath, Xswiftc: ["-target", "\(hostTriple.archName)-apple-macosx41.0"])
         }
     }
@@ -214,7 +214,7 @@ class MiscellaneousTestCase: XCTestCase {
             let systemModule = fixturePath.appending("SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let triple = try UserToolchain.default.triple
+            let triple = try UserToolchain.default.targetTriple
             let output =  systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 

@@ -34,7 +34,7 @@ protocol ConfigurationSubcommand: SwiftSDKSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: Destination,
+        _ destination: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope

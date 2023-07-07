@@ -107,7 +107,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     }
 
     public var hostTriple: Triple {
-        return self.toolchain.triple
+        return self.toolchain.targetTriple
     }
     
     /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
@@ -177,9 +177,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Use the same minimum deployment target as the PackagePlugin library (with a fallback to the default host triple).
         #if os(macOS)
         if let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget?.versionString {
-            commandLine += ["-target", "\(self.toolchain.triple.tripleString(forPlatformVersion: version))"]
+            commandLine += ["-target", "\(self.toolchain.targetTriple.tripleString(forPlatformVersion: version))"]
         } else {
-            commandLine += ["-target", self.toolchain.triple.tripleString]
+            commandLine += ["-target", self.toolchain.targetTriple.tripleString]
         }
         #endif
 

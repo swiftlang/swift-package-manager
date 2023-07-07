@@ -89,10 +89,9 @@ class PluginInvocationTests: XCTestCase {
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
-
             var hostTriple: Triple {
                 get throws {
-                    return try UserToolchain.default.triple
+                    return try UserToolchain.default.targetTriple
                 }
             }
             
@@ -1035,7 +1034,7 @@ class PluginInvocationTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customHostToolchain: UserToolchain(destination: .hostDestination(), customLibrariesLocation: .init(manifestLibraryPath: fakeExtraModulesDir, pluginLibraryPath: fakeExtraModulesDir)),
+                customHostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK(), customLibrariesLocation: .init(manifestLibraryPath: fakeExtraModulesDir, pluginLibraryPath: fakeExtraModulesDir)),
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
@@ -1212,13 +1211,13 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
             // Construct a toolchain with a made-up host/target triple
-            let destination = try Destination.default
+            let swiftSDK = try SwiftSDK.default
             let toolchain = try UserToolchain(
-                destination: Destination(
+                swiftSDK: SwiftSDK(
                     hostTriple: hostTriple,
                     targetTriple: hostTriple,
-                    toolset: destination.toolset,
-                    pathsConfiguration: destination.pathsConfiguration
+                    toolset: swiftSDK.toolset,
+                    pathsConfiguration: swiftSDK.pathsConfiguration
                 )
             )
 
@@ -1248,7 +1247,7 @@ class PluginInvocationTests: XCTestCase {
     }
 
     func testParseArtifactNotSupportedOnTargetPlatform() throws {
-        let hostTriple = try UserToolchain.default.triple
+        let hostTriple = try UserToolchain.default.targetTriple
         let artifactSupportedTriples = try [Triple("riscv64-apple-windows-android")]
 
         var checked = false
@@ -1266,7 +1265,7 @@ class PluginInvocationTests: XCTestCase {
         #if !os(macOS)
         throw XCTSkip("platform versions are only available if the host is macOS")
         #else
-        let hostTriple = try UserToolchain.default.triple
+        let hostTriple = try UserToolchain.default.targetTriple
         let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion().tripleString)20.0")]
 
         try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
@@ -1281,7 +1280,7 @@ class PluginInvocationTests: XCTestCase {
     }
 
     func testParseArtifactsConsidersAllSupportedTriples() throws {
-        let hostTriple = try UserToolchain.default.triple
+        let hostTriple = try UserToolchain.default.targetTriple
         let artifactSupportedTriples = [hostTriple, try Triple("riscv64-apple-windows-android")]
 
         try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in

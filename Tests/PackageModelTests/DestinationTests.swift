@@ -277,21 +277,21 @@ private let invalidToolset = (
 private let sdkRootAbsolutePath = bundleRootPath.appending(sdkRootDir)
 private let toolchainBinAbsolutePath = bundleRootPath.appending(toolchainBinDir)
 
-private let parsedDestinationV2GNU = Destination(
+private let parsedDestinationV2GNU = SwiftSDK(
     hostTriple: hostTriple,
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
     pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
-private let parsedDestinationV2Musl = Destination(
+private let parsedDestinationV2Musl = SwiftSDK(
     hostTriple: hostTriple,
     targetTriple: linuxMuslTargetTriple,
     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
     pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
-private let parsedToolsetNoRootDestination = Destination(
+private let parsedToolsetNoRootDestination = SwiftSDK(
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(
         knownTools: [
@@ -308,7 +308,7 @@ private let parsedToolsetNoRootDestination = Destination(
     )
 )
 
-private let parsedToolsetRootDestination = Destination(
+private let parsedToolsetRootDestination = SwiftSDK(
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(
         knownTools: [
@@ -355,7 +355,7 @@ final class DestinationTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
         let observability = system.topScope
 
-        let destinationV1Decoded = try Destination.decode(
+        let destinationV1Decoded = try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: destinationV1.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -367,7 +367,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(
             destinationV1Decoded,
             [
-                Destination(
+                SwiftSDK(
                     targetTriple: linuxGNUTargetTriple,
                     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: flagsWithoutLinkerFlags),
                     pathsConfiguration: .init(
@@ -377,7 +377,7 @@ final class DestinationTests: XCTestCase {
             ]
         )
 
-        let destinationV2Decoded = try Destination.decode(
+        let destinationV2Decoded = try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: destinationV2.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -385,7 +385,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertEqual(destinationV2Decoded, [parsedDestinationV2GNU])
 
-        let toolsetNoRootDestinationV3Decoded = try Destination.decode(
+        let toolsetNoRootDestinationV3Decoded = try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: toolsetNoRootDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -393,7 +393,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertEqual(toolsetNoRootDestinationV3Decoded, [parsedToolsetNoRootDestination])
 
-        let toolsetRootDestinationV3Decoded = try Destination.decode(
+        let toolsetRootDestinationV3Decoded = try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: toolsetRootDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -401,7 +401,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestination])
 
-        XCTAssertThrowsError(try Destination.decode(
+        XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: missingToolsetDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -416,13 +416,13 @@ final class DestinationTests: XCTestCase {
                 )
             )
         }
-        XCTAssertThrowsError(try Destination.decode(
+        XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: invalidVersionDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
         ))
 
-        XCTAssertThrowsError(try Destination.decode(
+        XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: invalidToolsetDestinationV3.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -433,7 +433,7 @@ final class DestinationTests: XCTestCase {
             )
         }
 
-        let toolsetNoRootSwiftSDKv4Decoded = try Destination.decode(
+        let toolsetNoRootSwiftSDKv4Decoded = try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: toolsetNoRootSwiftSDKv4.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -441,7 +441,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertEqual(toolsetNoRootSwiftSDKv4Decoded, [parsedToolsetNoRootDestination])
 
-        let toolsetRootSwiftSDKv4Decoded = try Destination.decode(
+        let toolsetRootSwiftSDKv4Decoded = try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: toolsetRootSwiftSDKv4.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -449,7 +449,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertEqual(toolsetRootSwiftSDKv4Decoded, [parsedToolsetRootDestination])
 
-        XCTAssertThrowsError(try Destination.decode(
+        XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: missingToolsetSwiftSDKv4.path),
             fileSystem: fs,
             observabilityScope: observability
@@ -464,13 +464,13 @@ final class DestinationTests: XCTestCase {
                 )
             )
         }
-        XCTAssertThrowsError(try Destination.decode(
+        XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: invalidVersionSwiftSDKv4.path),
             fileSystem: fs,
             observabilityScope: observability
         ))
 
-        XCTAssertThrowsError(try Destination.decode(
+        XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: AbsolutePath(validating: invalidToolsetSwiftSDKv4.path),
             fileSystem: fs,
             observabilityScope: observability

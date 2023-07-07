@@ -127,13 +127,13 @@ extension BuildParameters {
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
-        if triple.isDarwin() {
+        if targetTriple.isDarwin() {
             guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
                 throw StringError("the target \(target) doesn't support building for macOS")
             }
-            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+            args += [targetTriple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
-            args += [triple.tripleString]
+            args += [targetTriple.tripleString]
         }
         return args
     }
@@ -141,10 +141,10 @@ extension BuildParameters {
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
-        if self.triple.isApple() {
+        if self.targetTriple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         }
-        else if self.triple.isLinux() {
+        else if self.targetTriple.isLinux() {
             args = ["--defsym", "main=\(target.c99name)_main"]
         }
         else {
@@ -458,7 +458,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 switch dependency {
                 case .target: break
                 case .product(let product, _):
-                    if buildParameters.triple.isDarwin() {
+                    if buildParameters.targetTriple.isDarwin() {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
                             product: product,
                             forTarget: target,
@@ -632,9 +632,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                if buildParameters.triple.isDarwin() {
+                if buildParameters.targetTriple.isDarwin() {
                     buildProduct.additionalFlags += ["-lc++"]
-                } else if buildParameters.triple.isWindows() {
+                } else if buildParameters.targetTriple.isWindows() {
                     // Don't link any C++ library.
                 } else {
                     buildProduct.additionalFlags += ["-lstdc++"]
@@ -984,14 +984,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Extracts the library information from an XCFramework.
     private func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: target) {
-            return try target.parseXCFrameworks(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            return try target.parseXCFrameworks(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
         }
     }
 
     /// Extracts the artifacts  from an artifactsArchive
     private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: target) {
-            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
             return execInfos.filter{!$0.supportedTriples.isEmpty}
         }
     }
@@ -1050,7 +1050,7 @@ extension Basics.Diagnostic {
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> AbsolutePath {
-        return buildPath.appending(component: name + triple.nsbundleExtension)
+        return buildPath.appending(component: name + targetTriple.nsbundleExtension)
     }
 }
 

@@ -29,13 +29,13 @@ public enum SwiftSDKError: Swift.Error {
     /// The schema version is invalid.
     case invalidSchemaVersion
 
-    /// Name of the destination bundle is not valid.
+    /// Name of the Swift SDK bundle is not valid.
     case invalidBundleName(String)
 
     /// No valid Swift SDKs were decoded from a metadata file.
     case noSwiftSDKDecoded(AbsolutePath)
 
-    /// Path used for storing destination configuration data is not a directory.
+    /// Path used for storing Swift SDK configuration data is not a directory.
     case pathIsNotDirectory(AbsolutePath)
 
     /// Swift SDK metadata couldn't be serialized with the latest serialization schema, potentially because it
@@ -113,8 +113,12 @@ extension SwiftSDKError: CustomStringConvertible {
     }
 }
 
-/// The compilation destination, has information about everything that's required for a certain destination.
-public struct Destination: Equatable {
+@available(*, deprecated, renamed: "SwiftSDK")
+public typealias Destination = SwiftSDK
+
+/// Swift SDK model type which has information about everything that's required to build a SwiftPM package for a certain
+/// platform.
+public struct SwiftSDK: Equatable {
     /// The clang/LLVM triple describing the target OS and architecture.
     ///
     /// The triple has the general format <arch><sub>-<vendor>-<sys>-<abi>, where:
@@ -127,15 +131,15 @@ public struct Destination: Equatable {
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
     public var targetTriple: Triple?
 
-    /// The clang/LLVM triple describing the host platform that supports this destination.
+    /// The clang/LLVM triple describing the host platform that supports this Swift SDK.
     public let hostTriple: Triple?
 
-    // FIXME: this needs to be implemented with either multiple destinations or making ``targetTriple`` an array.
+    // FIXME: this needs to be implemented with either multiple Swift SDKs or making ``SwiftSDK/targetTriple`` an array.
     /// The architectures to build for. We build for host architecture if this is empty.
     public var architectures: [String]? = nil
 
-    /// Root directory path of the SDK used to compile for the destination.
-    @available(*, deprecated, message: "use `sdkRootDir` instead")
+    /// Root directory path of the SDK used to compile for the target triple.
+    @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
     public var sdk: AbsolutePath? {
         get {
             sdkRootDir
@@ -145,7 +149,7 @@ public struct Destination: Equatable {
         }
     }
 
-    /// Root directory path of the SDK used to compile for the destination.
+    /// Root directory path of the SDK used to compile for the target triple.
     @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
     public var sdkRootDir: AbsolutePath? {
         get {
@@ -198,8 +202,8 @@ public struct Destination: Equatable {
         )
     }
 
-    /// Set of tools and their properties used for building code for this destination. While a serialized destination
-    /// may specify multiple toolset files, these files are consolidated into a single ``Toolset`` value during
+    /// Set of tools and their properties used for building code for the target triple. While a serialized Swift SDK
+    /// metadata may specify multiple toolset files, these files are consolidated into a single ``Toolset`` value during
     /// deserialization.
     public private(set) var toolset: Toolset
 
@@ -220,7 +224,7 @@ public struct Destination: Equatable {
             self.toolsetPaths = toolsetPaths
         }
 
-        /// Root directory path of the SDK used to compile for the destination.
+        /// Root directory path of the SDK used to compile for the target triple.
         public var sdkRootPath: AbsolutePath?
 
         /// Path containing Swift resources for dynamic linking.
@@ -430,11 +434,22 @@ public struct Destination: Equatable {
     }
 
     /// The destination describing the host OS.
+
+    @available(*, deprecated, renamed: "hostSwiftSDK")
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
         environment: [String: String] = ProcessEnv.vars
-    ) throws -> Destination {
+    ) throws -> SwiftSDK {
+        try self.hostSwiftSDK(binDir, originalWorkingDirectory: originalWorkingDirectory, environment: environment)
+    }
+
+    /// The Swift SDK for the host OS.
+    public static func hostSwiftSDK(
+        _ binDir: AbsolutePath? = nil,
+        originalWorkingDirectory: AbsolutePath? = nil,
+        environment: [String: String] = ProcessEnv.vars
+    ) throws -> SwiftSDK {
         let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
         if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
@@ -442,7 +457,7 @@ public struct Destination: Equatable {
         }
         let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap { try? AbsolutePath(validating: $0) }
-        let binDir = try customBinDir ?? binDir ?? Destination.hostBinDir(
+        let binDir = try customBinDir ?? binDir ?? SwiftSDK.hostBinDir(
             fileSystem: localFileSystem,
             originalWorkingDirectory: originalWorkingDirectory
         )
@@ -471,7 +486,7 @@ public struct Destination: Equatable {
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
-        let sdkPaths = try Destination.sdkPlatformFrameworkPaths(environment: environment)
+        let sdkPaths = try SwiftSDK.sdkPlatformFrameworkPaths(environment: environment)
         extraCCFlags += ["-F", sdkPaths.fwk.pathString]
         extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
         extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
@@ -482,7 +497,7 @@ public struct Destination: Equatable {
         extraCCFlags += ["-fPIC"]
         #endif
 
-        return Destination(
+        return SwiftSDK(
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: extraCCFlags),
@@ -530,14 +545,30 @@ public struct Destination: Equatable {
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
 
     /// Returns a default destination of a given target environment
-    public static func defaultDestination(for triple: Triple, host: Destination) -> Destination? {
+    @available(*, deprecated, renamed: "defaultSwiftSDK")
+    public static func defaultDestination(for triple: Triple, host: SwiftSDK) -> SwiftSDK? {
         if triple.isWASI() {
             let wasiSysroot = host.toolset.rootPaths.first?
                 .parentDirectory // usr
                 .appending(components: "share", "wasi-sysroot")
-            return Destination(
+            return SwiftSDK(
                 targetTriple: triple,
                 toolset: host.toolset,
+                pathsConfiguration: .init(sdkRootPath: wasiSysroot)
+            )
+        }
+        return nil
+    }
+
+    /// Returns a default Swift SDK of a given target environment.
+    public static func defaultSwiftSDK(for targetTriple: Triple, hostSDK: SwiftSDK) -> SwiftSDK? {
+        if targetTriple.isWASI() {
+            let wasiSysroot = hostSDK.toolset.rootPaths.first?
+                .parentDirectory // usr
+                .appending(components: "share", "wasi-sysroot")
+            return SwiftSDK(
+                targetTriple: targetTriple,
+                toolset: hostSDK.toolset,
                 pathsConfiguration: .init(sdkRootPath: wasiSysroot)
             )
         }
@@ -563,13 +594,13 @@ public struct Destination: Equatable {
     }
 }
 
-extension Destination {
-    /// Load a ``Destination`` description from a JSON representation from disk.
+extension SwiftSDK {
+    /// Load a ``SwiftSDK`` description from a JSON representation from disk.
     public static func decode(
         fromFile path: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> [Destination] {
+    ) throws -> [SwiftSDK] {
         let decoder = JSONDecoder.makeWithDefaults()
         do {
             let version = try decoder.decode(path: path, fileSystem: fileSystem, as: SemanticVersionInfo.self)
@@ -582,18 +613,18 @@ extension Destination {
             )
         } catch DecodingError.keyNotFound {
             let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
-            return try [Destination(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
+            return try [SwiftSDK(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
         }
     }
 
-    /// Load a ``Destination`` description from a semantically versioned JSON representation from disk.
+    /// Load a ``SwiftSDK`` description from a semantically versioned JSON representation from disk.
     private static func decode(
         semanticVersion: SemanticVersionInfo,
         fromFile path: AbsolutePath,
         fileSystem: FileSystem,
         decoder: JSONDecoder,
         observabilityScope: ObservabilityScope
-    ) throws -> [Destination] {
+    ) throws -> [SwiftSDK] {
         switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):
             let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV3.self)
@@ -613,7 +644,7 @@ extension Destination {
                     )
                 }
 
-                return try Destination(
+                return try SwiftSDK(
                     runTimeTriple: triple,
                     properties: properties,
                     toolset: toolset,
@@ -639,7 +670,7 @@ extension Destination {
                     )
                 }
 
-                return try Destination(
+                return try SwiftSDK(
                     targetTriple: triple,
                     properties: properties,
                     toolset: toolset,
@@ -670,13 +701,13 @@ extension Destination {
         )
     }
 
-    /// Initialize new destination from values deserialized using v3 schema.
+    /// Initialize new Swift SDK from values deserialized using v3 schema.
     /// - Parameters:
     ///   - runTimeTriple: triple of the machine running code built with this destination.
     ///   - properties: properties of the destination for the given triple.
     ///   - toolset: combined toolset used by this destination.
     ///   - destinationDirectory: directory used for converting relative paths in `properties` to absolute paths.
-    init(
+    private init(
         runTimeTriple: Triple,
         properties: SerializedDestinationV3.TripleProperties,
         toolset: Toolset = .init(),
@@ -689,7 +720,7 @@ extension Destination {
         )
     }
 
-    /// Load a ``Destination`` description from a legacy JSON representation from disk.
+    /// Load a ``SwiftSDK`` description from a legacy JSON representation from disk.
     private init(
         legacy version: VersionInfo,
         fromFile path: AbsolutePath,

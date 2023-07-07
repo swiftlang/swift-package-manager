@@ -174,11 +174,11 @@ extension Workspace {
                                 guard let supportedArchive = metadata.archives
                                     .first(where: {
                                         $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples
-                                            .contains(self.hostToolchain.triple)
+                                            .contains(self.hostToolchain.targetTriple)
                                     })
                                 else {
                                     throw StringError(
-                                        "No supported archive was found for '\(self.hostToolchain.triple.tripleString)'"
+                                        "No supported archive was found for '\(self.hostToolchain.targetTriple.tripleString)'"
                                     )
                                 }
                                 // add relevant archive
