@@ -45,7 +45,7 @@ extension SwiftSDKSubcommand {
     /// Parses destinations directory option if provided or uses the default path for cross-compilation destinations
     /// on the file system. A new directory at this path is created if one doesn't exist already.
     /// - Returns: existing or a newly created directory at the computed location.
-    func getOrCreateDestinationsDirectory() throws -> AbsolutePath {
+    func getOrCreateSwiftSDKsDirectory() throws -> AbsolutePath {
         guard var destinationsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: locations.swiftSDKsDirectory
         ) else {
@@ -66,14 +66,14 @@ extension SwiftSDKSubcommand {
         let observabilityHandler = SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
         let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
-        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
+        let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
         let hostToolchain = try UserToolchain(destination: Destination.hostDestination())
         let triple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil
         do {
-            try self.run(buildTimeTriple: triple, destinationsDirectory, observabilityScope)
+            try self.run(hostTriple: triple, swiftSDKsDirectory, observabilityScope)
             if observabilityScope.errorsReported {
                 throw ExitCode.failure
             }
