@@ -165,7 +165,7 @@ public struct MockPackageContainerProvider: PackageContainerProvider {
 
     public func getContainer(
         for package: PackageReference,
-        skipUpdate: Bool,
+        updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>

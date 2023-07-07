@@ -356,11 +356,11 @@ class RepositoryManagerTests: XCTestCase {
                 manager.lookup(
                     package: .init(url: dummyRepo.url),
                     repository: dummyRepo,
-                    skipUpdate: false,
+                    updateStrategy: .always,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
                     callbackQueue: .sharedConcurrent
-                ) { result in                    
+                ) { result in
                     results[index] = result
                     group.leave()
                 }
@@ -426,7 +426,7 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didUpdate.count, 2)
 
             delegate.prepare(fetchExpected: false, updateExpected: false)
-            _ = try manager.lookup(repository: dummyRepo, skipUpdate: true, observabilityScope: observability.topScope)
+            _ = try manager.lookup(repository: dummyRepo, updateStrategy: .never, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
@@ -461,7 +461,7 @@ class RepositoryManagerTests: XCTestCase {
             manager.lookup(
                 package: .init(url: repository.url),
                 repository: repository,
-                skipUpdate: true,
+                updateStrategy: .never,
                 observabilityScope: observability.topScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent
@@ -591,12 +591,16 @@ extension RepositoryManager {
         )
     }
 
-    fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
+    fileprivate func lookup(
+        repository: RepositorySpecifier,
+        updateStrategy: RepositoryUpdateStrategy = .always,
+        observabilityScope: ObservabilityScope
+    ) throws -> RepositoryHandle {
         return try temp_await {
             self.lookup(
                 package: .init(url: repository.url),
                 repository: repository,
-                skipUpdate: skipUpdate,
+                updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,

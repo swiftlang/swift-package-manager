@@ -102,7 +102,7 @@ public class RepositoryManager: Cancellable {
     /// - Parameters:
     ///   - package: The package identity of the repository to fetch,
     ///   - repository: The repository to look up.
-    ///   - skipUpdate: If a repository is available, skip updating it.
+    ///   - updateStrategy: strategy to update the repository.
     ///   - observabilityScope: The observability scope
     ///   - delegateQueue: Dispatch queue for delegate events
     ///   - callbackQueue: Dispatch queue for callbacks
@@ -110,7 +110,7 @@ public class RepositoryManager: Cancellable {
     public func lookup(
         package: PackageIdentity,
         repository: RepositorySpecifier,
-        skipUpdate: Bool,
+        updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
@@ -154,7 +154,7 @@ public class RepositoryManager: Cancellable {
                         try self.lookup(
                             package: package,
                             repository: repository,
-                            skipUpdate: skipUpdate,
+                            updateStrategy: updateStrategy,
                             observabilityScope: observabilityScope,
                             delegateQueue: delegateQueue
                         )
@@ -173,7 +173,7 @@ public class RepositoryManager: Cancellable {
                 try self.lookup(
                     package: package,
                     repository: repository,
-                    skipUpdate: skipUpdate,
+                    updateStrategy: updateStrategy,
                     observabilityScope: observabilityScope,
                     delegateQueue: delegateQueue
                 )
@@ -189,7 +189,7 @@ public class RepositoryManager: Cancellable {
     private func lookup(
         package: PackageIdentity,
         repository: RepositorySpecifier,
-        skipUpdate: Bool,
+        updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
@@ -201,21 +201,20 @@ public class RepositoryManager: Cancellable {
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
         if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
-            // update if necessary and return early
-            // skip update if not needed
-            if skipUpdate {
-                return handle
-            }
-            // Update the repository when it is being looked up.
-            delegateQueue.async {
-                self.delegate?.willUpdate(package: package, repository: handle.repository)
-            }
-            let start = DispatchTime.now()
             let repository = try handle.open()
-            try repository.fetch()
-            let duration = start.distance(to: .now())
-            delegateQueue.async {
-                self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
+            // Update the repository if needed
+            if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
+                let start = DispatchTime.now()
+
+                delegateQueue.async {
+                    self.delegate?.willUpdate(package: package, repository: handle.repository)
+                }
+
+                try repository.fetch()
+                let duration = start.distance(to: .now())
+                delegateQueue.async {
+                    self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
+                }
             }
             return handle
         }
@@ -238,6 +237,7 @@ public class RepositoryManager: Cancellable {
                 package: package,
                 handle: handle,
                 repositoryPath: repositoryPath,
+                updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue
             )
@@ -279,6 +279,7 @@ public class RepositoryManager: Cancellable {
         package: PackageIdentity,
         handle: RepositoryHandle,
         repositoryPath: AbsolutePath,
+        updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> FetchDetails {
@@ -312,7 +313,9 @@ public class RepositoryManager: Cancellable {
                         // Fetch the repository into the cache.
                         if (self.fileSystem.exists(cachedRepositoryPath)) {
                             let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
-                            try repo.fetch(progress: updateFetchProgress(progress:))
+                            if self.fetchRequired(repository: repo, updateStrategy: updateStrategy) {
+                                try repo.fetch(progress: updateFetchProgress(progress:))
+                            }
                             cacheUsed = true
                         } else {
                             try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progressHandler: updateFetchProgress(progress:))
@@ -360,6 +363,20 @@ public class RepositoryManager: Cancellable {
             try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
         }
         return FetchDetails(fromCache: cacheUsed, updatedCache: cacheUpdated)
+    }
+
+    private func fetchRequired(
+        repository: Repository,
+        updateStrategy: RepositoryUpdateStrategy
+    ) -> Bool {
+        switch updateStrategy {
+        case .never:
+            return false
+        case .always:
+            return true
+        case .ifNeeded(let revision):
+            return !repository.exists(revision: revision)
+        }
     }
 
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
@@ -508,6 +525,12 @@ extension RepositoryManager {
         /// Indicates wether the wether the repository was already present in the cache and updated or if a clean fetch was performed.
         public let updatedCache: Bool
     }
+}
+
+public enum RepositoryUpdateStrategy {
+    case never
+    case always
+    case ifNeeded(revision: Revision)
 }
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.

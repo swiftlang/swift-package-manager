@@ -219,7 +219,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref, skipUpdate: false)
+        let container = try provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
@@ -276,7 +276,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, ["1.0.1"])
         }
@@ -284,7 +284,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.2.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! SourceControlPackageContainer
+            let container = try provider.getContainer(for: ref) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(container.validToolsVersionsCache["1.0.0"], false)
@@ -297,7 +297,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, [])
         }
@@ -306,7 +306,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! SourceControlPackageContainer
+            let container = try provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
                 _ = try container.getDependencies(at: revision.identifier, productFilter: .nothing)
@@ -356,7 +356,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref, skipUpdate: false)
+        let container = try provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
@@ -404,7 +404,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             customRepositoryManager: repositoryManager
         )
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref, skipUpdate: false)
+        let container = try provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
@@ -590,7 +590,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Get a hold of the container for the test package.
             let packageRef = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDir), path: packageDir)
-            let container = try containerProvider.getContainer(for: packageRef, skipUpdate: false) as! SourceControlPackageContainer
+            let container = try containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
             do { _ = try container.getDependencies(at: "master", productFilter: .everything) }
@@ -670,7 +670,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
 
             let packageReference = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
-            let container = try containerProvider.getContainer(for: packageReference, skipUpdate: false)
+            let container = try containerProvider.getContainer(for: packageReference)
 
             let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
             let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))
@@ -683,8 +683,19 @@ class SourceControlPackageContainerTests: XCTestCase {
 }
 
 extension PackageContainerProvider {
-    fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
-        try temp_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+    fileprivate func getContainer(
+        for package: PackageReference,
+        updateStrategy: ContainerUpdateStrategy = .always
+    ) throws -> PackageContainer {
+        try temp_await {
+            self.getContainer(
+                for: package,
+                updateStrategy: updateStrategy,
+                observabilityScope: ObservabilitySystem.NOOP,
+                on: .global(),
+                completion: $0
+            )
+        }
     }
 }
 

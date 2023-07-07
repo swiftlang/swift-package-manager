@@ -1456,7 +1456,7 @@ extension Workspace {
                 repositoryManager.lookup(
                     package: dependency.packageRef.identity,
                     repository: repository,
-                    skipUpdate: true,
+                    updateStrategy: .never,
                     observabilityScope: observabilityScope,
                     delegateQueue: .sharedConcurrent,
                     callbackQueue: .sharedConcurrent,
@@ -2210,7 +2210,15 @@ extension Workspace {
                     observabilityScope.emit(.registryDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .custom(let version, let path):
-                    let container = try temp_await { packageContainerProvider.getContainer(for: dependency.packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
+                    let container = try temp_await {
+                        self.packageContainerProvider.getContainer(
+                            for: dependency.packageRef,
+                            updateStrategy: .never,
+                            observabilityScope: observabilityScope,
+                            on: .sharedConcurrent,
+                            completion: $0
+                        )
+                    }
                     if let customContainer = container as? CustomPackageContainer {
                         let newPath = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
                         observabilityScope.emit(.customDependencyMissing(packageName: dependency.packageRef.identity.description))
@@ -2419,9 +2427,31 @@ extension Workspace {
         for pin in pinsStore.pins.values {
             group.enter()
             let observabilityScope = observabilityScope.makeChildScope(description: "requesting package containers", metadata: pin.packageRef.diagnosticsMetadata)
-            packageContainerProvider.getContainer(for: pin.packageRef, skipUpdate: self.configuration.skipDependenciesUpdates, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in
-                group.leave()
-            })
+
+            let updateStrategy: ContainerUpdateStrategy = {
+                if self.configuration.skipDependenciesUpdates {
+                    return .never
+                } else {
+                    switch pin.state {
+                    case .branch:
+                        return .always
+                    case .revision(let revision):
+                        return .ifNeeded(revision: revision)
+                    case .version(_, let .some(revision)):
+                        return .ifNeeded(revision: revision)
+                    case .version(let version, .none):
+                        return .always
+                    }
+                }
+            }()
+
+            self.packageContainerProvider.getContainer(
+                for: pin.packageRef,
+                updateStrategy:  updateStrategy,
+                observabilityScope: observabilityScope,
+                on: .sharedConcurrent,
+                completion: { _ in group.leave() }
+            )
         }
         group.wait()
 
@@ -2691,7 +2721,7 @@ extension Workspace {
             let container = try temp_await {
                 packageContainerProvider.getContainer(
                     for: package,
-                    skipUpdate: true,
+                    updateStrategy: .never,
                     observabilityScope: observabilityScope,
                     on: .sharedConcurrent,
                     completion: $0
@@ -2959,7 +2989,13 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 guard let container = (try temp_await {
-                    packageContainerProvider.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
+                    packageContainerProvider.getContainer(
+                        for: packageRef,
+                        updateStrategy: .never,
+                        observabilityScope: observabilityScope,
+                        on: .sharedConcurrent,
+                        completion: $0
+                    )
                 }) as? SourceControlPackageContainer else {
                     throw InternalError("invalid container for \(packageRef) expected a SourceControlPackageContainer")
                 }
@@ -3095,7 +3131,7 @@ public final class LoadableResult<Value> {
 extension Workspace: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
-        skipUpdate: Bool,
+        updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
@@ -3121,7 +3157,7 @@ extension Workspace: PackageContainerProvider {
                 self.repositoryManager.lookup(
                     package: package.identity,
                     repository: repositorySpecifier,
-                    skipUpdate: skipUpdate,
+                    updateStrategy: updateStrategy.repositoryUpdateStrategy,
                     observabilityScope: observabilityScope,
                     delegateQueue: queue,
                     callbackQueue: queue
@@ -3374,7 +3410,7 @@ extension Workspace {
             self.repositoryManager.lookup(
                 package: package.identity,
                 repository: repository,
-                skipUpdate: true,
+                updateStrategy: .never,
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
@@ -3765,7 +3801,15 @@ extension Workspace {
         case .fileSystem:
             return nil
         case .custom:
-            let container = try temp_await { packageContainerProvider.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
+            let container = try temp_await {
+                self.packageContainerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .never,
+                    observabilityScope: observabilityScope,
+                    on: .sharedConcurrent,
+                    completion: $0
+                )
+            }
             guard let customContainer = container as? CustomPackageContainer else {
                 observabilityScope.emit(error: "invalid custom dependency container: \(container)")
                 return nil
@@ -4206,3 +4250,16 @@ fileprivate func warnToStderr(_ message: String) {
 
 // used for manifest validation
 extension RepositoryManager: ManifestSourceControlValidator {}
+
+extension ContainerUpdateStrategy {
+    var repositoryUpdateStrategy: RepositoryUpdateStrategy {
+        switch self {
+        case .always:
+            return .always
+        case .never:
+            return .never
+        case .ifNeeded(let revision):
+            return .ifNeeded(revision: .init(identifier: revision))
+        }
+    }
+}

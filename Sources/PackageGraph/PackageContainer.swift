@@ -166,9 +166,15 @@ public protocol PackageContainerProvider {
     /// Get the container for a particular identifier asynchronously.
     func getContainer(
         for package: PackageReference,
-        skipUpdate: Bool,
+        updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
+        completion: @escaping (Result<PackageContainer, Error>) -> Void
     )
+}
+
+public enum ContainerUpdateStrategy {
+    case never
+    case always
+    case ifNeeded(revision: String)
 }
