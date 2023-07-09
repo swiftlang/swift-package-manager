@@ -619,18 +619,18 @@ extension LLBuildManifestBuilder {
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
             outputs: cmdOutputs,
-            executable: self.buildParameters.toolchain.swiftCompilerPath,
+            executable: target.buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
-            importPath: self.buildParameters.buildPath,
+            importPath: target.buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: try target.objects,
             otherArguments: try target.compileArguments(),
             sources: target.sources,
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
-            wholeModuleOptimization: self.buildParameters.configuration == .release,
+            wholeModuleOptimization: target.buildParameters.configuration == .release,
             outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.
         )
     }
