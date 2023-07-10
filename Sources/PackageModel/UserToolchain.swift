@@ -501,7 +501,7 @@ public final class UserToolchain: Toolchain {
         self.includeSearchPaths = destination.pathsConfiguration.includeSearchPaths ?? []
         self.librarySearchPaths = destination.pathsConfiguration.includeSearchPaths ?? []
 
-        self.librarianPath = try UserToolchain.determineLibrarian(
+        self.librarianPath = try destination.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
             triple: triple,
             binDirectories: destination.toolset.rootPaths,
             useXcrun: useXcrun,
