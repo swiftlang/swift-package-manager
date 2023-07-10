@@ -3606,6 +3606,7 @@ final class BuildPlanTests: XCTestCase {
                 .cCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cCompiler)]),
                 .cxxCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cxxCompiler)]),
                 .swiftCompiler: .init(extraCLIOptions: [jsonFlag(tool: .swiftCompiler)]),
+                .librarian: .init(path: "/fake/toolchain/usr/bin/librarian"),
                 .linker: .init(extraCLIOptions: [jsonFlag(tool: .linker)]),
             ],
             rootPaths: try UserToolchain.default.destination.toolset.rootPaths)
