@@ -17,6 +17,7 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
+import SPMBuildCore
 
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
@@ -85,9 +86,9 @@ struct APIDiff: SwiftCommand {
         // We turn build manifest caching off because we need the build plan.
         let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
-        let packageGraph = try buildSystem.getPackageGraph()
+        let packageGraphInfo = try buildSystem.getPackageGraphInfo()
         let modulesToDiff = try determineModulesToDiff(
-            packageGraph: packageGraph,
+            info: packageGraphInfo,
             observabilityScope: swiftTool.observabilityScope
         )
 
@@ -159,15 +160,15 @@ struct APIDiff: SwiftCommand {
         }
     }
 
-    private func determineModulesToDiff(packageGraph: PackageGraph, observabilityScope: ObservabilityScope) throws -> Set<String> {
+    private func determineModulesToDiff(info: PackageGraphInfo, observabilityScope: ObservabilityScope) throws -> Set<String> {
         var modulesToDiff: Set<String> = []
         if products.isEmpty && targets.isEmpty {
-            modulesToDiff.formUnion(packageGraph.apiDigesterModules)
+            modulesToDiff.formUnion(info.apiDigesterModules)
         } else {
             for productName in products {
-                guard let product = packageGraph
-                        .rootPackages
-                        .flatMap(\.products)
+                guard let product = info
+                        .products
+                        .filter({ $0.package.isRoot })
                         .first(where: { $0.name == productName }) else {
                     observabilityScope.emit(error: "no such product '\(productName)'")
                     continue
@@ -176,12 +177,12 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(productName)' is not a library product")
                     continue
                 }
-                modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
+                modulesToDiff.formUnion(product.targets.filter { $0.isSwiftTarget }.map(\.c99name))
             }
             for targetName in targets {
-                guard let target = packageGraph
-                        .rootPackages
-                        .flatMap(\.targets)
+                guard let target = info
+                        .targets
+                        .filter({ $0.package.isRoot })
                         .first(where: { $0.name == targetName }) else {
                     observabilityScope.emit(error: "no such target '\(targetName)'")
                     continue
@@ -190,7 +191,7 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(targetName)' is not a library target")
                     continue
                 }
-                guard target.underlyingTarget is SwiftTarget else {
+                guard target.isSwiftTarget else {
                     observabilityScope.emit(error: "'\(targetName)' is not a Swift language target")
                     continue
                 }

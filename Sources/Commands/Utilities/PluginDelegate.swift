@@ -329,8 +329,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
-        let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+        let packageGraphInfo = try buildSystem.getPackageGraphInfo()
+        guard let target = packageGraphInfo.targets.first(where: { $0.name == targetName }) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
@@ -361,12 +361,9 @@ final class PluginDelegate: PluginInvocationDelegate {
         symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
 
         // Determine the output directory, and remove any old version if it already exists.
-        guard let package = packageGraph.package(for: target) else {
-            throw StringError("could not determine the package for target “\(target.name)”")
-        }
         let outputDir = try buildSystem.buildPlan.buildParameters.dataPath.appending(
             components: "extracted-symbols",
-            package.identity.description,
+            target.package.identity,
             target.name
         )
         try swiftTool.fileSystem.removeFileTree(outputDir)

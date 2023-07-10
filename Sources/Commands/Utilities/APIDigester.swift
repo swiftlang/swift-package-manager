@@ -316,6 +316,19 @@ extension PackageGraph {
     }
 }
 
+// FIXME: A bit unfortunate that we need to implement this on both `PackageGraph` and `PackageGraphInfo`
+extension PackageGraphInfo {
+    /// The list of modules that should be used as an input to the API digester.
+    var apiDigesterModules: [String] {
+        self.products
+            .filter { $0.package.isRoot }
+            .filter { $0.type.isLibrary }
+            .flatMap(\.targets)
+            .filter { $0.isSwiftTarget }
+            .map { $0.c99name }
+    }
+}
+
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
     public var description: String {
         return "\(filename):\(line):\(column)"

@@ -93,11 +93,11 @@ struct SnippetCard: Card {
 
     func runExample() throws {
         print("Building '\(snippet.path)'\n")
-        let buildSystem = try swiftTool.createBuildSystem(explicitProduct: snippet.name)
+        let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, explicitProduct: snippet.name)
         try buildSystem.build(subset: .product(snippet.name))
         let executablePath = try swiftTool.buildParameters().buildPath.appending(component: snippet.name)
-        if let exampleTarget = try buildSystem.getPackageGraph().allTargets.first(where: { $0.name == snippet.name }) {
-            try ProcessEnv.chdir(exampleTarget.sources.paths[0].parentDirectory)
+        if let exampleTarget = try buildSystem.getPackageGraphInfo().targets.first(where: { $0.name == snippet.name }) {
+            try ProcessEnv.chdir(exampleTarget.sourcesDirectory!)
         }
         try exec(path: executablePath.pathString, args: [])
     }

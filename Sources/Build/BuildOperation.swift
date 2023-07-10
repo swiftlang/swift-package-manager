@@ -74,6 +74,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The loaded package graph.
     private let packageGraph = ThreadSafeBox<PackageGraph>()
 
+    /// Information on the last loaded package graph. This is persisted across invocations.
+    private let packageGraphInfo = ThreadSafeBox<LLBuildManifestInfo.Info>()
+
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
 
@@ -88,6 +91,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public var builtTestProducts: [BuiltTestProduct] {
         (try? getBuildDescription())?.builtTestProducts ?? []
+    }
+
+    public var packageGraphInfoPath: AbsolutePath {
+        return self.buildParameters.buildPath.appending("package_graph_info.json")
     }
 
     /// File rules to determine resource handling behavior.
@@ -128,7 +135,23 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func getPackageGraph() throws -> PackageGraph {
         try self.packageGraph.memoize {
-            try self.packageGraphLoader()
+            let packageGraph = try self.packageGraphLoader()
+
+            let info = LLBuildManifestInfo.Info.from(packageGraph)
+            let data = try JSONEncoder.makeWithDefaults().encode(info)
+            try localFileSystem.createDirectory(self.buildParameters.buildPath, recursive: true)
+            try data.write(to: URL(fileURLWithPath: self.packageGraphInfoPath.pathString))
+
+            return packageGraph
+        }
+    }
+
+    public func getPackageGraphInfo() throws -> PackageGraphInfo {
+        try self.packageGraphInfo.memoize {
+            if !localFileSystem.exists(self.packageGraphInfoPath) {
+                _ = try getPackageGraph()
+            }
+            return try JSONDecoder.makeWithDefaults().decode(path: self.packageGraphInfoPath, fileSystem: localFileSystem, as: LLBuildManifestInfo.Info.self)
         }
     }
 
@@ -401,12 +424,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
         default:
-            // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try getPackageGraph()
-            if let result = subset.llbuildTargetName(
-                for: graph,
-                   config: buildParameters.configuration.dirname,
-                   observabilityScope: self.observabilityScope
+            if let info = try getPackageGraphInfo() as? LLBuildManifestInfo.Info, let result = subset.llbuildTargetName(
+                for: info,
+                config: buildParameters.configuration.dirname,
+                observabilityScope: self.observabilityScope
             ) {
                 return result
             }
@@ -733,7 +754,7 @@ extension BuildDescription {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
+    func llbuildTargetName(for info: LLBuildManifestInfo.Info, config: String, observabilityScope: ObservabilityScope)
         -> String?
     {
         switch self {
@@ -742,7 +763,7 @@ extension BuildSubset {
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
         case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+            guard let product = info._products.first(where: { $0.name == productName }) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
@@ -755,15 +776,13 @@ extension BuildSubset {
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
-            return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
-            }
+            return product.LLBuildTargetNameByConfig[config]
         case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+            guard let target = info._targets.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return target.getLLBuildTargetName(config: config)
+            return target.LLBuildTargetNameByConfig[config]
         }
     }
 }

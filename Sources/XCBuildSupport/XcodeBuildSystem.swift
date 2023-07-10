@@ -276,6 +276,11 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             try packageGraphLoader()
         }
     }
+
+    public func getPackageGraphInfo() throws -> PackageGraphInfo {
+        // any functionality requiring this is already explicitly using the native build system only.
+        fatalError("not implemented")
+    }
 }
 
 struct XCBBuildParameters: Encodable {

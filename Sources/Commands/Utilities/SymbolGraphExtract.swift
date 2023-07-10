@@ -47,7 +47,7 @@ public struct SymbolGraphExtract {
     
     /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`. The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies how much console output to ask the tool to emit.
     public func extractSymbolGraph(
-        target: ResolvedTarget,
+        target: TargetInfo,
         buildPlan: BuildPlan,
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,

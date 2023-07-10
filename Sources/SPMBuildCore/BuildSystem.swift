@@ -41,8 +41,8 @@ public protocol BuildSystem: Cancellable {
     /// The test products that this build system will build.
     var builtTestProducts: [BuiltTestProduct] { get }
 
-    /// Returns the package graph used by the build system.
-    func getPackageGraph() throws -> PackageGraph
+    /// Returns information about the package graph used by the build system.
+    func getPackageGraphInfo() throws -> PackageGraphInfo
 
     /// Builds a subset of the package graph.
     /// - Parameters:

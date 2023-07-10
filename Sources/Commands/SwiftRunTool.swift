@@ -16,6 +16,7 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
+import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
@@ -152,7 +153,8 @@ public struct SwiftRunTool: SwiftCommand {
         case .debugger:
             do {
                 let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
-                let productName = try findProductName(in: buildSystem.getPackageGraph())
+                let info = try buildSystem.getPackageGraphInfo()
+                let productName = try findProductName(in: info)
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
                 } else if options.shouldBuild {
@@ -194,7 +196,8 @@ public struct SwiftRunTool: SwiftCommand {
 
             do {
                 let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
-                let productName = try findProductName(in: buildSystem.getPackageGraph())
+                let info = try buildSystem.getPackageGraphInfo()
+                let productName = try findProductName(in: info)
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
                 } else if options.shouldBuild {
@@ -218,9 +221,9 @@ public struct SwiftRunTool: SwiftCommand {
     }
 
     /// Returns the path to the correct executable based on options.
-    private func findProductName(in graph: PackageGraph) throws -> String {
+    private func findProductName(in info: PackageGraphInfo) throws -> String {
         if let executable = options.executable {
-            let executableExists = graph.allProducts.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
+            let executableExists = info.products.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
             guard executableExists else {
                 throw RunError.executableNotFound(executable)
             }
@@ -228,8 +231,8 @@ public struct SwiftRunTool: SwiftCommand {
         }
 
         // If the executable is implicit, search through root products.
-        let rootExecutables = graph.rootPackages
-            .flatMap { $0.products }
+        let rootExecutables = info.products
+            .filter { $0.package.isRoot }
             .filter { $0.type == .executable || $0.type == .snippet }
             .map { $0.name }
 

@@ -125,11 +125,20 @@ extension BuildParameters {
 
     /// Computes the target triple arguments for a given resolved target.
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
+        return try targetTripleArgs(targetName: target.name, macOSSupportedPlatform: target.platforms.getDerived(for: .macOS))
+    }
+
+    public func targetTripleArgs(for target: TargetInfo) throws -> [String] {
+        let macOSSupportedPlatform = target.derivedSupportedPlatforms.first(where: { $0.platform == .macOS })
+        return try targetTripleArgs(targetName: target.name, macOSSupportedPlatform: macOSSupportedPlatform)
+    }
+
+    private func targetTripleArgs(targetName: String, macOSSupportedPlatform: SupportedPlatform?) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if targetTriple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
+            guard let macOSSupportedPlatform = macOSSupportedPlatform else {
+                throw StringError("the target \(targetName) doesn't support building for macOS")
             }
             args += [targetTriple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
