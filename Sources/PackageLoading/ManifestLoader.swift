@@ -538,17 +538,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let manifestTempFilePath = tempDir.appending("manifest.swift")
                 try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestPreamble.contents + manifestContents))
 
-                #if os(Windows)
-                // On Windows, we seem to have issues with the VFS overlay, so let's disable it for now.
-                let effectiveManifestPath = manifestTempFilePath
-                let vfsOverlayTempFilePath: AbsolutePath? = nil
-                #else
-                let effectiveManifestPath = manifestPath
                 let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
-                    VFSOverlay.File(name: manifestPath.pathString, externalContents: manifestTempFilePath.pathString)
+                    VFSOverlay.File(name: manifestPath._nativePathString(escaped: true),
+                                    externalContents: manifestTempFilePath._nativePathString(escaped: true))
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
-                #endif
 
                 validateImports(manifestPath: manifestTempFilePath, toolsVersion: toolsVersion, callbackQueue: callbackQueue) { result in
                     dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -557,7 +551,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         try result.get()
 
                         try self.evaluateManifest(
-                            at: effectiveManifestPath,
+                            at: manifestPath,
                             vfsOverlayPath: vfsOverlayTempFilePath,
                             packageIdentity: packageIdentity,
                             toolsVersion: toolsVersion,
