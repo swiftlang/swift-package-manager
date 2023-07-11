@@ -905,7 +905,7 @@ final class PackageToolTests: CommandsTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let state = PinsStore.PinState.branch(name: "YOLO", revision: yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
+                XCTAssertEqual(pinsStore.pins[identity]?.state, state)
             }
 
             // Try to pin bar at a revision.
@@ -914,7 +914,7 @@ final class PackageToolTests: CommandsTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let state = PinsStore.PinState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
+                XCTAssertEqual(pinsStore.pins[identity]?.state, state)
             }
 
             // Try to pin bar at a bad revision.
@@ -956,7 +956,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
-                    let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
+                    let pin = pinsStore.pins[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
                     guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
                         return XCTFail("invalid pin location \(path)")
@@ -980,7 +980,7 @@ final class PackageToolTests: CommandsTestCase {
                 try execute("resolve", "bar")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.pinsMap[identity]?.state {
+                switch pinsStore.pins[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
@@ -1009,7 +1009,7 @@ final class PackageToolTests: CommandsTestCase {
                 try execute("resolve", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.pinsMap[identity]?.state {
+                switch pinsStore.pins[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:

@@ -25,7 +25,7 @@ final class ContainerProvider {
     private let skipUpdate: Bool
 
     /// Reference to the pins store.
-    private let pinsMap: PinsStore.PinsMap
+    private let pins: PinsStore.Pins
 
     /// Observability scope to emit diagnostics with
     private let observabilityScope: ObservabilityScope
@@ -39,12 +39,12 @@ final class ContainerProvider {
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
-        pinsMap: PinsStore.PinsMap,
+        pins: PinsStore.Pins,
         observabilityScope: ObservabilityScope
     ) {
         self.underlying = underlying
         self.skipUpdate = skipUpdate
-        self.pinsMap = pinsMap
+        self.pins = pins
         self.observabilityScope = observabilityScope
     }
 
@@ -84,7 +84,7 @@ final class ContainerProvider {
                 on: .sharedConcurrent
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
-                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
+                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pins: self.pins)
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -115,7 +115,7 @@ final class ContainerProvider {
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
+                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pins: self.pins)
                     }
                 }
             }

@@ -23,11 +23,11 @@ internal final class PubGrubPackageContainer {
     let underlying: PackageContainer
 
     /// Reference to the pins map.
-    private let pinsMap: PinsStore.PinsMap
+    private let pins: PinsStore.Pins
 
-    init(underlying: PackageContainer, pinsMap: PinsStore.PinsMap) {
+    init(underlying: PackageContainer, pins: PinsStore.Pins) {
         self.underlying = underlying
-        self.pinsMap = pinsMap
+        self.pins = pins
     }
 
     var package: PackageReference {
@@ -36,7 +36,7 @@ internal final class PubGrubPackageContainer {
 
     /// Returns the pinned version for this package, if any.
     var pinnedVersion: Version? {
-        switch self.pinsMap[self.underlying.package.identity]?.state {
+        switch self.pins[self.underlying.package.identity]?.state {
         case .version(let version, _):
             return version
         default:

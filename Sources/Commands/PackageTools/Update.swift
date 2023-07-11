@@ -67,7 +67,7 @@ extension SwiftPackageTool {
             
             var report = "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
             for (package, change) in changes {
-                let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
+                let currentVersion = pins.pins[package.identity]?.state.description ?? ""
                 switch change {
                 case let .added(state):
                     report += "\n"

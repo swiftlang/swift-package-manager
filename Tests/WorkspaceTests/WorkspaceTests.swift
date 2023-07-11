@@ -3872,8 +3872,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
-            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
-            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.pins[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
         }
 
         // case 2: set state with slightly different URLs that are canonically the same
@@ -3908,8 +3908,8 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should be stable since URLs are canonically the same and we kept the resolved file between the two iterations
-            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
-            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.pins[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
         }
 
         // case 2: set state with slightly different URLs that are canonically the same but request different versions
@@ -3943,9 +3943,9 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             // URLs should reflect the actual dependencies since the new version forces rewrite of the resolved file
-            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
             XCTAssertEqual(
-                result.store.pinsMap[.plain("bar")]?.packageRef.locationString,
+                result.store.pins[.plain("bar")]?.packageRef.locationString,
                 "https://localhost/org/bar.git"
             )
         }
@@ -3983,11 +3983,11 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should reflect the actual dependencies since we deleted the resolved file
             XCTAssertEqual(
-                result.store.pinsMap[.plain("foo")]?.packageRef.locationString,
+                result.store.pins[.plain("foo")]?.packageRef.locationString,
                 "https://localhost/org/foo.git"
             )
             XCTAssertEqual(
-                result.store.pinsMap[.plain("bar")]?.packageRef.locationString,
+                result.store.pins[.plain("bar")]?.packageRef.locationString,
                 "https://localhost/org/bar.git"
             )
         }
@@ -4641,7 +4641,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
-            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
+            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
         }
 
         // reset state
@@ -4668,7 +4668,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
-            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
+            XCTAssertEqual(result.store.pins[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
     }
 
@@ -4736,7 +4736,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let ws = try workspace.getOrCreateWorkspace()
             let pinsStore = try ws.pinsStore.load()
-            let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity.description == "foo" })!
+            let fooPin = pinsStore.pins.values.first(where: { $0.packageRef.identity.description == "foo" })!
 
             let fooRepo = workspace.repositoryProvider
                 .specifierMap[RepositorySpecifier(path: try AbsolutePath(

@@ -101,7 +101,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Reference to the pins store, if provided.
-    private let pinsMap: PinsStore.PinsMap
+    private let pins: PinsStore.Pins
 
     /// The container provider used to load package containers.
     private let provider: ContainerProvider
@@ -120,20 +120,20 @@ public struct PubGrubDependencyResolver {
 
     public init(
         provider: PackageContainerProvider,
-        pinsMap: PinsStore.PinsMap = [:],
+        pins: PinsStore.Pins = [:],
         skipDependenciesUpdates: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
-        self.pinsMap = pinsMap
+        self.pins = pins
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.provider = ContainerProvider(
             provider: self.packageContainerProvider,
             skipUpdate: self.skipDependenciesUpdates,
-            pinsMap: self.pinsMap,
+            pins: self.pins,
             observabilityScope: observabilityScope
         )
         self.delegate = delegate
@@ -189,7 +189,7 @@ public struct PubGrubDependencyResolver {
             // We avoid prefetching packages that are overridden since
             // otherwise we'll end up creating a repository container
             // for them.
-            let pins = self.pinsMap.values
+            let pins = self.pins.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
             self.provider.prefetch(containers: pins)
@@ -362,7 +362,7 @@ public struct PubGrubDependencyResolver {
             // latest commit on that branch. Note that if this revision-based dependency is
             // already a commit, then its pin entry doesn't matter in practice.
             let revisionForDependencies: String
-            if case .branch(revision, let pinRevision) = pinsMap[package.identity]?.state {
+            if case .branch(revision, let pinRevision) = self.pins[package.identity]?.state {
                 revisionForDependencies = pinRevision
 
                 // Mark the package as overridden with the pinned revision and record the branch as well.
