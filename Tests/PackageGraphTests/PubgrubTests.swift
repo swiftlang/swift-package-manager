@@ -1416,7 +1416,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = try resolver.solve(root: rootNode, constraints: dependencies)
 
         // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
@@ -1450,7 +1450,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1479,7 +1479,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version("1.2.0"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1504,7 +1504,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1644,7 +1644,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pinsMap: PinsStore.PinsMap()
+            pins: PinsStore.Pins()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -2864,7 +2864,7 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let resolver = builder.create(pinsMap: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
+        let resolver = builder.create(pins: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["a"])),
             "c": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["c"])),
@@ -3258,13 +3258,13 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pinsMap: PinsStore.PinsMap = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(pins: PinsStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: Array(self.containers.values))
-        return PubGrubDependencyResolver(provider :provider, pinsMap: pinsMap, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
+        return PubGrubDependencyResolver(provider :provider, pins: pins, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
     }
 }
 

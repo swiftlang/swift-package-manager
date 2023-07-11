@@ -19,7 +19,7 @@ import enum TSCBasic.JSON
 import struct TSCUtility.Version
 
 public final class PinsStore {
-    public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
+    public typealias Pins = [PackageIdentity: PinsStore.Pin]
 
     public struct Pin: Equatable {
         /// The package reference of the pinned dependency.
@@ -58,13 +58,8 @@ public final class PinsStore {
     private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PinsStore.Pin>
 
     /// The current pins.
-
-    public var pinsMap: PinsMap {
+    public var pins: Pins {
         self._pins.get()
-    }
-
-    public var pins: AnySequence<Pin> {
-        AnySequence<Pin>(self.pinsMap.values)
     }
 
     /// Create a new pins store.
@@ -157,7 +152,7 @@ private struct PinsStorage {
         self.fileSystem = fileSystem
     }
 
-    func load(mirrors: DependencyMirrors) throws -> PinsStore.PinsMap {
+    func load(mirrors: DependencyMirrors) throws -> PinsStore.Pins {
         if !self.fileSystem.exists(self.path) {
             return [:]
         }
@@ -190,7 +185,7 @@ private struct PinsStorage {
     }
 
     func save(
-        pins: PinsStore.PinsMap,
+        pins: PinsStore.Pins,
         mirrors: DependencyMirrors,
         removeIfEmpty: Bool,
         toolsVersion: ToolsVersion
@@ -254,7 +249,7 @@ private struct PinsStorage {
         let version: Int
         let object: Container
 
-        init(pins: PinsStore.PinsMap, mirrors: DependencyMirrors) throws {
+        init(pins: PinsStore.Pins, mirrors: DependencyMirrors) throws {
             self.version = Self.version
             self.object = try .init(
                 pins: pins.values
@@ -356,7 +351,7 @@ private struct PinsStorage {
         let version: Int
         let pins: [Pin]
 
-        init(pins: PinsStore.PinsMap, mirrors: DependencyMirrors) throws {
+        init(pins: PinsStore.Pins, mirrors: DependencyMirrors) throws {
             self.version = Self.version
             self.pins = try pins.values
                 .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })

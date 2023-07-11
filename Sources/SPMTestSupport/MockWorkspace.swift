@@ -758,11 +758,11 @@ public final class MockWorkspace {
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertFalse(self.store.pinsMap.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
+            XCTAssertFalse(self.store.pins.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
         }
 
         public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pinsMap.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
@@ -789,7 +789,7 @@ public final class MockWorkspace {
         }
 
         public func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pinsMap.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
