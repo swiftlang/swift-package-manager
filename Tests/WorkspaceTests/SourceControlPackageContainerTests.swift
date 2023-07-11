@@ -156,8 +156,9 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: RepositoryManager.Delegate {
+private class MockRepositoryManagerDelegate: RepositoryManager.Delegate {
     var fetched = ThreadSafeArrayStore<RepositorySpecifier>()
+    var updated = ThreadSafeArrayStore<RepositorySpecifier>()
 
     func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
         self.fetched.append(repository)
@@ -167,9 +168,16 @@ private class MockResolverDelegate: RepositoryManager.Delegate {
 
     func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {}
 
-    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {}
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
+        self.updated.append(repository)
+    }
 
     func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {}
+
+    func reset() {
+        self.fetched.clear()
+        self.updated.clear()
+    }
 }
 
 // Some handy versions & ranges.
@@ -208,7 +216,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         let provider = try Workspace._init(
@@ -260,7 +268,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
@@ -345,7 +353,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         let provider = try Workspace._init(
@@ -394,7 +402,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         let provider = try Workspace._init(
@@ -608,6 +616,90 @@ class SourceControlPackageContainerTests: XCTestCase {
                 XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
                 XCTAssertMatch(error.repository.description, .suffix("SomePackage"))
                 XCTAssertMatch(error.reference, "535f4cb5b4a0872fa691473e82d7b27b9894df00")
+            }
+        }
+    }
+
+    func testRepositoryContainerUpdateStrategy() throws {
+        try testWithTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            let package = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
+
+            try localFileSystem.createDirectory(packageDirectory)
+            initGitRepo(packageDirectory)
+
+            try localFileSystem.writeFileContents(packageDirectory.appending(Manifest.filename), string: "")
+            try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: packageDirectory, toolsVersion: .current, fileSystem: localFileSystem)
+
+
+            let repositoryProvider = GitRepositoryProvider()
+            let repositoryManagerDelegate = MockRepositoryManagerDelegate()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDirectory,
+                provider: repositoryProvider,
+                delegate: repositoryManagerDelegate
+            )
+
+            let containerProvider = try Workspace._init(
+                fileSystem: localFileSystem,
+                location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
+                customManifestLoader: MockManifestLoader(
+                    manifests: [
+                        .init(url: packageDirectory.pathString, version: nil): Manifest.createRootManifest(
+                            displayName: packageDirectory.basename,
+                            path: packageDirectory,
+                            targets: [
+                                try TargetDescription(name: packageDirectory.basename, path: packageDirectory.pathString),
+                            ]
+                        )
+                    ]
+                ),
+                customRepositoryManager: repositoryManager
+            )
+
+            do {
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .never
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+            }
+
+            do {
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .always
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 1)
+            }
+
+            do {
+                let repository = GitRepository(path: packageDirectory)
+                try repository.tag(name: "1.0.0")
+                let revision = try repository.resolveRevision(tag: "1.0.0")
+
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .ifNeeded(revision: revision.identifier)
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+            }
+
+            do {
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .ifNeeded(revision: UUID().uuidString)
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 1)
             }
         }
     }

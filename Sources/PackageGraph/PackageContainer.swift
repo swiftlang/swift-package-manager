@@ -173,6 +173,9 @@ public protocol PackageContainerProvider {
     )
 }
 
+/// Only used for source control containers and as such a mirror of RepositoryUpdateStrategy
+/// This duplication is unfortunate - ideally this is not a concern of the ContainerProvider at all
+/// but it is required give how PackageContainerProvider currently integrated into the resolver
 public enum ContainerUpdateStrategy {
     case never
     case always
