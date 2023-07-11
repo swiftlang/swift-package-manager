@@ -62,7 +62,13 @@ enum TestingSupport {
         throw InternalError("XCTestHelper binary not found, tried \(triedPaths.map { $0.pathString }.joined(separator: ", "))")
     }
 
-    static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [AbsolutePath: [TestSuite]] {
+    static func getTestSuites(
+        in testProducts: [BuiltTestProduct],
+        swiftTool: SwiftTool,
+        enableCodeCoverage: Bool,
+        shouldSkipBuilding: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
             .map {(
                 $0.bundlePath,
@@ -70,6 +76,7 @@ enum TestingSupport {
                     fromTestAt: $0.bundlePath,
                     swiftTool: swiftTool,
                     enableCodeCoverage: enableCodeCoverage,
+                    shouldSkipBuilding: shouldSkipBuilding,
                     sanitizers: sanitizers
                 )
             )}
@@ -86,7 +93,13 @@ enum TestingSupport {
     /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of TestSuite
-    static func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [TestSuite] {
+    static func getTestSuites(
+        fromTestAt path: AbsolutePath,
+        swiftTool: SwiftTool,
+        enableCodeCoverage: Bool,
+        shouldSkipBuilding: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [TestSuite] {
         // Run the correct tool.
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
@@ -94,7 +107,8 @@ enum TestingSupport {
             var env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
-                    enableCodeCoverage: enableCodeCoverage
+                    enableCodeCoverage: enableCodeCoverage,
+                    shouldSkipBuilding: shouldSkipBuilding
                 ),
                 sanitizers: sanitizers
             )
@@ -113,7 +127,8 @@ enum TestingSupport {
         let env = try Self.constructTestEnvironment(
             toolchain: try swiftTool.getTargetToolchain(),
             buildParameters: swiftTool.buildParametersForTest(
-                enableCodeCoverage: enableCodeCoverage
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding
             ),
             sanitizers: sanitizers
         )
@@ -184,13 +199,15 @@ enum TestingSupport {
 extension SwiftTool {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
-        enableTestability: Bool? = nil
+        enableTestability: Bool? = nil,
+        shouldSkipBuilding: Bool = false
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
         parameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
         parameters.enableTestability = enableTestability ?? true
+        parameters.shouldSkipBuilding = shouldSkipBuilding
         return parameters
     }
 }

@@ -237,6 +237,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
+        guard !buildParameters.shouldSkipBuilding else {
+            return
+        }
 
         let buildStartTime = DispatchTime.now()
 
@@ -422,7 +425,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        if let pluginConfiguration {
+        if let pluginConfiguration, !self.buildParameters.shouldSkipBuilding {
             let buildOperationForPluginDependencies = try BuildOperation(
                 buildParameters: self.buildParameters.forTriple(self.buildParameters.hostTriple),
                 cacheBuildManifest: false,
