@@ -16,8 +16,8 @@ import TSCBasic
 
 import struct TSCUtility.Version
 
-/// Errors related to cross-compilation destinations.
-public enum DestinationError: Swift.Error {
+/// Errors related to Swift SDKs.
+public enum SwiftSDKError: Swift.Error {
     /// A passed argument is neither a valid file system path nor a URL.
     case invalidPathOrURL(String)
 
@@ -30,26 +30,26 @@ public enum DestinationError: Swift.Error {
     /// Name of the destination bundle is not valid.
     case invalidBundleName(String)
 
-    /// No valid destinations were decoded from a destination file.
-    case noDestinationsDecoded(AbsolutePath)
+    /// No valid Swift SDKs were decoded from a metadata file.
+    case noSwiftSDKDecoded(AbsolutePath)
 
     /// Path used for storing destination configuration data is not a directory.
     case pathIsNotDirectory(AbsolutePath)
 
-    /// A destination couldn't be serialized with the latest serialization schema, potentially because it
+    /// Swift SDK metadata couldn't be serialized with the latest serialization schema, potentially because it
     /// was deserialized from an earlier incompatible schema version or initialized manually with properties
     /// required for initialization missing.
-    case unserializableDestination
+    case unserializableMetadata
 
-    /// No configuration values are available for this destination and run-time triple.
-    case destinationNotFound(artifactID: String, builtTimeTriple: Triple, runTimeTriple: Triple)
+    /// No configuration values are available for this Swift SDK and target triple.
+    case swiftSDKNotFound(artifactID: String, hostTriple: Triple, targetTriple: Triple)
 
-    /// A destination bundle with this name is already installed, can't install a new bundle with the same name.
-    case destinationBundleAlreadyInstalled(bundleName: String)
+    /// A Swift SDK bundle with this name is already installed, can't install a new bundle with the same name.
+    case swiftSDKBundleAlreadyInstalled(bundleName: String)
 
-    /// A destination with this artifact ID is already installed. Can't install a new bundle with this artifact,
+    /// A Swift SDK with this artifact ID is already installed. Can't install a new bundle with this artifact,
     /// installed artifact IDs are expected to be unique.
-    case destinationArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
+    case swiftSDKArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
 
     #if os(macOS)
     /// Quarantine attribute should be removed by the `xattr` command from an installed bundle.
@@ -57,40 +57,40 @@ public enum DestinationError: Swift.Error {
     #endif
 }
 
-extension DestinationError: CustomStringConvertible {
+extension SwiftSDKError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .invalidPathOrURL(let argument):
             return "`\(argument)` is neither a valid filesystem path nor a URL."
         case .invalidSchemaVersion:
-            return "unsupported destination file schema version"
+            return "unsupported Swift SDK file schema version"
         case .invalidInstallation(let problem):
             return problem
         case .invalidBundleName(let name):
             return """
             invalid bundle name `\(name)`, unpacked Swift SDK bundles are expected to have `.artifactbundle` extension
             """
-        case .noDestinationsDecoded(let path):
-            return "no valid Swift SDKs were decoded from a destination file at path `\(path)`"
+        case .noSwiftSDKDecoded(let path):
+            return "no valid Swift SDKs were decoded from a metadata file at path `\(path)`"
         case .pathIsNotDirectory(let path):
             return "path expected to be a directory is not a directory or doesn't exist: `\(path)`"
-        case .unserializableDestination:
+        case .unserializableMetadata:
             return """
             Swift SDK configuration couldn't be serialized with the latest serialization schema, potentially because \
             it was deserialized from an earlier incompatible schema version or initialized manually with missing \
             properties required for initialization
             """
-        case .destinationNotFound(let artifactID, let buildTimeTriple, let runTimeTriple):
+        case .swiftSDKNotFound(let artifactID, let hostTriple, let targetTriple):
             return """
-            Swift SDK with ID `\(artifactID)`, build-time triple \(buildTimeTriple), and run-time triple \
-            \(runTimeTriple) is not currently installed.
+            Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
+            currently installed.
             """
-        case .destinationBundleAlreadyInstalled(let bundleName):
+        case .swiftSDKBundleAlreadyInstalled(let bundleName):
             return """
             Swift SDK bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
             with the same name.
             """
-        case .destinationArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
+        case .swiftSDKArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
             return """
             A Swift SDK with artifact ID `\(artifactID)` is already included in an installed bundle with name \
             `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
@@ -282,6 +282,52 @@ public struct Destination: Equatable {
             }
         }
 
+        /// Initialize paths configuration from values deserialized using v4 schema.
+        /// - Parameters:
+        ///   - properties: properties of a Swift SDK for the given triple.
+        ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
+        fileprivate init(_ properties: SwiftSDKMetadataV4.TripleProperties, swiftSDKDirectory: AbsolutePath? = nil) throws {
+            if let swiftSDKDirectory {
+                self.init(
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
+                    swiftResourcesPath: try properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                    },
+                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                    },
+                    includeSearchPaths: try properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                    },
+                    librarySearchPaths: try properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                    },
+                    toolsetPaths: try properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                    }
+                )
+            } else {
+                self.init(
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
+                    swiftResourcesPath: try properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    includeSearchPaths: try properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    librarySearchPaths: try properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    toolsetPaths: try properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    }
+                )
+            }
+        }
+
         public mutating func merge(with newConfiguration: Self) {
             if let sdkRootPath = newConfiguration.sdkRootPath {
                 self.sdkRootPath = sdkRootPath
@@ -408,7 +454,7 @@ public struct Destination: Equatable {
                 environment: environment
             ).spm_chomp()
             guard !sdkPathStr.isEmpty else {
-                throw DestinationError.invalidInstallation("default SDK not found")
+                throw SwiftSDKError.invalidInstallation("default SDK not found")
             }
             sdkPath = try AbsolutePath(validating: sdkPathStr)
         }
@@ -569,12 +615,56 @@ extension Destination {
                     destinationDirectory: destinationDirectory
                 )
             }
+
+        case Version(4, 0, 0):
+            let swiftSDKs = try decoder.decode(path: path, fileSystem: fileSystem, as: SwiftSDKMetadataV4.self)
+            let swiftSDKDirectory = path.parentDirectory
+
+            return try swiftSDKs.targetTriples.map { triple, properties in
+                let triple = try Triple(triple)
+
+                let pathStrings = properties.toolsetPaths ?? []
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
+                    try $0.merge(
+                        with: Toolset(
+                            from: .init(validating: $1, relativeTo: swiftSDKDirectory),
+                            at: fileSystem,
+                            observabilityScope
+                        )
+                    )
+                }
+
+                return try Destination(
+                    targetTriple: triple,
+                    properties: properties,
+                    toolset: toolset,
+                    swiftSDKDirectory: swiftSDKDirectory
+                )
+            }
         default:
-            throw DestinationError.invalidSchemaVersion
+            throw SwiftSDKError.invalidSchemaVersion
         }
     }
 
-    
+    /// Initialize new Swift SDK from values deserialized using v4 schema.
+    /// - Parameters:
+    ///   - targetTriple: triple of the machine running code built with this Swift SDK.
+    ///   - properties: properties of the Swift SDK for the given triple.
+    ///   - toolset: combined toolset used by this Swift SDK.
+    ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
+    init(
+        targetTriple: Triple,
+        properties: SwiftSDKMetadataV4.TripleProperties,
+        toolset: Toolset = .init(),
+        swiftSDKDirectory: AbsolutePath? = nil
+    ) throws {
+        self.init(
+            targetTriple: targetTriple,
+            toolset: toolset,
+            pathsConfiguration: try .init(properties, swiftSDKDirectory: swiftSDKDirectory)
+        )
+    }
+
     /// Initialize new destination from values deserialized using v3 schema.
     /// - Parameters:
     ///   - runTimeTriple: triple of the machine running code built with this destination.
@@ -641,7 +731,7 @@ extension Destination {
                 )
             )
         default:
-            throw DestinationError.invalidSchemaVersion
+            throw SwiftSDKError.invalidSchemaVersion
         }
     }
 
@@ -651,12 +741,12 @@ extension Destination {
     /// from different schema versions or constructed manually without providing valid values for such properties.
     var serialized: (Triple, SerializedDestinationV3.TripleProperties) {
         get throws {
-            guard let runTimeTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
-                throw DestinationError.unserializableDestination
+            guard let targetTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
+                throw SwiftSDKError.unserializableMetadata
             }
             
             return (
-                runTimeTriple,
+                targetTriple,
                 .init(
                     sdkRootPath: sdkRootDir.pathString,
                     swiftResourcesPath: self.pathsConfiguration.swiftResourcesPath?.pathString,
@@ -745,4 +835,30 @@ struct SerializedDestinationV3: Decodable {
 
     /// Mapping of triple strings to corresponding properties of such run-time triple.
     let runTimeTriples: [String: TripleProperties]
+}
+
+/// Represents v4 schema of `swift-sdk.json` (previously `destination.json`) files used for cross-compilation.
+struct SwiftSDKMetadataV4: Decodable {
+    struct TripleProperties: Codable {
+        /// Path relative to `swift-sdk.json` containing SDK root.
+        var sdkRootPath: String
+
+        /// Path relative to `swift-sdk.json` containing Swift resources for dynamic linking.
+        var swiftResourcesPath: String?
+
+        /// Path relative to `swift-sdk.json` containing Swift resources for static linking.
+        var swiftStaticResourcesPath: String?
+
+        /// Array of paths relative to `swift-sdk.json` containing headers.
+        var includeSearchPaths: [String]?
+
+        /// Array of paths relative to `swift-sdk.json` containing libraries.
+        var librarySearchPaths: [String]?
+
+        /// Array of paths relative to `swift-sdk.json` containing toolset files.
+        var toolsetPaths: [String]?
+    }
+
+    /// Mapping of triple strings to corresponding properties of such target triple.
+    let targetTriples: [String: TripleProperties]
 }

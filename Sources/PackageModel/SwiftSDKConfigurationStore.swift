@@ -19,7 +19,7 @@ import class Foundation.JSONEncoder
 /// Storage for configuration properties of Swift SDKs.
 public final class SwiftSDKConfigurationStore {
     /// Triple of the machine on which SwiftPM is running.
-    private let buildTimeTriple: Triple
+    private let hostTriple: Triple
 
     /// Path to the directory in which Swift SDKs and their configuration are stored. Usually
     /// `~/.swiftpm/swift-sdks` or a directory to which `~/.swiftpm/swift-sdks` symlinks to.
@@ -41,32 +41,32 @@ public final class SwiftSDKConfigurationStore {
     /// Encoder used for reading existing configuration from  ``SwiftSDKConfigurationStore//fileSystem``.
     private let decoder: JSONDecoder
 
-    /// Initializes a store for configuring destinations.
+    /// Initializes a store for configuring Swift SDKs.
     /// - Parameters:
-    ///   - buildTimeTriple: Triple of the machine on which SwiftPM is running.
-    ///   - destinationsDirectoryPath: Path to the directory in which destinations and their configuration are
-    ///   stored. Usually `~/.swiftpm/destinations` or a directory to which `~/.swiftpm/destinations` symlinks to.
+    ///   - hostTriple: Triple of the machine on which SwiftPM is running.
+    ///   - swiftSDKsDirectoryPath: Path to the directory in which Swift SDKs and their configuration are
+    ///   stored. Usually `~/.swiftpm/swift-sdks` or a directory to which `~/.swiftpm/swift-sdks` symlinks to.
     ///   If this directory doesn't exist, an error will be thrown.
-    ///   - fileSystem: file system on which `destinationsDirectoryPath` exists.
+    ///   - fileSystem: file system on which `swiftSDKsDirectoryPath` exists.
     ///   - observabilityScope: an observability scope on which warnings can be reported if any appear.
     public init(
-        buildTimeTriple: Triple,
-        destinationsDirectoryPath: AbsolutePath,
+        hostTimeTriple: Triple,
+        swiftSDKsDirectoryPath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        let configurationDirectoryPath = destinationsDirectoryPath.appending(component: "configuration")
+        let configurationDirectoryPath = swiftSDKsDirectoryPath.appending(component: "configuration")
 
         if fileSystem.exists(configurationDirectoryPath) {
             guard fileSystem.isDirectory(configurationDirectoryPath) else {
-                throw DestinationError.pathIsNotDirectory(configurationDirectoryPath)
+                throw SwiftSDKError.pathIsNotDirectory(configurationDirectoryPath)
             }
         } else {
             try fileSystem.createDirectory(configurationDirectoryPath)
         }
 
-        self.buildTimeTriple = buildTimeTriple
-        self.swiftSDKsDirectoryPath = destinationsDirectoryPath
+        self.hostTriple = hostTimeTriple
+        self.swiftSDKsDirectoryPath = swiftSDKsDirectoryPath
         self.configurationDirectoryPath = configurationDirectoryPath
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -75,24 +75,24 @@ public final class SwiftSDKConfigurationStore {
     }
 
     public func updateConfiguration(
-        destinationID: String,
+        sdkID: String,
         destination: Destination
     ) throws {
-        let (runTimeTriple, properties) = try destination.serialized
+        let (targetTriple, properties) = try destination.serialized
 
         let configurationPath = configurationDirectoryPath.appending(
-            component: "\(destinationID)_\(runTimeTriple).json"
+            component: "\(sdkID)_\(targetTriple).json"
         )
 
         try encoder.encode(path: configurationPath, fileSystem: fileSystem, properties)
     }
 
     public func readConfiguration(
-        destinationID: String,
-        runTimeTriple triple: Triple
+        sdkID: String,
+        targetTriple triple: Triple
     ) throws -> Destination? {
         let configurationPath = configurationDirectoryPath.appending(
-            component: "\(destinationID)_\(triple.tripleString).json"
+            component: "\(sdkID)_\(triple.tripleString).json"
         )
 
         let destinationBundles = try SwiftSDKBundle.getAllValidBundles(
@@ -102,8 +102,8 @@ public final class SwiftSDKConfigurationStore {
         )
 
         guard var destination = destinationBundles.selectDestination(
-            id: destinationID,
-            hostTriple: buildTimeTriple,
+            id: sdkID,
+            hostTriple: hostTriple,
             targetTriple: triple
         ) else {
             return nil
@@ -113,12 +113,12 @@ public final class SwiftSDKConfigurationStore {
             let properties = try decoder.decode(
                 path: configurationPath,
                 fileSystem: fileSystem,
-                as: SerializedDestinationV3.TripleProperties.self
+                as: SwiftSDKMetadataV4.TripleProperties.self
             )
 
             destination.pathsConfiguration.merge(
                 with: try Destination(
-                    runTimeTriple: triple,
+                    targetTriple: triple,
                     properties: properties
                 ).pathsConfiguration
             )
@@ -133,11 +133,11 @@ public final class SwiftSDKConfigurationStore {
     ///   - tripleString: run-time triple for which the properties should be reset.
     /// - Returns: `true` if custom configuration was successfully removed, `false` if no custom configuration existed.
     public func resetConfiguration(
-        destinationID: String,
-        runTimeTriple triple: Triple
+        sdkID: String,
+        targetTriple triple: Triple
     ) throws -> Bool {
         let configurationPath = configurationDirectoryPath.appending(
-            component: "\(destinationID)_\(triple.tripleString).json"
+            component: "\(sdkID)_\(triple.tripleString).json"
         )
 
         guard fileSystem.isFile(configurationPath) else {

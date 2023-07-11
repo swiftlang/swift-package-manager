@@ -177,7 +177,7 @@ public struct SwiftSDKBundle {
             {
                 bundlePath = originalBundlePath
             } else {
-                throw DestinationError.invalidPathOrURL(bundlePathOrURL)
+                throw SwiftSDKError.invalidPathOrURL(bundlePathOrURL)
             }
 
             try installIfValid(
@@ -211,16 +211,16 @@ public struct SwiftSDKBundle {
         let regex = try RegEx(pattern: "(.+\\.artifactbundle).*")
 
         guard let bundleName = bundlePath.components.last else {
-            throw DestinationError.invalidPathOrURL(bundlePath.pathString)
+            throw SwiftSDKError.invalidPathOrURL(bundlePath.pathString)
         }
 
         guard let unpackedBundleName = regex.matchGroups(in: bundleName).first?.first else {
-            throw DestinationError.invalidBundleName(bundleName)
+            throw SwiftSDKError.invalidBundleName(bundleName)
         }
 
         let installedBundlePath = destinationsDirectory.appending(component: unpackedBundleName)
         guard !fileSystem.exists(installedBundlePath) else {
-            throw DestinationError.destinationBundleAlreadyInstalled(bundleName: unpackedBundleName)
+            throw SwiftSDKError.swiftSDKBundleAlreadyInstalled(bundleName: unpackedBundleName)
         }
 
         // If there's no archive extension on the bundle name, assuming it's not archived and returning the same path.
@@ -252,7 +252,7 @@ public struct SwiftSDKBundle {
         #if os(macOS)
         // Check the quarantine attribute on bundles downloaded manually in the browser.
         guard !fileSystem.hasAttribute(.quarantine, bundlePath) else {
-            throw DestinationError.quarantineAttributePresent(bundlePath: bundlePath)
+            throw SwiftSDKError.quarantineAttributePresent(bundlePath: bundlePath)
         }
         #endif
 
@@ -268,7 +268,7 @@ public struct SwiftSDKBundle {
             fileSystem.isDirectory(unpackedBundlePath),
             let bundleName = unpackedBundlePath.components.last
         else {
-            throw DestinationError.pathIsNotDirectory(bundlePath)
+            throw SwiftSDKError.pathIsNotDirectory(bundlePath)
         }
 
         let installedBundlePath = destinationsDirectory.appending(component: bundleName)
@@ -289,7 +289,7 @@ public struct SwiftSDKBundle {
         for installedBundle in installedBundles {
             for artifactID in installedBundle.artifacts.keys {
                 guard !newArtifactIDs.contains(artifactID) else {
-                    throw DestinationError.destinationArtifactAlreadyInstalled(
+                    throw SwiftSDKError.swiftSDKArtifactAlreadyInstalled(
                         installedBundleName: installedBundle.name,
                         newBundleName: validatedBundle.name,
                         artifactID: artifactID
@@ -302,12 +302,12 @@ public struct SwiftSDKBundle {
     }
 
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing
-    /// cross-compilation destinations.
+    /// cross-compilation Swift SDKs.
     /// - Parameters:
     ///   - bundlePath: path to the bundle root directory.
     ///   - fileSystem: filesystem containing the bundle.
     ///   - observabilityScope: observability scope to log validation warnings.
-    /// - Returns: Validated `DestinationsBundle` containing validated `Destination` values for
+    /// - Returns: Validated `SwiftSDKBundle` containing validated `Destination` values for
     /// each artifact and its variants.
     private static func parseAndValidate(
         bundlePath: AbsolutePath,
@@ -319,7 +319,7 @@ public struct SwiftSDKBundle {
             rootPath: bundlePath
         )
 
-        return try parsedManifest.validateDestinationBundle(
+        return try parsedManifest.validateSwiftSDKBundle(
             bundlePath: bundlePath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
@@ -328,7 +328,7 @@ public struct SwiftSDKBundle {
 }
 
 extension ArtifactsArchiveMetadata {
-    fileprivate func validateDestinationBundle(
+    fileprivate func validateSwiftSDKBundle(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
