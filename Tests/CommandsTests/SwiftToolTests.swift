@@ -241,9 +241,6 @@ final class SwiftToolTests: CommandsTestCase {
             "/Pkg/Sources/exe/main.swift",
         ])
 
-        let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
-        let explicitDwarf = try SwiftTool.createSwiftToolForTest(options: explicitDwarfOptions)
-
         let observer = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(fileSystem: fs, manifests: [
                 Manifest.createRootManifest(displayName: "Pkg",
@@ -253,6 +250,10 @@ final class SwiftToolTests: CommandsTestCase {
 
         var plan: BuildPlan
 
+
+        /* -debug-info-format dwarf */
+        let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
+        let explicitDwarf = try SwiftTool.createSwiftToolForTest(options: explicitDwarfOptions)
         plan = try BuildPlan(
             buildParameters: explicitDwarf.buildParameters(),
             graph: graph,
@@ -262,6 +263,8 @@ final class SwiftToolTests: CommandsTestCase {
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
+
+        /* -debug-info-format codeview */
         let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
         let explicitCodeView = try SwiftTool.createSwiftToolForTest(options: explicitCodeViewOptions)
 
@@ -274,6 +277,17 @@ final class SwiftToolTests: CommandsTestCase {
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as?  Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"])
 
+        // Explicitly pass Linux as when the SwiftTool tests are enabled on
+        // Windows, this would fail otherwise as CodeView is supported on the
+        // native host.
+        let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
+        let unsupportedCodeView = try SwiftTool.createSwiftToolForTest(options: unsupportedCodeViewOptions)
+
+        XCTAssertThrowsError(try unsupportedCodeView.buildParameters()) {
+            XCTAssertEqual($0 as? StringError, StringError("CodeView debug information is currently not supported on linux"))
+        }
+
+        /* <<null>> */
         let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
         let implicitDwarf = try SwiftTool.createSwiftToolForTest(options: implicitDwarfOptions)
         plan = try BuildPlan(
@@ -285,15 +299,17 @@ final class SwiftToolTests: CommandsTestCase {
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
 
-        // Explicitly pass Linux as when the SwiftTool tests are enabled on
-        // Windows, this would fail otherwise as CodeView is supported on the
-        // native host.
-        let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
-        let unsupportedCodeView = try SwiftTool.createSwiftToolForTest(options: unsupportedCodeViewOptions)
-
-        XCTAssertThrowsError(try unsupportedCodeView.buildParameters()) {
-            XCTAssertEqual($0 as? StringError, StringError("CodeView debug information is currently not supported on linux"))
-        }
+        /* -debug-info-format none */
+        let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
+        let explicitNoDebugInfo = try SwiftTool.createSwiftToolForTest(options: explicitNoDebugInfoOptions)
+        plan = try BuildPlan(
+            buildParameters: explicitNoDebugInfo.buildParameters(),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observer.topScope
+        )
+        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+                           [.anySequence, "-gnone", .anySequence])
     }
 }
 

@@ -510,6 +510,8 @@ public struct BuildOptions: ParsableArguments {
         case dwarf
         /// See `BuildParameters.DebugInfoFormat.codeview` for details.
         case codeview
+        /// See `BuildParameters.DebugInfoFormat.none` for details.
+        case none
     }
 }
 
