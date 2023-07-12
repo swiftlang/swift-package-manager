@@ -61,6 +61,12 @@ let swiftPMProduct = (
     ]
 )
 
+#if os(Windows)
+let systemSQLitePkgConfig: String? = nil
+#else
+let systemSQLitePkgConfig: String? = "sqlite3"
+#endif
+
 /** An array of products which have two versions listed: one dynamically linked, the other with the
 automatic linking type with `-auto` suffix appended to product's name.
 */
@@ -143,7 +149,7 @@ let package = Package(
 
         // MARK: SwiftPM specific support libraries
 
-        .systemLibrary(name: "SPMSQLite3", pkgConfig: "sqlite3"),
+        .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
 
         .target(
             name: "Basics",
