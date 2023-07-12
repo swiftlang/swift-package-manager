@@ -703,7 +703,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
         self.lock.withLock {
-            (try? callGit("rev-parse", "--verify", revision.identifier)) != nil
+            let output = try? callGit("rev-parse", "--verify", "\(revision.identifier)^{commit}")
+            return output != nil
         }
     }
 

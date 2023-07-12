@@ -3116,7 +3116,7 @@ public struct MockProvider: PackageContainerProvider {
 
     public func getContainer(
         for package: PackageReference,
-        skipUpdate: Bool,
+        updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>

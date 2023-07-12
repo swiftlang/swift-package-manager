@@ -1100,8 +1100,11 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Initial resolution with clean state.
-            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
-            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+            do {
+                try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
+                let (_, err)  = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+                XCTAssertMatch(err, .contains("Fetching \(repositoryURL)"))
+            }
 
             // Make a change to the dependency and tag a new version.
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift"), string:
@@ -1115,8 +1118,20 @@ final class PackageToolTests: CommandsTestCase {
             let updatedRevision = try depGit.revision(forTag: "1.0.1")
 
             // Require new version but re-use existing state that hasn't fetched the latest revision, yet.
-            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: updatedRevision, version: "1.0.1")
-            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+            do {
+                try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: updatedRevision, version: "1.0.1")
+                let (_, err) = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+                XCTAssertNoMatch(err, .contains("Fetching \(repositoryURL)"))
+                XCTAssertMatch(err, .contains("Updating \(repositoryURL)"))
+
+            }
+
+            // And again
+            do {
+                let (_, err) = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+                XCTAssertNoMatch(err, .contains("Updating \(repositoryURL)"))
+                XCTAssertNoMatch(err, .contains("Fetching \(repositoryURL)"))
+            }
         }
     }
 

@@ -98,7 +98,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v4)
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.1"])
         }
@@ -106,7 +106,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v4_2)
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.2", "1.0.1"])
         }
@@ -114,7 +114,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_4)
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.3", "1.0.2", "1.0.1"])
         }
@@ -163,7 +163,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_2) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_3)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [])
@@ -172,7 +172,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_3)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
@@ -181,7 +181,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_4) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_4)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
@@ -190,7 +190,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_5)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
@@ -199,7 +199,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_6) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_5)
             let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
@@ -285,7 +285,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
+            let container = try provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_3)
         }
@@ -293,7 +293,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(v5_3_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
+            let container = try provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, v5_3_3)
         }
@@ -301,7 +301,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_4) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
+            let container = try provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_4)
         }
@@ -309,7 +309,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
+            let container = try provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
         }
@@ -317,7 +317,7 @@ class RegistryPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(.v5_6) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
+            let container = try provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
         }
@@ -485,7 +485,15 @@ class RegistryPackageContainerTests: XCTestCase {
 }
 
 extension PackageContainerProvider {
-    fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
-        try temp_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+    fileprivate func getContainer(for package: PackageReference, updateStrategy: ContainerUpdateStrategy = .always) throws -> PackageContainer {
+        try temp_await {
+            self.getContainer(
+                for: package,
+                updateStrategy: updateStrategy,
+                observabilityScope: ObservabilitySystem.NOOP,
+                on: .global(),
+                completion: $0
+            )
+        }
     }
 }

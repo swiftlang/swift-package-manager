@@ -139,9 +139,10 @@ public final class MockWorkspace {
                     let container = try temp_await {
                         containerProvider.getContainer(
                             for: packageRef,
-                            skipUpdate: true,
+                            updateStrategy: .never,
                             observabilityScope: observability.topScope,
-                            on: .sharedConcurrent, completion: $0
+                            on: .sharedConcurrent,
+                            completion: $0
                         )
                     }
                     guard let customContainer = container as? CustomPackageContainer else {

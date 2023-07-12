@@ -57,7 +57,10 @@ final class ContainerProvider {
     }
 
     /// Get the container for the given identifier, loading it if necessary.
-    func getContainer(for package: PackageReference, completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void) {
+    func getContainer(
+        for package: PackageReference,
+        completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
+    ) {
         // Return the cached container, if available.
         if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
             return completion(.success(container))
@@ -79,7 +82,7 @@ final class ContainerProvider {
             // Otherwise, fetch the container from the provider
             self.underlying.getContainer(
                 for: package,
-                skipUpdate: self.skipUpdate,
+                updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
                 observabilityScope: self.observabilityScope.makeChildScope(description: "getting package container", metadata: package.diagnosticsMetadata),
                 on: .sharedConcurrent
             ) { result in
@@ -108,7 +111,7 @@ final class ContainerProvider {
             if needsFetching {
                 self.underlying.getContainer(
                     for: identifier,
-                    skipUpdate: self.skipUpdate,
+                    updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
                     observabilityScope: self.observabilityScope.makeChildScope(description: "prefetching package container", metadata: identifier.diagnosticsMetadata),
                     on: .sharedConcurrent
                 ) { result in
