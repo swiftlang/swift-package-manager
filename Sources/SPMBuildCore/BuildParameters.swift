@@ -62,6 +62,8 @@ public struct BuildParameters: Encodable {
         case dwarf
         /// CodeView debug information format, used on Windows.
         case codeview
+        /// No debug information to be emitted.
+        case none
     }
 
     /// Represents the debugging strategy.
@@ -320,6 +322,13 @@ public struct BuildParameters: Encodable {
                 cxxCompilerFlags: ["-g"],
                 swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
                 linkerFlags: ["-debug"]
+            ))
+        case .none:
+            var flags = flags
+            self.flags = flags.merging(BuildFlags(
+                cCompilerFlags: ["-g0"],
+                cxxCompilerFlags: ["-g0"],
+                swiftCompilerFlags: ["-gnone"]
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories

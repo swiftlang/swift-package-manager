@@ -988,6 +988,8 @@ extension BuildOptions.DebugInfoFormat {
             return .dwarf
         case .codeview:
             return .codeview
+        case .none:
+            return .none
         }
     }
 }
