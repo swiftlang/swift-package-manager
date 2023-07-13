@@ -12,6 +12,7 @@
 
 import struct Foundation.URL
 
+import Basics
 import PackageModel
 import struct TSCUtility.Version
 
@@ -34,7 +35,7 @@ extension Fingerprint {
     }
 
     public enum Origin: Equatable, CustomStringConvertible {
-        case sourceControl(URL)
+        case sourceControl(SourceControlURL)
         case registry(URL)
 
         public var kind: Fingerprint.Kind {
@@ -46,12 +47,12 @@ extension Fingerprint {
             }
         }
 
-        public var url: URL? {
+        public var url: SourceControlURL? {
             switch self {
             case .sourceControl(let url):
                 return url
             case .registry(let url):
-                return url
+                return SourceControlURL(url.absoluteString)
             }
         }
 

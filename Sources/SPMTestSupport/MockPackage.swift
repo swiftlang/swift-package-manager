@@ -63,7 +63,7 @@ public struct MockPackage {
     ) {
         self.name = name
         self.platforms = platforms
-        self.location = .sourceControl(url: URL(string: url)!)
+        self.location = .sourceControl(url: SourceControlURL(url))
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
@@ -115,7 +115,7 @@ public struct MockPackage {
 
     public enum Location {
         case fileSystem(path: RelativePath)
-        case sourceControl(url: URL)
+        case sourceControl(url: SourceControlURL)
         case registry(identity: PackageIdentity, alternativeURLs: [URL]?, metadata: RegistryReleaseMetadata?)
     }
 }

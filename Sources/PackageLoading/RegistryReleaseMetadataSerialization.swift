@@ -43,7 +43,7 @@ private struct CodableRegistryReleaseMetadata: Codable {
     public let description: String?
     public let licenseURL: URL?
     public let readmeURL: URL?
-    public let scmRepositoryURLs: [URL]?
+    public let scmRepositoryURLs: [SourceControlURL]?
 
     init(_ seed: RegistryReleaseMetadata) {
         switch seed.source {

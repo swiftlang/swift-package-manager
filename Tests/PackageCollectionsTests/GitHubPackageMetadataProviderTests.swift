@@ -47,7 +47,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testGood() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
             let releasesURL = URL("https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")
 
@@ -129,7 +129,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testRepoNotFound() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
 
             let handler: LegacyHTTPClient.Handler = { _, _, completion in
                 completion(.success(.init(statusCode: 404)))
@@ -151,7 +151,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testOthersNotFound() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             try fixture(name: "Collections", createGitRepo: false) { fixturePath in
@@ -189,7 +189,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testPermissionDenied() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             let handler: LegacyHTTPClient.Handler = { _, _, completion in
@@ -212,7 +212,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidAuthToken() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
             let authTokens = [AuthTokenType.github("github.com"): "foo"]
 
@@ -242,7 +242,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testAPILimit() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             let total = 5
@@ -302,7 +302,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let url = UUID().uuidString
                 let identity = PackageIdentity(urlString: url)
                 XCTAssertThrowsError(try provider.syncGet(identity: identity, location: url), "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidGitURL(url))
+                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidSourceControlURL(url))
                 }
             }
         }
@@ -319,7 +319,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let path = AbsolutePath.root
                 let identity = PackageIdentity(path: path)
                 XCTAssertThrowsError(try provider.syncGet(identity: identity, location: path.pathString), "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidGitURL(path.pathString))
+                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidSourceControlURL(path.pathString))
                 }
             }
         }
@@ -331,7 +331,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let repoURL = URL("https://github.com/apple/swift-numerics.git")
+        let repoURL = SourceControlURL("https://github.com/apple/swift-numerics.git")
 
         let httpClient = LegacyHTTPClient()
         httpClient.configuration.circuitBreakerStrategy = .none

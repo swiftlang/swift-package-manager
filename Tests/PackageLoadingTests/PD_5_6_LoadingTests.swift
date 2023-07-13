@@ -230,7 +230,8 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        // FIXME: temporary filter a diagnostic that shows up on macOS 14.0
+        XCTAssertNoDiagnostics(observability.diagnostics.filter { !$0.message.contains("coreservicesd") })
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         let files = manifest.displayName.split(separator: ",").map(String.init)

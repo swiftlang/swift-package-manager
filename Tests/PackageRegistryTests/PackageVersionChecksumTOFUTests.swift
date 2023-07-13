@@ -114,7 +114,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(registryURL, fingerprint.origin.url)
+        XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }
 
@@ -710,7 +710,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                     callback: callback
                 )
             }
-            XCTAssertEqual(registryURL, fingerprint.origin.url)
+            XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
             XCTAssertEqual("Package.swift checksum", fingerprint.value)
         }
         do {
@@ -725,7 +725,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                     callback: callback
                 )
             }
-            XCTAssertEqual(registryURL, fingerprint.origin.url)
+            XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
             XCTAssertEqual("Package@swift-5.6.swift checksum", fingerprint.value)
         }
     }

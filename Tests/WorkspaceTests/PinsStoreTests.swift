@@ -288,16 +288,16 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testPinsWithMirrors() throws {
-        let fooURL = URL("https://github.com/corporate/foo.git")
+        let fooURL = SourceControlURL("https://github.com/corporate/foo.git")
         let fooIdentity = PackageIdentity(url: fooURL)
-        let fooMirroredURL = URL("https://github.corporate.com/team/foo.git")
+        let fooMirroredURL = SourceControlURL("https://github.corporate.com/team/foo.git")
 
-        let barURL = URL("https://github.com/corporate/baraka.git")
+        let barURL = SourceControlURL("https://github.com/corporate/baraka.git")
         let barIdentity = PackageIdentity(url: barURL)
-        let barMirroredURL = URL("https://github.corporate.com/team/bar.git")
+        let barMirroredURL = SourceControlURL("https://github.corporate.com/team/bar.git")
         let barMirroredIdentity = PackageIdentity(url: barMirroredURL)
 
-        let bazURL = URL("https://github.com/cool/baz.git")
+        let bazURL = SourceControlURL("https://github.com/cool/baz.git")
         let bazIdentity = PackageIdentity(url: bazURL)
 
         let mirrors = DependencyMirrors()
@@ -344,11 +344,11 @@ final class PinsStoreTests: XCTestCase {
 
     func testPinsWithMirrorsDeterminism() throws {
         let fooIdentity = PackageIdentity.plain("foo")
-        let fooURL1 = URL("https://github.com/corporate/foo")
-        let fooURL2 = URL("https://github.com/corporate/foo.git")
-        let fooURL3 = URL("https://github.com/old-corporate/foo")
-        let fooURL4 = URL("https://github.com/old-corporate/foo.git")
-        let fooMirroredURL = URL("https://github.corporate.com/team/foo")
+        let fooURL1 = SourceControlURL("https://github.com/corporate/foo")
+        let fooURL2 = SourceControlURL("https://github.com/corporate/foo.git")
+        let fooURL3 = SourceControlURL("https://github.com/old-corporate/foo")
+        let fooURL4 = SourceControlURL("https://github.com/old-corporate/foo.git")
+        let fooMirroredURL = SourceControlURL("https://github.corporate.com/team/foo")
 
         let mirrors = DependencyMirrors()
         mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL1.absoluteString)
