@@ -524,7 +524,7 @@ public final class UserToolchain: Toolchain {
         self.includeSearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
         self.librarySearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
 
-        self.librarianPath = try destination.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
+        self.librarianPath = try swiftSDK.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
             triple: triple,
             binDirectories: swiftSDK.toolset.rootPaths,
             useXcrun: useXcrun,
