@@ -614,10 +614,6 @@ let package = Package(
             dependencies: ["SPMTestSupport", "PackageRegistry"]
         ),
         .testTarget(
-            name: "PackageRegistryToolTests", 
-            dependencies: ["PackageRegistryTool"]
-        ),
-        .testTarget(
             name: "PackageSigningTests",
             dependencies: ["SPMTestSupport", "PackageSigning"]
         ),
