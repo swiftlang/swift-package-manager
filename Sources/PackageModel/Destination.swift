@@ -67,8 +67,8 @@ extension SwiftSDKError: CustomStringConvertible {
         switch self {
         case .invalidBundleArchive(let archivePath):
             return """
-            Swift SDK archive at `\(archivePath) does not contain at least one directory with the \
-            `.artifactbundle extension.
+            Swift SDK archive at `\(archivePath)` does not contain at least one directory with the \
+            `.artifactbundle` extension.
             """
         case .invalidPathOrURL(let argument):
             return "`\(argument)` is neither a valid filesystem path nor a URL."
