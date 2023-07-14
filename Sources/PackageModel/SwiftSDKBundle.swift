@@ -136,9 +136,7 @@ public struct SwiftSDKBundle {
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
     ) async throws {
-        _ = try await withTemporaryDirectory(
-            removeTreeOnDeinit: true
-        ) { temporaryDirectory in
+        let bundleName = try await withTemporaryDirectory(removeTreeOnDeinit: true) { temporaryDirectory in
             let bundlePath: AbsolutePath
 
             if
@@ -146,16 +144,27 @@ public struct SwiftSDKBundle {
                 let scheme = bundleURL.scheme,
                 scheme == "http" || scheme == "https"
             {
-                let bundleName = bundleURL.lastPathComponent
+                let bundleName: String
+                let fileNameComponent = bundleURL.lastPathComponent
+                if fileNameComponent.hasSuffix(".tar.gz") {
+                    bundleName = fileNameComponent
+                } else {
+                    bundleName = "bundle.tar.gz"
+                }
                 let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
 
                 let client = HTTPClient()
-                var request = HTTPClientRequest.download(
+
+                var request = HTTPClientRequest.init(method: .head, url: bundleURL)
+                request = HTTPClientRequest.download(
                     url: bundleURL,
                     fileSystem: fileSystem,
                     destination: downloadedBundlePath
                 )
                 request.options.validResponseCodes = [200]
+
+                print("Downloading a Swift SDK bundle archive from `\(bundleURL)`...")
+
                 _ = try await client.execute(
                     request,
                     observabilityScope: observabilityScope,
@@ -174,7 +183,7 @@ public struct SwiftSDKBundle {
                 throw SwiftSDKError.invalidPathOrURL(bundlePathOrURL)
             }
 
-            try await installIfValid(
+            return try await installIfValid(
                 bundlePath: bundlePath,
                 destinationsDirectory: swiftSDKsDirectory,
                 temporaryDirectory: temporaryDirectory,
@@ -184,7 +193,7 @@ public struct SwiftSDKBundle {
             )
         }
 
-        print("Swift SDK bundle at `\(bundlePathOrURL)` successfully installed.")
+        print("Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName).")
     }
 
     /// Unpacks a destination bundle if it has an archive extension in its filename.
@@ -202,39 +211,40 @@ public struct SwiftSDKBundle {
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver
     ) async throws -> AbsolutePath {
-        let regex = try RegEx(pattern: "(.+\\.artifactbundle).*")
-
-        guard let bundleName = bundlePath.components.last else {
-            throw SwiftSDKError.invalidPathOrURL(bundlePath.pathString)
-        }
-
-        guard let unpackedBundleName = regex.matchGroups(in: bundleName).first?.first else {
-            throw SwiftSDKError.invalidBundleName(bundleName)
-        }
-
-        let installedBundlePath = destinationsDirectory.appending(component: unpackedBundleName)
-        guard !fileSystem.exists(installedBundlePath) else {
-            throw SwiftSDKError.swiftSDKBundleAlreadyInstalled(bundleName: unpackedBundleName)
-        }
-
         // If there's no archive extension on the bundle name, assuming it's not archived and returning the same path.
-        guard unpackedBundleName != bundleName else {
+        guard !bundlePath.pathString.hasSuffix(".artifactbundle") else {
             return bundlePath
         }
 
-        print("\(bundleName) is assumed to be an archive, unpacking...")
+        print("`\(bundlePath)` is assumed to be an archive, unpacking...")
+        let extractionResultsDirectory = temporaryDirectory.appending("extraction-results")
+        try fileSystem.createDirectory(extractionResultsDirectory)
 
-        try await archiver.extract(from: bundlePath, to: temporaryDirectory)
+        try await archiver.extract(from: bundlePath, to: extractionResultsDirectory)
 
-        return temporaryDirectory.appending(component: unpackedBundleName)
+        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first,
+                bundleName.hasSuffix(".artifactbundle")
+        else {
+            throw SwiftSDKError.invalidBundleArchive(bundlePath)
+        }
+
+        let installedBundlePath = destinationsDirectory.appending(component: bundleName)
+        guard !fileSystem.exists(installedBundlePath) else {
+            throw SwiftSDKError.swiftSDKBundleAlreadyInstalled(bundleName: bundleName)
+        }
+
+        return extractionResultsDirectory.appending(component: bundleName)
     }
 
     /// Installs an unpacked destination bundle to a destinations installation directory.
     /// - Parameters:
-    ///   - bundlePath: absolute path to an unpacked destination bundle directory.
-    ///   - destinationsDirectory: a directory where the destination artifact bundle should be installed.
-    ///   - fileSystem: file system on which all of the file operations should run.
-    ///   - observabilityScope: observability scope for reporting warnings and errors.
+    ///   - bundlePath: Absolute path to an unpacked destination bundle directory.
+    ///   - destinationsDirectory: A directory where the destination artifact bundle should be installed.
+    ///   - temporaryDirectory: Temporary directory to use if the bundle is an archive that needs extracting.
+    ///   - fileSystem: File system on which all of the file operations should run.
+    ///   - observabilityScope: Observability scope for reporting warnings and errors.
+    ///   - archiver: Archiver instance to use for extracting bundle archives.
+    /// - Returns: Name of the bundle installed.
     private static func installIfValid(
         bundlePath: AbsolutePath,
         destinationsDirectory: AbsolutePath,
@@ -242,7 +252,7 @@ public struct SwiftSDKBundle {
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) async throws {
+    ) async throws -> String {
         #if os(macOS)
         // Check the quarantine attribute on bundles downloaded manually in the browser.
         guard !fileSystem.hasAttribute(.quarantine, bundlePath) else {
@@ -293,6 +303,8 @@ public struct SwiftSDKBundle {
         }
 
         try fileSystem.copy(from: unpackedBundlePath, to: installedBundlePath)
+
+        return bundleName
     }
 
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing
