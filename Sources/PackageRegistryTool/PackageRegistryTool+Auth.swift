@@ -90,6 +90,19 @@ private func readpassword(_ prompt: String) throws -> String {
 
 extension SwiftPackageRegistryTool {
     struct Login: SwiftCommand {
+        static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
+            // Login URL must be HTTPS
+            var loginURLComponents = URLComponents(url: registryURL, resolvingAgainstBaseURL: true)
+            loginURLComponents?.scheme = "https"
+            loginURLComponents?.path = loginAPIPath ?? "/login"
+
+            guard let loginURL = loginURLComponents?.url else {
+                throw ValidationError.invalidURL(registryURL)
+            }
+
+            return loginURL
+        }
+
         static let configuration = CommandConfiguration(
             abstract: "Log in to a registry"
         )
@@ -226,10 +239,7 @@ extension SwiftPackageRegistryTool {
                 loginAPIPath = registryURL.path
             }
 
-            // Login URL must be HTTPS
-            guard let loginURL = URL(string: "https://\(host)\(loginAPIPath ?? "/login")") else {
-                throw ValidationError.invalidURL(registryURL)
-            }
+            let loginURL = try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
 
             // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
