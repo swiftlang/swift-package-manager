@@ -91,14 +91,6 @@ private func readpassword(_ prompt: String) throws -> String {
 extension SwiftPackageRegistryTool {
     struct Login: SwiftCommand {
 
-        static func authenticationStorageKey(for registryURL: URL) throws -> String {
-            guard let host = registryURL.host?.lowercased() else {
-                throw ValidationError.invalidURL(registryURL)
-            }
-
-            return [host, registryURL.port?.description].compactMap { $0 }.joined(separator: ":")
-        }
-
         static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
             // Login URL must be HTTPS
             var loginURLComponents = URLComponents(url: registryURL, resolvingAgainstBaseURL: true)
@@ -245,12 +237,11 @@ extension SwiftPackageRegistryTool {
             }
 
             let loginURL = try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
-            let storageKey = try SwiftPackageRegistryTool.Login.authenticationStorageKey(for: registryURL)
+
 
             // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
-            registryConfiguration
-                .registryAuthentication[storageKey] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
+            try registryConfiguration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
 
             // Build a RegistryClient to test login credentials (fingerprints don't matter in this case)
             let registryClient = RegistryClient(
@@ -323,7 +314,7 @@ extension SwiftPackageRegistryTool {
 
             // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
-                configuration.registryAuthentication[storageKey] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
+                try configuration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
             }
             try configuration.updateShared(with: update)
 
@@ -356,8 +347,6 @@ extension SwiftPackageRegistryTool {
 
             try registryURL.validateRegistryURL()
 
-            let storageKey = try SwiftPackageRegistryTool.Login.authenticationStorageKey(for: registryURL)
-
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
                 throw ValidationError.unknownCredentialStore
@@ -376,7 +365,7 @@ extension SwiftPackageRegistryTool {
 
             // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
-                configuration.registryAuthentication.removeValue(forKey: storageKey)
+                configuration.removeAuthentication(for: registryURL)
             }
             try configuration.updateShared(with: update)
 

@@ -372,10 +372,10 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetAuthenticationConfigurationByRegistryURL() throws {
         var configuration = RegistryConfiguration()
-        configuration.registryAuthentication[defaultRegistryBaseURL.host!] = .init(type: .token)
+        try configuration.add(authentication: .init(type: .token), for: defaultRegistryBaseURL)
 
-        XCTAssertEqual(configuration.authentication(for: defaultRegistryBaseURL)?.type, .token)
-        XCTAssertNil(configuration.authentication(for: customRegistryBaseURL))
+        XCTAssertEqual(try configuration.authentication(for: defaultRegistryBaseURL)?.type, .token)
+        XCTAssertNil(try configuration.authentication(for: customRegistryBaseURL))
     }
 
     func testGetSigning_noOverrides() throws {
