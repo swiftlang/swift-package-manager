@@ -629,7 +629,7 @@ extension LLBuildManifestBuilder {
         manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
-            outputs: mixedTarget ? cmdOutputs.dropLast() : cmdOutputs,
+            outputs: cmdOutputs,
             executable: target.buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
