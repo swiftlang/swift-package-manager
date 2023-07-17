@@ -920,11 +920,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com:8081/secret-sign-in")
     }
 
-    func testCreateAuthenticationStorageKey() {
-        XCTAssertEqual(try SwiftPackageRegistryTool.Login.authenticationStorageKey(for: URL(string: "https://packages.example.com:8081")!), "packages.example.com:8081")
-        XCTAssertEqual(try SwiftPackageRegistryTool.Login.authenticationStorageKey(for: URL(string: "https://packages.example.com")!), "packages.example.com")
-    }
-
     private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
