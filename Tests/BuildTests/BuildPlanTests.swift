@@ -1511,9 +1511,10 @@ final class BuildPlanTests: XCTestCase {
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        
         XCTAssertMatch(exe, [
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
-            "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j),
+            "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
             "-fmodule-map-file=/path/to/build/debug/lib.build/Product/module.modulemap",
             "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include", "-Xcc", "-I",
@@ -1521,13 +1522,14 @@ final class BuildPlanTests: XCTestCase {
             "-ivfsoverlay", "-Xcc",
             "/path/to/build/debug/lib.build/Product/all-product-headers.yaml",
             "-module-cache-path",
-            "\(buildPath.appending(components: "ModuleCache"))", .anySequence
+            "\(buildPath.appending(components: "ModuleCache"))",
+            .anySequence, "-parseable-output", "-g", "-Xcc", "-g",
         ])
 
         let swiftPartOfLib = try result.target(for: "lib").mixedTarget().swiftTargetBuildDescription.compileArguments()
         XCTAssertMatch(swiftPartOfLib, [
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
-            "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j),
+            "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-import-underlying-module", "-I",
             "/path/to/build/debug/lib.build/Intermediates", "-Xcc",
             "-ivfsoverlay", "-Xcc",
@@ -1539,19 +1541,19 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/lib.build/InteropSupport", "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parse-as-library", "-emit-objc-header", "-emit-objc-header-path",
-            "/path/to/build/debug/lib.build/lib-Swift.h"
+            "/path/to/build/debug/lib.build/lib-Swift.h",  "-g", "-Xcc", "-g"
         ])
 
         let clangPartOfLib = try result.target(for: "lib").mixedTarget().clangTargetBuildDescription.basicArguments(isCXX: false)
         XCTAssertMatch(clangPartOfLib, [
-            "-fobjc-arc", "-target", "\(defaultTargetTriple)", "-g", "-O0",
+            "-fobjc-arc", "-target", "\(defaultTargetTriple)", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
             "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
             "/Pkg/Sources/lib", "-ivfsoverlay",
             "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
             "-I", "/path/to/build/debug/lib.build/Intermediates",
             "-I", "/path/to/build/debug/lib.build/InteropSupport",
-            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-g"
         ])
 
         XCTAssertEqual(
@@ -1575,7 +1577,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
-            "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString
+            "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
+            "-g"
         ])
 
         testDiagnostics(observability.diagnostics) { result in
@@ -1643,7 +1646,7 @@ final class BuildPlanTests: XCTestCase {
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, [
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
-            "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j),
+            "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
             "-fmodule-map-file=/Pkg/Sources/lib/include/module.modulemap",
             "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include", "-Xcc", "-I",
@@ -1651,13 +1654,14 @@ final class BuildPlanTests: XCTestCase {
             "-ivfsoverlay", "-Xcc",
             "/path/to/build/debug/lib.build/Product/all-product-headers.yaml",
             "-module-cache-path",
-            "\(buildPath.appending(components: "ModuleCache"))", .anySequence
+            "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
+            "-parseable-output", "-g", "-Xcc", "-g"
         ])
 
         let swiftPartOfLib = try result.target(for: "lib").mixedTarget().swiftTargetBuildDescription.compileArguments()
         XCTAssertMatch(swiftPartOfLib, [
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
-            "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j),
+            "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-import-underlying-module", "-I",
             "/Pkg/Sources/lib/include", "-Xcc", "-ivfsoverlay", "-Xcc",
             "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
@@ -1668,19 +1672,19 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/lib.build/InteropSupport", "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parse-as-library", "-emit-objc-header", "-emit-objc-header-path",
-            "/path/to/build/debug/lib.build/lib-Swift.h"
+            "/path/to/build/debug/lib.build/lib-Swift.h", "-g", "-Xcc", "-g"
         ])
 
         let clangPartOfLib = try result.target(for: "lib").mixedTarget().clangTargetBuildDescription.basicArguments(isCXX: false)
         XCTAssertMatch(clangPartOfLib, [
-            "-fobjc-arc", "-target", "\(defaultTargetTriple)", "-g", "-O0",
+            "-fobjc-arc", "-target", "\(defaultTargetTriple)", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
             "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
             "/Pkg/Sources/lib", "-ivfsoverlay",
             "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
             "-I", "/path/to/build/debug/lib.build/Intermediates", "-I",
             "/path/to/build/debug/lib.build/InteropSupport",
-            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-g"
         ])
 
         XCTAssertEqual(
@@ -1704,7 +1708,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
-            "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString
+            "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
+            "-g"
         ])
 
         testDiagnostics(observability.diagnostics) { result in
@@ -2708,7 +2713,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString,
+            "-g"
         ])
 
         XCTAssertEqual(barLinkArgs, [
@@ -2720,7 +2726,8 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
-            "-runtime-compatibility-version", "none", "-target", defaultTargetTriple
+            "-runtime-compatibility-version", "none", "-target", defaultTargetTriple,
+            "-g"
         ])
         #endif
     }
@@ -2814,7 +2821,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString,
+            "-g"
         ])
 
         // No arguments for linking static libraries.
