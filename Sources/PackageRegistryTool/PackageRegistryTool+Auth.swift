@@ -236,7 +236,7 @@ extension SwiftPackageRegistryTool {
                 loginAPIPath = registryURL.path
             }
 
-            let loginURL = try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
+            let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
 
 
             // Build a RegistryConfiguration with the given authentication settings
