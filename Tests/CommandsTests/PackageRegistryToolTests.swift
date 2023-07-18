@@ -947,6 +947,23 @@ final class PackageRegistryToolTests: CommandsTestCase {
         }
     }
 
+    func testCreateLoginURL() {
+        let registryURL = URL(string: "https://packages.example.com")!
+
+        XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: nil).absoluteString, "https://packages.example.com/login")
+
+        XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com/secret-sign-in")
+
+    }
+
+    func testCreateLoginURLMaintainsPort() {
+        let registryURL = URL(string: "https://packages.example.com:8081")!
+
+        XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: nil).absoluteString, "https://packages.example.com:8081/login")
+
+        XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com:8081/secret-sign-in")
+    }
+
     private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
