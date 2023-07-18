@@ -137,12 +137,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
         let triple = self.buildParameters.triple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
-            return [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
+            return try [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
         }
         if triple.isDarwin(), librarian.hasSuffix("libtool") {
-            return [librarian, "-static", "-o", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
+            return try [librarian, "-static", "-o", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
         }
-        return [librarian, "crs", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
+        return try [librarian, "crs", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
     }
 
     /// The arguments to link and create this product.
@@ -166,7 +166,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         args += ["-L", self.buildParameters.buildPath.pathString]
-        args += ["-o", binaryPath.pathString]
+        args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
         args += self.dylibs.map { "-l" + $0.product.name }
 
@@ -209,7 +209,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .library(.dynamic):
             args += ["-emit-library"]
             if self.buildParameters.triple.isDarwin() {
-                let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
+                let relativePath = try "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
             args += self.deadStripArguments

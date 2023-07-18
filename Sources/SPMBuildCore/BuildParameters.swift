@@ -387,14 +387,18 @@ public struct BuildParameters: Encodable {
     }
 
     /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) -> AbsolutePath {
-        return buildPath.appending(binaryRelativePath(for: product))
+    public func binaryPath(for product: ResolvedProduct) throws -> AbsolutePath {
+        return try buildPath.appending(binaryRelativePath(for: product))
+    }
+
+    /// Returns the path to the dynamic library of a product for the current build parameters.
+    func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
+        try RelativePath(validating: "\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
-    public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
-        let potentialExecutablePath = RelativePath("\(product.name)\(triple.executableExtension)")
-        let potentialLibraryPath = RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+    public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
+        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(triple.executableExtension)")
 
         switch product.type {
         case .executable, .snippet:
@@ -402,7 +406,7 @@ public struct BuildParameters: Encodable {
         case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return potentialLibraryPath
+            return try potentialDynamicLibraryPath(for: product)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
@@ -418,7 +422,7 @@ public struct BuildParameters: Encodable {
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryPath
+            return try potentialDynamicLibraryPath(for: product)
             #else
             return potentialExecutablePath
             #endif

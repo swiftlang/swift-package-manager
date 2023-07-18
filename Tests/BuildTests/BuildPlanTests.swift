@@ -3030,7 +3030,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let executablePathExtension = appBuildDescription.binaryPath.extension
+        let executablePathExtension = try appBuildDescription.binaryPath.extension
         XCTAssertEqual(executablePathExtension, "wasm")
 
         let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
@@ -3047,7 +3047,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let testPathExtension = testBuildDescription.binaryPath.extension
+        let testPathExtension = try testBuildDescription.binaryPath.extension
         XCTAssertEqual(testPathExtension, "wasm")
     }
 

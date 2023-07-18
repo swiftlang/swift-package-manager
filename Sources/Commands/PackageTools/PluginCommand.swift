@@ -259,7 +259,7 @@ struct PluginCommand: SwiftCommand {
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
             try buildSystem.build(subset: .product(name))
             if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: { $0.product.name == name }) {
-                return builtTool.binaryPath
+                return try builtTool.binaryPath
             } else {
                 return nil
             }
