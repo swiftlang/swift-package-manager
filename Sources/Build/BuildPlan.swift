@@ -48,29 +48,7 @@ extension Array where Element == String {
     func asSwiftcCCompilerFlags() -> Self {
         self.flatMap { ["-Xcc", $0] }
     }
-}
 
-extension BuildParameters {
-    /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
-        get throws {
-            // FIXME: We use this hack to let swiftpm's functional test use shared
-            // cache so it doesn't become painfully slow.
-            if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
-                return try AbsolutePath(validating: path)
-            }
-            return buildPath.appending("ModuleCache")
-        }
-    }
-
-    /// Extra flags to pass to Swift compiler.
-    public var swiftCompilerFlags: [String] {
-        var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
-        flags += self.flags.swiftCompilerFlags
-        if self.verboseOutput {
-            flags.append("-v")
-        }
-        return flags
     /// Converts a set of C++ compiler flags into an equivalent set to be
     /// indirected through the Swift compiler instead.
     func asSwiftcCXXCompilerFlags() -> Self {
@@ -80,8 +58,6 @@ extension BuildParameters {
         fatalError("swiftc does support -Xcxx flags yet.")
     }
 
-    /// Extra flags to pass to linker.
-    public var linkerFlags: [String] {
     /// Converts a set of linker flags into an equivalent set to be indirected
     /// through the Swift compiler instead.
     ///
@@ -98,7 +74,6 @@ extension BuildParameters {
         let directSwiftLinkerArgs = ["-L"]
 
         var flags: [String] = []
-        var it = self.flags.linkerFlags.makeIterator()
         var it = self.makeIterator()
         while let flag = it.next() {
             if directSwiftLinkerArgs.contains(flag) {
