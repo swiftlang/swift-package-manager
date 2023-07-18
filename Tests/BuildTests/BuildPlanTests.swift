@@ -3270,6 +3270,65 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testCrossPlatforms() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/B/Sources/BTarget/foo.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    platforms: [
+                        PlatformDescription(name: "ios", version: "11.0"),
+                        PlatformDescription(name: "macos", version: "10.13"),
+                    ],
+                    toolsVersion: .v5,
+                    dependencies: [
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    displayName: "B",
+                    path: "/B",
+                    platforms: [
+                        PlatformDescription(name: "ios", version: "10.0"),
+                        PlatformDescription(name: "macos", version: "10.12"),
+                    ],
+                    toolsVersion: .v5,
+                    products: [
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(targetTriple: .init("arm64-apple-ios")),
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+
+        let targetTriple = try Triple("arm64-apple-ios")
+
+        let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
+        XCTAssertMatch(aTarget, [.equal("-target"), .equal(targetTriple.tripleString(forPlatformVersion: "11.0")), .anySequence])
+
+        let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
+        XCTAssertMatch(bTarget, [.equal("-target"), .equal(targetTriple.tripleString(forPlatformVersion: "11.0")), .anySequence])
+    }
+
     func testPlatformsValidation() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",

@@ -127,11 +127,11 @@ extension BuildParameters {
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
-        if targetTriple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
+        if let darwinPlatform = targetTriple.darwinPlatform {
+            guard let supportedPlatform = target.platforms.getDerived(for: darwinPlatform.packagePlatform) else {
+                throw StringError("the target \(target) doesn't support building for the \(darwinPlatform.platformDisplayName) platform")
             }
-            args += [targetTriple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+            args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
             args += [targetTriple.tripleString]
         }
@@ -1100,6 +1100,23 @@ func generateResourceInfoPlist(
 extension Basics.Triple {
     var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
+    }
+}
+
+extension Basics.DarwinPlatform {
+    var packagePlatform: PackageModel.Platform {
+        switch self {
+        case .macOS:
+            return .macOS
+        case .iOS(.catalyst):
+            return .macCatalyst
+        case .iOS(.device), .iOS(.simulator):
+            return .iOS
+        case .tvOS:
+            return .tvOS
+        case .watchOS:
+            return .watchOS
+        }
     }
 }
 
