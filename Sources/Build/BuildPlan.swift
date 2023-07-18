@@ -695,13 +695,28 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         libraryBinaryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
-        /* Prior to tools-version 5.9, we used to errorneously recursively traverse plugin dependencies and statically include their
+        /* Prior to tools-version 5.9, we used to errorneously recursively traverse executable/plugin dependencies and statically include their
          targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
-        let shouldExcludePlugins: Bool
+        let shouldExcludeExecutablesAndPlugins: Bool
         if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
-            shouldExcludePlugins = toolsVersion >= .v5_9
+            shouldExcludeExecutablesAndPlugins = toolsVersion >= .v5_9
         } else {
-            shouldExcludePlugins = false
+            shouldExcludeExecutablesAndPlugins = false
+        }
+
+        // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
+        let topLevelDependencies: [PackageModel.Target]
+        if product.type == .test {
+            topLevelDependencies = product.targets.flatMap { $0.underlyingTarget.dependencies }.compactMap {
+                switch $0 {
+                case .product:
+                    return nil
+                case .target(let target, _):
+                    return target
+                }
+            }
+        } else {
+            topLevelDependencies = []
         }
 
         // Sort the product targets in topological order.
@@ -710,10 +725,19 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
-                if target.type == .macro {
+                let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                let topLevelIsExecutable = isTopLevel && product.type == .executable
+                let topLevelIsMacro = isTopLevel && product.type == .macro
+                let topLevelIsPlugin = isTopLevel && product.type == .plugin
+                let topLevelIsTest = isTopLevel && product.type == .test
+
+                if !topLevelIsMacro && !topLevelIsTest && target.type == .macro {
                     return []
                 }
-                if shouldExcludePlugins, target.type == .plugin {
+                if shouldExcludeExecutablesAndPlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
+                    return []
+                }
+                if shouldExcludeExecutablesAndPlugins, !topLevelIsExecutable && topLevelIsTest && target.type == .executable {
                     return []
                 }
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
@@ -730,7 +754,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 case .library(.automatic), .library(.static):
                     return productDependencies
                 case .plugin:
-                    return shouldExcludePlugins ? [] : productDependencies
+                    return shouldExcludeExecutablesAndPlugins ? [] : productDependencies
                 case .library(.dynamic), .test, .executable, .snippet, .macro:
                     return []
                 }
