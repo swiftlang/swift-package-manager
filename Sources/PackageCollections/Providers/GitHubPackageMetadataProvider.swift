@@ -62,7 +62,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         callback: @escaping (Result<Model.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
     ) {
         guard let baseURL = Self.apiURL(location) else {
-            return self.errorCallback(GitHubPackageMetadataProviderError.invalidGitURL(location), apiHost: nil, callback: callback)
+            return self.errorCallback(GitHubPackageMetadataProviderError.invalidSourceControlURL(location), apiHost: nil, callback: callback)
         }
 
         if let cached = try? self.cache?.get(key: identity.description) {
@@ -334,7 +334,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
 }
 
 enum GitHubPackageMetadataProviderError: Error, Equatable {
-    case invalidGitURL(String)
+    case invalidSourceControlURL(String)
     case invalidResponse(URL, String)
     case permissionDenied(URL)
     case invalidAuthToken(URL)

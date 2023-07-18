@@ -77,7 +77,8 @@ public struct MockDependency {
                     productFilter: self.products
                 )
 
-            } else if let mappedURL = URL(string: mappedLocation) {
+            } else {
+                let mappedURL = SourceControlURL(mappedLocation)
                 let identity = try identityResolver.resolveIdentity(for: mappedURL)
                 return .remoteSourceControl(
                     identity: identity,
@@ -86,8 +87,6 @@ public struct MockDependency {
                     requirement: _requirement,
                     productFilter: self.products
                 )
-            } else {
-                throw StringError("invalid mapping of '\(url)' to '\(mappedLocation)'")
             }
         case .registry(let identity, let _requirement):
             let mappedLocation = identityResolver.mappedLocation(for: identity.description)
@@ -98,7 +97,8 @@ public struct MockDependency {
                     requirement: _requirement,
                     productFilter: self.products
                 )
-            } else if let mappedURL = URL(string: mappedLocation) {
+            } else {
+                let mappedURL = SourceControlURL(mappedLocation)
                 let identity = try identityResolver.resolveIdentity(for: mappedURL)
                 let requirement: SourceControlRequirement
                 switch _requirement {
@@ -114,8 +114,6 @@ public struct MockDependency {
                     requirement: requirement,
                     productFilter: self.products
                 )
-            } else {
-                throw StringError("invalid mapping of '\(identity)' to '\(mappedLocation)'")
             }
         }
         
@@ -138,10 +136,10 @@ public struct MockDependency {
     }
 
     public static func sourceControl(url: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
-        .sourceControl(url: URL(string: url)!, requirement: requirement, products: products)
+        .sourceControl(url: SourceControlURL(url), requirement: requirement, products: products)
     }
 
-    public static func sourceControl(url: URL, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(url: SourceControlURL, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(location: .remoteSourceControl(url: url, requirement: requirement), products: products)
     }
 
@@ -156,7 +154,7 @@ public struct MockDependency {
     public enum Location {
         case fileSystem(path: RelativePath)
         case localSourceControl(path: RelativePath, requirement: SourceControlRequirement)
-        case remoteSourceControl(url: URL, requirement: SourceControlRequirement)
+        case remoteSourceControl(url: SourceControlURL, requirement: SourceControlRequirement)
         case registry(identity: PackageIdentity, requirement: RegistryRequirement)
     }
 }

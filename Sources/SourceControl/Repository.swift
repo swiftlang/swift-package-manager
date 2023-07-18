@@ -27,30 +27,35 @@ public struct RepositorySpecifier: Hashable, Sendable {
     }
 
     /// Create a specifier on a URL.
-    public init(url: URL) {
+    public init(url: SourceControlURL) {
         self.init(location: .url(url))
     }
 
-    /// The location of the repository as URL.
-    public var url: URL {
+    /// The location of the repository as string.
+    public var url: String {
         switch self.location {
-        case .path(let path): return URL(fileURLWithPath: path.pathString)
-        case .url(let url): return url
+        case .path(let path): return path.pathString
+        case .url(let url): return url.absoluteString
         }
     }
 
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
-        var basename = self.url.pathComponents.dropFirst(1).last(where: { !$0.isEmpty }) ?? ""
+        // FIXME: this might be wrong
+        //var basename = self.url.pathComponents.dropFirst(1).last(where: { !$0.isEmpty }) ?? ""
+        var basename = (self.url as NSString).lastPathComponent
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
+        }
+        if basename == "/" {
+            return ""
         }
         return basename
     }
 
     public enum Location: Hashable, CustomStringConvertible, Sendable {
         case path(AbsolutePath)
-        case url(URL)
+        case url(SourceControlURL)
 
         public var description: String {
             switch self {
