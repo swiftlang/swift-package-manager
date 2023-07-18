@@ -269,6 +269,7 @@ public struct BuildParameters: Encodable {
     public var debugInfoFormat: DebugInfoFormat
 
     @available(*, deprecated, message: "use `init` overload with `targetTriple` parameter name instead")
+    @_disfavoredOverload
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
