@@ -3523,6 +3523,9 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
+                    products: [
+                        ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
+                    ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -3540,7 +3543,11 @@ final class BuildPlanTests: XCTestCase {
                 ],
                 rootPaths: try UserToolchain.default.swiftSDK.toolset.rootPaths
             ),
-            pathsConfiguration: .init(sdkRootPath: "/fake/sdk")
+            pathsConfiguration: .init(
+                sdkRootPath: "/fake/sdk",
+                swiftResourcesPath: "/fake/lib/swift",
+                swiftStaticResourcesPath: "/fake/lib/swift_static"
+            )
         )
         let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK)
         let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
@@ -3567,7 +3574,30 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(exe, ["-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-swift-flag-from-json", "-g", "-swift-command-line-flag", .anySequence, "-Xcc", "-clang-flag-from-json", "-Xcc", "-g", "-Xcc", "-clang-command-line-flag"])
+        XCTAssertMatch(exe, ["-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", "-resource-dir", "/fake/lib/swift", .anySequence, "-swift-flag-from-json", "-g", "-swift-command-line-flag", .anySequence, "-Xcc", "-clang-flag-from-json", "-Xcc", "-g", "-Xcc", "-clang-command-line-flag"])
+
+        let exeProduct = try result.buildProduct(for: "exe").linkArguments()
+        XCTAssertMatch(exeProduct, [.anySequence, "-resource-dir", "/fake/lib/swift", "-Xclang-linker", "-resource-dir", "-Xclang-linker", "/fake/lib/swift/clang", .anySequence])
+
+        let staticBuildParameters = {
+            var copy = extraBuildParameters
+            copy.shouldLinkStaticSwiftStdlib = true
+            // pick a triple with support for static linking
+            copy.triple = .x86_64Linux
+            return copy
+        }()
+        let staticResult = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: staticBuildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        let staticExe = try staticResult.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(staticExe, [.anySequence, "-resource-dir", "/fake/lib/swift_static", .anySequence])
+
+        let staticExeProduct = try staticResult.buildProduct(for: "exe").linkArguments()
+        XCTAssertMatch(staticExeProduct, [.anySequence, "-resource-dir", "/fake/lib/swift_static", "-Xclang-linker", "-resource-dir", "-Xclang-linker", "/fake/lib/swift/clang", .anySequence])
     }
 
     func testUserToolchainWithToolsetCompileFlags() throws {

@@ -931,12 +931,18 @@ public final class SwiftTargetBuildDescription {
     }
 
     private var stdlibArguments: [String] {
-        if self.buildParameters.shouldLinkStaticSwiftStdlib,
-           self.buildParameters.targetTriple.isSupportingStaticStdlib
-        {
-            return ["-static-stdlib"]
-        } else {
-            return []
+        var arguments: [String] = []
+
+        let isStatic = self.buildParameters.shouldLinkStaticSwiftStdlib
+            && self.buildParameters.targetTriple.isSupportingStaticStdlib
+        if isStatic {
+            arguments += ["-static-stdlib"]
         }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: isStatic) {
+            arguments += ["-resource-dir", resourcesPath.pathString]
+        }
+
+        return arguments
     }
 }

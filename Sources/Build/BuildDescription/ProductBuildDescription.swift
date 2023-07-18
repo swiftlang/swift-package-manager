@@ -187,6 +187,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             derivedProductType = self.product.type
         }
 
+        var hasStaticStdlib = false
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached
@@ -218,6 +219,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                     self.observabilityScope.emit(.swiftBackDeployError)
                 } else if self.buildParameters.targetTriple.isSupportingStaticStdlib {
                     args += ["-static-stdlib"]
+                    hasStaticStdlib = true
                 }
             }
             args += ["-emit-executable"]
@@ -241,6 +243,16 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             }
         case .plugin:
             throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
+        }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: hasStaticStdlib) {
+            args += ["-resource-dir", resourcesPath.pathString]
+        }
+
+        // clang resources are always in lib/swift/
+        if let dynamicResourcesPath = self.buildParameters.toolchain.swiftResourcesPath {
+            let clangResourcesPath = dynamicResourcesPath.appending("clang")
+            args += ["-Xclang-linker", "-resource-dir", "-Xclang-linker", clangResourcesPath.pathString]
         }
 
         // Set rpath such that dynamic libraries are looked up
