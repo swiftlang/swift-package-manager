@@ -246,7 +246,7 @@ struct PluginCommand: SwiftCommand {
             .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
         // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-        let toolSearchDirs = [try swiftTool.getDestinationToolchain().swiftCompilerPath.parentDirectory]
+        let toolSearchDirs = [try swiftTool.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
 
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.

@@ -57,7 +57,7 @@ extension Basics.Triple {
     static let wasi = try! Self("wasm32-unknown-wasi")
 }
 
-let hostTriple = try! UserToolchain.default.triple
+let hostTriple = try! UserToolchain.default.targetTriple
 #if os(macOS)
     let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
 #else
@@ -71,7 +71,7 @@ func mockBuildParameters(
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
-    destinationTriple: Basics.Triple = hostTriple,
+    targetTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
@@ -82,7 +82,7 @@ func mockBuildParameters(
         configuration: config,
         toolchain: toolchain,
         hostTriple: hostTriple,
-        destinationTriple: destinationTriple,
+        targetTriple: targetTriple,
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
@@ -110,7 +110,7 @@ func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug, destinationTriple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug,     targetTriple: triple)
 }
 
 enum BuildError: Swift.Error {

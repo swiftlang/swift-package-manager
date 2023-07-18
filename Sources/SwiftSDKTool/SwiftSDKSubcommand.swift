@@ -65,7 +65,7 @@ extension SwiftSDKSubcommand {
         let observabilityScope = observabilitySystem.topScope
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
 
-        let hostToolchain = try UserToolchain(destination: Destination.hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK())
         let triple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil

@@ -643,9 +643,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Use the same minimum deployment target as the PackageDescription library (with a fallback to the default host triple).
 #if os(macOS)
         if let version = self.toolchain.swiftPMLibrariesLocation.manifestLibraryMinimumDeploymentTarget?.versionString {
-            cmd += ["-target", "\(self.toolchain.triple.tripleString(forPlatformVersion: version))"]
+            cmd += ["-target", "\(self.toolchain.targetTriple.tripleString(forPlatformVersion: version))"]
         } else {
-            cmd += ["-target", self.toolchain.triple.tripleString]
+            cmd += ["-target", self.toolchain.targetTriple.tripleString]
         }
 #endif
 

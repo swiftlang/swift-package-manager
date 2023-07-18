@@ -629,7 +629,7 @@ public class Workspace {
         let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
+        let hostToolchain = try customHostToolchain ?? UserToolchain(swiftSDK: .hostSwiftSDK())
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,

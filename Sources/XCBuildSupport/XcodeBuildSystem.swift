@@ -184,7 +184,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             platform: "macosx",
             sdk: "macosx",
             sdkVariant: nil,
-            targetArchitecture: buildParameters.triple.archName,
+            targetArchitecture: buildParameters.targetTriple.archName,
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )

@@ -216,7 +216,7 @@ public final class ClangTargetBuildDescription {
 
         var args = [String]()
         // Only enable ARC on macOS.
-        if buildParameters.triple.isDarwin() {
+        if buildParameters.targetTriple.isDarwin() {
             args += ["-fobjc-arc"]
         }
         args += try buildParameters.targetTripleArgs(for: target)
@@ -231,7 +231,7 @@ public final class ClangTargetBuildDescription {
         // index store for Apple's clang or if explicitly asked to.
         if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
             args += buildParameters.indexStoreArguments(for: target)
-        } else if buildParameters.triple.isDarwin(),
+        } else if buildParameters.targetTriple.isDarwin(),
                   (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true
         {
             args += buildParameters.indexStoreArguments(for: target)
@@ -244,13 +244,13 @@ public final class ClangTargetBuildDescription {
             // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
             // 2. on Windows when compiling for any language, because of issues with the Windows SDK
             // 3. on Android when compiling for any language, because of issues with the Android SDK
-            enableModules = !(buildParameters.triple.isDarwin() && isCXX) && !buildParameters.triple
-                .isWindows() && !buildParameters.triple.isAndroid()
+            enableModules = !(buildParameters.targetTriple.isDarwin() && isCXX) && !buildParameters.targetTriple
+                .isWindows() && !buildParameters.targetTriple.isAndroid()
         } else {
             // For version >= 5.8, we disable them when compiling for C++ regardless of platforms, see:
             // https://github.com/llvm/llvm-project/issues/55980 for clang frontend crash when module
             // enabled for C++ on c++17 standard and above.
-            enableModules = !isCXX && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
+            enableModules = !isCXX && !buildParameters.targetTriple.isWindows() && !buildParameters.targetTriple.isAndroid()
         }
 
         if enableModules {

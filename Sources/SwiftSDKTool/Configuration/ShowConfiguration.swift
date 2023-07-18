@@ -40,7 +40,7 @@ struct ShowConfiguration: ConfigurationSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: Destination,
+        _ destination: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
@@ -49,7 +49,7 @@ struct ShowConfiguration: ConfigurationSubcommand {
     }
 }
 
-extension Destination.PathsConfiguration: CustomStringConvertible {
+extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
     public var description: String {
         """
         sdkRootPath: \(sdkRootPath.configurationString)

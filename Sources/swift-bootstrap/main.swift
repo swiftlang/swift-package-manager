@@ -187,7 +187,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     struct Builder {
         let identityResolver: IdentityResolver
         let hostToolchain: UserToolchain
-        let destinationToolchain: UserToolchain
+        let targetToolchain: UserToolchain
         let fileSystem: FileSystem
         let observabilityScope: ObservabilityScope
         let logLevel: Basics.Diagnostic.Severity
@@ -203,8 +203,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             }
 
             self.identityResolver = DefaultIdentityResolver()
-            self.hostToolchain = try UserToolchain(destination: Destination.hostDestination(originalWorkingDirectory: cwd))
-            self.destinationToolchain = hostToolchain // TODO: support destinations?
+            self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(originalWorkingDirectory: cwd))
+            self.targetToolchain = hostToolchain // TODO: support cross-compilation?
             self.fileSystem = fileSystem
             self.observabilityScope = observabilityScope
             self.logLevel = logLevel
@@ -250,15 +250,15 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildFlags.swiftCompilerFlags += Self.additionalSwiftBuildFlags
 
             let dataPath = scratchDirectory.appending(
-                component: self.destinationToolchain.triple.platformBuildPathComponent(buildSystem: buildSystem)
+                component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
 
             let buildParameters = try BuildParameters(
                 dataPath: dataPath,
                 configuration: configuration,
-                toolchain: self.destinationToolchain,
-                hostTriple: self.hostToolchain.triple,
-                destinationTriple: self.destinationToolchain.triple,
+                toolchain: self.targetToolchain,
+                hostTriple: self.hostToolchain.targetTriple,
+                targetTriple: self.targetToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,

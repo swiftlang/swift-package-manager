@@ -169,7 +169,7 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) throws -> PluginInvocationTestResult {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know
         // which ones they are until we've built them and can examine the binaries.
-        let toolchain = try swiftTool.getDestinationToolchain()
+        let toolchain = try swiftTool.getTargetToolchain()
         var buildParameters = try swiftTool.buildParameters()
         buildParameters.enableTestability = true
         buildParameters.enableCodeCoverage = parameters.enableCodeCoverage
@@ -340,7 +340,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            tool: swiftTool.getTargetToolchain().getSymbolGraphExtract(),
             observabilityScope: swiftTool.observabilityScope
         )
         symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized

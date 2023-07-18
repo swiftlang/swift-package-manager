@@ -20,7 +20,7 @@ import struct TSCBasic.RegEx
 public struct SwiftSDKBundle {
     public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
-        let swiftSDKs: [Destination]
+        let swiftSDKs: [SwiftSDK]
     }
 
     // Path to the bundle root directory.
@@ -81,7 +81,7 @@ public struct SwiftSDKBundle {
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
-    ) throws -> Destination {
+    ) throws -> SwiftSDK {
         guard let destinationsDirectory else {
             throw StringError(
                 """
@@ -363,12 +363,12 @@ extension ArtifactsArchiveMetadata {
                 }
 
                 do {
-                    let destinations = try Destination.decode(
+                    let swiftSDKs = try SwiftSDK.decode(
                         fromFile: variantConfigurationPath, fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
 
-                    variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
+                    variants.append(.init(metadata: variantMetadata, swiftSDKs: swiftSDKs))
                 } catch {
                     observabilityScope.emit(
                         warning: "Couldn't parse Swift SDK artifact metadata at \(variantConfigurationPath)",
@@ -391,7 +391,7 @@ extension [SwiftSDKBundle] {
     ///   - hostTriple: triple of the machine on which the destination is building.
     ///   - targetTriple: triple of the machine for which the destination is building.
     /// - Returns: `Destination` value with a given artifact ID, `nil` if none found.
-    public func selectDestination(id: String, hostTriple: Triple, targetTriple: Triple) -> Destination? {
+    public func selectSwiftSDK(id: String, hostTriple: Triple, targetTriple: Triple) -> SwiftSDK? {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 guard artifactID == id else {
@@ -421,9 +421,9 @@ extension [SwiftSDKBundle] {
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
-    ) -> Destination? {
-        var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: Destination)?
-        var matchedByTriple: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: Destination)?
+    ) -> SwiftSDK? {
+        var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: SwiftSDK)?
+        var matchedByTriple: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: SwiftSDK)?
 
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {

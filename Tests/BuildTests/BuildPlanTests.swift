@@ -758,7 +758,7 @@ final class BuildPlanTests: XCTestCase {
                         buildPath: buildDirPath,
                         config: .release,
                         toolchain: UserToolchain.default,
-                        destinationTriple: UserToolchain.default.triple,
+                        targetTriple: UserToolchain.default.targetTriple,
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
@@ -2217,7 +2217,7 @@ final class BuildPlanTests: XCTestCase {
 
         // Verify that `-lstdc++` is passed instead of `-lc++` when cross-compiling to Linux.
         result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: .arm64Linux),
+            buildParameters: mockBuildParameters(targetTriple: .arm64Linux),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2491,7 +2491,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
         
-        let triple = result.plan.buildParameters.triple
+        let triple = result.plan.buildParameters.targetTriple
         let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").clangTarget()
@@ -2960,7 +2960,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: .windows),
+            buildParameters: mockBuildParameters(targetTriple: .windows),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3038,7 +3038,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        var parameters = mockBuildParameters(destinationTriple: .wasi)
+        var parameters = mockBuildParameters(targetTriple: .wasi)
         parameters.shouldLinkStaticSwiftStdlib = true
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
@@ -3135,7 +3135,7 @@ final class BuildPlanTests: XCTestCase {
 
         func createResult(for triple: Basics.Triple) throws -> BuildPlanResult {
             try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(canRenameEntrypointFunctionName: true, destinationTriple: triple),
+                buildParameters: mockBuildParameters(canRenameEntrypointFunctionName: true,     targetTriple: triple),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -3315,7 +3315,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertThrows(Diagnostics.fatalError) {
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(destinationTriple: .x86_64MacOS),
+                buildParameters: mockBuildParameters(targetTriple: .x86_64MacOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3427,7 +3427,7 @@ final class BuildPlanTests: XCTestCase {
 
         func createResult(for dest: Basics.Triple) throws -> BuildPlanResult {
             return try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(destinationTriple: dest),
+                buildParameters: mockBuildParameters(targetTriple: dest),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -3532,17 +3532,17 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let userDestination = Destination(
+        let userSwiftSDK = SwiftSDK(
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"]),
                     .swiftCompiler: .init(extraCLIOptions: ["-swift-flag-from-json"])
                 ],
-                rootPaths: try UserToolchain.default.destination.toolset.rootPaths
+                rootPaths: try UserToolchain.default.swiftSDK.toolset.rootPaths
             ),
             pathsConfiguration: .init(sdkRootPath: "/fake/sdk")
         )
-        let mockToolchain = try UserToolchain(destination: userDestination)
+        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK)
         let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
             flags: BuildFlags(cCompilerFlags: ["-clang-command-line-flag"], swiftCompilerFlags: ["-swift-command-line-flag"]))
         let result = try BuildPlanResult(plan: BuildPlan(
@@ -3563,7 +3563,7 @@ final class BuildPlanTests: XCTestCase {
       #else
         args += ["--sysroot"]
       #endif
-        args += ["\(userDestination.pathsConfiguration.sdkRootPath!)", "-I/fake/sdk/sysroot", "-clang-flag-from-json", .anySequence, "-clang-command-line-flag"]
+        args += ["\(userSwiftSDK.pathsConfiguration.sdkRootPath!)", "-I/fake/sdk/sysroot", "-clang-flag-from-json", .anySequence, "-clang-command-line-flag"]
         XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -3609,15 +3609,15 @@ final class BuildPlanTests: XCTestCase {
                 .librarian: .init(path: "/fake/toolchain/usr/bin/librarian"),
                 .linker: .init(extraCLIOptions: [jsonFlag(tool: .linker)]),
             ],
-            rootPaths: try UserToolchain.default.destination.toolset.rootPaths)
+            rootPaths: try UserToolchain.default.swiftSDK.toolset.rootPaths)
         let targetTriple = try Triple("armv7em-unknown-none-macho")
-        let destination = try Destination(
+        let swiftSDK = try SwiftSDK(
             targetTriple: targetTriple,
             properties: .init(
                 sdkRootPath: "/fake/sdk",
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"),
             toolset: toolset)
-        let toolchain = try UserToolchain(destination: destination)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK)
         let buildParameters = mockBuildParameters(
             toolchain: toolchain,
             flags: BuildFlags(
@@ -3625,7 +3625,7 @@ final class BuildPlanTests: XCTestCase {
                 cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
                 swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
                 linkerFlags: [cliFlag(tool: .linker)]),
-            destinationTriple: targetTriple)
+                targetTriple: targetTriple)
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
@@ -3749,16 +3749,16 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let targetTriple = try UserToolchain.default.triple
+        let targetTriple = try UserToolchain.default.targetTriple
         let sdkIncludeSearchPath = "/usr/lib/swift_static/none/include"
         let sdkLibrarySearchPath = "/usr/lib/swift_static/none/lib"
-        let destination = try Destination(
+        let swiftSDK = try SwiftSDK(
             targetTriple: targetTriple,
             properties: .init(
                 sdkRootPath: "/fake/sdk",
                 includeSearchPaths: [sdkIncludeSearchPath],
                 librarySearchPaths: [sdkLibrarySearchPath]))
-        let toolchain = try UserToolchain(destination: destination)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK)
         let buildParameters = mockBuildParameters(toolchain: toolchain)
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,
@@ -4028,7 +4028,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let dynamicLibraryExtension = plan.buildParameters.triple.dynamicLibraryExtension
+        let dynamicLibraryExtension = plan.buildParameters.targetTriple.dynamicLibraryExtension
 #if os(Windows)
         let dynamicLibraryPrefix = ""
 #else
@@ -4090,7 +4090,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: .x86_64Linux),
+            buildParameters: mockBuildParameters(targetTriple: .x86_64Linux),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4166,7 +4166,7 @@ final class BuildPlanTests: XCTestCase {
 
             let contents: String = try fs.readFileContents(yaml)
 
-            if result.plan.buildParameters.triple.isWindows() {
+            if result.plan.buildParameters.targetTriple.isWindows() {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
@@ -4175,7 +4175,7 @@ final class BuildPlanTests: XCTestCase {
                     description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
                     args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
                 """))
-            } else if result.plan.buildParameters.triple.isDarwin() {
+            } else if result.plan.buildParameters.targetTriple.isDarwin() {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
@@ -4300,7 +4300,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: .wasi),
+            buildParameters: mockBuildParameters(targetTriple: .wasi),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4428,7 +4428,7 @@ final class BuildPlanTests: XCTestCase {
         let supportingTriples: [Basics.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
             let result = try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
+                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true,     targetTriple: triple),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4552,7 +4552,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
+            buildParameters: mockBuildParameters(targetTriple: destinationTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4661,7 +4661,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
+            buildParameters: mockBuildParameters(targetTriple: destinationTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope

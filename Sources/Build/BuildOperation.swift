@@ -423,7 +423,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration {
-            let buildOperationForPluginDependencies = try BuildOperation(buildParameters: self.buildParameters.withDestination(self.buildParameters.hostTriple), cacheBuildManifest: false, packageGraphLoader: { return graph }, additionalFileRules: self.additionalFileRules, pkgConfigDirectories: self.pkgConfigDirectories, outputStream: self.outputStream, logLevel: self.logLevel, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+            let buildOperationForPluginDependencies = try BuildOperation(
+                buildParameters: self.buildParameters.forTriple(self.buildParameters.hostTriple),
+                cacheBuildManifest: false,
+                packageGraphLoader: { return graph },
+                additionalFileRules: self.additionalFileRules,
+                pkgConfigDirectories: self.pkgConfigDirectories,
+                outputStream: self.outputStream,
+                logLevel: self.logLevel,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope
+            )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 builtToolsDir: self.buildParameters.buildPath,
