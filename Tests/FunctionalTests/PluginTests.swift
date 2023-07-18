@@ -951,6 +951,15 @@ class PluginTests: XCTestCase {
         }
     }
 
+    func testIncorrectDependencies() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-tests"])
+            XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
+        }
+    }
+
     func testSandboxViolatingBuildToolPluginCommands() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "sandboxing tests are only supported on macOS")
