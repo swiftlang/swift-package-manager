@@ -32,11 +32,7 @@ struct MockToolchain: PackageModel.Toolchain {
     let isSwiftDevelopmentToolchain = false
     let swiftPluginServerPath: AbsolutePath? = nil
     
-    #if os(macOS)
-    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])
-    #else
-    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lstdc++"])
-    #endif
+    let extraFlags = PackageModel.BuildFlags()
 
     func getClangCompiler() throws -> AbsolutePath {
         return AbsolutePath(path: "/fake/path/to/clang")
