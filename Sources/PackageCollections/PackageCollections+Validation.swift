@@ -84,7 +84,7 @@ extension PackageCollectionModel.V1 {
 
         // TODO: validate package url?
         private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
-            let packageID = "\(PackageIdentity(url: package.url).description) (\(package.url.absoluteString))"
+            let packageID = "\(PackageIdentity(url: SourceControlURL(package.url)).description) (\(package.url.absoluteString))"
 
             guard !package.versions.isEmpty else {
                 messages.append(.error("Package \(packageID) does not have any versions.", property: "package.versions"))

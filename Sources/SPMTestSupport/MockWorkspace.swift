@@ -795,7 +795,7 @@ public final class MockWorkspace {
                 return
             }
 
-            XCTAssertEqual(pin.packageRef.kind, .remoteSourceControl(URL(string: url)!), file: file, line: line)
+            XCTAssertEqual(pin.packageRef.kind, .remoteSourceControl(SourceControlURL(url)), file: file, line: line)
         }
     }
 

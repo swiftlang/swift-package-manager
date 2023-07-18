@@ -120,7 +120,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         try self.callGit("clone",
                          "-c", "core.symlinks=true",
                          "-c", "core.useBuiltinFSMonitor=false",
-                         "--mirror", repository.location.gitURL, path.pathString,
+                         "--mirror", repository.location.SourceControlURL, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
@@ -180,7 +180,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // In destination repo remove the remote which will be pointing to the source repo.
             let clone = GitRepository(git: self.git, path: destinationPath)
             // Set the original remote to the new clone.
-            try clone.setURL(remote: origin, url: repository.location.gitURL)
+            try clone.setURL(remote: origin, url: repository.location.SourceControlURL)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
             try clone.fetch()
         } else {
@@ -1187,7 +1187,7 @@ fileprivate func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.
 }
 
 extension RepositorySpecifier.Location {
-    fileprivate var gitURL: String {
+    fileprivate var SourceControlURL: String {
         switch self {
         case .path(let path):
             return path.pathString

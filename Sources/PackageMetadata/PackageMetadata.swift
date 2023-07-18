@@ -29,7 +29,7 @@ public struct Package {
     public enum Source {
         case indexAndCollections(collections: [PackageCollectionsModel.CollectionIdentifier], indexes: [URL])
         case registry(url: URL)
-        case sourceControl(url: URL)
+        case sourceControl(url: SourceControlURL)
     }
 
     public struct Resource: Sendable {
@@ -69,7 +69,7 @@ public struct Package {
     // Per version metadata based on the latest version that we include here for convenience.
     public let licenseURL: URL?
     public let readmeURL: URL?
-    public let repositoryURLs: [URL]?
+    public let repositoryURLs: [SourceControlURL]?
     public let resources: [Resource]
     public let author: Author?
     public let description: String?
@@ -84,7 +84,7 @@ public struct Package {
         versions: [Version],
         licenseURL: URL? = nil,
         readmeURL: URL? = nil,
-        repositoryURLs: [URL]?,
+        repositoryURLs: [SourceControlURL]?,
         resources: [Resource],
         author: Author?,
         description: String?,
@@ -135,11 +135,21 @@ public struct PackageSearchClient {
     }
 
     // FIXME: This matches the current implementation, but we may want be smarter about it?
+    private func guessReadMeURL(baseURL: SourceControlURL, defaultBranch: String) -> URL? {
+        if let baseURL = baseURL.url {
+            return guessReadMeURL(baseURL: baseURL, defaultBranch: defaultBranch)
+        } else {
+            return nil
+        }
+    }
+
     private func guessReadMeURL(baseURL: URL, defaultBranch: String) -> URL {
         baseURL.appendingPathComponent("raw").appendingPathComponent(defaultBranch).appendingPathComponent("README.md")
     }
 
-    private func guessReadMeURL(alternateLocations: [URL]?) -> URL? {
+
+
+    private func guessReadMeURL(alternateLocations: [SourceControlURL]?) -> URL? {
         if let alternateURL = alternateLocations?.first {
             // FIXME: This is pretty crude, we should let the registry metadata provide the value instead.
             return guessReadMeURL(baseURL: alternateURL, defaultBranch: "main")
@@ -150,7 +160,7 @@ public struct PackageSearchClient {
     private struct Metadata {
         public let licenseURL: URL?
         public let readmeURL: URL?
-        public let repositoryURLs: [URL]?
+        public let repositoryURLs: [SourceControlURL]?
         public let resources: [Package.Resource]
         public let author: Package.Author?
         public let description: String?
@@ -233,9 +243,7 @@ public struct PackageSearchClient {
         // as a URL or there are any errors during the process, we fall back to searching the configured
         // index or package collections.
         let fetchStandalonePackageByURL = { (error: Error?) in
-            guard let url = URL(string: query) else {
-                return search(error)
-            }
+            let url = SourceControlURL(query)
 
             do {
                 try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
@@ -305,7 +313,7 @@ public struct PackageSearchClient {
                         self.getVersionMetadata(package: identity, version: version) { result in
                             let licenseURL: URL?
                             let readmeURL: URL?
-                            let repositoryURLs: [URL]?
+                            let repositoryURLs: [SourceControlURL]?
                             let resources: [Package.Resource]
                             let author: Package.Author?
                             let description: String?
@@ -374,7 +382,7 @@ public struct PackageSearchClient {
     }
 
     public func lookupIdentities(
-        scmURL: URL,
+        scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -394,7 +402,7 @@ public struct PackageSearchClient {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<URL>, Error>) -> Void
+        completion: @escaping (Result<Set<SourceControlURL>, Error>) -> Void
     ) {
         registryClient.getPackageMetadata(
             package: package,

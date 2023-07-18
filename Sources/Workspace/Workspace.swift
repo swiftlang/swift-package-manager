@@ -3904,7 +3904,7 @@ extension Workspace {
         private let transformationMode: TransformationMode
 
         private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
-        private let identityLookupCache = ThreadSafeKeyValueStore<URL, (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)>()
+        private let identityLookupCache = ThreadSafeKeyValueStore<SourceControlURL, (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)>()
 
         init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
             self.underlying = underlying
@@ -4134,7 +4134,7 @@ extension Workspace {
         }
 
         private func mapRegistryIdentity(
-            url: URL,
+            url: SourceControlURL,
             observabilityScope: ObservabilityScope,
             callbackQueue: DispatchQueue,
             completion: @escaping (Result<PackageIdentity?, Error>) -> Void

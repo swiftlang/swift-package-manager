@@ -30,7 +30,7 @@ public struct PackageReference {
         case localSourceControl(AbsolutePath)
 
         /// A remote source package.
-        case remoteSourceControl(URL)
+        case remoteSourceControl(SourceControlURL)
 
         /// A package from  a registry.
         case registry(PackageIdentity)
@@ -145,7 +145,7 @@ public struct PackageReference {
         PackageReference(identity: identity, kind: .localSourceControl(path))
     }
 
-    public static func remoteSourceControl(identity: PackageIdentity, url: URL) -> PackageReference {
+    public static func remoteSourceControl(identity: PackageIdentity, url: SourceControlURL) -> PackageReference {
         PackageReference(identity: identity, kind: .remoteSourceControl(url))
     }
 

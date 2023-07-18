@@ -26,7 +26,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL("https://example.packages.com")
-        let sourceControlURL = URL("https://example.com/mona/LinkedList.git")
+        let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
 
         // Add fingerprints for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
@@ -72,7 +72,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
             let registryFingerprints = fingerprints[.registry]
             XCTAssertEqual(registryFingerprints?.count, 1)
-            XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, registryURL)
+            XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, SourceControlURL(registryURL))
             XCTAssertEqual(registryFingerprints?[.sourceCode]?.value, "checksum-1.0.0")
 
             let scmFingerprints = fingerprints[.sourceControl]
@@ -87,7 +87,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
             let registryFingerprints = fingerprints[.registry]
             XCTAssertEqual(registryFingerprints?.count, 1)
-            XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, registryURL)
+            XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, SourceControlURL(registryURL))
             XCTAssertEqual(registryFingerprints?[.sourceCode]?.value, "checksum-1.1.0")
         }
 
@@ -97,7 +97,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
             let registryFingerprints = fingerprints[.registry]
             XCTAssertEqual(registryFingerprints?.count, 1)
-            XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, registryURL)
+            XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, SourceControlURL(registryURL))
             XCTAssertEqual(registryFingerprints?[.sourceCode]?.value, "checksum-1.0.0")
         }
     }
@@ -188,7 +188,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let sourceControlURL = URL("https://example.com/mona/LinkedList.git")
+        let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
         let packageRef = PackageReference.remoteSourceControl(
             identity: PackageIdentity(url: sourceControlURL),
             url: sourceControlURL
@@ -228,8 +228,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let fooURL = URL("https://example.com/foo/LinkedList.git")
-        let barURL = URL("https://example.com/bar/LinkedList.git")
+        let fooURL = SourceControlURL("https://example.com/foo/LinkedList.git")
+        let barURL = SourceControlURL("https://example.com/bar/LinkedList.git")
 
         // foo and bar have the same identity `LinkedList`
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
@@ -288,7 +288,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         try mockFileSystem.createDirectory(directoryPath, recursive: true)
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
-        let sourceControlURL = URL("https://example.com/mona/LinkedList.git")
+        let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
         let package = PackageIdentity.plain("mona.LinkedList")
         let fingerprintsPath = directoryPath.appending(package.fingerprintsFilename())
         let v1Fingerprints = """
@@ -328,7 +328,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL("https://example.packages.com")
-        let sourceControlURL = URL("https://example.com/mona/LinkedList.git")
+        let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
 
         // Add fingerprints for 1.0.0 source archive/code
         let package = PackageIdentity.plain("mona.LinkedList")
@@ -387,11 +387,11 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         let registryFingerprints = fingerprints[.registry]
         XCTAssertEqual(registryFingerprints?.count, 3)
-        XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, registryURL)
+        XCTAssertEqual(registryFingerprints?[.sourceCode]?.origin.url, SourceControlURL(registryURL))
         XCTAssertEqual(registryFingerprints?[.sourceCode]?.value, "archive-checksum-1.0.0")
-        XCTAssertEqual(registryFingerprints?[.manifest(.none)]?.origin.url, registryURL)
+        XCTAssertEqual(registryFingerprints?[.manifest(.none)]?.origin.url, SourceControlURL(registryURL))
         XCTAssertEqual(registryFingerprints?[.manifest(.none)]?.value, "manifest-checksum-1.0.0")
-        XCTAssertEqual(registryFingerprints?[.manifest(ToolsVersion.v5_6)]?.origin.url, registryURL)
+        XCTAssertEqual(registryFingerprints?[.manifest(ToolsVersion.v5_6)]?.origin.url, SourceControlURL(registryURL))
         XCTAssertEqual(registryFingerprints?[.manifest(ToolsVersion.v5_6)]?.value, "manifest-5.6-checksum-1.0.0")
 
         let scmFingerprints = fingerprints[.sourceControl]

@@ -30,6 +30,7 @@ add_library(Basics
   FileSystem/Path+Extensions.swift
   FileSystem/TemporaryFile.swift
   FileSystem/VFSOverlay.swift
+  SourceControlURL.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift
   HTTPClient/HTTPClientError.swift
