@@ -695,6 +695,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         libraryBinaryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
+        /* Prior to tools-version 5.9, we used to errorneously recursively traverse plugin dependencies and statically include their
+         targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
+        let shouldExcludePlugins: Bool
+        if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
+            shouldExcludePlugins = toolsVersion >= .v5_9
+        } else {
+            shouldExcludePlugins = false
+        }
 
         // Sort the product targets in topological order.
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
@@ -702,18 +710,27 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
+                if target.type == .macro {
+                    return []
+                }
+                if shouldExcludePlugins, target.type == .plugin {
+                    return []
+                }
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
-            // need to statically link it or if it's a plugin.
+            // need to statically link it.
             case .product(let product, _):
                 guard dependency.satisfies(self.buildEnvironment) else {
                     return []
                 }
 
+                let productDependencies: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
                 switch product.type {
-                case .library(.automatic), .library(.static), .plugin:
-                    return product.targets.map { .target($0, conditions: []) }
+                case .library(.automatic), .library(.static):
+                    return productDependencies
+                case .plugin:
+                    return shouldExcludePlugins ? [] : productDependencies
                 case .library(.dynamic), .test, .executable, .snippet, .macro:
                     return []
                 }
