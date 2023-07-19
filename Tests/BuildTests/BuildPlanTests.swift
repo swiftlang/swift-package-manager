@@ -3689,7 +3689,7 @@ final class BuildPlanTests: XCTestCase {
         let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
         let exeCompileArgumentsPattern: [StringPattern] = [
             jsonFlag(tool: .swiftCompiler),
-            "-use-ld=/fake/toolchain/usr/bin/linker",
+            "-Xclang-linker", "--ld-path=/fake/toolchain/usr/bin/linker",
             "-g", cliFlag(tool: .swiftCompiler),
             .anySequence,
             "-Xcc", jsonFlag(tool: .cCompiler), "-Xcc", "-g", "-Xcc", cliFlag(tool: .cCompiler),
@@ -3714,7 +3714,7 @@ final class BuildPlanTests: XCTestCase {
         let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
         let exeLinkArgumentsPattern: [StringPattern] = [
             jsonFlag(tool: .swiftCompiler),
-            "-use-ld=/fake/toolchain/usr/bin/linker",
+            "-Xclang-linker", "--ld-path=/fake/toolchain/usr/bin/linker",
             "-g", cliFlag(tool: .swiftCompiler),
             .anySequence,
             "-Xlinker", jsonFlag(tool: .linker), "-Xlinker", cliFlag(tool: .linker),

@@ -331,7 +331,7 @@ public final class UserToolchain: Toolchain {
         var swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
 
         if let linker = swiftSDK.toolset.knownTools[.linker]?.path {
-            swiftCompilerFlags += ["-use-ld=\(linker._nativePathString(escaped: false))"]
+            swiftCompilerFlags += ["-Xclang-linker", "--ld-path=\(linker)"]
         }
 
         guard let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath else {
