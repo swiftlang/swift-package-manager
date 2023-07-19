@@ -138,7 +138,7 @@ extension BuildParameters {
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
-        if self.triple.isDarwin() {
+        if self.triple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         }
         else if self.triple.isLinux() {

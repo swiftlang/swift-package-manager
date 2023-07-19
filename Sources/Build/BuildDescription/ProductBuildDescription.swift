@@ -113,7 +113,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .debug:
             return []
         case .release:
-            if self.buildParameters.triple.isDarwin() {
+            if self.buildParameters.triple.isApple() {
                 return ["-Xlinker", "-dead_strip"]
             } else if self.buildParameters.triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
@@ -139,7 +139,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
             return try [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
         }
-        if triple.isDarwin(), librarian.hasSuffix("libtool") {
+        if triple.isApple(), librarian.hasSuffix("libtool") {
             return try [librarian, "-static", "-o", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
         }
         return try [librarian, "crs", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
