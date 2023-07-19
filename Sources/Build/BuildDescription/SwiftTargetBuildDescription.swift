@@ -940,7 +940,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: isLinkingStaticStdlib) {
-            arguments += ["-resource-dir", resourcesPath.pathString]
+            arguments += ["-resource-dir", "\(resourcesPath)"]
         }
 
         return arguments
