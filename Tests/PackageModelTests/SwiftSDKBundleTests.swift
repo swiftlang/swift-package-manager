@@ -21,7 +21,7 @@ import class TSCBasic.InMemoryFileSystem
 
 private let testArtifactID = "test-artifact"
 
-private func generateInfoJSON(artifacts: [MockArtifact]) -> String {
+private func generateInfoJSON(artifacts: [MockArtifact]) -> SerializedJSON {
     """
     {
         "artifacts" : {
@@ -68,7 +68,7 @@ private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (
             (
                 "\($0.path)/info.json",
                 ByteString(
-                    encodingAsUTF8: generateInfoJSON(artifacts: $0.artifacts)
+                    json: generateInfoJSON(artifacts: $0.artifacts)
                 )
             )
         })

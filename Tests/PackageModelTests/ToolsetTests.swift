@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@testable import Basics
 @testable import PackageModel
 import SPMTestSupport
 import XCTest
@@ -34,7 +34,7 @@ private let compilersNoRoot = (
         "cCompiler": { "path": "\#(usrBinTools[.cCompiler]!)", "extraCLIOptions": \#(cCompilerOptions) },
         "cxxCompiler": { "path": "\#(usrBinTools[.cxxCompiler]!)", "extraCLIOptions": \#(cxxCompilerOptions) },
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let noValidToolsNoRoot = (
@@ -44,7 +44,7 @@ private let noValidToolsNoRoot = (
         "schemaVersion": "1.0",
         "cCompiler": {}
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let unknownToolsNoRoot = (
@@ -55,7 +55,7 @@ private let unknownToolsNoRoot = (
         "foo": {},
         "bar": {}
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let otherToolsNoRoot = (
@@ -67,7 +67,7 @@ private let otherToolsNoRoot = (
         "linker": { "path": "\#(usrBinTools[.linker]!)" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let someToolsWithRoot = (
@@ -81,7 +81,7 @@ private let someToolsWithRoot = (
         "librarian": { "path": "llvm-ar" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let someToolsWithRelativeRoot = (
@@ -92,7 +92,7 @@ private let someToolsWithRelativeRoot = (
         "rootPath": "relative/custom",
         "cCompiler": { "extraCLIOptions": \#(newCCompilerOptions) }
     }
-    """#
+    """# as SerializedJSON
 )
 
 final class ToolsetTests: XCTestCase {
@@ -100,7 +100,7 @@ final class ToolsetTests: XCTestCase {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.createDirectory(AbsolutePath(validating: "/tools"))
         for testFile in [compilersNoRoot, noValidToolsNoRoot, unknownToolsNoRoot, otherToolsNoRoot, someToolsWithRoot, someToolsWithRelativeRoot] {
-            try fileSystem.writeFileContents(testFile.path, data: .init(testFile.json.utf8))
+            try fileSystem.writeFileContents(testFile.path, string: testFile.json.underlying)
         }
         let observability = ObservabilitySystem.makeForTesting()
 

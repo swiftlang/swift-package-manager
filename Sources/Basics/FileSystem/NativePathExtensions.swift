@@ -24,3 +24,15 @@ extension AbsolutePath {
         }
     }
 }
+
+extension DefaultStringInterpolation {
+    public mutating func appendInterpolation(_ value: AbsolutePath) {
+        self.appendInterpolation(value._nativePathString(escaped: false))
+    }
+}
+
+extension SerializedJSON.StringInterpolation {
+    public mutating func appendInterpolation(_ value: AbsolutePath) {
+        self.appendInterpolation(value._nativePathString(escaped: false))
+    }
+}

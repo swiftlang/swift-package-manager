@@ -27,6 +27,7 @@ add_library(Basics
   Errors.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
+  FileSystem/NativePathExtensions.swift
   FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
   FileSystem/TSCAdapters.swift
@@ -51,6 +52,7 @@ add_library(Basics
   SQLite.swift
   Sandbox.swift
   SendableTimeInterval.swift
+  Serialization/SerializedJSON.swift
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
