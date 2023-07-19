@@ -326,29 +326,31 @@ private let parsedToolsetRootDestination = SwiftSDK(
     )
 )
 
+private let testFiles: [(path: AbsolutePath, json: SerializedJSON)] = [
+    destinationV1,
+    destinationV2,
+    toolsetNoRootDestinationV3,
+    toolsetRootDestinationV3,
+    missingToolsetDestinationV3,
+    invalidVersionDestinationV3,
+    invalidToolsetDestinationV3,
+    toolsetNoRootSwiftSDKv4,
+    toolsetRootSwiftSDKv4,
+    missingToolsetSwiftSDKv4,
+    invalidVersionSwiftSDKv4,
+    invalidToolsetSwiftSDKv4,
+    otherToolsNoRoot,
+    someToolsWithRoot,
+    invalidToolset,
+]
+
 final class DestinationTests: XCTestCase {
     func testDestinationCodable() throws {
         let fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath(validating: "/tools"))
         try fs.createDirectory(AbsolutePath(validating: "/tmp"))
         try fs.createDirectory(AbsolutePath(validating: "\(bundleRootPath)"))
-        for testFile in [
-            destinationV1,
-            destinationV2,
-            toolsetNoRootDestinationV3,
-            toolsetRootDestinationV3,
-            missingToolsetDestinationV3,
-            invalidVersionDestinationV3,
-            invalidToolsetDestinationV3,
-            toolsetNoRootSwiftSDKv4,
-            toolsetRootSwiftSDKv4,
-            missingToolsetSwiftSDKv4,
-            invalidVersionSwiftSDKv4,
-            invalidToolsetSwiftSDKv4,
-            otherToolsNoRoot,
-            someToolsWithRoot,
-            invalidToolset,
-        ] as [(path: AbsolutePath, json: SerializedJSON)] {
+        for testFile in testFiles {
             try fs.writeFileContents(testFile.path, string: testFile.json.underlying)
         }
 
