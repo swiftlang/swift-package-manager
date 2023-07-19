@@ -214,6 +214,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += self.deadStripArguments
         case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
+            // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
             if self.buildParameters.shouldLinkStaticSwiftStdlib {
                 if self.buildParameters.targetTriple.isDarwin() {
                     self.observabilityScope.emit(.swiftBackDeployError)
