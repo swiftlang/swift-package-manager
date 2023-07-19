@@ -136,7 +136,7 @@ extension Triple {
         }
 
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
@@ -155,7 +155,7 @@ extension Triple {
         }
 
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ""
         case .linux, .openbsd:
             return ""
