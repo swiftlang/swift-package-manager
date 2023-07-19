@@ -3270,7 +3270,7 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
-    func testCrossPlatforms() throws {
+    func testPlatformsCustomTriple() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",
             "/B/Sources/BTarget/foo.swift"
