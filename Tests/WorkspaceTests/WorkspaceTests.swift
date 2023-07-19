@@ -13034,7 +13034,7 @@ final class WorkspaceTests: XCTestCase {
         try customFS.createDirectory(targetDir, recursive: true)
         try customFS.writeFileContents(targetDir.appending("file.swift"), bytes: "")
 
-        let bazURL = URL("https://example.com/baz")
+        let bazURL = SourceControlURL("https://example.com/baz")
         let bazPackageReference = PackageReference(
             identity: PackageIdentity(url: bazURL),
             kind: .remoteSourceControl(bazURL)

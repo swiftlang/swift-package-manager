@@ -432,10 +432,8 @@ extension PinsStore.Pin {
         var packageRef: PackageReference
         if let path = try? AbsolutePath(validating: location) {
             packageRef = .localSourceControl(identity: identity, path: path)
-        } else if let url = URL(string: location) {
-            packageRef = .remoteSourceControl(identity: identity, url: url)
         } else {
-            throw StringError("invalid package location \(location)")
+            packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         }
         if let newName = pin.package {
             packageRef = packageRef.withName(newName)
@@ -470,10 +468,7 @@ extension PinsStore.Pin {
         case .localSourceControl:
             packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
         case .remoteSourceControl:
-            guard let url = URL(string: location) else {
-                throw StringError("invalid url location: \(location)")
-            }
-            packageRef = .remoteSourceControl(identity: identity, url: url)
+            packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         case .registry:
             packageRef = .registry(identity: identity)
         }

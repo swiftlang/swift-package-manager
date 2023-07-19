@@ -335,7 +335,7 @@ public final class RegistryClient: Cancellable {
                         registry: registry,
                         licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
                         readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
-                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) },
+                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
                         resources: versionMetadata.resources.map {
                             .init(
                                 name: $0.name,
@@ -1190,7 +1190,7 @@ public final class RegistryClient: Cancellable {
     }
 
     public func lookupIdentities(
-        scmURL: URL,
+        scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -1232,7 +1232,7 @@ public final class RegistryClient: Cancellable {
     // marked internal for testing
     func _lookupIdentities(
         registry: Registry,
-        scmURL: URL,
+        scmURL: SourceControlURL,
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -1662,7 +1662,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedRetrievingReleaseChecksum(registry: Registry, package: PackageIdentity, version: Version, error: Error)
     case failedRetrievingManifest(registry: Registry, package: PackageIdentity, version: Version, error: Error)
     case failedDownloadingSourceArchive(registry: Registry, package: PackageIdentity, version: Version, error: Error)
-    case failedIdentityLookup(registry: Registry, scmURL: URL, error: Error)
+    case failedIdentityLookup(registry: Registry, scmURL: SourceControlURL, error: Error)
     case failedLoadingPackageArchive(AbsolutePath)
     case failedLoadingPackageMetadata(AbsolutePath)
     case failedPublishing(Error)
@@ -1849,14 +1849,14 @@ extension RegistryClient {
     public struct PackageMetadata {
         public let registry: Registry
         public let versions: [Version]
-        public let alternateLocations: [URL]?
+        public let alternateLocations: [SourceControlURL]?
     }
 
     public struct PackageVersionMetadata: Sendable {
         public let registry: Registry
         public let licenseURL: URL?
         public let readmeURL: URL?
-        public let repositoryURLs: [URL]?
+        public let repositoryURLs: [SourceControlURL]?
         public let resources: [Resource]
         public let author: Author?
         public let description: String?
@@ -1906,7 +1906,7 @@ extension RegistryClient {
 
 extension RegistryClient {
     fileprivate struct AlternativeLocationLink {
-        let url: URL
+        let url: SourceControlURL
         let kind: Kind
 
         enum Kind: String {
@@ -2057,8 +2057,7 @@ extension HTTPClientHeaders {
             return nil
         }
 
-        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }),
-              let url = URL(string: link)
+        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) })
         else {
             return nil
         }
@@ -2070,7 +2069,7 @@ extension HTTPClientHeaders {
         }
 
         return RegistryClient.AlternativeLocationLink(
-            url: url,
+            url: SourceControlURL(link),
             kind: kind
         )
     }

@@ -351,7 +351,7 @@ class RepositoryManagerTests: XCTestCase {
                 group.enter()
                 delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
                 manager.lookup(
-                    package: .init(url: dummyRepo.url),
+                    package: .init(url: SourceControlURL(dummyRepo.url)),
                     repository: dummyRepo,
                     skipUpdate: false,
                     observabilityScope: observability.topScope,
@@ -456,7 +456,7 @@ class RepositoryManagerTests: XCTestCase {
             provider.startGroup.enter()
             finishGroup.enter()
             manager.lookup(
-                package: .init(url: repository.url),
+                package: .init(urlString: repository.url),
                 repository: repository,
                 skipUpdate: true,
                 observabilityScope: observability.topScope,
@@ -591,7 +591,7 @@ extension RepositoryManager {
     fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
         return try tsc_await {
             self.lookup(
-                package: .init(url: repository.url),
+                package: .init(url: SourceControlURL(repository.url)),
                 repository: repository,
                 skipUpdate: skipUpdate,
                 observabilityScope: observabilityScope,
@@ -672,7 +672,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
 
         // We only support one dummy URL.
-        let basename = repository.url.pathComponents.last!
+        let basename = (repository.url as NSString).lastPathComponent
         if basename != "dummy" {
             throw DummyError.invalidRepository
         }

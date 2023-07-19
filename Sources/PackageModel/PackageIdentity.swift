@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.SourceControlURL
 import Foundation
 import TSCBasic
 
@@ -26,7 +27,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
 
     /// Creates a package identity from a URL.
     /// - Parameter url: The package's URL.
-    public init(url: URL) {
+    public init(url: SourceControlURL) {
         self.init(urlString: url.absoluteString)
     }
 
@@ -305,7 +306,7 @@ struct PackageIdentityParser {
     }
 
     /// Compute the default name of a package given its URL.
-    public static func computeDefaultName(fromURL url: URL) -> String {
+    public static func computeDefaultName(fromURL url: SourceControlURL) -> String {
         Self.computeDefaultName(fromLocation: url.absoluteString)
     }
 

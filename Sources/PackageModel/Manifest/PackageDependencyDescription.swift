@@ -45,7 +45,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
         public enum Location: Equatable, Hashable, Sendable {
             case local(AbsolutePath)
-            case remote(URL)
+            case remote(SourceControlURL)
         }
     }
 
@@ -172,7 +172,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     
     public static func remoteSourceControl(identity: PackageIdentity,
                                            nameForTargetDependencyResolutionOnly: String?,
-                                           url: URL,
+                                           url: SourceControlURL,
                                            requirement: SourceControl.Requirement,
                                            productFilter: ProductFilter
     ) -> Self {
