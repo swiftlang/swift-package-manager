@@ -680,15 +680,13 @@ public final class SwiftTool {
             let dataPath = self.scratchDirectory.appending(
                 component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
             )
-            var buildFlags = options.build.buildFlags
-            buildFlags.append(destinationToolchain.extraFlags)
 
             return try BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
                 toolchain: destinationToolchain,
                 destinationTriple: destinationTriple,
-                flags: buildFlags,
+                flags: options.build.buildFlags,
                 pkgConfigDirectories: options.locations.pkgConfigDirectories,
                 architectures: options.build.architectures,
                 workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
