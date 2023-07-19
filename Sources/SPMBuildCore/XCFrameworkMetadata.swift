@@ -25,19 +25,22 @@ public struct XCFrameworkMetadata: Equatable {
         public let headersPath: String?
         public let platform: String
         public let architectures: [String]
+        public let variant: String?
 
         public init(
             libraryIdentifier: String,
             libraryPath: String,
             headersPath: String?,
             platform: String,
-            architectures: [String]
+            architectures: [String],
+            variant: String?
         ) {
             self.libraryIdentifier = libraryIdentifier
             self.libraryPath = libraryPath
             self.headersPath = headersPath
             self.platform = platform
             self.architectures = architectures
+            self.variant = variant
         }
     }
 
@@ -78,6 +81,7 @@ extension XCFrameworkMetadata.Library: Decodable {
         case headersPath = "HeadersPath"
         case platform = "SupportedPlatform"
         case architectures = "SupportedArchitectures"
+        case variant = "SupportedPlatformVariant"
     }
 }
 

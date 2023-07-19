@@ -41,10 +41,10 @@ extension BinaryTarget {
         // At the moment we return at most a single library.
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
         // Filter the libraries that are relevant to the triple.
-        // FIXME: this filter needs to become more sophisticated
         guard let library = metadata.libraries.first(where: {
             $0.platform == triple.os?.asXCFrameworkPlatformString &&
-                $0.architectures.contains(triple.archName)
+            $0.variant == triple.environment?.asXCFrameworkPlatformVariantString &&
+            $0.architectures.contains(triple.archName)
         }) else {
             return []
         }
@@ -100,8 +100,27 @@ extension Triple.OS {
             return nil // XCFrameworks do not support any of these platforms today.
         case .macosx:
             return "macos"
+        case .ios:
+            return "ios"
+        case .tvos:
+            return "tvos"
+        case .watchos:
+            return "watchos"
         default:
             return nil // XCFrameworks do not support any of these platforms today.
+        }
+    }
+}
+
+extension Triple.Environment {
+    fileprivate var asXCFrameworkPlatformVariantString: String? {
+        switch self {
+        case .simulator:
+            return "simulator"
+        case .macabi:
+            return "maccatalyst"
+        default:
+            return nil // XCFrameworks do not support any of these platform variants today.
         }
     }
 }
