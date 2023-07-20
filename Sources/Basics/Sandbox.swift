@@ -125,6 +125,9 @@ fileprivate func macOSSandboxProfile(
 
     // This is needed to launch any processes.
     contents += "(allow process*)\n"
+    
+    // This is needed to use the UniformTypeIdentifiers API.
+    contents += "(allow mach-lookup (global-name \"com.apple.lsd.mapdb\"))\n"
 
     if allowNetworkConnections.filter({ $0 != .none }).isEmpty == false {
         // this is used by the system for caching purposes and will lead to log spew if not allowed

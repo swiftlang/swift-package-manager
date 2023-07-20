@@ -14,6 +14,10 @@
 import SPMTestSupport
 import XCTest
 
+#if canImport(Darwin)
+import Darwin
+#endif
+
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 
@@ -28,6 +32,36 @@ final class SandboxTest: XCTestCase {
             XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: command))
         }
     }
+    
+#if canImport(Darwin)
+    // _CS_DARWIN_USER_CACHE_DIR is only on Darwin, will fail to compile on other platforms.
+    func testUniformTypeIdentifiers() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        let testProgram = """
+        import Foundation
+
+        let file = URL(fileURLWithPath:"\(#file)", isDirectory:false)
+        guard let resourceValues = try? file.resourceValues(forKeys: [.contentTypeKey]) else {
+            fputs("Failed to get content type/type identifier for '\(#file)'", stderr)
+            exit(EXIT_FAILURE)
+        }
+        """
+        let cacheDirectoryBuffer = [CChar](unsafeUninitializedCapacity: Int(PATH_MAX)) { buffer, initializedCount in
+            initializedCount = confstr(_CS_DARWIN_USER_CACHE_DIR, buffer.baseAddress, Int(PATH_MAX))
+        }
+        let cacheDirectory = try AbsolutePath(validating: String(utf8String: cacheDirectoryBuffer)!)
+        let command = try Sandbox.apply(command: ["swift", "-"], strictness: .writableTemporaryDirectory, writableDirectories: [cacheDirectory])
+        let process = Process(arguments: command)
+        let stdin = try process.launch()
+        stdin.write(sequence: testProgram.utf8)
+        try stdin.close()
+        let processResult = try process.waitUntilExit()
+        XCTAssertEqual(processResult.exitStatus, .terminated(code: 0), (try? processResult.utf8stderrOutput()) ?? "")
+    }
+#endif
 
     func testNetworkNotAllowed() throws {
         #if !os(macOS)
