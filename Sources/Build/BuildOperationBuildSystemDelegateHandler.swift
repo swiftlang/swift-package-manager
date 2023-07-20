@@ -1082,7 +1082,7 @@ extension Basics.Diagnostic {
 
     fileprivate static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Self {
         let producers = commands.map(\.description).joined(separator: ", ")
-        return .error("couldn't build \(output.key) because of missing producers: \(producers)")
+        return .error("couldn't build \(output.key) because of multiple producers: \(producers)")
     }
 
     fileprivate static func commandError(command: SPMLLBuild.Command, message: String) -> Self {
