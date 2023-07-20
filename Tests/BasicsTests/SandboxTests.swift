@@ -49,11 +49,10 @@ final class SandboxTest: XCTestCase {
             exit(EXIT_FAILURE)
         }
         """
-        let cacheDirectoryBuffer = [CChar](unsafeUninitializedCapacity: Int(PATH_MAX)) { buffer, initializedCount in
-            initializedCount = confstr(_CS_DARWIN_USER_CACHE_DIR, buffer.baseAddress, Int(PATH_MAX))
+        let cacheDirectory = String(unsafeUninitializedCapacity: Int(PATH_MAX)) { buffer in
+            return confstr(_CS_DARWIN_USER_CACHE_DIR, buffer.baseAddress, Int(PATH_MAX))
         }
-        let cacheDirectory = try AbsolutePath(validating: String(utf8String: cacheDirectoryBuffer)!)
-        let command = try Sandbox.apply(command: ["swift", "-"], strictness: .writableTemporaryDirectory, writableDirectories: [cacheDirectory])
+        let command = try Sandbox.apply(command: ["swift", "-"], strictness: .writableTemporaryDirectory, writableDirectories: [try AbsolutePath(validating: cacheDirectory)])
         let process = Process(arguments: command)
         let stdin = try process.launch()
         stdin.write(sequence: testProgram.utf8)
