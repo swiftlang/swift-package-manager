@@ -14,6 +14,8 @@ import Foundation
 import struct TSCBasic.AbsolutePath
 
 extension AbsolutePath {
+    /// Returns the File System Representation of the `AbsolutePath`'s
+    /// `pathString` property converted into a `URL`.
     public func _nativePathString(escaped: Bool) -> String {
         return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
             let repr = String(cString: $0!)
