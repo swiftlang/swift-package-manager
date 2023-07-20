@@ -14,6 +14,10 @@
 import SPMTestSupport
 import XCTest
 
+#if canImport(Darwin)
+import Darwin
+#endif
+
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 
@@ -29,6 +33,8 @@ final class SandboxTest: XCTestCase {
         }
     }
     
+#if canImport(Darwin)
+    // _CS_DARWIN_USER_CACHE_DIR is only on Darwin, will fail to compile on other platforms.
     func testUniformTypeIdentifiers() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
@@ -43,7 +49,11 @@ final class SandboxTest: XCTestCase {
             exit(EXIT_FAILURE)
         }
         """
-        let command = try Sandbox.apply(command: ["swift", "-"], strictness: .writableTemporaryDirectory)
+        let cacheDirectoryBuffer = [CChar](unsafeUninitializedCapacity: Int(PATH_MAX)) { buffer, initializedCount in
+            initializedCount = confstr(_CS_DARWIN_USER_CACHE_DIR, buffer.baseAddress, Int(PATH_MAX))
+        }
+        let cacheDirectory = try AbsolutePath(validating: String(utf8String: cacheDirectoryBuffer)!)
+        let command = try Sandbox.apply(command: ["swift", "-"], strictness: .writableTemporaryDirectory, writableDirectories: [cacheDirectory])
         let process = Process(arguments: command)
         let stdin = try process.launch()
         stdin.write(sequence: testProgram.utf8)
@@ -51,6 +61,7 @@ final class SandboxTest: XCTestCase {
         let processResult = try process.waitUntilExit()
         XCTAssertEqual(processResult.exitStatus, .terminated(code: 0), (try? processResult.utf8stderrOutput()) ?? "")
     }
+#endif
 
     func testNetworkNotAllowed() throws {
         #if !os(macOS)
