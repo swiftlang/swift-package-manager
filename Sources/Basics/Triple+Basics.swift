@@ -12,6 +12,7 @@
 
 import enum TSCBasic.JSON
 import class TSCBasic.Process
+import struct TSCBasic.AbsolutePath
 
 extension Triple {
     public init(_ description: String) throws {
