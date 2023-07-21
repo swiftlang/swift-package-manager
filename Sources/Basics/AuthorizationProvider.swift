@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -197,6 +197,9 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
 
+        self.observabilityScope
+            .emit(debug: "Add/update credentials for server '\(server)' [\(url.absoluteString)] in keychain")
+
         if !persist {
             self.cache[server] = (user, password)
             return callback(.success(()))
@@ -222,6 +225,9 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
 
+        self.observabilityScope
+            .emit(debug: "Remove credentials for server '\(server)' [\(url.absoluteString)] from keychain")
+
         let `protocol` = self.protocol(for: url)
 
         do {
@@ -240,6 +246,9 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         if let cached = self.cache[server] {
             return cached
         }
+
+        self.observabilityScope
+            .emit(debug: "Search credentials for server '\(server)' [\(url.absoluteString)] in keychain")
 
         do {
             guard let existingItem = try self
@@ -334,7 +343,8 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
     }
 
     private func `protocol`(for url: URL) -> CFString {
-        // See https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
+        // See
+        // https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
         // for a list of possible values for the `kSecAttrProtocol` attribute.
         switch url.scheme?.lowercased() {
         case "https":
