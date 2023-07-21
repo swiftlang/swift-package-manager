@@ -293,6 +293,12 @@ public final class ClangTargetBuildDescription {
             // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
             args += self.buildParameters.flags.cxxCompilerFlags
         }
+
+        // Pass default include paths from the toolchain.
+        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
+            args += ["-I", includeSearchPath.pathString]
+        }
+
         return args
     }
 
