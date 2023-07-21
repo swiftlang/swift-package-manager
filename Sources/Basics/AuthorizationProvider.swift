@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -56,15 +56,6 @@ extension AuthorizationProvider {
     }
 }
 
-extension URL {
-    fileprivate var authenticationID: String? {
-        guard let host = host?.lowercased() else {
-            return nil
-        }
-        return host.isEmpty ? nil : host
-    }
-}
-
 // MARK: - netrc
 
 public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
@@ -88,7 +79,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
         persist: Bool = true,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let machine = url.authenticationID else {
+        guard let machine = Self.machine(for: url) else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
 
@@ -137,14 +128,14 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
-        if let machine = url.authenticationID, let cached = self.cache[machine] {
+        if let machine = Self.machine(for: url), let cached = self.cache[machine] {
             return cached
         }
         return self.machine(for: url).map { (user: $0.login, password: $0.password) }
     }
 
     private func machine(for url: URL) -> Basics.Netrc.Machine? {
-        if let machine = url.authenticationID,
+        if let machine = Self.machine(for: url),
            let existing = self.machines.first(where: { $0.name.lowercased() == machine })
         {
             return existing
@@ -172,6 +163,13 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
             return .none
         }
     }
+
+    private static func machine(for url: URL) -> String? {
+        guard let host = url.host?.lowercased() else {
+            return nil
+        }
+        return host.isEmpty ? nil : host
+    }
 }
 
 // MARK: - Keychain
@@ -193,23 +191,25 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         persist: Bool = true,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let server = url.authenticationID else {
+        guard let protocolHostPort = ProtocolHostPort(from: url) else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
 
+        self.observabilityScope
+            .emit(debug: "Add/update credentials for '\(protocolHostPort)' [\(url.absoluteString)] in keychain")
+
         if !persist {
-            self.cache[server] = (user, password)
+            self.cache[protocolHostPort.description] = (user, password)
             return callback(.success(()))
         }
 
         guard let passwordData = password.data(using: .utf8) else {
             return callback(.failure(AuthorizationProviderError.cannotEncodePassword))
         }
-        let `protocol` = self.protocol(for: url)
 
         do {
-            if !(try self.update(server: server, protocol: `protocol`, account: user, password: passwordData)) {
-                try self.create(server: server, protocol: `protocol`, account: user, password: passwordData)
+            if !(try self.update(protocolHostPort: protocolHostPort, account: user, password: passwordData)) {
+                try self.create(protocolHostPort: protocolHostPort, account: user, password: passwordData)
             }
             callback(.success(()))
         } catch {
@@ -218,14 +218,15 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
     }
 
     public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
-        guard let server = url.authenticationID else {
+        guard let protocolHostPort = ProtocolHostPort(from: url) else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
 
-        let `protocol` = self.protocol(for: url)
+        self.observabilityScope
+            .emit(debug: "Remove credentials for '\(protocolHostPort)' [\(url.absoluteString)] from keychain")
 
         do {
-            try self.delete(server: server, protocol: `protocol`)
+            try self.delete(protocolHostPort: protocolHostPort)
             callback(.success(()))
         } catch {
             callback(.failure(error))
@@ -233,34 +234,37 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
-        guard let server = url.authenticationID else {
+        guard let protocolHostPort = ProtocolHostPort(from: url) else {
             return nil
         }
 
-        if let cached = self.cache[server] {
+        if let cached = self.cache[protocolHostPort.description] {
             return cached
         }
 
+        self.observabilityScope
+            .emit(debug: "Search credentials for '\(protocolHostPort)' [\(url.absoluteString)] in keychain")
+
         do {
             guard let existingItem = try self
-                .search(server: server, protocol: self.protocol(for: url)) as? [String: Any],
+                .search(protocolHostPort: protocolHostPort) as? [String: Any],
                 let passwordData = existingItem[kSecValueData as String] as? Data,
                 let password = String(data: passwordData, encoding: String.Encoding.utf8),
                 let account = existingItem[kSecAttrAccount as String] as? String
             else {
                 throw AuthorizationProviderError
-                    .other("Failed to extract credentials for server \(server) from keychain")
+                    .other("Failed to extract credentials for '\(protocolHostPort)' from keychain")
             }
             return (user: account, password: password)
         } catch {
             switch error {
             case AuthorizationProviderError.notFound:
-                self.observabilityScope.emit(debug: "No credentials found for server \(server) in keychain")
+                self.observabilityScope.emit(debug: "No credentials found for '\(protocolHostPort)' in keychain")
             case AuthorizationProviderError.other(let detail):
                 self.observabilityScope.emit(error: detail)
             default:
                 self.observabilityScope.emit(
-                    error: "Failed to find credentials for server \(server) in keychain",
+                    error: "Failed to find credentials for '\(protocolHostPort)' in keychain",
                     underlyingError: error
                 )
             }
@@ -268,24 +272,33 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         }
     }
 
-    private func create(server: String, protocol: CFString, account: String, password: Data) throws {
-        let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
-                                    kSecAttrServer as String: server,
-                                    kSecAttrProtocol as String: `protocol`,
+    private func create(protocolHostPort: ProtocolHostPort, account: String, password: Data) throws {
+        var query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
+                                    kSecAttrProtocol as String: protocolHostPort.protocolCFString,
+                                    kSecAttrServer as String: protocolHostPort.server,
                                     kSecAttrAccount as String: account,
                                     kSecValueData as String: password]
+
+        if let port = protocolHostPort.port {
+            query[kSecAttrPort as String] = port
+        }
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
             throw AuthorizationProviderError
-                .other("Failed to save credentials for server \(server) to keychain: status \(status)")
+                .other("Failed to save credentials for '\(protocolHostPort)' to keychain: status \(status)")
         }
     }
 
-    private func update(server: String, protocol: CFString, account: String, password: Data) throws -> Bool {
-        let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
-                                    kSecAttrServer as String: server,
-                                    kSecAttrProtocol as String: `protocol`]
+    private func update(protocolHostPort: ProtocolHostPort, account: String, password: Data) throws -> Bool {
+        var query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
+                                    kSecAttrProtocol as String: protocolHostPort.protocolCFString,
+                                    kSecAttrServer as String: protocolHostPort.server]
+
+        if let port = protocolHostPort.port {
+            query[kSecAttrPort as String] = port
+        }
+
         let attributes: [String: Any] = [kSecAttrAccount as String: account,
                                          kSecValueData as String: password]
 
@@ -295,29 +308,38 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         }
         guard status == errSecSuccess else {
             throw AuthorizationProviderError
-                .other("Failed to update credentials for server \(server) in keychain: status \(status)")
+                .other("Failed to update credentials for '\(protocolHostPort)' in keychain: status \(status)")
         }
         return true
     }
 
-    private func delete(server: String, protocol: CFString) throws {
-        let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
-                                    kSecAttrServer as String: server,
-                                    kSecAttrProtocol as String: `protocol`]
+    private func delete(protocolHostPort: ProtocolHostPort) throws {
+        var query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
+                                    kSecAttrProtocol as String: protocolHostPort.protocolCFString,
+                                    kSecAttrServer as String: protocolHostPort.server]
+
+        if let port = protocolHostPort.port {
+            query[kSecAttrPort as String] = port
+        }
+
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess else {
             throw AuthorizationProviderError
-                .other("Failed to delete credentials for server \(server) from keychain: status \(status)")
+                .other("Failed to delete credentials for '\(protocolHostPort)' from keychain: status \(status)")
         }
     }
 
-    private func search(server: String, protocol: CFString) throws -> CFTypeRef? {
-        let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
-                                    kSecAttrServer as String: server,
-                                    kSecAttrProtocol as String: `protocol`,
+    private func search(protocolHostPort: ProtocolHostPort) throws -> CFTypeRef? {
+        var query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
+                                    kSecAttrProtocol as String: protocolHostPort.protocolCFString,
+                                    kSecAttrServer as String: protocolHostPort.server,
                                     kSecMatchLimit as String: kSecMatchLimitOne,
                                     kSecReturnAttributes as String: true,
                                     kSecReturnData as String: true]
+
+        if let port = protocolHostPort.port {
+            query[kSecAttrPort as String] = port
+        }
 
         var item: CFTypeRef?
         // Search keychain for server's username and password, if any.
@@ -327,20 +349,47 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         }
         guard status == errSecSuccess else {
             throw AuthorizationProviderError
-                .other("Failed to find credentials for server \(server) in keychain: status \(status)")
+                .other("Failed to find credentials for '\(protocolHostPort)' in keychain: status \(status)")
         }
 
         return item
     }
 
-    private func `protocol`(for url: URL) -> CFString {
-        // See https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
-        // for a list of possible values for the `kSecAttrProtocol` attribute.
-        switch url.scheme?.lowercased() {
-        case "https":
-            return kSecAttrProtocolHTTPS
-        default:
-            return kSecAttrProtocolHTTPS
+    struct ProtocolHostPort: Hashable, CustomStringConvertible {
+        let `protocol`: String?
+        let host: String
+        let port: Int?
+
+        var server: String {
+            self.host
+        }
+
+        var protocolCFString: CFString {
+            // See
+            // https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
+            // for a list of possible values for the `kSecAttrProtocol` attribute.
+            switch self.protocol {
+            case "https":
+                return kSecAttrProtocolHTTPS
+            case "http":
+                return kSecAttrProtocolHTTP
+            default:
+                return kSecAttrProtocolHTTPS
+            }
+        }
+
+        init?(from url: URL) {
+            guard let host = url.host?.lowercased(), !host.isEmpty else {
+                return nil
+            }
+
+            self.protocol = url.scheme?.lowercased()
+            self.host = host
+            self.port = url.port
+        }
+
+        var description: String {
+            "\(self.protocol.map { "\($0)://" } ?? "")\(self.host)\(self.port.map { ":\($0)" } ?? "")"
         }
     }
 }
