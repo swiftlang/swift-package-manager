@@ -916,7 +916,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         let buildPath = buildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
-        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
+        // will silently error failing the operation.  Filter out this flag
+        // similar to how we filter out the library search path unless
+        // explicitly requested.
+        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags.filter { !$0.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
                 if extraSwiftCFlags[index] == "-L" {
