@@ -69,7 +69,7 @@ final class AuthorizationProviderTests: XCTestCase {
         }
     }
 
-    func testProtocolHostPort() {
+    func testProtocolHostPort() throws {
         #if !canImport(Security)
         try XCTSkipIf(true)
         #else
