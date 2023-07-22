@@ -153,15 +153,15 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    func testMixedTargetWithPublicCXXAPI() throws {
+    func testMixedTargetWithCXXPublicAPI() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
-                extraArgs: ["--target", "MixedTargetWithPublicCXXAPI"]
+                extraArgs: ["--target", "MixedTargetWithCXXPublicAPI"]
             )
             XCTAssertSwiftTest(
                 fixturePath,
-                extraArgs: ["--filter", "MixedTargetWithPublicCXXAPITests"]
+                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPITests"]
             )
         }
     }

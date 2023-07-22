@@ -1,13 +1,11 @@
 #import <XCTest/XCTest.h>
 
-#import "CXXSumFinder.hpp"
-#import "ObjcCalculator.h"
-#import "MixedTargetWithPublicCXXAPI-Swift.h"
+@import MixedTargetWithCXXPublicAPI;
 
-@interface ObjcMixedTargetWithPublicCXXAPITestsViaHeaderImport : XCTestCase
+@interface ObjcMixedTargetWithCXXPublicAPITestsViaModuleImport : XCTestCase
 @end
 
-@implementation ObjcMixedTargetWithPublicCXXAPITestsViaHeaderImport
+@implementation ObjcMixedTargetWithCXXPublicAPITestsViaModuleImport
 
 - (void)testPublicObjcAPI {
     XCTAssertEqual([ObjcCalculator factorialForInt:5], 120);

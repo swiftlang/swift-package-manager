@@ -1,5 +1,5 @@
 import XCTest
-import MixedTargetWithPublicCXXAPI
+import MixedTargetWithCXXPublicAPI
 
 final class MixedTargetWithCXXTests: XCTestCase {
     func testFactorial() throws {
