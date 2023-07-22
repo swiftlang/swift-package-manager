@@ -1,4 +1,4 @@
-module MixedTargetWithPublicCXXAPI {
+module MixedTargetWithCXXPublicAPI {
     header "ObjcCalculator.h"
 
     module PublicCXXAPI {
