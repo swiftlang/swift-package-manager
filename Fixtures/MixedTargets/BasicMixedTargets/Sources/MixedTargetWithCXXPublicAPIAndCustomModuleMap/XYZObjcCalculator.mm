@@ -1,20 +1,20 @@
 #import <Foundation/Foundation.h>
 
-#import "include/ObjcCalculator.h"
+#import "include/XYZObjcCalculator.h"
 
 // Import C++ headers.
-#import "CXXFactorialFinder.hpp"
-#import "CXXSumFinder.hpp"
+#import "XYZCxxFactorialFinder.hpp"
+#import "XYZCxxSumFinder.hpp"
 
-@implementation ObjcCalculator
+@implementation XYZObjcCalculator
 
 + (long)factorialForInt:(int)integer {
-    CXXFactorialFinder ff;
+    XYZCxxFactorialFinder ff;
     return ff.factorial(integer);
 }
 
 + (long)sumX:(int)x andY:(int)y {
-    CXXSumFinder sf;
+    XYZCxxSumFinder sf;
     return sf.sum(x, y);
 }
 

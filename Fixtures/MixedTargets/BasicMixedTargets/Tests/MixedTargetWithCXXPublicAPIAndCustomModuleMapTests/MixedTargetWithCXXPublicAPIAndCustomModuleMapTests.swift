@@ -1,7 +1,7 @@
 import XCTest
-import MixedTargetWithCXXPublicAPI
+import MixedTargetWithCXXPublicAPIAndCustomModuleMap
 
-final class MixedTargetWithCXXPublicAPITests: XCTestCase {
+final class MixedTargetWithCXXPublicAPIAndCustomModuleMapTests: XCTestCase {
     func testFactorial() throws {
         XCTAssertEqual(factorial(5), 120)
     }
