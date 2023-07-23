@@ -284,5 +284,7 @@ let package = Package(
          .target(name: "SwiftTarget"),
          .target(name: "ClangTarget")
 
-    ]
+    ],
+    // TODO(ncooke3): Is this really neccessary?
+    cxxLanguageStandard: .cxx11
 )

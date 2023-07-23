@@ -177,18 +177,9 @@ public final class MixedTargetBuildDescription {
             let generatedUmbrellaHeaderPath = interopSupportDirectory!
                 .appending(components: umbrellaHeaderPathComponents)
 
-          // Note(ncooke3): There are two cases:
-          // i) Has modularizable headers -> can use generated module map
-          // ii) Does not have modularizable headers -> can NOT use generated module map
-          // Note(ncooke3): The below code can therefor be simplified.
-          // 1. ~Remove it~
-          // 2. ~Run C++ tests~
-          // 3. Only targets with public C++ headers should fail
-          // 4. Then fix them with #if def and note requirement somewhere
-          // 5. Then, duplicate the failing tests and fix with custom module map
-          //
-          // Note(ncooke3): Is there a case where the generating the internal
-          // module map requires some custom configuration?
+          // TODO(ncooke3): Can simplify this to just use `includeDir` as
+          // umbrella directory if it is non-empty.
+          // TODO(ncooke3): What if there are no headers in `includeDir`?
           var generatedUmbrellaHeader = ""
             mixedTarget.clangTarget.headers
                 // One of the requirements for a Swift API to be Objective-C
@@ -199,9 +190,6 @@ public final class MixedTargetBuildDescription {
                 // Because of this, the generated umbrella header will only
                 // include public headers so all other can be filtered out.
                 .filter { $0.isDescendant(of: mixedTarget.clangTarget.includeDir) }
-//                // Filter out non-Objective-C/C headers.
-//                // TODO(ncooke3): C++ headers can be ".h". How else can we rule them out?
-//                .filter { $0.basename.hasSuffix(".h") }
                 // Add each remaining header to the generated umbrella header.
                 .forEach {
                     // Import the header, followed by a newline.
@@ -346,16 +334,9 @@ public final class MixedTargetBuildDescription {
         // However, this module map should not expose the generated Swift
         // header since it will not exist yet.
         let unextendedModuleMapPath = intermediatesDirectory.appending(component: unextendedModuleMapFilename)
-        // Generating module maps that include non-Objective-C headers is not
-        // supported.
-        // FIXME(ncooke3): Link to evolution post.
-        // TODO(ncooke3): C++ headers can be ".h". How else can we rule them out?
-        let nonObjcHeaders: [AbsolutePath] = mixedTarget.clangTarget.headers
-            .filter { $0.extension != "h" }
         try moduleMapGenerator.generateModuleMap(
             type: .umbrellaDirectory(mixedTarget.clangTarget.path),
-            at: unextendedModuleMapPath,
-            excludeHeaders: nonObjcHeaders
+            at: unextendedModuleMapPath
         )
 
         // 3. Use VFS overlays to purposefully expose specific resources (e.g.

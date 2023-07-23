@@ -135,6 +135,15 @@ final class MixedTargetTests: XCTestCase {
         } 
     }
 
+    func testMixedTargetWithCXX_CXXInteropEnabled() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithCXX_CXXInteropEnabled"]
+            )
+        }
+    }
+
 // TODO(ncooke3): Make the below test target more robust?
 //    func testMixedTargetWithCXX() throws {
 //        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
