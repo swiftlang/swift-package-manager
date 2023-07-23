@@ -1474,7 +1474,17 @@ final class BuildPlanTests: XCTestCase {
                     toolsVersion: .vNext,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"], type: .executable),
-                        TargetDescription(name: "lib")
+                        TargetDescription(
+                            name: "lib",
+                            // Configure some settings to verify they are
+                            // passed to mixed target's subtargets.
+                            settings: [
+                                .init(tool: .swift, kind: .unsafeFlags(["-Xfrontend", "-super-cool-swift-only-flag"]), condition: .init(config: "debug")),
+                                .init(tool: .linker, kind: .linkedFramework("OtherFramework")),
+                                .init(tool: .c, kind: .define("HELLO_CLANG=1")),
+                                .init(tool: .swift, kind: .define("HELLO_SWIFT=1"))
+                            ]
+                        )
                     ]
                 )
             ],
@@ -1541,7 +1551,8 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/lib.build/InteropSupport", "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parse-as-library", "-emit-objc-header", "-emit-objc-header-path",
-            "/path/to/build/debug/lib.build/lib-Swift.h",  "-g", "-Xcc", "-g"
+            "/path/to/build/debug/lib.build/lib-Swift.h", "-DHELLO_SWIFT=1", "-Xfrontend",
+            "-super-cool-swift-only-flag", "-Xcc", "-DHELLO_CLANG=1", "-g", "-Xcc", "-g"
         ])
 
         let clangPartOfLib = try result.target(for: "lib").mixedTarget().clangTargetBuildDescription.basicArguments(isCXX: false)
@@ -1553,7 +1564,8 @@ final class BuildPlanTests: XCTestCase {
             "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
             "-I", "/path/to/build/debug/lib.build/Intermediates",
             "-I", "/path/to/build/debug/lib.build/InteropSupport",
-            "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-g"
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-DHELLO_CLANG=1",
+            "-g"
         ])
 
         XCTAssertEqual(
@@ -1576,7 +1588,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
-            "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
+            "-target", defaultTargetTriple, "-framework", "OtherFramework", "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
             "-g"
         ])
