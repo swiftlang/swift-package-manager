@@ -94,23 +94,19 @@ let package = Package(
             swiftSettings: [.interoperabilityMode(.Cxx)]
         ),
 
-        ///// START
-        // TODO(ncooke3): Figure out how to support C++ when interop mode not enabled.
+        // MARK: - MixedTargetWithCXX
+        .target(
+            name: "MixedTargetWithCXX"
+        ),
+        .testTarget(
+            name: "MixedTargetWithCXXTests",
+            dependencies: ["MixedTargetWithCXX"]
+        ),
 
-        // // MARK: - MixedTargetWithC++
-        // .target(
-        //     name: "MixedTargetWithCXX"
-        // ),
-        // .testTarget(
-        //     name: "MixedTargetWithCXXTests",
-        //     dependencies: ["MixedTargetWithCXX"]
-        // ),
-
-        // // MARK: - MixedTargetWithCXXAndCustomModuleMap
-        // .target(
-        //     name: "MixedTargetWithCXXAndCustomModuleMap"
-        // ),
-        // TODO(ncooke3): Add a test target for above target.
+        // MARK: - MixedTargetWithCXXAndCustomModuleMap
+        .target(
+            name: "MixedTargetWithCXXAndCustomModuleMap"
+        ),
 
         // MARK: - MixedTargetWithCXXPublicAPI
         .target(
@@ -122,7 +118,7 @@ let package = Package(
             cSettings: [
                 // To import `MixedTargetWithCXXPublicAPI` via a module style
                 // import, the following unsafe flags must be passed. See
-                // the Objective-C++ test file in the test target.
+                // the Objective-C++ file in the test target.
                 .unsafeFlags(["-fcxx-modules", "-fmodules"])
             ]
         ),
@@ -139,7 +135,7 @@ let package = Package(
         //   map that only exposes public CXX headers in a non-Swift context.
         //
         //      // module.modulemap
-        //      module MixedTargetWithCXXPublicAPI {
+        //      module MixedTargetWithCXXPublicAPIAndCustomModuleMap {
         //          umbrella header "PublicNonCXXHeaders.h"
         //
         //          module CXX {
@@ -151,25 +147,22 @@ let package = Package(
         //          export *
         //      }
         //
-        // .target(
-        //     name: "MixedTargetWithCXXPublicAPIAndCustomModuleMap"
-        // ),
-        // .testTarget(
-        //     name: "MixedTargetWithCXXPublicAPIAndCustomModuleMapTests",
-        //     dependencies: ["MixedTargetWithCXXPublicAPIAndCustomModuleMap"],
-        //     cSettings: [
-        //         // To get the `MixedTargetWithCXXPublicAPIAndCustomModuleMap`
-        //         // target to build for use in an Objective-C context (e.g.
-        //         // Objective-C++ test file), the following unsafe flags must be
-        //         // passed.
-        //         .unsafeFlags(["-fcxx-modules", "-fmodules"])
-        //     ],
-        //     linkerSettings: [
-        //         .linkedLibrary("c++"),
-        //     ]
-        // ),
-
-        ///// END
+        .target(
+            name: "MixedTargetWithCXXPublicAPIAndCustomModuleMap"
+        ),
+        .testTarget(
+            name: "MixedTargetWithCXXPublicAPIAndCustomModuleMapTests",
+            dependencies: ["MixedTargetWithCXXPublicAPIAndCustomModuleMap"],
+            cSettings: [
+                // To import `MixedTargetWithCXXPublicAPIAndCustomModuleMap`
+                // via a module style import, the following unsafe flags must
+                // be passed. See the Objective-C++ file in the test target.
+                .unsafeFlags(["-fcxx-modules", "-fmodules"])
+            ],
+            linkerSettings: [
+                .linkedLibrary("c++"),
+            ]
+        ),
 
         // MARK: - MixedTargetWithC
         .target(

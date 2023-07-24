@@ -147,24 +147,23 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-// TODO(ncooke3): Make the below test target more robust?
-//    func testMixedTargetWithCXX() throws {
-//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-//            XCTAssertSwiftTest(
-//                fixturePath,
-//                extraArgs: ["--filter", "MixedTargetWithCXXTests"]
-//            )
-//        }
-//    }
-//
-//    func testMixedTargetWithCXXAndCustomModuleMap() throws {
-//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-//            XCTAssertBuilds(
-//                fixturePath,
-//                extraArgs: ["--target", "MixedTargetWithCXXAndCustomModuleMap"]
-//            )
-//        }
-//    }
+    func testMixedTargetWithCXX() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "MixedTargetWithCXXTests"]
+            )
+        }
+    }
+
+    func testMixedTargetWithCXXAndCustomModuleMap() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithCXXAndCustomModuleMap"]
+            )
+        }
+    }
 
     func testMixedTargetWithCXXPublicAPI() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
@@ -179,18 +178,18 @@ final class MixedTargetTests: XCTestCase {
         }
     }
     
-//    func testMixedTargetWithCXXPublicAPIAndCustomModuleMap() throws {
-//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-//            XCTAssertBuilds(
-//                fixturePath,
-//                extraArgs: ["--target", "MixedTargetWithCXXPublicAPIAndCustomModuleMap"]
-//            )
-//            XCTAssertSwiftTest(
-//                fixturePath,
-//                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPIAndCustomModuleMapTests"]
-//            )
-//        }
-//    }
+    func testMixedTargetWithCXXPublicAPIAndCustomModuleMap() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithCXXPublicAPIAndCustomModuleMap"]
+            )
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPIAndCustomModuleMapTests"]
+            )
+        }
+    }
 
 
     func testMixedTargetWithC() throws {
