@@ -124,7 +124,10 @@ final class MixedTargetTests: XCTestCase {
                     "--filter", "MixedTargetWithCustomModuleMapAndResourcesTests"
 // FIXME(ncooke3): Blocked by fix for #5728. Even though #5728 regression was
 // addressed in #6055, #5728 is guarded on Swift Tools Version `.vNext`– which
-// is also how the mixed language support is guarded.
+// is also how the mixed language support is guarded. This comment should be
+// resolved once the mixed language test feature is staged for release and the
+// mixed language Fixture test targets have a swift-tools-version matching the
+// expected tools version that the mixed language test targets will release in.
 //                ],
 //                // Surface warning where custom umbrella header does not
 //                // include `resource_bundle_accessor.h` in `build` directory.
@@ -163,20 +166,18 @@ final class MixedTargetTests: XCTestCase {
 //        }
 //    }
 
-// TODO(ncooke3): Using `#ifdef __cplusplus` to guard the C++ code prevents it
-// from being referenced by Objective-C. Is this expectected?
-//    func testMixedTargetWithCXXPublicAPI() throws {
-//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-//            XCTAssertBuilds(
-//                fixturePath,
-//                extraArgs: ["--target", "MixedTargetWithCXXPublicAPI"]
-//            )
-//            XCTAssertSwiftTest(
-//                fixturePath,
-//                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPITests"]
-//            )
-//        }
-//    }
+    func testMixedTargetWithCXXPublicAPI() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithCXXPublicAPI"]
+            )
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPITests"]
+            )
+        }
+    }
     
 //    func testMixedTargetWithCXXPublicAPIAndCustomModuleMap() throws {
 //        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in

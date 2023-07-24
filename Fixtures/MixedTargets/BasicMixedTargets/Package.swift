@@ -88,6 +88,12 @@ let package = Package(
             dependencies: ["MixedTargetWithCustomModuleMapAndResources"]
         ),
 
+        // MARK: - MixedTargetWithCXX_CXXInteropEnabled
+        .target(
+            name: "MixedTargetWithCXX_CXXInteropEnabled",
+            swiftSettings: [.interoperabilityMode(.Cxx)]
+        ),
+
         ///// START
         // TODO(ncooke3): Figure out how to support C++ when interop mode not enabled.
 
@@ -107,36 +113,19 @@ let package = Package(
         // TODO(ncooke3): Add a test target for above target.
 
         // MARK: - MixedTargetWithCXXPublicAPI
-        // TODO(ncooke3): Adjust after getting guidance on Swift Forums.
-        // // In order to import this target into downstream targets, two
-        // // additional things must be done (depending on whether the target is
-        // // being imported into a Clang vs. Swift context):
-        // // - Clang context: If the client wants to import the module, client
-        // //   must pass `-fcxx-modules` and `-fmodules` as unsafe flags in
-        // //   the target's `cSettings`. Else, the client can just import
-        // //   individual public headers without further configuring the target.
-        // // - Swift context: The mixed target needs to make a custom module
-        // //   map that only exposes public CXX headers in a non-Swift context.
-        // //
-        // .target(
-        //     name: "MixedTargetWithCXXPublicAPI",
-        //     linkerSettings: [
-        //         .linkedLibrary("c++"),
-        //     ]
-        // ),
-        // .testTarget(
-        //     name: "MixedTargetWithCXXPublicAPITests",
-        //     dependencies: ["MixedTargetWithCXXPublicAPI"],
-        //     cSettings: [
-        //         // To get the `MixedTargetWithCXXPublicAPI` target to build for use in
-        //         // an Objective-C context (e.g. Objective-C++ test file), the following
-        //         // unsafe flags must be passed.
-        //         .unsafeFlags(["-fcxx-modules", "-fmodules"])
-        //     ],
-        //     linkerSettings: [
-        //         .linkedLibrary("c++"),
-        //     ]
-        // ),
+        .target(
+            name: "MixedTargetWithCXXPublicAPI"
+        ),
+        .testTarget(
+            name: "MixedTargetWithCXXPublicAPITests",
+            dependencies: ["MixedTargetWithCXXPublicAPI"],
+            cSettings: [
+                // To import `MixedTargetWithCXXPublicAPI` via a module style
+                // import, the following unsafe flags must be passed. See
+                // the Objective-C++ test file in the test target.
+                .unsafeFlags(["-fcxx-modules", "-fmodules"])
+            ]
+        ),
 
         // MARK: - MixedTargetWithCXXPublicAPIAndCustomModuleMap
         // In order to import this target into downstream targets, two
@@ -285,6 +274,8 @@ let package = Package(
          .target(name: "ClangTarget")
 
     ],
-    // TODO(ncooke3): Is this really neccessary?
+    // TODO(ncooke3): Is the below note behavior that we want to be intended?
+    // This is needed for targets with that have
+    // `swiftSettings: [.interoperabilityMode(.Cxx)]` set.
     cxxLanguageStandard: .cxx11
 )
