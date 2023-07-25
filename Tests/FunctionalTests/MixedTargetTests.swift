@@ -138,6 +138,9 @@ final class MixedTargetTests: XCTestCase {
         } 
     }
 
+// The below tests build targets with C++ interoperability mode enabled, a
+// feature that requires Swift 5.9 or greater.
+#if swift(>=5.9)
     func testMixedTargetWithCXX_CXXInteropEnabled() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
@@ -146,6 +149,7 @@ final class MixedTargetTests: XCTestCase {
             )
         }
     }
+#endif  // swift(>=5.9)
 
     func testMixedTargetWithCXX() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
