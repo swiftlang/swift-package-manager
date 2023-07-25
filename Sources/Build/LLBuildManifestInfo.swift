@@ -41,14 +41,14 @@ public enum LLBuildManifestInfo {
                     } else {
                         return nil
                     }
-                },
+                }.sorted(),
                 targets: packageGraph.allTargets.compactMap {
                     if let package = packageGraph.package(for: $0) {
                         return .init($0, package)
                     } else {
                         return nil
                     }
-                }
+                }.sorted()
             )
         }
     }
@@ -153,5 +153,33 @@ extension LLBuildManifestInfo.Target {
 extension LLBuildManifestInfo.Package {
     init(_ package: ResolvedPackage) {
         self.init(identity: package.identity.description, isRoot: package.manifest.packageKind.isRoot)
+    }
+}
+
+extension LLBuildManifestInfo.Product: Comparable {
+    public static func < (lhs: LLBuildManifestInfo.Product, rhs: LLBuildManifestInfo.Product) -> Bool {
+        if lhs.name == rhs.name {
+            return lhs.package.identity < rhs.package.identity
+        } else {
+            return lhs.name < rhs.name
+        }
+    }
+
+    public static func == (lhs: LLBuildManifestInfo.Product, rhs: LLBuildManifestInfo.Product) -> Bool {
+        return lhs.name == rhs.name && lhs.package.identity == rhs.package.identity
+    }
+}
+
+extension LLBuildManifestInfo.Target: Comparable {
+    public static func < (lhs: LLBuildManifestInfo.Target, rhs: LLBuildManifestInfo.Target) -> Bool {
+        if lhs.name == rhs.name {
+            return lhs.package.identity < rhs.package.identity
+        } else {
+            return lhs.name < rhs.name
+        }
+    }
+
+    public static func == (lhs: LLBuildManifestInfo.Target, rhs: LLBuildManifestInfo.Target) -> Bool {
+        return lhs.name == rhs.name && lhs.package.identity == rhs.package.identity
     }
 }
