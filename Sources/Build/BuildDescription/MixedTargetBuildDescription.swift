@@ -319,16 +319,7 @@ public final class MixedTargetBuildDescription {
         // Building a mixed target uses intermediate module maps to expose
         // private headers to the Swift part of the module.
 
-        // 1. Generate an intermediate module map that exposes all headers,
-        // including the submodule with the generated Swift header.
-        let intermediateModuleMapPath = intermediatesDirectory.appending(component: moduleMapFilename)
-        try moduleMapGenerator.generateModuleMap(
-            type: .umbrellaDirectory(mixedTarget.clangTarget.path),
-            at: intermediateModuleMapPath,
-            interopHeaderPath: interopHeaderPath
-        )
-
-        // 2. Generate an intermediate module map that exposes all headers.
+        // 1. Generate an intermediate module map that exposes all headers.
         // When building the Swift part of the mixed target, a module map will
         // be needed to access types from the Objective-C part of the target.
         // However, this module map should not expose the generated Swift
@@ -339,7 +330,7 @@ public final class MixedTargetBuildDescription {
             at: unextendedModuleMapPath
         )
 
-        // 3. Use VFS overlays to purposefully expose specific resources (e.g.
+        // 2. Use VFS overlays to purposefully expose specific resources (e.g.
         // module map) during the build. The directory to add a VFS overlay in
         // depends on the presence of a custom module map.
         let rootOverlayResourceDirectory: AbsolutePath
@@ -363,12 +354,6 @@ public final class MixedTargetBuildDescription {
             VFSOverlay.Directory(
                 name: rootOverlayResourceDirectory.pathString,
                 contents: [
-                    // Redirect the `module.modulemap` to the modified
-                    // module map in the intermediates directory.
-                    VFSOverlay.File(
-                        name: moduleMapFilename,
-                        externalContents: intermediateModuleMapPath.pathString
-                    ),
                     // Add a generated Swift header that redirects to the
                     // generated header in the build directory's root.
                     VFSOverlay.File(
@@ -395,7 +380,7 @@ public final class MixedTargetBuildDescription {
             ),
         ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
 
-        // 4. Tie everything together by passing build flags.
+        // 3. Tie everything together by passing build flags.
 
         // Importing the underlying module will build the Objective-C
         // part of the module. In order to find the underlying module,
