@@ -212,7 +212,6 @@ public struct ModuleMapGenerator {
                 """
                 module \(moduleName).Swift {
                     header \"\(interopHeaderPath.moduleEscapedPathString)\"
-                    requires objc
                 }
 
                 """
