@@ -1416,7 +1416,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 5.5
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1635,7 +1635,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -2552,7 +2552,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
