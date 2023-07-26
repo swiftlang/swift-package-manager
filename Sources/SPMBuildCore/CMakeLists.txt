@@ -13,6 +13,7 @@ add_library(SPMBuildCore
   BuildSystemCommand.swift
   BuildSystemDelegate.swift
   BuiltTestProduct.swift
+  PackageGraphInfo.swift
   PluginContextSerializer.swift
   PluginInvocation.swift
   PluginMessages.swift
