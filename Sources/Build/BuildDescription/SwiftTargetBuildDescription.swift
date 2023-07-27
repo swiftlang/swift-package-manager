@@ -343,7 +343,7 @@ public final class SwiftTargetBuildDescription {
 
         let content =
             """
-            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
+            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") Foundation
 
             extension Foundation.Bundle {
                 static let module: Bundle = {
