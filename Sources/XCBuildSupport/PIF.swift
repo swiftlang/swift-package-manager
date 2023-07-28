@@ -957,6 +957,7 @@ public enum PIF {
             case MARKETING_VERSION
             case CURRENT_PROJECT_VERSION
             case SWIFT_EMIT_MODULE_INTERFACE
+            case GENERATE_RESOURCE_ACCESSORS
         }
 
         public enum MultipleValueSetting: String, Codable {
