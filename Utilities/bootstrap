@@ -104,6 +104,14 @@ def add_build_args(parser):
         metavar='PATH',
         help='path to the ninja binary to use for building with CMake')
     parser.add_argument(
+        '--ar-path',
+        metavar='PATH',
+        help='path to the ar binary to use for building with CMake')
+    parser.add_argument(
+        '--ranlib-path',
+        metavar='PATH',
+        help='path to the ranlib binary to use for building with CMake')
+    parser.add_argument(
         "--dispatch-build-dir",
         help="path to Dispatch build directory")
     parser.add_argument(
@@ -208,9 +216,11 @@ def parse_build_args(args):
         args.build_dirs["llbuild"] = os.path.abspath(args.llbuild_build_dir)
 
     args.swiftc_path = get_swiftc_path(args)
-    args.clang_path = get_clang_path(args)
-    args.cmake_path = get_cmake_path(args)
-    args.ninja_path = get_ninja_path(args)
+    args.clang_path = get_tool_path(args, "clang")
+    args.cmake_path = get_tool_path(args, "cmake")
+    args.ninja_path = get_tool_path(args, "ninja")
+    args.ar_path = get_tool_path(args, "ar")
+    args.ranlib_path = get_tool_path(args, "ranlib")
     if args.cross_compile_hosts:
         if re.match("macosx-", args.cross_compile_hosts):
             # Use XCBuild target directory when building for multiple arches.
@@ -253,44 +263,19 @@ def get_swiftc_path(args):
         return swiftc_path
     error("unable to find swiftc at %s" % swiftc_path)
 
-def get_clang_path(args):
-    """Returns the path to the Clang compiler."""
-    if args.clang_path:
-        return os.path.abspath(args.clang_path)
+def get_tool_path(args, tool):
+    """Returns the path to the specified tool."""
+    path = getattr(args, tool + "_path", None)
+    if path is not None:
+        return os.path.abspath(path)
     elif platform.system() == 'Darwin':
         return call_output(
-            ["xcrun", "--find", "clang"],
+            ["xcrun", "--find", tool],
             stderr=subprocess.PIPE,
             verbose=args.verbose
         )
     else:
-        return call_output(["which", "clang"], verbose=args.verbose)
-
-def get_cmake_path(args):
-    """Returns the path to CMake."""
-    if args.cmake_path:
-        return os.path.abspath(args.cmake_path)
-    elif platform.system() == 'Darwin':
-        return call_output(
-            ["xcrun", "--find", "cmake"],
-            stderr=subprocess.PIPE,
-            verbose=args.verbose
-        )
-    else:
-        return call_output(["which", "cmake"], verbose=args.verbose)
-
-def get_ninja_path(args):
-    """Returns the path to Ninja."""
-    if args.ninja_path:
-        return os.path.abspath(args.ninja_path)
-    elif platform.system() == 'Darwin':
-        return call_output(
-            ["xcrun", "--find", "ninja"],
-            stderr=subprocess.PIPE,
-            verbose=args.verbose
-        )
-    else:
-        return call_output(["which", "ninja"], verbose=args.verbose)
+        return call_output(["which", tool], verbose=args.verbose)
 
 def get_build_target(args, cross_compile=False):
     """Returns the target-triple of the current machine or for cross-compilation."""
@@ -504,6 +489,8 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake
             "-DCMAKE_Swift_FLAGS='%s'" % swift_flags,
             "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
             "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
+            "-DCMAKE_AR:PATH=%s" % (args.ar_path),
+            "-DCMAKE_RANLIB:PATH=%s" % (args.ranlib_path),
         ] + cmake_args + [source_path]
 
         if args.verbose:
@@ -537,6 +524,8 @@ def build_llbuild(args):
     flags = [
         "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
         "-DCMAKE_CXX_COMPILER:=%s" % (args.clang_path),
+        "-DCMAKE_AR:PATH=%s" % (args.ar_path),
+        "-DCMAKE_RANLIB:PATH=%s" % (args.ranlib_path),
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
     ]
     cmake_env = []
