@@ -479,6 +479,9 @@ public enum SystemPackageProvider {
 
     /// Packages installable by the HomeBrew package manager.
     case brewItem([String])
+    /// Packages installable by the MacPorts package manager.
+    @available(_PackageDescription, introduced: 999.0)
+    case macPortsItem([String])
     /// Packages installable by the apt-get package manager.
     case aptItem([String])
     /// Packages installable by the Yellowdog Updated, Modified (YUM) package manager.
@@ -496,6 +499,17 @@ public enum SystemPackageProvider {
     /// - Returns: A package provider.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
         return .brewItem(packages)
+    }
+    
+    /// Creates a system package provider with a list of installable packages
+    /// for people who use the MacPorts package manager on macOS.
+    ///
+    /// - Parameter packages: The list of package names.
+    ///
+    /// - Returns: A package provider.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func macPorts(_ packages: [String]) -> SystemPackageProvider {
+        return .macPortsItem(packages)
     }
 
     /// Creates a system package provider with a list of installable packages

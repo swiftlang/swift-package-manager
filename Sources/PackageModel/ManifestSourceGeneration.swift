@@ -407,6 +407,9 @@ fileprivate extension SourceCodeFragment {
         case .brew(let names):
             let params = [SourceCodeFragment(strings: names)]
             self.init(enum: "brew", subnodes: params)
+        case .macPorts(let names):
+            let params = [SourceCodeFragment(strings: names)]
+            self.init(enum: "macPorts", subnodes: params)
         case .apt(let names):
             let params = [SourceCodeFragment(strings: names)]
             self.init(enum: "apt", subnodes: params)

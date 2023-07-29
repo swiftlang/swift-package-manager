@@ -281,6 +281,7 @@ enum Serialization {
 
     enum SystemPackageProvider: Codable {
         case brew([String])
+        case macPorts([String])
         case apt([String])
         case yum([String])
         case nuget([String])
