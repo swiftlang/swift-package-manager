@@ -111,6 +111,10 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
     public var swiftSDKsDirectory: AbsolutePath?
 
+    /// Path to the directory containing installed Swift packages.
+    @Option(name: .customLong("experimental-installed-packages-path"), help: .hidden, completion: .directory)
+    public var installedPackagesDirectory: AbsolutePath?
+
     @Option(
         name: .customLong("pkg-config-path"),
         help:

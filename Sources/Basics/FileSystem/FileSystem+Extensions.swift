@@ -492,6 +492,67 @@ extension FileSystem {
     }
 }
 
+// MARK: - Installed Packages
+
+private let installedPackagesDirectoryName = "installed-packages"
+
+extension FileSystem {
+    /// Path to the installed packages directory (if exists)
+    public var installedPackagesDirectory: AbsolutePath {
+        get throws {
+            if let path = try idiomaticSwiftPMDirectory {
+                return path.appending(component: installedPackagesDirectoryName)
+            } else {
+                return try dotSwiftPMSwiftInstalledPackagesDirectory
+            }
+        }
+    }
+
+    private var dotSwiftPMSwiftInstalledPackagesDirectory: AbsolutePath {
+        get throws {
+            try dotSwiftPM.appending(component: installedPackagesDirectoryName)
+        }
+    }
+
+    public func getSharedInstalledPackagesDirectory(explicitDirectory: AbsolutePath?) throws -> AbsolutePath? {
+        if let explicitDirectory {
+            // Create the explicit SDKs path if necessary
+            if !exists(explicitDirectory) {
+                try createDirectory(explicitDirectory, recursive: true)
+            }
+            return explicitDirectory
+        } else {
+            return try installedPackagesDirectory
+        }
+    }
+
+    public func getOrCreateSwiftPMInstalledPackagesDirectory() throws -> AbsolutePath {
+        let idiomaticInstalledPackagesDirectory = try installedPackagesDirectory
+
+        // Create idiomatic if necessary
+        if !exists(idiomaticInstalledPackagesDirectory) {
+            try createDirectory(idiomaticInstalledPackagesDirectory, recursive: true)
+        }
+        // Create ~/.swiftpm if necessary
+        if !exists(try dotSwiftPM) {
+            try createDirectory(dotSwiftPM, recursive: true)
+        }
+        // Create ~/.swiftpm/installed-packages symlink if necessary
+        // locking ~/.swiftpm to protect from concurrent access
+        try withLock(on: dotSwiftPM, type: .exclusive) {
+            if !exists(try dotSwiftPMSwiftInstalledPackagesDirectory, followSymlink: false) {
+                try createSymbolicLink(
+                    dotSwiftPMSwiftInstalledPackagesDirectory,
+                    pointingAt: idiomaticInstalledPackagesDirectory,
+                    relative: false
+                )
+            }
+        }
+        return idiomaticInstalledPackagesDirectory
+    }
+}
+
+
 // MARK: - Utilities
 
 extension FileSystem {
