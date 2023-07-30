@@ -4,4 +4,4 @@ import Foundation
 // FIXME(ncooke3): When Swift compiler's header generation logic is updated,
 // subclass type from Objective-C.
 // @objc public class Engine: CarPart {}
-@objc public class Engine: NDObject {}
+@objc public class Engine: NSObject {}

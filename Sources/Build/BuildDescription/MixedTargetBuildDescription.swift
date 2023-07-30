@@ -125,14 +125,9 @@ public final class MixedTargetBuildDescription {
 
         // A mixed target's build directory uses three subdirectories to
         // distinguish between build artifacts:
-        // - Intermediates: Stores artifacts used during the target's build.
         // - Product: Stores artifacts used by clients of the target.
-        // - InteropSupport: If needed, stores a generated umbrella header
-        //   for use during the target's build and by clients of the target.
         let tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
-        let intermediatesDirectory = tempsPath.appending(component: "Intermediates")
         let productDirectory = tempsPath.appending(component: "Product")
-        let interopSupportDirectory: AbsolutePath?
 
         // Filenames for VFS overlay files.
         let allProductHeadersFilename = "all-product-headers.yaml"
@@ -147,70 +142,9 @@ public final class MixedTargetBuildDescription {
             fileSystem: fileSystem
         )
 
-        // MARK: Conditionally generate an umbrella header for interoptability
-
-        // When the Swift compiler creates the generated interop header
-        // (`$(ModuleName)-Swift.h`) for Objective-C compatible Swift API
-        // (via `-emit-objc-header`), any Objective-C symbol that cannot be
-        // forward declared (e.g. superclass, protocol, etc.) will attempt to
-        // be imported via a bridging or umbrella header. Since the compiler
-        // evaluates the target as a framework (as opposed to an app), the
-        // compiler assumes* an umbrella header exists in a subdirectory (named
-        // after the module) within the public headers directory:
-        //
-        //      #import <$(ModuleName)/$(ModuleName).h>
-        //
-        // The compiler assumes that the above path can be resolved relative to
-        // the public header directory. Instead of forcing package authors to
-        // structure their packages around that constraint, the package manager
-        // generates an umbrella header if needed and will pass it along as a
-        // header search path when building the target.
-        //
-        // *: https://developer.apple.com/documentation/swift/importing-objective-c-into-swift
-        let umbrellaHeaderPathComponents = [mixedTarget.c99name, "\(mixedTarget.c99name).h"]
-        let potentialUmbrellaHeadersPath = mixedTarget.clangTarget.includeDir
-            .appending(components: umbrellaHeaderPathComponents)
-        // Check if an umbrella header at
-        // `PUBLIC_HDRS_DIR/$(ModuleName)/$(ModuleName).h` already exists.
-        if !fileSystem.isFile(potentialUmbrellaHeadersPath) {
-            interopSupportDirectory = tempsPath.appending(component: "InteropSupport")
-            let generatedUmbrellaHeaderPath = interopSupportDirectory!
-                .appending(components: umbrellaHeaderPathComponents)
-
-          // TODO(ncooke3): Can simplify this to just use `includeDir` as
-          // umbrella directory if it is non-empty.
-          // TODO(ncooke3): What if there are no headers in `includeDir`?
-          var generatedUmbrellaHeader = ""
-            mixedTarget.clangTarget.headers
-                // One of the requirements for a Swift API to be Objective-C
-                // compatible and therefore included in the generated interop
-                // header is that it has `public` or `open` visbility. This
-                // means that such Swift API can only reference (e.g. subclass)
-                // Objective-C types defined in the target's public headers.
-                // Because of this, the generated umbrella header will only
-                // include public headers so all other can be filtered out.
-                .filter { $0.isDescendant(of: mixedTarget.clangTarget.includeDir) }
-                // Add each remaining header to the generated umbrella header.
-                .forEach {
-                    // Import the header, followed by a newline.
-                    generatedUmbrellaHeader.append("#import \"\($0)\"\n")
-                }
-
-            try fileSystem.writeFileContentsIfNeeded(
-                generatedUmbrellaHeaderPath,
-                string: generatedUmbrellaHeader
-            )
-        } else {
-            // An umbrella header in the desired format already exists so the
-            // interop support directory is not needed.
-            interopSupportDirectory = nil
-        }
-
         // Clients will later depend on the public header directory, and, if an
         // umbrella header was created, the header's root directory.
-        self.publicHeaderPaths = interopSupportDirectory != nil ?
-            [mixedTarget.clangTarget.includeDir, interopSupportDirectory!] :
-            [mixedTarget.clangTarget.includeDir]
+        self.publicHeaderPaths = [mixedTarget.clangTarget.includeDir]
 
         // MARK: Generate products to be used by client of the target.
 
@@ -292,7 +226,7 @@ public final class MixedTargetBuildDescription {
             try moduleMapGenerator.generateModuleMap(
                 type: generatedModuleMapType,
                 at: productModuleMapPath,
-                interopHeaderPath: interopHeaderPath
+                interopHeaderPath: nil//interopHeaderPath
             )
 
             // Set the generated module map as the module map for the target.
@@ -312,89 +246,25 @@ public final class MixedTargetBuildDescription {
                     ]
                 ),
             ]).write(to: self.allProductHeadersOverlay, fileSystem: fileSystem)
+            
+            
         }
-
-        // MARK: Generate intermediate artifacts used to build the target.
-
-        // Building a mixed target uses intermediate module maps to expose
-        // private headers to the Swift part of the module.
-
-        // 1. Generate an intermediate module map that exposes all headers.
-        // When building the Swift part of the mixed target, a module map will
-        // be needed to access types from the Objective-C part of the target.
-        // However, this module map should not expose the generated Swift
-        // header since it will not exist yet.
-        let unextendedModuleMapPath = intermediatesDirectory.appending(component: unextendedModuleMapFilename)
-        try moduleMapGenerator.generateModuleMap(
-            type: .umbrellaDirectory(mixedTarget.clangTarget.path),
-            at: unextendedModuleMapPath
-        )
-
-        // 2. Use VFS overlays to purposefully expose specific resources (e.g.
-        // module map) during the build. The directory to add a VFS overlay in
-        // depends on the presence of a custom module map.
-        let rootOverlayResourceDirectory: AbsolutePath
-        if case .custom(let customModuleMapPath) = mixedTarget.clangTarget.moduleMapType {
-            // To avoid the custom module map causing a module redeclaration
-            // error, a VFS overlay is used when building the target to
-            // redirect the custom module map to the modified module map in the
-            // build directory. This redirecting overlay is placed in the
-            // custom module map's parent directory, as to replace it.
-            rootOverlayResourceDirectory = customModuleMapPath.parentDirectory
-        } else {
-            // Since no custom module map exists, the build directory can
-            // be used as the root of the VFS overlay. In this case, the
-            // VFS overlay's sole purpose is to expose the generated Swift
-            // header.
-            rootOverlayResourceDirectory = intermediatesDirectory
-        }
-
-        let allProductHeadersPath = intermediatesDirectory.appending(component: allProductHeadersFilename)
-        try VFSOverlay(roots: [
-            VFSOverlay.Directory(
-                name: rootOverlayResourceDirectory.pathString,
-                contents: [
-                    // Add a generated Swift header that redirects to the
-                    // generated header in the build directory's root.
-                    VFSOverlay.File(
-                        name: interopHeaderPath.basename,
-                        externalContents: interopHeaderPath.pathString
-                    ),
-                ]
-            ),
-        ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
-
-        let unextendedModuleMapOverlayPath = intermediatesDirectory
-            .appending(component: unextendedModuleOverlayFilename)
-        try VFSOverlay(roots: [
-            VFSOverlay.Directory(
-                name: rootOverlayResourceDirectory.pathString,
-                contents: [
-                    // Redirect the `module.modulemap` to the *unextended*
-                    // module map in the intermediates directory.
-                    VFSOverlay.File(
-                        name: moduleMapFilename,
-                        externalContents: unextendedModuleMapPath.pathString
-                    ),
-                ]
-            ),
-        ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
 
         // 3. Tie everything together by passing build flags.
 
         // Importing the underlying module will build the Objective-C
         // part of the module. In order to find the underlying module,
-        // a `module.modulemap` needs to be discoverable via a header
-        // search path.
+        // a `module.modulemap` needs to be discoverable via directory passed
+        // as a header search path.
         self.swiftTargetBuildDescription.additionalFlags += [
             "-import-underlying-module",
-            "-I", rootOverlayResourceDirectory.pathString,
+            "-I", tempsPath.pathString,
         ]
 
         self.swiftTargetBuildDescription.appendClangFlags(
             // Pass both VFS overlays to the underlying Clang compiler.
-            "-ivfsoverlay", allProductHeadersPath.pathString,
-            "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString,
+//            "-ivfsoverlay", allProductHeadersPath.pathString,
+//            "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString,
             // Adding the root of the target's source as a header search
             // path allows for importing headers (within the mixed target's
             // headers) using paths relative to the root.
@@ -413,23 +283,7 @@ public final class MixedTargetBuildDescription {
             // the root.
             "-I", mixedTarget.path.pathString,
             // Include overlay file to add interop header to overlay directory.
-            "-ivfsoverlay", allProductHeadersPath.pathString,
-            // The above two args add the interop header in the overlayed
-            // directory. Pass the overlay directory as a search path so the
-            // generated header can be imported.
-            "-I", intermediatesDirectory.pathString,
+            "-I", interopHeaderPath.parentDirectory.pathString
         ]
-
-        // If a generated umbrella header was created, add its root directory
-        // as a header search path. This will resolve its import within the
-        // generated interop header.
-        if let interopSupportDirectory = interopSupportDirectory {
-            self.swiftTargetBuildDescription.appendClangFlags(
-                "-I", interopSupportDirectory.pathString
-            )
-            self.clangTargetBuildDescription.additionalFlags += [
-                "-I", interopSupportDirectory.pathString,
-            ]
-        }
     }
 }
