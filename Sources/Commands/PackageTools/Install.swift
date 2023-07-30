@@ -18,6 +18,10 @@ import Workspace
 import class PackageGraph.ResolvedProduct
 
 extension SwiftPackageTool {
+    enum Error: Swift.Error {
+        case noExecutableProductsFound
+    }
+
     struct Install: SwiftCommand {
         public static let configuration = CommandConfiguration(
             commandName: "experimental-install",
@@ -38,15 +42,24 @@ extension SwiftPackageTool {
 //            buildParameters.configuration = .release
             let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
-            if let product = self.product {
-                try buildSystem.build(subset: .product(product))
-            } else {
-                try buildSystem.build()
-            }
-
-            let products = try swiftTool.loadPackageGraph().rootPackages
+            let rootExecutableProducts = try swiftTool.loadPackageGraph().rootPackages
                 .flatMap { $0.products }
                 .filter { $0.type == .executable }
+
+            let installedProducts: [ResolvedProduct]
+            if let product = self.product {
+                try buildSystem.build(subset: .product(product))
+
+                installedProducts = rootExecutableProducts.filter { $0.name == product }
+            } else {
+                try buildSystem.build()
+
+                installedProducts = rootExecutableProducts
+            }
+
+            guard !installedProducts.isEmpty else {
+                throw Error.noExecutableProductsFound
+            }
 
             let fs = swiftTool.fileSystem
 
@@ -56,7 +69,7 @@ extension SwiftPackageTool {
                 try fs.createDirectory(installedPackagesBinDirectory, recursive: true)
             }
 
-            for product in products {
+            for product in installedProducts {
                 let buildPath = try buildParameters.binaryPath(for: product)
                 let installedProductPath = installedPackagesBinDirectory.appending(component: product.name)
                 if fs.exists(installedProductPath) {
