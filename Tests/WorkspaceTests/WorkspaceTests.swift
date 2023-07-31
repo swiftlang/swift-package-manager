@@ -203,6 +203,20 @@ final class WorkspaceTests: XCTestCase {
 
                 XCTAssertEqual(ws.interpreterFlags(for: foo), [])
             }
+
+            do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:999.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
+
+                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("5")])
+            }
         }
     }
 
