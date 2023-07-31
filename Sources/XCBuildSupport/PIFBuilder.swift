@@ -677,6 +677,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         if let resourceBundle = addResourceBundle(for: target, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
+            settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
             impartedSettings[.EMBED_PACKAGE_RESOURCE_BUNDLE_NAMES, default: ["$(inherited)"]].append(resourceBundle)
         }
 
