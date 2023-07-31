@@ -270,6 +270,8 @@ public struct BuildParameters: Encodable {
 
     public var debugInfoFormat: DebugInfoFormat
 
+    public var shouldSkipBuilding: Bool
+
     @available(*, deprecated, message: "use `init` overload with `targetTriple` parameter name instead")
     @_disfavoredOverload
     public init(
@@ -302,7 +304,8 @@ public struct BuildParameters: Encodable {
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
-        debugInfoFormat: DebugInfoFormat = .dwarf
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false
     ) throws {
         try self.init(
             dataPath: dataPath,
@@ -334,7 +337,8 @@ public struct BuildParameters: Encodable {
             colorizedOutput: colorizedOutput,
             verboseOutput: verboseOutput,
             linkTimeOptimizationMode: linkTimeOptimizationMode,
-            debugInfoFormat: debugInfoFormat
+            debugInfoFormat: debugInfoFormat,
+            shouldSkipBuilding: shouldSkipBuilding
         )
     }
 
@@ -368,7 +372,8 @@ public struct BuildParameters: Encodable {
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
-        debugInfoFormat: DebugInfoFormat = .dwarf
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
@@ -439,6 +444,7 @@ public struct BuildParameters: Encodable {
         self.verboseOutput = verboseOutput
         self.linkTimeOptimizationMode = linkTimeOptimizationMode
         self.debugInfoFormat = debugInfoFormat
+        self.shouldSkipBuilding = shouldSkipBuilding
     }
 
     @available(*, deprecated, renamed: "forTriple()")
@@ -487,7 +493,8 @@ public struct BuildParameters: Encodable {
             linkerDeadStrip: self.linkerDeadStrip,
             colorizedOutput: self.colorizedOutput,
             verboseOutput: self.verboseOutput,
-            linkTimeOptimizationMode: self.linkTimeOptimizationMode
+            linkTimeOptimizationMode: self.linkTimeOptimizationMode,
+            shouldSkipBuilding: self.shouldSkipBuilding
         )
     }
 
