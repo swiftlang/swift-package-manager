@@ -242,12 +242,6 @@ extension FileSystem {
             try self.dotSwiftPM.appending("cache")
         }
     }
-    
-    private var dotSwiftPMInstalledBinsDir: AbsolutePath {
-        get throws {
-            try self.dotSwiftPM.appending("bin")
-        }
-    }
 }
 
 extension FileSystem {
@@ -277,9 +271,14 @@ extension FileSystem {
 }
 
 extension FileSystem {
+    private var dotSwiftPMInstalledBinsDir: AbsolutePath {
+        get throws {
+            try self.dotSwiftPM.appending("bin")
+        }
+    }
     
     public func getOrCreateSwiftPMInstalledBinariesDirectory() throws -> AbsolutePath {
-        let idiomaticInstalledBinariesDirectory = try self.swiftPMInstalledBinariesDirectory
+        let idiomaticInstalledBinariesDirectory = try self.dotSwiftPMInstalledBinsDir
         // Create idiomatic if necessary
         if !self.exists(idiomaticInstalledBinariesDirectory) {
             try self.createDirectory(idiomaticInstalledBinariesDirectory, recursive: true)
@@ -291,9 +290,9 @@ extension FileSystem {
         // Create ~/.swiftpm/bin symlink if necessary
         // locking ~/.swiftpm to protect from concurrent access
         try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
-            if !self.exists(try self.dotSwiftPMInstalledBinariesDirectory, followSymlink: false) {
+            if !self.exists(try self.dotSwiftPMInstalledBinsDir, followSymlink: false) {
                 try self.createSymbolicLink(
-                    self.dotSwiftPMInstalledBinariesDirectory,
+                    self.dotSwiftPMInstalledBinsDir,
                     pointingAt: idiomaticInstalledBinariesDirectory,
                     relative: false
                 )

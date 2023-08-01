@@ -18,10 +18,9 @@ import PackageModel
 import Foundation
 
 extension SwiftPackageTool {
-    
-    struct Install: AsyncSwiftCommand {
+    struct Install: SwiftCommand {
         static var configuration: CommandConfiguration {
-            CommandConfiguration(abstract: "Offers the ability to install executable targets of the current package.")
+            CommandConfiguration(abstract: "Offers the ability to install executable products of the current package.")
         }
         
         @OptionGroup()
@@ -30,7 +29,8 @@ extension SwiftPackageTool {
         @Option(help: "The name of the executable product to install")
         var product: String?
         
-        func run(_ tool: SwiftTool) async throws {
+        
+        func run(_ tool: SwiftTool) throws {
             let swiftpmBinDir = try tool.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
             
             let env = ProcessInfo.processInfo.environment
@@ -39,29 +39,33 @@ extension SwiftPackageTool {
                 tool.observabilityScope.emit(warning: "PATH doesn't include \(swiftpmBinDir.pathString)! This means you won't be able to access the installed executables by default, and will need to specify the full path.")
             }
             
-            let installedPackagesJSONPath = try tool.fileSystem.dotSwiftPM.appending(component: "installedPackages.json")
+            let installedPackagesJSONPath = try tool.fileSystem.dotSwiftPM.appending(component: "installedPackageProducts.json")
             
-            var alreadyExisting = (try? InstalledPackage.registered(registryPath: .init(installedPackagesJSONPath), withFS: tool.fileSystem)) ?? []
+            var alreadyExisting = (try? InstalledPackageProduct.registered(jsonPath: .init(installedPackagesJSONPath), tool.fileSystem)) ?? []
             
             let workspace = try tool.getActiveWorkspace()
             let packageRoot = try tool.getPackageRoot()
 
-            let packageGraph = try await workspace.loadRootPackage(at: packageRoot, observabilityScope: tool.observabilityScope)
             
-            let possibleCanidates = packageGraph.products.filter { $0.type == .executable }
+            let packageGraph = try workspace.loadPackageGraph(rootPath: packageRoot, observabilityScope: tool.observabilityScope)
+            
+            let possibleCanidates = packageGraph.rootPackages.flatMap(\.products)
+                .filter { $0.type == .executable }
+                
+            
             let productToInstall: Product
             
             switch possibleCanidates.count {
             case 0:
                 throw StringError("No Executable Products in Package.swift.")
             case 1:
-                productToInstall = possibleCanidates[0]
+                productToInstall = possibleCanidates[0].underlyingProduct
             default: // More than one, check for possible
                 guard let product, let first = possibleCanidates.first(where: { $0.name == product }) else {
                     throw StringError("Multiple canidates found, however, no product was specified. specify a product with the --product")
                 }
                 
-                productToInstall = first
+                productToInstall = first.underlyingProduct
             }
             
             if let existingPkg = alreadyExisting.first(where: { $0.name == productToInstall.name }) {
@@ -74,7 +78,7 @@ extension SwiftPackageTool {
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try tool.fileSystem.copy(from: binPath, to: finalBinPath)
             
-            let pkgInstance = InstalledPackage(name: productToInstall.name, url: .init(finalBinPath))
+            let pkgInstance = InstalledPackageProduct(name: productToInstall.name, packageName: productToInstall.name, url: .init(finalBinPath))
             alreadyExisting.append(pkgInstance)
             
             try JSONEncoder().encode(path: installedPackagesJSONPath, fileSystem: tool.fileSystem, alreadyExisting)
@@ -85,37 +89,38 @@ extension SwiftPackageTool {
         @OptionGroup
         var globalOptions: GlobalOptions
         
-        @Option(help: "Name of the executable to remove.")
+        @Argument(help: "Name of the executable to remove.")
         var name: String
         
         func run(_ tool: SwiftTool) throws {
             let dotSwiftPMDir = try tool.fileSystem.dotSwiftPM
-            let registryURL = dotSwiftPMDir.appending(component: "installedPackages.json").asURL
-            var alreadyRegistered = (try? InstalledPackage.registered(registryPath: .init(try tool.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()),
-                                                                      withFS: tool.fileSystem)) ?? []
+            let productsJSON = dotSwiftPMDir.appending(component: "installedPackageProducts.json")
+            var alreadyRegistered = (try? InstalledPackageProduct.registered(jsonPath: .init(productsJSON),
+                                                                      tool.fileSystem)) ?? []
             
             guard let whatWeWantToRemove = alreadyRegistered.first(where: { $0.name == name || $0.url.basename == name }) else {
                 throw StringError("No such installed executable as \(name)")
             }
             
             try tool.fileSystem.removeFileTree(whatWeWantToRemove.url)
-//            try FileManager.default.removeItem(at: whatWeWantToRemove.url)
             alreadyRegistered.removeAll(where: { $0 == whatWeWantToRemove })
-            try JSONEncoder().encode(alreadyRegistered).write(to: registryURL)
+            try JSONEncoder().encode(path: productsJSON, fileSystem: tool.fileSystem, alreadyRegistered)
             print("Removed \(name).")
         }
     }
 }
 
-fileprivate struct InstalledPackage: Codable, Equatable {
+fileprivate struct InstalledPackageProduct: Codable, Equatable {
     
-    static func registered(registryPath: AbsolutePath, _ fileSystem: FileSystem) throws -> [InstalledPackage] {
-        return try JSONDecoder().decode(path: .init(registryPath), fileSystem: fileSystem, as: [InstalledPackage].self)
+    static func registered(jsonPath: AbsolutePath, _ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
+        return try JSONDecoder().decode(path: .init(jsonPath), fileSystem: fileSystem, as: [InstalledPackageProduct].self)
     }
     
     /// Name of the installed product
     let name: String
     
+    /// The name of the package from which this product came from.
+    let packageName: String
     
     /// Path of the executable
     let url: AbsolutePath
