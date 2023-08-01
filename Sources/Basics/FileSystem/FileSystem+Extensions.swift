@@ -210,7 +210,6 @@ extension FileSystem {
         }
     }
 
-    
     private var idiomaticSwiftPMDirectory: AbsolutePath? {
         get throws {
             try FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first

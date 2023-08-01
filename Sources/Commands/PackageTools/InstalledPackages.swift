@@ -19,7 +19,7 @@ import Foundation
 
 extension SwiftPackageTool {
     
-    struct Install: SwiftCommand {
+    struct Install: AsyncSwiftCommand {
         static var configuration: CommandConfiguration {
             CommandConfiguration(abstract: "Offers the ability to install executable targets of the current package.")
         }
@@ -27,7 +27,10 @@ extension SwiftPackageTool {
         @OptionGroup()
         var globalOptions: GlobalOptions
         
-        func run(_ tool: SwiftTool) throws {
+        @Option(help: "The name of the product to install")
+        var product: String?
+        
+        func run(_ tool: SwiftTool) async throws {
             let swiftpmBinDir = try tool.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
             
             let env = ProcessInfo.processInfo.environment
@@ -43,9 +46,7 @@ extension SwiftPackageTool {
             let workspace = try tool.getActiveWorkspace()
             let packageRoot = try tool.getPackageRoot()
 
-            let packageGraph = try tsc_await {
-                workspace.loadRootPackage(at: packageRoot, observabilityScope: tool.observabilityScope, completion: $0)
-            }
+            let packageGraph = try await workspace.loadRootPackage(at: packageRoot, observabilityScope: tool.observabilityScope)
             
             let possibleCanidates = packageGraph.products.filter { $0.type == .executable }
             let productToInstall: Product
@@ -55,17 +56,12 @@ extension SwiftPackageTool {
                 throw StringError("No Executable Products in Package.swift.")
             case 1:
                 productToInstall = possibleCanidates[0]
-            default: // More than one, ask the user which one they wanna install
-                print("More than one executable target selected, please select of the following which you'd like to install by typing the number and pressing enter:")
-                for (index, product) in possibleCanidates.enumerated() {
-                    print("[\(index)] \(product.name)")
+            default: // More than one, check for possible
+                guard let product, let first = possibleCanidates.first(where: { $0.name == product }) else {
+                    throw StringError("Multiple canidates found, however, no product was specified. specify a product with the --product")
                 }
                 
-                guard let input = readLine(), let int = Int(input), possibleCanidates.indices.contains(int) else {
-                    throw StringError("Input should be a number between 0 and \(possibleCanidates.count - 1).")
-                }
-                
-                productToInstall = possibleCanidates[int]
+                productToInstall = first
             }
             
             if let existingPkg = alreadyExisting.first(where: { $0.name == productToInstall.name }) {
