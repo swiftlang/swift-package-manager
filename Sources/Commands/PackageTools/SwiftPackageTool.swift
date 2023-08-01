@@ -42,7 +42,7 @@ public struct SwiftPackageTool: ParsableCommand {
             Format.self,
 
             Install.self,
-            Remove.self,
+            Uninstall.self,
             
             APIDiff.self,
             DeprecatedAPIDiff.self,
