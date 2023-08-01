@@ -2439,7 +2439,7 @@ extension Workspace {
                         return .ifNeeded(revision: revision)
                     case .version(_, let .some(revision)):
                         return .ifNeeded(revision: revision)
-                    case .version(let version, .none):
+                    case .version(_, .none):
                         return .always
                     }
                 }
