@@ -28,21 +28,17 @@ extension SwiftPackageTool {
         var globalOptions: GlobalOptions
         
         func run(_ tool: SwiftTool) throws {
-            let dotSwiftPMDir = try tool.fileSystem.getOrCreateDotSwiftPMDirectory()
+            let swiftpmBinDir = try tool.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
             
             let env = ProcessInfo.processInfo.environment
             
-
-            // ~/.swiftpm/bin/
-            let swiftpmBinDir = dotSwiftPMDir.appending(component: "bin")
-            
-            if let path = env.path, !path.contains(swiftpmBinDir.pathString), env["SWIFTPM_SHUT_UP_ABOUT_EXECUTABLE_PATH"] == nil {
-                tool.observabilityScope.emit(warning: "PATH doesn't include \(swiftpmBinDir.pathString)! This means you won't be able to access the installed executables by default, and will need to specify the full path. If you wish to stop seeing this warning, set the enviroment variable `SWIFTPM_SHUT_UP_ABOUT_EXECUTABLE_PATH`.")
+            if let path = env.path, !path.contains(swiftpmBinDir.pathString), !globalOptions.logging.quiet {
+                tool.observabilityScope.emit(warning: "PATH doesn't include \(swiftpmBinDir.pathString)! This means you won't be able to access the installed executables by default, and will need to specify the full path.")
             }
             
-            let registryURL = dotSwiftPMDir.appending(component: "installedPackages.json").asURL
+            let installedPackagesJSONPath = try tool.fileSystem.dotSwiftPM.appending(component: "installedPackages.json")
             
-            var alreadyExisting = (try? InstalledPackage.registered(registryURL: registryURL)) ?? []
+            var alreadyExisting = (try? InstalledPackage.registered(registryPath: .init(installedPackagesJSONPath), withFS: tool.fileSystem)) ?? []
             
             let workspace = try tool.getActiveWorkspace()
             let packageRoot = try tool.getPackageRoot()
@@ -80,16 +76,16 @@ extension SwiftPackageTool {
             
             let binPath = try tool.buildParameters().buildPath.appending(component: productToInstall.name)
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
-            try tool.fileSystem.move(from: binPath, to: finalBinPath)
+            try tool.fileSystem.copy(from: binPath, to: finalBinPath)
             
-            let pkgInstance = InstalledPackage(name: productToInstall.name, url: finalBinPath.asURL)
+            let pkgInstance = InstalledPackage(name: productToInstall.name, url: .init(finalBinPath))
             alreadyExisting.append(pkgInstance)
-            try JSONEncoder().encode(alreadyExisting).write(to: registryURL)
+            
+            try JSONEncoder().encode(path: installedPackagesJSONPath, fileSystem: tool.fileSystem, alreadyExisting)
         }
     }
     
     struct Remove: SwiftCommand {
-        
         @OptionGroup
         var globalOptions: GlobalOptions
         
@@ -97,15 +93,17 @@ extension SwiftPackageTool {
         var name: String
         
         func run(_ tool: SwiftTool) throws {
-            let dotSwiftPMDir = try tool.fileSystem.getOrCreateDotSwiftPMDirectory()
+            let dotSwiftPMDir = try tool.fileSystem.dotSwiftPM
             let registryURL = dotSwiftPMDir.appending(component: "installedPackages.json").asURL
-            var alreadyRegistered = (try? InstalledPackage.registered(registryURL: registryURL)) ?? []
+            var alreadyRegistered = (try? InstalledPackage.registered(registryPath: .init(try tool.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()),
+                                                                      withFS: tool.fileSystem)) ?? []
             
-            guard let whatWeWantToRemove = alreadyRegistered.first(where: { $0.name == name || $0.url.lastPathComponent == name }) else {
+            guard let whatWeWantToRemove = alreadyRegistered.first(where: { $0.name == name || $0.url.basename == name }) else {
                 throw StringError("No such installed executable as \(name)")
             }
             
-            try FileManager.default.removeItem(at: whatWeWantToRemove.url)
+            try tool.fileSystem.removeFileTree(whatWeWantToRemove.url)
+//            try FileManager.default.removeItem(at: whatWeWantToRemove.url)
             alreadyRegistered.removeAll(where: { $0 == whatWeWantToRemove })
             try JSONEncoder().encode(alreadyRegistered).write(to: registryURL)
             print("Removed \(name).")
@@ -115,16 +113,14 @@ extension SwiftPackageTool {
 
 fileprivate struct InstalledPackage: Codable, Equatable {
     
-    // to not conflict with in-house ``URL`` type
-    typealias URL = Foundation.URL
-    
-    static func registered(registryURL: URL) throws -> [InstalledPackage] {
-        let data = try Data(contentsOf: registryURL)
-        return try JSONDecoder().decode([InstalledPackage].self, from: data)
+    static func registered(registryPath: AbsolutePath, withFS fileSystem: FileSystem) throws -> [InstalledPackage] {
+        return try JSONDecoder().decode(path: .init(registryPath), fileSystem: fileSystem, as: [InstalledPackage].self)
     }
     
     // Name of the installed product
     let name: String
+    
+    
     // Path of the executable
-    let url: URL
+    let url: AbsolutePath
 }

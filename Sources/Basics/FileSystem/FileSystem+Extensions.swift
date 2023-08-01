@@ -243,6 +243,12 @@ extension FileSystem {
             try self.dotSwiftPM.appending("cache")
         }
     }
+    
+    private var dotSwiftPMInstalledBinsDir: AbsolutePath {
+        get throws {
+            try self.dotSwiftPM.appending("bin")
+        }
+    }
 }
 
 extension FileSystem {
@@ -268,6 +274,20 @@ extension FileSystem {
             }
         }
         return idiomaticCacheDirectory
+    }
+}
+
+extension FileSystem {
+    
+    public func getOrCreateSwiftPMInstalledBinariesDirectory() throws -> AbsolutePath {
+        let binDir = try self.dotSwiftPMInstalledBinsDir
+        
+        // create if necessary
+        if !self.exists(binDir) {
+            try self.createDirectory(binDir, recursive: true)
+        }
+        
+        return binDir
     }
 }
 
@@ -465,14 +485,6 @@ extension FileSystem {
         } else {
             return try swiftSDKsDirectory
         }
-    }
-
-    public func getOrCreateDotSwiftPMDirectory() throws -> AbsolutePath {
-        if try !exists(dotSwiftPM) {
-            try createDirectory(dotSwiftPM)
-        }
-        
-        return try dotSwiftPM
     }
     
     public func getOrCreateSwiftPMSwiftSDKsDirectory() throws -> AbsolutePath {
