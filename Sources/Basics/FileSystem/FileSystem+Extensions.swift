@@ -279,14 +279,27 @@ extension FileSystem {
 extension FileSystem {
     
     public func getOrCreateSwiftPMInstalledBinariesDirectory() throws -> AbsolutePath {
-        let binDir = try self.dotSwiftPMInstalledBinsDir
-        
-        // create if necessary
-        if !self.exists(binDir) {
-            try self.createDirectory(binDir, recursive: true)
+        let idiomaticInstalledBinariesDirectory = try self.swiftPMInstalledBinariesDirectory
+        // Create idiomatic if necessary
+        if !self.exists(idiomaticInstalledBinariesDirectory) {
+            try self.createDirectory(idiomaticInstalledBinariesDirectory, recursive: true)
         }
-        
-        return binDir
+        // Create ~/.swiftpm if necessary
+        if !self.exists(try self.dotSwiftPM) {
+            try self.createDirectory(self.dotSwiftPM, recursive: true)
+        }
+        // Create ~/.swiftpm/bin symlink if necessary
+        // locking ~/.swiftpm to protect from concurrent access
+        try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
+            if !self.exists(try self.dotSwiftPMInstalledBinariesDirectory, followSymlink: false) {
+                try self.createSymbolicLink(
+                    self.dotSwiftPMInstalledBinariesDirectory,
+                    pointingAt: idiomaticInstalledBinariesDirectory,
+                    relative: false
+                )
+            }
+        }
+        return idiomaticInstalledBinariesDirectory
     }
 }
 
