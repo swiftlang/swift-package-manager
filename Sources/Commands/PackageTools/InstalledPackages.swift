@@ -109,7 +109,7 @@ extension SwiftPackageTool {
 
 fileprivate struct InstalledPackage: Codable, Equatable {
     
-    static func registered(registryPath: AbsolutePath, withFS fileSystem: FileSystem) throws -> [InstalledPackage] {
+    static func registered(registryPath: AbsolutePath, _ fileSystem: FileSystem) throws -> [InstalledPackage] {
         return try JSONDecoder().decode(path: .init(registryPath), fileSystem: fileSystem, as: [InstalledPackage].self)
     }
     
