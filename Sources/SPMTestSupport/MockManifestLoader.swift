@@ -58,6 +58,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         packageLocation: String,
         packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -84,6 +85,7 @@ extension ManifestLoader {
         packageKind: PackageReference.Kind,
         toolsVersion manifestToolsVersion: ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
+        dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> Manifest{
@@ -116,6 +118,7 @@ extension ManifestLoader {
                 packageLocation: packageLocation,
                 packageVersion: nil,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
@@ -133,6 +136,7 @@ extension ManifestLoader {
         packageKind: PackageReference.Kind,
         currentToolsVersion: ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
+        dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> Manifest{
@@ -165,6 +169,7 @@ extension ManifestLoader {
                 packageVersion: nil,
                 currentToolsVersion: currentToolsVersion,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,

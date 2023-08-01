@@ -108,6 +108,7 @@ public protocol ManifestLoaderProtocol {
     ///   - packageLocation: The location the package the manifest was loaded from.
     ///   - packageVersion: Optional. The version and revision of the package.
     ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - dependencyMapper: A helper to map dependencies.
     ///   - fileSystem: File system to load from.
     ///   - observabilityScope: Observability scope to emit diagnostics.
     ///   - callbackQueue: The dispatch queue to perform completion handler on.
@@ -120,6 +121,7 @@ public protocol ManifestLoaderProtocol {
         packageLocation: String,
         packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -194,6 +196,7 @@ extension ManifestLoaderProtocol {
         packageVersion: (version: Version?, revision: String?)?,
         currentToolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -215,6 +218,7 @@ extension ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 packageVersion: packageVersion,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
@@ -292,6 +296,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageLocation: String,
         packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
@@ -323,6 +328,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             packageLocation: packageLocation,
             packageVersion: packageVersion?.version,
             identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             delegate: delegate,
@@ -400,6 +406,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageLocation: String,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegate: Delegate?,
@@ -440,6 +447,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: toolsVersion,
             packageKind: packageKind,
             identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
             fileSystem: fileSystem
         )
         delegateQueue?.async {
@@ -460,6 +468,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageLocation: String,
         packageVersion: Version?,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegate: Delegate?,
@@ -520,6 +529,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     packageLocation: packageLocation,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     delegate: delegate,
@@ -560,6 +570,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         packageLocation: packageLocation,
                         toolsVersion: toolsVersion,
                         identityResolver: identityResolver,
+                        dependencyMapper: dependencyMapper,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope,
                         delegate: delegate,

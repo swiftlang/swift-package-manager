@@ -12,6 +12,7 @@ add_library(PackageModel
   BuildEnvironment.swift
   BuildFlags.swift
   BuildSettings.swift
+  DependencyMapper.swift
   Diagnostics.swift
   IdentityResolver.swift
   Manifest/Manifest.swift

@@ -393,6 +393,9 @@ public class Workspace {
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var identityResolver: IdentityResolver
 
+    /// Utility to map dependencies
+    fileprivate let dependencyMapper: DependencyMapper
+
     /// The custom package container provider used by this workspace, if any.
     fileprivate let customPackageContainerProvider: PackageContainerProvider?
 
@@ -488,6 +491,7 @@ public class Workspace {
             customRegistryClient: .none,
             customBinaryArtifactsManager: .none,
             customIdentityResolver: .none,
+            customDependencyMapper: .none,
             customChecksumAlgorithm: .none,
             delegate: delegate
         )
@@ -627,6 +631,7 @@ public class Workspace {
         customRegistryClient: RegistryClient? = .none,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
+        customDependencyMapper: DependencyMapper? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
         // delegate
         delegate: Delegate? = .none
@@ -653,6 +658,7 @@ public class Workspace {
             customRegistryClient: customRegistryClient,
             customBinaryArtifactsManager: customBinaryArtifactsManager,
             customIdentityResolver: customIdentityResolver,
+            customDependencyMapper: customDependencyMapper,
             customChecksumAlgorithm: customChecksumAlgorithm,
             delegate: delegate
         )
@@ -682,6 +688,7 @@ public class Workspace {
         customRegistryClient: RegistryClient?,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
         customIdentityResolver: IdentityResolver?,
+        customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
         // delegate
         delegate: Delegate?
@@ -717,6 +724,7 @@ public class Workspace {
             locationMapper: mirrors.effective(for:),
             identityMapper: mirrors.effectiveIdentity(for:)
         )
+        let dependencyMapper = customDependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver)
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
@@ -816,6 +824,7 @@ public class Workspace {
         self.binaryArtifactsManager = binaryArtifactsManager
 
         self.identityResolver = identityResolver
+        self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
         self.pinsStore = LoadableResult {
@@ -1105,7 +1114,12 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
+        let graphRoot = PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope
+        )
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
@@ -2263,6 +2277,7 @@ extension Workspace {
             packageVersion: packageVersion.map { (version: $0, revision: nil) },
             currentToolsVersion: self.currentToolsVersion,
             identityResolver: self.identityResolver,
+            dependencyMapper: self.dependencyMapper,
             fileSystem: fileSystem,
             observabilityScope: manifestLoadingScope,
             delegateQueue: .sharedConcurrent,
@@ -2636,7 +2651,13 @@ extension Workspace {
 
         // FIXME: this should not block
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            explicitProduct: explicitProduct,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope
+        )
 
         // Load the pins store or abort now.
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }), !observabilityScope.errorsReported else {
@@ -2751,7 +2772,13 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            explicitProduct: explicitProduct,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope
+        )
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
             return currentManifests
@@ -3360,6 +3387,7 @@ extension Workspace: PackageContainerProvider {
                 let container = try FileSystemPackageContainer(
                     package: package,
                     identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
                     manifestLoader: self.manifestLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     fileSystem: self.fileSystem,
@@ -3389,6 +3417,7 @@ extension Workspace: PackageContainerProvider {
                         return try SourceControlPackageContainer(
                             package: package,
                             identityResolver: self.identityResolver,
+                            dependencyMapper: self.dependencyMapper,
                             repositorySpecifier: repositorySpecifier,
                             repository: repository,
                             manifestLoader: self.manifestLoader,
@@ -3405,6 +3434,7 @@ extension Workspace: PackageContainerProvider {
                 let container = RegistryPackageContainer(
                     package: package,
                     identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
                     registryClient: self.registryClient,
                     manifestLoader: self.manifestLoader,
                     currentToolsVersion: self.currentToolsVersion,
@@ -4186,6 +4216,7 @@ extension Workspace {
             packageLocation: String,
             packageVersion: (version: Version?, revision: String?)?,
             identityResolver: IdentityResolver,
+            dependencyMapper: DependencyMapper,
             fileSystem: FileSystem,
             observabilityScope: ObservabilityScope,
             delegateQueue: DispatchQueue,
@@ -4200,6 +4231,7 @@ extension Workspace {
                 packageLocation: packageLocation,
                 packageVersion: packageVersion,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,

@@ -197,6 +197,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     struct Builder {
         let identityResolver: IdentityResolver
+        let dependencyMapper: DependencyMapper
         let hostToolchain: UserToolchain
         let targetToolchain: UserToolchain
         let fileSystem: FileSystem
@@ -214,6 +215,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             }
 
             self.identityResolver = DefaultIdentityResolver()
+            self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
             self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(originalWorkingDirectory: cwd))
             self.targetToolchain = hostToolchain // TODO: support cross-compilation?
             self.fileSystem = fileSystem
@@ -349,7 +351,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
             let packageGraphRoot = PackageGraphRoot(
                 input: .init(packages: [packagePath]),
-                manifests: [packagePath: rootPackageManifest]
+                manifests: [packagePath: rootPackageManifest],
+                observabilityScope: observabilityScope
             )
 
             return try PackageGraph.load(
@@ -409,6 +412,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     packageLocation: package.locationString,
                     packageVersion: .none,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     delegateQueue: .sharedConcurrent,
