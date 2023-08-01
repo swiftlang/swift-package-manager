@@ -27,7 +27,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var globalOptions: GlobalOptions
         
-        @Option(help: "The name of the product to install")
+        @Option(help: "The name of the executable product to install")
         var product: String?
         
         func run(_ tool: SwiftTool) async throws {
