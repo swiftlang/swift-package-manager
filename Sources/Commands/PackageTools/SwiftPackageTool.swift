@@ -41,6 +41,9 @@ public struct SwiftPackageTool: ParsableCommand {
             Init.self,
             Format.self,
 
+            Install.self,
+            Remove.self,
+            
             APIDiff.self,
             DeprecatedAPIDiff.self,
             DumpSymbolGraph.self,

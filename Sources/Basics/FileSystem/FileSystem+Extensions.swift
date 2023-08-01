@@ -210,6 +210,7 @@ extension FileSystem {
         }
     }
 
+    
     private var idiomaticSwiftPMDirectory: AbsolutePath? {
         get throws {
             try FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
@@ -466,6 +467,14 @@ extension FileSystem {
         }
     }
 
+    public func getOrCreateDotSwiftPMDirectory() throws -> AbsolutePath {
+        if try !exists(dotSwiftPM) {
+            try createDirectory(dotSwiftPM)
+        }
+        
+        return try dotSwiftPM
+    }
+    
     public func getOrCreateSwiftPMSwiftSDKsDirectory() throws -> AbsolutePath {
         let idiomaticSwiftSDKDirectory = try swiftSDKsDirectory
 

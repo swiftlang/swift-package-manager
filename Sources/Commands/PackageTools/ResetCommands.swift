@@ -23,6 +23,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             try swiftTool.getActiveWorkspace().clean(observabilityScope: swiftTool.observabilityScope)
+            
         }
     }
 

@@ -1286,7 +1286,7 @@ extension Workspace {
                         throw InternalError("a binary target should have either a path or a URL and a checksum")
                     }
                 }
-
+                
                 let builder = PackageBuilder(
                     identity: identity,
                     manifest: manifest,

@@ -32,7 +32,7 @@ extension SwiftPackageTool {
             let files = try fileSystem.getDirectoryContents(directory)
                 .map { try AbsolutePath(validating: $0, relativeTo: directory) }
                 .filter { fileSystem.isFile($0) }
-
+            
             guard let fileExtension else {
                 return files
             }
