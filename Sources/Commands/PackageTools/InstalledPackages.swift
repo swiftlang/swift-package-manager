@@ -81,7 +81,7 @@ extension SwiftPackageTool {
         }
     }
     
-    struct Remove: SwiftCommand {
+    struct Uninstall: SwiftCommand {
         @OptionGroup
         var globalOptions: GlobalOptions
         
