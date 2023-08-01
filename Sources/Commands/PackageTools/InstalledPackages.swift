@@ -113,10 +113,10 @@ fileprivate struct InstalledPackage: Codable, Equatable {
         return try JSONDecoder().decode(path: .init(registryPath), fileSystem: fileSystem, as: [InstalledPackage].self)
     }
     
-    // Name of the installed product
+    /// Name of the installed product
     let name: String
     
     
-    // Path of the executable
+    /// Path of the executable
     let url: AbsolutePath
 }
