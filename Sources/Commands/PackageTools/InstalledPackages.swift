@@ -15,7 +15,7 @@ import CoreCommands
 import TSCUtility
 import TSCBasic
 import PackageModel
-//import Foundation
+import Foundation
 
 extension SwiftPackageTool {
     
