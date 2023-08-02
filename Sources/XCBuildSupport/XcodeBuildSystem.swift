@@ -321,7 +321,8 @@ extension PIFBuilderParameters {
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
-            pkgConfigDirectories: buildParameters.pkgConfigDirectories
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.swiftSDK.pathsConfiguration.sdkRootPath
         )
     }
 }

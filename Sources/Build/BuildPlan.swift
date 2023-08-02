@@ -1003,6 +1003,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         let results = try pkgConfigArgs(
             for: target,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.swiftSDK.pathsConfiguration.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
