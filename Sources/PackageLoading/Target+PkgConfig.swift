@@ -64,7 +64,7 @@ public struct PkgConfigResult {
 public func pkgConfigArgs(
     for target: SystemLibraryTarget,
     pkgConfigDirectories: [AbsolutePath],
-    sdkRootPath: AbsolutePath?,
+    sdkRootPath: AbsolutePath? = nil,
     brewPrefix: AbsolutePath? = .none,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope

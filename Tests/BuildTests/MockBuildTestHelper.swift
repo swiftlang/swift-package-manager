@@ -31,6 +31,16 @@ struct MockToolchain: PackageModel.Toolchain {
     let swiftResourcesPath: AbsolutePath? = nil
     let swiftStaticResourcesPath: AbsolutePath? = nil
     let isSwiftDevelopmentToolchain = false
+    let swiftSDK: SwiftSDK = SwiftSDK(
+        targetTriple: try! Triple("x86_64-unknown-linux-gnu"),
+        toolset: .init(
+            toolchainBinDir: AbsolutePath("/fake/path/to/swift.xctoolchain/usr/bin"),
+            buildFlags: BuildFlags()
+        ),
+        pathsConfiguration: .init(
+            sdkRootPath: "/fake/path/to/some.sdk"
+        )
+    )
     let swiftPluginServerPath: AbsolutePath? = nil
     let extraFlags = PackageModel.BuildFlags()
     let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
