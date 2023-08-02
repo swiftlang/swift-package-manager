@@ -39,9 +39,7 @@ extension SwiftPackageTool {
                 tool.observabilityScope.emit(warning: "PATH doesn't include \(swiftpmBinDir.pathString)! This means you won't be able to access the installed executables by default, and will need to specify the full path.")
             }
             
-            let installedPackagesJSONPath = try tool.fileSystem.dotSwiftPM.appending(component: "installedPackageProducts.json")
-            
-            var alreadyExisting = (try? InstalledPackageProduct.registered(tool.fileSystem)) ?? []
+            var alreadyExisting = (try? InstalledPackageProduct.installedProducts(tool.fileSystem)) ?? []
             
             let workspace = try tool.getActiveWorkspace()
             let packageRoot = try tool.getPackageRoot()
@@ -68,7 +66,7 @@ extension SwiftPackageTool {
             }
             
             if let existingPkg = alreadyExisting.first(where: { $0.name == productToInstall.name }) {
-                throw StringError("\(productToInstall.name) is already installed at \(existingPkg.url)")
+                throw StringError("\(productToInstall.name) is already installed at \(existingPkg.path)")
             }
             
             try tool.createBuildSystem(explicitProduct: productToInstall.name).build(subset: .product(productToInstall.name))
@@ -77,10 +75,8 @@ extension SwiftPackageTool {
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try tool.fileSystem.copy(from: binPath, to: finalBinPath)
             
-            let pkgInstance = InstalledPackageProduct(url: .init(finalBinPath))
+            let pkgInstance = InstalledPackageProduct(path: .init(finalBinPath))
             alreadyExisting.append(pkgInstance)
-            
-            try JSONEncoder().encode(path: installedPackagesJSONPath, fileSystem: tool.fileSystem, alreadyExisting)
         }
     }
     
@@ -93,49 +89,48 @@ extension SwiftPackageTool {
         @OptionGroup
         var globalOptions: GlobalOptions
         
-        @Argument(help: "Name of the executable to remove.")
+        @Argument(help: "Name of the executable to uninstall.")
         var name: String
         
         func run(_ tool: SwiftTool) throws {
-            let dotSwiftPMDir = try tool.fileSystem.dotSwiftPM
-            var alreadyRegistered = (try? InstalledPackageProduct.registered(tool.fileSystem)) ?? []
+            let alreadyInstalled = (try? InstalledPackageProduct.installedProducts(tool.fileSystem)) ?? []
             
-            guard let whatWeWantToRemove = alreadyRegistered.first(where: { $0.name == name || $0.url.basename == name }) else {
+            guard let removedExecutable = alreadyInstalled.first(where: { $0.name == name }) else {
                 // The installed executable doesn't exist - let the user know, and stop here.
-                var stringErrorToShowTheUser = "No such installed executable as \(name)"
+                var stringError = "No such installed executable as \(name)"
                 
                 // and, in case there are any installed executables, let the user know which ones do exist.
-                if !alreadyRegistered.isEmpty {
-                    stringErrorToShowTheUser += ", existing installed executables: \(alreadyRegistered.map(\.name).joined(separator: "\n"))"
+                if !alreadyInstalled.isEmpty {
+                    stringError += ", existing installed executables: \(alreadyInstalled.map(\.name).joined(separator: "\n"))"
                 }
                 
-                throw StringError(stringErrorToShowTheUser)
+                throw StringError(stringError)
             }
             
-            try tool.fileSystem.removeFileTree(whatWeWantToRemove.url)
-            print("Removed \(name).")
+            try tool.fileSystem.removeFileTree(removedExecutable.path)
+            print("Executable product `\(name)` was successfully uninstalled from \(removedExecutable.path).")
         }
     }
 }
 
 fileprivate struct InstalledPackageProduct: Codable, Equatable {
     
-    static func registered(_ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
+    static func installedProducts(_ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
         let binPath = try fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
         
         let contents = ((try? fileSystem.getDirectoryContents(binPath)) ?? [])
             .map { binPath.appending($0) }
         
         return contents.map { path in
-            InstalledPackageProduct(url: .init(path))
+            InstalledPackageProduct(path: .init(path))
         }
     }
     
     /// The name of this installed product, being the basename of the URL.
     var name: String {
-        url.basename
+        path.basename
     }
     
     /// Path of the executable
-    let url: AbsolutePath
+    let path: AbsolutePath
 }
