@@ -43,6 +43,9 @@ public protocol Toolchain {
     /// Configuration from the used toolchain.
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
 
+    /// The Swift SDK used by this toolchain.
+    var swiftSDK: SwiftSDK { get }
+
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
 
