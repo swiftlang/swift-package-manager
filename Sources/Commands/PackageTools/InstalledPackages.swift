@@ -53,20 +53,23 @@ extension SwiftPackageTool {
                 observabilityScope: tool.observabilityScope
             )
 
-            let possibleCanidates = packageGraph.rootPackages.flatMap(\.products)
+            let possibleCandidates = packageGraph.rootPackages.flatMap(\.products)
                 .filter { $0.type == .executable }
 
             let productToInstall: Product
 
-            switch possibleCanidates.count {
+            switch possibleCandidates.count {
             case 0:
                 throw StringError("No Executable Products in Package.swift.")
             case 1:
-                productToInstall = possibleCanidates[0].underlyingProduct
-            default: // More than one, check for possible
-                guard let product, let first = possibleCanidates.first(where: { $0.name == product }) else {
+                productToInstall = possibleCandidates[0].underlyingProduct
+            default:
+                guard let product, let first = possibleCandidates.first(where: { $0.name == product }) else {
                     throw StringError(
-                        "Multiple canidates found, however, no product was specified. specify a product with the --product"
+                        """
+                        Multiple candidates found, however, no product was specified. Specify a product with the \
+                        `--product` option
+                        """
                     )
                 }
 
@@ -140,6 +143,6 @@ private struct InstalledPackageProduct: Codable, Equatable {
         self.path.basename
     }
 
-    /// Path of the executable
+    /// Path of the executable.
     let path: AbsolutePath
 }
