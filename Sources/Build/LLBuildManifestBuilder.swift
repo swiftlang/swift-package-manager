@@ -224,6 +224,7 @@ extension LLBuildManifestBuilder {
                 if !self.disableSandboxForPluginCommands {
                     commandLine = try Sandbox.apply(
                         command: commandLine,
+                        fileSystem: self.fileSystem,
                         strictness: .writableTemporaryDirectory,
                         writableDirectories: [result.pluginOutputDirectory]
                     )

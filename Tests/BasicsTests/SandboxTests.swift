@@ -18,6 +18,7 @@ import XCTest
 import Darwin
 #endif
 
+import class TSCBasic.InMemoryFileSystem
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 
@@ -220,4 +221,23 @@ final class SandboxTest: XCTestCase {
              XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: allowedCommand))
          }
      }
+}
+
+extension Sandbox {
+    public static func apply(
+        command: [String],
+        strictness: Strictness = .default,
+        writableDirectories: [AbsolutePath] = [],
+        readOnlyDirectories: [AbsolutePath] = [],
+        allowNetworkConnections: [SandboxNetworkPermission] = []
+    ) throws -> [String] {
+        return try self.apply(
+            command: command,
+            fileSystem: InMemoryFileSystem(),
+            strictness: strictness,
+            writableDirectories: writableDirectories,
+            readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections
+        )
+    }
 }

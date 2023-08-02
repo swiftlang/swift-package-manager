@@ -620,7 +620,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
                 if !pluginConfiguration.disableSandbox {
-                    commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
+                    commandLine = try Sandbox.apply(command: commandLine, fileSystem: self.fileSystem, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
                 let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
