@@ -317,7 +317,7 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([Str
 /// Replaces any path containing *.sdk with the current SDK to avoid conflicts.
 ///
 /// See https://github.com/apple/swift-package-manager/issues/6439 for details.
-private func patchSDKPaths(in flags: [String], to sdkRootPath: AbsolutePath) throws -> [String] {
+public func patchSDKPaths(in flags: [String], to sdkRootPath: AbsolutePath) throws -> [String] {
     let sdkRegex = try! RegEx(pattern: #"^.*\.sdk(\/.*|$)"#)
 
     return try ["-I", "-L"].reduce(flags) { (flags, flag) in
