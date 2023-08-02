@@ -106,7 +106,7 @@ public func pkgConfigArgs(
             // See https://github.com/apple/swift-package-manager/issues/6439
             if let sdkRootPath = sdkRootPath {
                 cFlags = try patchSDKPaths(in: cFlags, to: sdkRootPath)
-                libs = try patchSDKPaths(in: cFlags, to: sdkRootPath)
+                libs = try patchSDKPaths(in: libs, to: sdkRootPath)
             }
 
             // Set the error if there are any disallowed flags.
