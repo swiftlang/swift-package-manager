@@ -135,7 +135,7 @@ private struct InstalledPackageProduct: Codable, Equatable {
         }
     }
 
-    /// The name of this installed product, being the basename of the URL.
+    /// The name of this installed product, being the basename of the path.
     var name: String {
         self.path.basename
     }
