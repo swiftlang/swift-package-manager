@@ -295,7 +295,7 @@ struct PluginCommand: SwiftCommand {
             readOnlyDirectories: readOnlyDirectories,
             allowNetworkConnections: allowNetworkConnections,
             pkgConfigDirectories: swiftTool.options.locations.pkgConfigDirectories,
-            sdkRootPath: buildParameters.toolchain.swiftSDK.pathsConfiguration.sdkRootPath,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope,
             callbackQueue: delegateQueue,

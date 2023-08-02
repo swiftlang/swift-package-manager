@@ -322,7 +322,7 @@ extension PIFBuilderParameters {
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
-            sdkRootPath: buildParameters.toolchain.swiftSDK.pathsConfiguration.sdkRootPath
+            sdkRootPath: buildParameters.toolchain.sdkRootPath
         )
     }
 }

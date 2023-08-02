@@ -443,7 +443,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 buildEnvironment: self.buildParameters.buildEnvironment,
                 toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
-                sdkRootPath: self.buildParameters.toolchain.swiftSDK.pathsConfiguration.sdkRootPath,
+                sdkRootPath: self.buildParameters.toolchain.sdkRootPath,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
