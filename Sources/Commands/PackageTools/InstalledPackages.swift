@@ -126,7 +126,7 @@ extension SwiftPackageTool {
     }
 }
 
-private struct InstalledPackageProduct: Codable, Equatable {
+private struct InstalledPackageProduct {
     static func installedProducts(_ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
         let binPath = try fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
 
