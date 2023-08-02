@@ -20,7 +20,7 @@ import Foundation
 extension SwiftPackageTool {
     struct Install: SwiftCommand {
         static var configuration: CommandConfiguration {
-            CommandConfiguration(abstract: "Offers the ability to install executable products of the current package.")
+            CommandConfiguration(commandName: "experimental-install", abstract: "Offers the ability to install executable products of the current package.")
         }
         
         @OptionGroup()
@@ -41,7 +41,7 @@ extension SwiftPackageTool {
             
             let installedPackagesJSONPath = try tool.fileSystem.dotSwiftPM.appending(component: "installedPackageProducts.json")
             
-            var alreadyExisting = (try? InstalledPackageProduct.registered(jsonPath: .init(installedPackagesJSONPath), tool.fileSystem)) ?? []
+            var alreadyExisting = (try? InstalledPackageProduct.registered(tool.fileSystem)) ?? []
             
             let workspace = try tool.getActiveWorkspace()
             let packageRoot = try tool.getPackageRoot()
@@ -51,7 +51,6 @@ extension SwiftPackageTool {
             
             let possibleCanidates = packageGraph.rootPackages.flatMap(\.products)
                 .filter { $0.type == .executable }
-                
             
             let productToInstall: Product
             
@@ -78,7 +77,7 @@ extension SwiftPackageTool {
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try tool.fileSystem.copy(from: binPath, to: finalBinPath)
             
-            let pkgInstance = InstalledPackageProduct(name: productToInstall.name, packageName: productToInstall.name, url: .init(finalBinPath))
+            let pkgInstance = InstalledPackageProduct(url: .init(finalBinPath))
             alreadyExisting.append(pkgInstance)
             
             try JSONEncoder().encode(path: installedPackagesJSONPath, fileSystem: tool.fileSystem, alreadyExisting)
@@ -86,6 +85,11 @@ extension SwiftPackageTool {
     }
     
     struct Uninstall: SwiftCommand {
+        
+        static var configuration: CommandConfiguration {
+            CommandConfiguration(commandName: "experimental-uninstall", abstract: "Offers the ability to uninstall executable products of installed package products")
+        }
+        
         @OptionGroup
         var globalOptions: GlobalOptions
         
@@ -94,17 +98,21 @@ extension SwiftPackageTool {
         
         func run(_ tool: SwiftTool) throws {
             let dotSwiftPMDir = try tool.fileSystem.dotSwiftPM
-            let productsJSON = dotSwiftPMDir.appending(component: "installedPackageProducts.json")
-            var alreadyRegistered = (try? InstalledPackageProduct.registered(jsonPath: .init(productsJSON),
-                                                                      tool.fileSystem)) ?? []
+            var alreadyRegistered = (try? InstalledPackageProduct.registered(tool.fileSystem)) ?? []
             
             guard let whatWeWantToRemove = alreadyRegistered.first(where: { $0.name == name || $0.url.basename == name }) else {
-                throw StringError("No such installed executable as \(name)")
+                // The installed executable doesn't exist - let the user know, and stop here.
+                var stringErrorToShowTheUser = "No such installed executable as \(name)"
+                
+                // and, in case there are any installed executables, let the user know which ones do exist.
+                if !alreadyRegistered.isEmpty {
+                    stringErrorToShowTheUser += ", existing installed executables: \(alreadyRegistered.map(\.name).joined(separator: "\n"))"
+                }
+                
+                throw StringError(stringErrorToShowTheUser)
             }
             
             try tool.fileSystem.removeFileTree(whatWeWantToRemove.url)
-            alreadyRegistered.removeAll(where: { $0 == whatWeWantToRemove })
-            try JSONEncoder().encode(path: productsJSON, fileSystem: tool.fileSystem, alreadyRegistered)
             print("Removed \(name).")
         }
     }
@@ -112,15 +120,21 @@ extension SwiftPackageTool {
 
 fileprivate struct InstalledPackageProduct: Codable, Equatable {
     
-    static func registered(jsonPath: AbsolutePath, _ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
-        return try JSONDecoder().decode(path: .init(jsonPath), fileSystem: fileSystem, as: [InstalledPackageProduct].self)
+    static func registered(_ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
+        let binPath = try fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
+        
+        let contents = ((try? fileSystem.getDirectoryContents(binPath)) ?? [])
+            .map { binPath.appending($0) }
+        
+        return contents.map { path in
+            InstalledPackageProduct(url: .init(path))
+        }
     }
     
-    /// Name of the installed product
-    let name: String
-    
-    /// The name of the package from which this product came from.
-    let packageName: String
+    /// The name of this installed product, being the basename of the URL.
+    var name: String {
+        url.basename
+    }
     
     /// Path of the executable
     let url: AbsolutePath
