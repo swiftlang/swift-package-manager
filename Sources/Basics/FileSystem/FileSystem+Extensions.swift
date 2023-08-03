@@ -19,8 +19,8 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.FileInfo
 import class TSCBasic.FileLock
 import enum TSCBasic.FileMode
-import enum TSCBasic.FileSystemAttribute
 import protocol TSCBasic.FileSystem
+import enum TSCBasic.FileSystemAttribute
 import var TSCBasic.localFileSystem
 import protocol TSCBasic.WritableByteStream
 
@@ -132,7 +132,8 @@ extension FileSystem {
     /// - Parameters:
     ///   - path: The path at which to create the link.
     ///   - destination: The path to which the link points to.
-    ///   - relative: If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
+    ///   - relative: If `relative` is true, the symlink contents will be a relative path, otherwise it will be
+    /// absolute.
     public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
         try self.createSymbolicLink(path.underlying, pointingAt: destination.underlying, relative: relative)
     }
@@ -270,6 +271,38 @@ extension FileSystem {
     }
 }
 
+extension FileSystem {
+    private var dotSwiftPMInstalledBinsDir: AbsolutePath {
+        get throws {
+            try self.dotSwiftPM.appending("bin")
+        }
+    }
+
+    public func getOrCreateSwiftPMInstalledBinariesDirectory() throws -> AbsolutePath {
+        let idiomaticInstalledBinariesDirectory = try self.dotSwiftPMInstalledBinsDir
+        // Create idiomatic if necessary
+        if !self.exists(idiomaticInstalledBinariesDirectory) {
+            try self.createDirectory(idiomaticInstalledBinariesDirectory, recursive: true)
+        }
+        // Create ~/.swiftpm if necessary
+        if !self.exists(try self.dotSwiftPM) {
+            try self.createDirectory(self.dotSwiftPM, recursive: true)
+        }
+        // Create ~/.swiftpm/bin symlink if necessary
+        // locking ~/.swiftpm to protect from concurrent access
+        try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
+            if !self.exists(try self.dotSwiftPMInstalledBinsDir, followSymlink: false) {
+                try self.createSymbolicLink(
+                    self.dotSwiftPMInstalledBinsDir,
+                    pointingAt: idiomaticInstalledBinariesDirectory,
+                    relative: false
+                )
+            }
+        }
+        return idiomaticInstalledBinariesDirectory
+    }
+}
+
 // MARK: - configuration
 
 extension FileSystem {
@@ -320,9 +353,11 @@ extension FileSystem {
             }
         }
 
-        // in the case where ~/.swiftpm/configuration is not the idiomatic location (eg on macOS where its /Users/<user>/Library/org.swift.swiftpm/configuration)
+        // in the case where ~/.swiftpm/configuration is not the idiomatic location (eg on macOS where its
+        // /Users/<user>/Library/org.swift.swiftpm/configuration)
         if try idiomaticConfigurationDirectory != self.dotSwiftPMConfigurationDirectory {
-            // copy the configuration files from old location (eg /Users/<user>/Library/org.swift.swiftpm) to new one (eg /Users/<user>/Library/org.swift.swiftpm/configuration)
+            // copy the configuration files from old location (eg /Users/<user>/Library/org.swift.swiftpm) to new one
+            // (eg /Users/<user>/Library/org.swift.swiftpm/configuration)
             // but leave them there for backwards compatibility (eg older xcode)
             let oldConfigDirectory = idiomaticConfigurationDirectory.parentDirectory
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
@@ -400,7 +435,8 @@ extension FileSystem {
     public func getOrCreateSwiftPMSecurityDirectory() throws -> AbsolutePath {
         let idiomaticSecurityDirectory = try self.swiftPMSecurityDirectory
 
-        // temporary 5.6, remove on next version: transition from ~/.swiftpm/security to idiomatic location + symbolic link
+        // temporary 5.6, remove on next version: transition from ~/.swiftpm/security to idiomatic location + symbolic
+        // link
         if try idiomaticSecurityDirectory != self.dotSwiftPMSecurityDirectory &&
             self.exists(try self.dotSwiftPMSecurityDirectory) &&
             self.isDirectory(try self.dotSwiftPMSecurityDirectory)
