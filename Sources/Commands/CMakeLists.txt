@@ -17,6 +17,7 @@ add_library(Commands
   PackageTools/EditCommands.swift
   PackageTools/Format.swift
   PackageTools/Init.swift
+  PackageTools/InstalledPackages.swift
   PackageTools/Learn.swift
   PackageTools/PluginCommand.swift
   PackageTools/ResetCommands.swift
