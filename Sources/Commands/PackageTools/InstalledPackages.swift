@@ -94,7 +94,7 @@ extension SwiftPackageTool {
     struct Uninstall: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "experimental-uninstall",
-            abstract: "Offers the ability to uninstall executable products previously installed by `swift package experimental-uninstall`."
+            abstract: "Offers the ability to uninstall executable products previously installed by `swift package experimental-install`."
         )
 
         @OptionGroup
