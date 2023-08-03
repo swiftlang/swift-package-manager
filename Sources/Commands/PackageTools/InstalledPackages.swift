@@ -43,7 +43,7 @@ extension SwiftPackageTool {
                 )
             }
 
-            var alreadyExisting = (try? InstalledPackageProduct.installedProducts(tool.fileSystem)) ?? []
+            let alreadyExisting = (try? InstalledPackageProduct.installedProducts(tool.fileSystem)) ?? []
 
             let workspace = try tool.getActiveWorkspace()
             let packageRoot = try tool.getPackageRoot()
@@ -87,8 +87,7 @@ extension SwiftPackageTool {
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try tool.fileSystem.copy(from: binPath, to: finalBinPath)
 
-            let pkgInstance = InstalledPackageProduct(path: .init(finalBinPath))
-            alreadyExisting.append(pkgInstance)
+            print("Executable product `\(productToInstall.name)` was successfully installed to \(finalBinPath).")
         }
     }
 
@@ -109,15 +108,7 @@ extension SwiftPackageTool {
 
             guard let removedExecutable = alreadyInstalled.first(where: { $0.name == name }) else {
                 // The installed executable doesn't exist - let the user know, and stop here.
-                var stringError = "No such installed executable as \(name)"
-
-                // and, in case there are any installed executables, let the user know which ones do exist.
-                if !alreadyInstalled.isEmpty {
-                    stringError +=
-                        ", existing installed executables: \(alreadyInstalled.map(\.name).joined(separator: "\n"))"
-                }
-
-                throw StringError(stringError)
+                throw StringError("No such installed executable as \(name)")
             }
 
             try tool.fileSystem.removeFileTree(removedExecutable.path)
