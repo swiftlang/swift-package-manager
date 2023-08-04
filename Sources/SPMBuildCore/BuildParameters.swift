@@ -206,11 +206,6 @@ public struct BuildParameters: Encodable {
     /// `.swiftmodule`s.
     public var enableParseableModuleInterfaces: Bool
 
-    /// Emit Swift module separately from object files. This can enable more parallelism
-    /// since downstream targets can begin compiling without waiting for the entire
-    /// module to finish building.
-    public var emitSwiftModuleSeparately: Bool
-
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
@@ -292,7 +287,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
@@ -325,7 +319,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: enableCodeCoverage,
             indexStoreMode: indexStoreMode,
             enableParseableModuleInterfaces: enableParseableModuleInterfaces,
-            emitSwiftModuleSeparately: emitSwiftModuleSeparately,
             useIntegratedSwiftDriver: useIntegratedSwiftDriver,
             useExplicitModuleBuild: useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: isXcodeBuildSystemEnabled,
@@ -360,7 +353,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
@@ -422,7 +414,6 @@ public struct BuildParameters: Encodable {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
@@ -482,7 +473,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: self.enableCodeCoverage,
             indexStoreMode: self.indexStoreMode,
             enableParseableModuleInterfaces: self.enableParseableModuleInterfaces,
-            emitSwiftModuleSeparately: self.emitSwiftModuleSeparately,
             useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
             useExplicitModuleBuild: self.useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,

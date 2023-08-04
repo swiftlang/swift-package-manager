@@ -264,13 +264,6 @@ extension LLBuildManifestBuilder {
                 objectNodes: objectNodes,
                 moduleNode: moduleNode
             )
-        } else if self.buildParameters.emitSwiftModuleSeparately {
-            try self.addSwiftCmdsEmitSwiftModuleSeparately(
-                target,
-                inputs: inputs,
-                objectNodes: objectNodes,
-                moduleNode: moduleNode
-            )
         } else {
             try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
         }
@@ -577,32 +570,6 @@ extension LLBuildManifestBuilder {
         try self.collectTargetDependencyModuleDetails(
             for: target,
             dependencyModuleDetailsMap: &dependencyModuleDetailsMap
-        )
-    }
-
-    private func addSwiftCmdsEmitSwiftModuleSeparately(
-        _ target: SwiftTargetBuildDescription,
-        inputs: [Node],
-        objectNodes: [Node],
-        moduleNode: Node
-    ) throws {
-        // FIXME: We need to ingest the emitted dependencies.
-
-        self.manifest.addShellCmd(
-            name: target.moduleOutputPath.pathString,
-            description: "Emitting module for \(target.target.name)",
-            inputs: inputs,
-            outputs: [moduleNode],
-            arguments: try target.emitModuleCommandLine()
-        )
-
-        let cmdName = target.target.getCommandName(config: self.buildConfig)
-        self.manifest.addShellCmd(
-            name: cmdName,
-            description: "Compiling module \(target.target.name)",
-            inputs: inputs,
-            outputs: objectNodes,
-            arguments: try target.emitObjectsCommandLine()
         )
     }
 
