@@ -239,6 +239,54 @@ final class PinsStoreTests: XCTestCase {
         XCTAssertEqual(store.pins.keys.map { $0.description }.sorted(), ["clang_c", "commandant", "scope.package"])
     }
 
+    func testLoadingSchema3() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+
+        let originHash = UUID().uuidString
+
+        try fs.writeFileContents(pinsFile, string:
+            """
+            {
+                "version": 3,
+                "originHash": "\(originHash)",
+                "pins": [
+                  {
+                    "identity": "clang_c",
+                    "kind": "remoteSourceControl",
+                    "location": "https://github.com/something/Clang_C.git",
+                    "state": {
+                      "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                      "version": "1.0.2",
+                    }
+                  },
+                  {
+                    "identity": "commandant",
+                    "kind": "remoteSourceControl",
+                    "location": "https://github.com/something/Commandant.git",
+                    "state": {
+                      "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                      "version": "0.12.0"
+                    }
+                  },
+                  {
+                    "identity": "scope.package",
+                    "kind": "registry",
+                    "location": "",
+                    "state": {
+                      "version": "0.12.0"
+                    }
+                  }
+                ]
+            }
+            """
+        )
+
+        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertEqual(store.pins.keys.map { $0.description }.sorted(), ["clang_c", "commandant", "scope.package"])
+        XCTAssertEqual(store.originHash, originHash)
+    }
+
     func testLoadingUnknownSchemaVersion() throws {
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")

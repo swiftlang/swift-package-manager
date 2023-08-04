@@ -4030,7 +4030,8 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
-                    ]
+                    ],
+                    toolsVersion: .vNext // change to the one after 5.9
                 ),
             ],
             packages: [

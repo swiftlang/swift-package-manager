@@ -191,7 +191,20 @@ private struct PinsStorage {
                             }
                             partial[iterator.packageRef.identity] = iterator
                         },
-                    originHash: v2.originHash
+                    originHash: .none
+                )
+            case V3.version:
+                let v3 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V3.self)
+                return (
+                    pins: try v3.pins
+                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                            if partial.keys.contains(iterator.packageRef.identity) {
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                            }
+                            partial[iterator.packageRef.identity] = iterator
+                        },
+                    originHash: v3.originHash
                 )
             default:
                 throw StringError("unknown 'PinsStorage' version '\(version.version)' at '\(self.path)'.")
@@ -220,11 +233,17 @@ private struct PinsStorage {
             }
 
             var data: Data
-            if toolsVersion >= .v5_6 {
-                let container = try V2(
+            if toolsVersion > .v5_9  {
+                let container = try V3(
                     pins: pins,
                     mirrors: mirrors,
                     originHash: originHash
+                )
+                data = try self.encoder.encode(container)
+            } else if toolsVersion >= .v5_6 {
+                let container = try V2(
+                    pins: pins,
+                    mirrors: mirrors
                 )
                 data = try self.encoder.encode(container)
             } else {
@@ -369,19 +388,16 @@ private struct PinsStorage {
         static let version = 2
 
         let version: Int
-        let originHash: String?
         let pins: [Pin]
 
         init(
             pins: PinsStore.Pins,
-            mirrors: DependencyMirrors,
-            originHash: String?
+            mirrors: DependencyMirrors
         ) throws {
             self.version = Self.version
             self.pins = try pins.values
                 .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
                 .map { try Pin($0, mirrors: mirrors) }
-            self.originHash = originHash
         }
 
         struct Pin: Codable {
@@ -442,6 +458,27 @@ private struct PinsStorage {
                     self.revision = revision
                 }
             }
+        }
+    }
+
+    // v3 storage format
+    struct V3: Codable {
+        static let version = 3
+
+        let version: Int
+        let originHash: String?
+        let pins: [V2.Pin]
+
+        init(
+            pins: PinsStore.Pins,
+            mirrors: DependencyMirrors,
+            originHash: String?
+        ) throws {
+            self.version = Self.version
+            self.pins = try pins.values
+                .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
+                .map { try V2.Pin($0, mirrors: mirrors) }
+            self.originHash = originHash
         }
     }
 }
