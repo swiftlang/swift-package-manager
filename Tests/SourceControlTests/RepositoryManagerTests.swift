@@ -332,6 +332,19 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testCanonicalLocation() throws {
+        let variants: [RepositorySpecifier] = [
+            .init(url: "https://scm.com/org/foo"),
+            .init(url: "https://scm.com/org/foo.git"),
+            .init(url: "http://scm.com/org/foo"),
+            .init(url: "http://scm.com/org/foo.git")
+        ]
+
+        for variant in variants {
+            XCTAssertEqual(try variant.storagePath(), try variants[0].storagePath())
+        }
+    }
+
     func testConcurrency() throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
