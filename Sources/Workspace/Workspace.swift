@@ -30,6 +30,7 @@ import struct TSCBasic.SHA256
 import func TSCBasic.topologicalSort
 import func TSCBasic.transitiveClosure
 import func TSCBasic.os_signpost
+import func TSCBasic.findCycle
 
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
@@ -1946,6 +1947,7 @@ extension Workspace {
         // Validates that all the managed dependencies are still present in the file system.
         self.fixManagedDependencies(observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
+            // return partial results
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
@@ -1965,8 +1967,8 @@ extension Workspace {
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
         var loadedManifests = firstLevelManifests
         // Compute the transitive closure of available dependencies.
-        let input = topLevelManifests.map { identity, manifest in KeyedPair(manifest, key: Key(identity: identity, productFilter: .everything)) }
-        let allManifestsWithPossibleDuplicates = try topologicalSort(input) { pair in
+        let topologicalSortInput = topLevelManifests.map { identity, manifest in KeyedPair(manifest, key: Key(identity: identity, productFilter: .everything)) }
+        let topologicalSortSuccessors: (KeyedPair<Manifest, Key>) throws -> [KeyedPair<Manifest, Key>] = { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
             let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
@@ -1993,6 +1995,18 @@ extension Workspace {
                 }
             }
         }
+
+        // Look for any cycle in the dependencies.
+        if let cycle = try findCycle(topologicalSortInput, successors: topologicalSortSuccessors) {
+            observabilityScope.emit(
+                error: "cyclic dependency declaration found: " +
+                (cycle.path + cycle.cycle).map({ $0.key.identity.description }).joined(separator: " -> ") +
+                " -> " + cycle.cycle[0].key.identity.description
+            )
+            // return partial results
+            return DependencyManifests(root: root, dependencies: [], workspace: self)
+        }
+        let allManifestsWithPossibleDuplicates = try topologicalSort(topologicalSortInput, successors: topologicalSortSuccessors)
 
         // merge the productFilter of the same package (by identity)
         var deduplication = [PackageIdentity: Int]()

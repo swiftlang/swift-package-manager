@@ -10759,6 +10759,126 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testCycleRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root1",
+                    targets: [
+                        .init(name: "Root1Target", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "Root2Target", package: "Root2")
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "Root1Product", targets: ["Root1Target"])
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .fileSystem(path: "Root2")
+                    ]
+                ),
+                MockPackage(
+                    name: "Root2",
+                    targets: [
+                        .init(name: "Root2Target", dependencies: [
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "Root2Product", targets: ["Root2Target"])
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/bar",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://scm.com/org/foo",
+                    targets: [
+                        .init(name: "FooTarget", dependencies: [
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/bar",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "http://scm.com/org/bar",
+                    targets: [
+                        .init(name: "BarTarget", dependencies: [
+                            .product(name: "BazProduct", package: "baz"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/baz",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "http://scm.com/org/baz",
+                    targets: [
+                        .init(name: "BazTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: "cyclic dependency declaration found: root1 -> foo -> bar -> baz -> foo",
+                    severity: .error
+                )
+                result.check(
+                    diagnostic: "exhausted attempts to resolve the dependencies graph, with 'foo remoteSourceControl http://scm.com/org/foo', 'bar remoteSourceControl http://scm.com/org/bar' unresolved.",
+                    severity: .error
+                )
+            }
+        }
+    }
+
     func testResolutionBranchAndVersion() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
