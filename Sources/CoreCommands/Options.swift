@@ -425,10 +425,6 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
     public var jobs: UInt32?
 
-    /// Emit the Swift module separately from the object files.
-    @Flag()
-    public var emitSwiftModuleSeparately: Bool = false
-
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()

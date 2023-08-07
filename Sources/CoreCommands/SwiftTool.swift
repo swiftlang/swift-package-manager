@@ -697,7 +697,6 @@ public final class SwiftTool {
                 enableCodeCoverage: false, // set by test commands when appropriate
                 indexStoreMode: options.build.indexStoreMode.buildParameter,
                 enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
