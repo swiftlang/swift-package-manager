@@ -3808,7 +3808,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
-                    versions: ["1.0.0"],
+                    versions: ["1.0.0", "1.1.0"],
                     revisionProvider: { version in version } // stable revisions
                 ),
                 MockPackage(
@@ -3820,7 +3820,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
-                    versions: ["1.0.0"],
+                    versions: ["1.0.0", "1.1.0"],
                     revisionProvider: { version in version } // stable revisions
                 ),
                 MockPackage(
