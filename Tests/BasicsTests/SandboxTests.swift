@@ -219,3 +219,22 @@ final class SandboxTest: XCTestCase {
          }
      }
 }
+
+extension Sandbox {
+    public static func apply(
+        command: [String],
+        strictness: Strictness = .default,
+        writableDirectories: [AbsolutePath] = [],
+        readOnlyDirectories: [AbsolutePath] = [],
+        allowNetworkConnections: [SandboxNetworkPermission] = []
+    ) throws -> [String] {
+        return try self.apply(
+            command: command,
+            fileSystem: InMemoryFileSystem(),
+            strictness: strictness,
+            writableDirectories: writableDirectories,
+            readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections
+        )
+    }
+}

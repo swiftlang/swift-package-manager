@@ -441,6 +441,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             do {
                 command = try Sandbox.apply(
                     command: command,
+                    fileSystem: self.fileSystem,
                     strictness: .writableTemporaryDirectory,
                     writableDirectories: writableDirectories + [self.cacheDir],
                     readOnlyDirectories: readOnlyDirectories,
