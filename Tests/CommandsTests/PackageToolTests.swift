@@ -953,7 +953,7 @@ final class PackageToolTests: CommandsTestCase {
             // Test pins file.
             do {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
+                XCTAssertEqual(pinsStore.pins.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pins[PackageIdentity(path: path)]!

@@ -3898,7 +3898,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         // reset state, excluding the resolved file
-        try workspace.closeWorkspace()
+        try workspace.closeWorkspace(resetResolvedFile: false)
         XCTAssertTrue(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
@@ -3933,7 +3933,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.1.0")),
         ]
         // reset state, excluding the resolved file
-        try workspace.closeWorkspace()
+        try workspace.closeWorkspace(resetResolvedFile: false)
         XCTAssertTrue(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
@@ -4004,6 +4004,274 @@ final class WorkspaceTests: XCTestCase {
                 result.store.pins[.plain("bar")]?.packageRef.locationString,
                 "https://localhost/org/bar.git"
             )
+        }
+    }
+
+    func testPreferResolvedFileWhenExists() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo"),
+                                .product(name: "Bar", package: "bar")
+                            ]
+                        )
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
+                    ],
+                    toolsVersion: .vNext // change to the one after 5.9
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://localhost/org/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
+                ),
+            ]
+        )
+
+        // initial resolution without resolved file
+
+        do {
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no errors
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            workspace.checkResolved { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.3.1")))
+                result.check(dependency: "bar", at: .checkout(.version("1.1.1")))
+            }
+
+            let pinsStore = try workspace.getOrCreateWorkspace().pinsStore.load()
+            checkPinnedVersion(pin: pinsStore.pins["foo"]!, version: "1.3.1")
+            checkPinnedVersion(pin: pinsStore.pins["bar"]!, version: "1.1.1")
+        }
+
+        do {
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, now it should rely on the resolved file
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        do {
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // change the manifest
+            let rootManifestPath = try workspace.pathToRoot(withName: "Root").appending(Manifest.filename)
+            let manifestContent: String = try fs.readFileContents(rootManifestPath)
+            try fs.writeFileContents(rootManifestPath, string: manifestContent.appending("\n"))
+
+            // run resolution again, but change requirements
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // restore original manifest
+            try fs.writeFileContents(rootManifestPath, string: manifestContent)
+            // run resolution again, now it should rely on the resolved file
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        do {
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // change the dependency requirements
+            let changedDeps: [PackageDependency] = [
+                .remoteSourceControl(url: "https://localhost/org/baz", requirement: .upToNextMinor(from: "1.0.0"))
+            ]
+            // run resolution again, but change requirements
+            try workspace.checkPackageGraph(roots: ["Root"], dependencies: changedDeps) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Baz", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, but change requirements back to original
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, now it should rely on the resolved file
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        do {
+            // reset including removing resolved file
+            try workspace.closeWorkspace(resetResolvedFile: true)
+            // run resolution again
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        // util
+        func checkPinnedVersion(pin: PinsStore.Pin, version: Version) {
+            switch pin.state {
+            case .version(let pinnedVersion, _):
+                XCTAssertEqual(pinnedVersion, version)
+            default:
+                XCTFail("non-version pin \(pin.state)")
+            }
         }
     }
 
@@ -4761,7 +5029,7 @@ final class WorkspaceTests: XCTestCase {
             let newState = PinsStore.PinState.version("1.0.0", revision: revision.identifier)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
-            try pinsStore.saveState(toolsVersion: ToolsVersion.current)
+            try pinsStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
@@ -4905,15 +5173,15 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
-            guard let diagnostic = diagnostics.first else { return XCTFail("unexpectedly got no diagnostics") }
             // rdar://82544922 (`WorkspaceResolveReason` is non-deterministic)
-            XCTAssertTrue(
-                diagnostic.message
-                    .hasPrefix(
-                        "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(sandbox.appending(components: "Package.resolved")). Running resolver because the following dependencies were added:"
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .prefix(
+                        "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: sandbox)). Running resolver because the following dependencies were added:"
                     ),
-                "unexpected diagnostic message"
-            )
+                    severity: .error
+                )
+            }
         }
     }
 

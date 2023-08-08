@@ -3253,7 +3253,7 @@ class DependencyGraphBuilder {
             store.pin(packageRef: try reference(for: package), state: pin.0)
         }
 
-        try! store.saveState(toolsVersion: ToolsVersion.current)
+        try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         return store
     }
 

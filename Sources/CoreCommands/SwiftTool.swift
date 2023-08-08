@@ -452,7 +452,7 @@ public final class SwiftTool {
     private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", Workspace.DefaultLocations.resolvedFileName)
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
@@ -529,11 +529,12 @@ public final class SwiftTool {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        if options.resolver.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: self.observabilityScope)
-        } else {
-            try workspace.resolve(root: root, observabilityScope: self.observabilityScope)
-        }
+        try workspace.resolve(
+            root: root,
+            forceResolution: false,
+            forceResolvedVersions: options.resolver.forceResolvedVersions,
+            observabilityScope: self.observabilityScope
+        )
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.

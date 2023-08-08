@@ -828,6 +828,27 @@ extension Workspace {
         try self.unedit(dependency: dependency, forceRemove: forceRemove, root: root, observabilityScope: observabilityScope)
     }
 
+    /// Perform dependency resolution if needed.
+    ///
+    /// This method will perform dependency resolution based on the root
+    /// manifests and pins file.  Pins are respected as long as they are
+    /// satisfied by the root manifest closure requirements.  Any outdated
+    /// checkout will be restored according to its pin.
+    public func resolve(
+        root: PackageGraphRootInput,
+        explicitProduct: String? = .none,
+        forceResolution: Bool = false,
+        forceResolvedVersions: Bool = false,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self._resolve(
+            root: root,
+            explicitProduct: explicitProduct,
+            resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) : .bestEffort,
+            observabilityScope: observabilityScope
+        )
+    }
+
     /// Resolve a package at the given state.
     ///
     /// Only one of version, branch and revision will be used and in the same
@@ -884,10 +905,25 @@ extension Workspace {
         let constraint = PackageContainerConstraint(package: dependency.packageRef, requirement: requirement, products: .nothing)
 
         // Run the resolution.
-        try self.resolve(
+        try self.resolveAndUpdateResolvedFile(
             root: root,
             forceResolution: false,
             constraints: [constraint],
+            observabilityScope: observabilityScope
+        )
+    }
+
+    /// Resolves the dependencies according to the entries present in the Package.resolved file.
+    ///
+    /// This method bypasses the dependency resolution and resolves dependencies
+    /// according to the information in the resolved file.
+    public func resolveBasedOnResolvedVersionsFile(
+        root: PackageGraphRootInput,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self._resolveBasedOnResolvedVersionsFile(
+            root: root,
+            explicitProduct: .none,
             observabilityScope: observabilityScope
         )
     }
@@ -992,6 +1028,7 @@ extension Workspace {
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
         let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
+        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -1061,6 +1098,7 @@ extension Workspace {
         try self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
+            originHash: resolvedFileOriginHash,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
             observabilityScope: observabilityScope
         )
@@ -1092,22 +1130,12 @@ extension Workspace {
         try self.state.reload()
 
         // Perform dependency resolution, if required.
-        let manifests: DependencyManifests
-        if forceResolvedVersions {
-            manifests = try self.resolveBasedOnResolvedVersionsFile(
-                root: root,
-                explicitProduct: explicitProduct,
-                observabilityScope: observabilityScope
-            )
-        } else {
-            manifests = try self.resolve(
-                root: root,
-                explicitProduct: explicitProduct,
-                forceResolution: false,
-                constraints: [],
-                observabilityScope: observabilityScope
-            )
-        }
+        let manifests = try self._resolve(
+            root: root,
+            explicitProduct: explicitProduct,
+            resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
+            observabilityScope: observabilityScope
+        )
 
         let binaryArtifacts = self.state.artifacts.reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
             partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(kind: artifact.kind, originURL: artifact.originURL, path: artifact.path)
@@ -1147,25 +1175,6 @@ extension Workspace {
         try self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
-            observabilityScope: observabilityScope
-        )
-    }
-
-    /// Perform dependency resolution if needed.
-    ///
-    /// This method will perform dependency resolution based on the root
-    /// manifests and pins file.  Pins are respected as long as they are
-    /// satisfied by the root manifest closure requirements.  Any outdated
-    /// checkout will be restored according to its pin.
-    public func resolve(
-        root: PackageGraphRootInput,
-        forceResolution: Bool = false,
-        observabilityScope: ObservabilityScope
-    ) throws {
-        try self.resolve(
-            root: root,
-            forceResolution: forceResolution,
-            constraints: [],
             observabilityScope: observabilityScope
         )
     }
@@ -1377,6 +1386,7 @@ extension Workspace {
     }
 }
 
+
 // MARK: - Editing Functions
 
 extension Workspace {
@@ -1573,7 +1583,12 @@ extension Workspace {
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root {
-            try self.resolve(root: root, observabilityScope: observabilityScope)
+            try self._resolve(
+                root: root,
+                explicitProduct: .none,
+                resolvedFileStrategy: .update(forceResolution: false),
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -1586,6 +1601,7 @@ extension Workspace {
     fileprivate func saveResolvedFile(
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
+        originHash: String,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -1637,7 +1653,10 @@ extension Workspace {
         }
 
         observabilityScope.trap {
-            try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
+            try pinsStore.saveState(
+                toolsVersion: rootManifestsMinimumToolsVersion,
+                originHash: originHash
+            )
         }
 
         // Ask resolved file watcher to update its value so we don't fire
@@ -2389,24 +2408,130 @@ extension Workspace {
 // MARK: - Dependency Management
 
 extension Workspace {
-    /// Resolves the dependencies according to the entries present in the Package.resolved file.
-    ///
-    /// This method bypasses the dependency resolution and resolves dependencies
-    /// according to the information in the resolved file.
-    public func resolveBasedOnResolvedVersionsFile(root: PackageGraphRootInput, observabilityScope: ObservabilityScope) throws {
-        try self.resolveBasedOnResolvedVersionsFile(root: root, explicitProduct: .none, observabilityScope: observabilityScope)
+    enum ResolvedFileStrategy {
+        case lockFile
+        case update(forceResolution: Bool)
+        case bestEffort
+    }
+
+    @discardableResult
+    private func _resolve(
+        root: PackageGraphRootInput,
+        explicitProduct: String?,
+        resolvedFileStrategy: ResolvedFileStrategy,
+        observabilityScope: ObservabilityScope
+    ) throws -> DependencyManifests {
+        switch resolvedFileStrategy {
+        case .lockFile:
+            observabilityScope.emit(info: "using '\(self.location.resolvedVersionsFile.basename)' file as lock file")
+            return try self._resolveBasedOnResolvedVersionsFile(
+                root: root,
+                explicitProduct: explicitProduct,
+                observabilityScope: observabilityScope
+            )
+        case .update(let forceResolution):
+            return try resolveAndUpdateResolvedFile(forceResolution: forceResolution)
+        case .bestEffort:
+            guard !self.state.dependencies.hasEditedDependencies() else {
+                return try resolveAndUpdateResolvedFile(forceResolution: false)
+            }
+            guard self.fileSystem.exists(self.location.resolvedVersionsFile) else {
+                return try resolveAndUpdateResolvedFile(forceResolution: false)
+            }
+
+            guard let pinsStore = try? self.pinsStore.load(), let storedHash = pinsStore.originHash else {
+                observabilityScope.emit(debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash is missing. resolving and updating accordingly")
+                return try resolveAndUpdateResolvedFile(forceResolution: false)
+            }
+
+            let currentHash = try self.computeResolvedFileOriginHash(root: root)
+            guard storedHash == currentHash else {
+                observabilityScope.emit(debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash does do not match manifest dependencies. resolving and updating accordingly")
+                return try resolveAndUpdateResolvedFile(forceResolution: false)
+            }
+
+            observabilityScope.emit(debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash matches manifest dependencies, attempting resolution based on this file")
+            let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
+                root: root,
+                explicitProduct: explicitProduct,
+                observabilityScope: observabilityScope
+            )
+            switch precomputationResult {
+            case .notRequired:
+                return manifests
+            case .required(reason: .errorsPreviouslyReported):
+                return manifests
+            case .required(let reason):
+                // FIXME: ideally this is not done based on a side-effect
+                let reasonString = Self.format(workspaceResolveReason: reason)
+                observabilityScope.emit(debug: "resolution based on '\(self.location.resolvedVersionsFile.basename)' could not be completed because \(reasonString). resolving and updating accordingly")
+                return try resolveAndUpdateResolvedFile(forceResolution: false)
+            }
+        }
+
+        func resolveAndUpdateResolvedFile(forceResolution: Bool) throws -> DependencyManifests {
+            observabilityScope.emit(debug: "resolving and updating '\(self.location.resolvedVersionsFile.basename)'")
+            return try self.resolveAndUpdateResolvedFile(
+                root: root,
+                explicitProduct: explicitProduct,
+                forceResolution: forceResolution,
+                constraints: [],
+                observabilityScope: observabilityScope
+            )
+        }
+    }
+
+    private func computeResolvedFileOriginHash(root: PackageGraphRootInput) throws -> String {
+        var content = try root.packages.reduce(into: "", { partial, element in
+            let path = try ManifestLoader.findManifest(
+                packagePath: element,
+                fileSystem: self.fileSystem,
+                currentToolsVersion: self.currentToolsVersion
+            )
+            partial.append(try self.fileSystem.readFileContents(path))
+        })
+        content += root.dependencies.reduce(into: "", { partial, element in
+            partial += element.locationString
+        })
+        return content.sha256Checksum
+    }
+
+    @discardableResult
+    func _resolveBasedOnResolvedVersionsFile(
+        root: PackageGraphRootInput,
+        explicitProduct: String?,
+        observabilityScope: ObservabilityScope) throws -> DependencyManifests {
+        let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
+            root: root,
+            explicitProduct: explicitProduct,
+            observabilityScope: observabilityScope
+        )
+        switch precomputationResult {
+        case .notRequired:
+            return manifests
+        case .required(reason: .errorsPreviouslyReported):
+            return manifests
+        case .required(let reason):
+            // FIXME: ideally this is not done based on a side-effect
+            let reasonString = Self.format(workspaceResolveReason: reason)
+            if !self.fileSystem.exists(self.location.resolvedVersionsFile) {
+                observabilityScope.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
+            } else {
+                observabilityScope.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
+            }
+            return manifests
+        }
     }
 
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
     ///
     /// This method bypasses the dependency resolution and resolves dependencies
     /// according to the information in the resolved file.
-    @discardableResult
-    fileprivate func resolveBasedOnResolvedVersionsFile(
+    fileprivate func tryResolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
         observabilityScope: ObservabilityScope
-    ) throws -> DependencyManifests {
+    ) throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
@@ -2416,7 +2541,7 @@ extension Workspace {
 
         // Load the pins store or abort now.
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }), !observabilityScope.errorsReported else {
-            return try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+            return (try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope), .notRequired)
         }
 
         // Request all the containers to fetch them in parallel.
@@ -2490,6 +2615,8 @@ extension Workspace {
 
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, automaticallyAddManagedDependencies: true, observabilityScope: observabilityScope)
 
+        try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], observabilityScope: observabilityScope)
+
         let precomputationResult = try self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
@@ -2498,19 +2625,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        if case let .required(reason) = precomputationResult, reason != .errorsPreviouslyReported {
-            let reasonString = Self.format(workspaceResolveReason: reason)
-
-            if !fileSystem.exists(self.location.resolvedVersionsFile) {
-                observabilityScope.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
-            } else {
-                observabilityScope.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
-            }
-        }
-
-        try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], observabilityScope: observabilityScope)
-
-        return currentManifests
+        return (currentManifests, precomputationResult)
     }
 
     /// Implementation of resolve(root:diagnostics:).
@@ -2520,7 +2635,7 @@ extension Workspace {
     /// imposed outside of manifest and pins file. E.g., when using a command
     /// like `$ swift package resolve foo --version 1.0.0`.
     @discardableResult
-    fileprivate func resolve(
+    fileprivate func resolveAndUpdateResolvedFile(
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolution: Bool,
@@ -2534,6 +2649,7 @@ extension Workspace {
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
         let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
+        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
@@ -2582,6 +2698,7 @@ extension Workspace {
                 try self.saveResolvedFile(
                     pinsStore: pinsStore,
                     dependencyManifests: currentManifests,
+                    originHash: resolvedFileOriginHash,
                     rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
                     observabilityScope: observabilityScope
                 )
@@ -2640,6 +2757,7 @@ extension Workspace {
         try self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
+            originHash: resolvedFileOriginHash,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
             observabilityScope: observabilityScope
         )
@@ -4261,5 +4379,18 @@ extension ContainerUpdateStrategy {
         case .ifNeeded(let revision):
             return .ifNeeded(revision: .init(identifier: revision))
         }
+    }
+}
+
+extension Workspace.ManagedDependencies {
+    func hasEditedDependencies() -> Bool {
+        self.contains(where: {
+            switch $0.state {
+            case .edited(_, _):
+                return true
+            default:
+                return false
+            }
+        })
     }
 }
