@@ -44,11 +44,13 @@ public enum Sandbox {
     ///
     /// - Parameters:
     ///   - command: The command line to sandbox (including executable as first argument)
+    ///   - fileSystem: The file system instance to use.
     ///   - strictness: The basic strictness level of the standbox.
     ///   - writableDirectories: Paths under which writing should be allowed, even if they would otherwise be read-only based on the strictness or paths in `readOnlyDirectories`.
     ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by the rules implied by the strictness level.
     public static func apply(
         command: [String],
+        fileSystem: FileSystem,
         strictness: Strictness = .default,
         writableDirectories: [AbsolutePath] = [],
         readOnlyDirectories: [AbsolutePath] = [],
@@ -56,6 +58,7 @@ public enum Sandbox {
     ) throws -> [String] {
         #if os(macOS)
         let profile = try macOSSandboxProfile(
+            fileSystem: fileSystem,
             strictness: strictness,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
@@ -106,6 +109,7 @@ fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
 }()
 
 fileprivate func macOSSandboxProfile(
+    fileSystem: FileSystem,
     strictness: Sandbox.Strictness,
     writableDirectories: [AbsolutePath],
     readOnlyDirectories: [AbsolutePath],
@@ -213,7 +217,8 @@ fileprivate func macOSSandboxProfile(
     // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
     if writableDirectories.count > 0 {
         contents += "(allow file-write*\n"
-        for path in writableDirectories {
+        // For any explicit writable directories, also include the relevant item replacement directories so that Foundation APIs using atomic writes are not blocked by the sandbox.
+        for path in writableDirectories + Set(writableDirectories.compactMap { try? fileSystem.itemReplacementDirectories(for: $0) }.flatMap { $0}) {
             contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
         }
         contents += ")\n"

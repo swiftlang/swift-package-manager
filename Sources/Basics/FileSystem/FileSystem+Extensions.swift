@@ -199,6 +199,12 @@ extension FileSystem {
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
         try self.withLock(on: path.underlying, type: type, body)
     }
+
+    /// Returns any known item replacement directories for a given path. These may be used by platform-specific
+    /// libraries to handle atomic file system operations, such as deletion.
+    func itemReplacementDirectories(for path: AbsolutePath) throws -> [AbsolutePath] {
+        return try self.itemReplacementDirectories(for: path.underlying).compactMap { AbsolutePath($0) }
+    }
 }
 
 // MARK: - user level
