@@ -398,7 +398,8 @@ extension PackageReference: FingerprintReference {
         }
 
         let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
-        let locationHash = String(format: "%02x", canonicalLocation.description.hashValue)
+        // Cannot use hashValue because it is not consistent across executions
+        let locationHash = canonicalLocation.description.sha256Checksum.prefix(8)
         return "\(self.identity.description)-\(locationHash).json"
     }
 }
