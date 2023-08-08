@@ -425,11 +425,6 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
     public var jobs: UInt32?
 
-    /// Whether to use the integrated Swift driver rather than shelling out
-    /// to a separate process.
-    @Flag()
-    public var useIntegratedSwiftDriver: Bool = false
-
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
     @Option()

@@ -261,7 +261,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 targetTriple: self.targetToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
                 verboseOutput: logLevel <= .info
             )

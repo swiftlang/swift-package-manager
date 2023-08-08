@@ -348,10 +348,6 @@ public final class SwiftTool {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
-        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
-            observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
-        }
-
         if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
@@ -697,7 +693,6 @@ public final class SwiftTool {
                 enableCodeCoverage: false, // set by test commands when appropriate
                 indexStoreMode: options.build.indexStoreMode.buildParameter,
                 enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery

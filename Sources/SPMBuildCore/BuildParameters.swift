@@ -208,7 +208,7 @@ public struct BuildParameters: Encodable {
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
-    public var useIntegratedSwiftDriver: Bool
+    public let useIntegratedSwiftDriver = true
 
     /// Whether to use the explicit module build flow (with the integrated driver).
     public var useExplicitModuleBuild: Bool
@@ -287,7 +287,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
         enableTestability: Bool? = nil,
@@ -319,7 +318,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: enableCodeCoverage,
             indexStoreMode: indexStoreMode,
             enableParseableModuleInterfaces: enableParseableModuleInterfaces,
-            useIntegratedSwiftDriver: useIntegratedSwiftDriver,
             useExplicitModuleBuild: useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: isXcodeBuildSystemEnabled,
             enableTestability: enableTestability,
@@ -353,7 +351,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
         enableTestability: Bool? = nil,
@@ -414,7 +411,6 @@ public struct BuildParameters: Encodable {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         // decide on testability based on debug/release config
@@ -473,7 +469,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: self.enableCodeCoverage,
             indexStoreMode: self.indexStoreMode,
             enableParseableModuleInterfaces: self.enableParseableModuleInterfaces,
-            useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
             useExplicitModuleBuild: self.useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
             enableTestability: self.enableTestability,
