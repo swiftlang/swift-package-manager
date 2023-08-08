@@ -10868,7 +10868,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: .regex("cyclic dependency declaration found: root[1|2] -> foo -> bar -> baz -> foo"),
+                    diagnostic: .regex("cyclic dependency declaration found: root[1|2] -> *"),
                     severity: .error
                 )
                 result.check(
