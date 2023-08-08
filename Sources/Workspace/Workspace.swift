@@ -1054,7 +1054,7 @@ extension Workspace {
         let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
-            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
+            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
             return nil
         }
 
@@ -2646,7 +2646,7 @@ extension Workspace {
         let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
-            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
+            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
             return updatedDependencyManifests
         }
 

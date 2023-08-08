@@ -10868,11 +10868,11 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "cyclic dependency declaration found: root1 -> foo -> bar -> baz -> foo",
+                    diagnostic: .regex("cyclic dependency declaration found: root[1|2] -> foo -> bar -> baz -> foo"),
                     severity: .error
                 )
                 result.check(
-                    diagnostic: "exhausted attempts to resolve the dependencies graph, with 'foo remoteSourceControl http://scm.com/org/foo', 'bar remoteSourceControl http://scm.com/org/bar' unresolved.",
+                    diagnostic: "exhausted attempts to resolve the dependencies graph, with 'bar remoteSourceControl http://scm.com/org/bar', 'foo remoteSourceControl http://scm.com/org/foo' unresolved.",
                     severity: .error
                 )
             }
