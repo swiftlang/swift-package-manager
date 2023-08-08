@@ -398,8 +398,21 @@ extension PackageReference: FingerprintReference {
         }
 
         let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
-        let locationHash = String(format: "%02x", canonicalLocation.description.hashValue)
+        // Cannot use hashValue because it is not consistent across executions
+        let locationHash = String(format: "%02x", canonicalLocation.description.stableHash)
         return "\(self.identity.description)-\(locationHash).json"
+    }
+}
+
+extension String {
+    // From: https://stackoverflow.com/questions/35882103/hash-value-of-string-that-would-be-stable-across-ios-releases/43149500#43149500
+    fileprivate var stableHash: UInt64 {
+        var result = UInt64(5381)
+        let buf = [UInt8](self.utf8)
+        for b in buf {
+            result = 127 * (result & 0x00FF_FFFF_FFFF_FFFF) + UInt64(b)
+        }
+        return result
     }
 }
 
