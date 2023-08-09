@@ -270,11 +270,11 @@ extension Basics.Diagnostic {
 
     static func unknownTargetDependency(dependency: String, targetName: String, validDependencies: [PackageDependency]) -> Self {
 
-        .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: '\(validDependencies.map{ "\($0.descriptionForValidation)" }.joined(separator: "', '"))'")
+        .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: \(validDependencies.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
     static func unknownTargetPackageDependency(packageName: String, targetName: String, validPackages: [PackageDependency]) -> Self {
-        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: '\(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: "', '"))'")
+        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: \(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {
@@ -324,18 +324,18 @@ extension TargetDescription {
 
 extension PackageDependency {
     fileprivate var descriptionForValidation: String {
-        var description = self.nameForTargetDependencyResolutionOnly
+        var description = "'\(self.nameForTargetDependencyResolutionOnly)'"
 
         if let locationsString = {
             switch self {
             case .fileSystem(let settings):
-                return settings.path.pathString
+                return "at '\(settings.path.pathString)'"
             case .sourceControl(let settings):
                 switch settings.location {
                 case .local(let path):
-                    return path.pathString
+                    return "at '\(path.pathString)'"
                 case .remote(let url):
-                    return url.absoluteString
+                    return "from '\(url.absoluteString)'"
                 }
             case .registry:
                 return .none

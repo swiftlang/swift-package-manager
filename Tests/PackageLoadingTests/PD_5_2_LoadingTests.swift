@@ -127,8 +127,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo (http://scm.com/org/foo)', 'bar (http://scm.com/org/bar)'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo (http://scm.com/org/foo)', 'bar (http://scm.com/org/bar)'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
             }
         }
 
@@ -157,8 +157,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo (http://scm.com/org/foo)', 'Bar (http://scm.com/org/bar)'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo (http://scm.com/org/foo)', 'Bar (http://scm.com/org/bar)'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
             }
         }
 
@@ -188,7 +188,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo (http://scm.com/org/foo1)'", severity: .error)
+                result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo1')", severity: .error)
             }
         }
 
@@ -218,8 +218,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo (/foo)', 'bar (/bar)'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo (/foo)', 'bar (/bar)'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (at '/foo'), 'bar' (at '/bar')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (at '/foo'), 'bar' (at '/bar')", severity: .error)
             }
         }
 
@@ -248,8 +248,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo (/foo1)', 'Bar (/bar1)'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo (/foo1)', 'Bar (/bar1)'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (at '/foo1'), 'Bar' (at '/bar1')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (at '/foo1'), 'Bar' (at '/bar1')", severity: .error)
             }
         }
     }
