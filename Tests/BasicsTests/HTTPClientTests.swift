@@ -173,21 +173,37 @@ final class HTTPClientTests: XCTestCase {
 
     func testAuthorization() async throws {
         let url = URL("http://test")
-        let authorization = UUID().uuidString
 
-        let httpClient = HTTPClient { request, _ in
-            XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
-            XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
-            return .init(statusCode: 200)
+        do {
+            let authorization = UUID().uuidString
+
+            let httpClient = HTTPClient { request, _ in
+                XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
+                XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
+                return .init(statusCode: 200)
+            }
+
+            var request = HTTPClient.Request(method: .get, url: url)
+            request.options.authorizationProvider = { requestUrl in
+                requestUrl == url ? authorization : nil
+            }
+
+            let response = try await httpClient.execute(request)
+            XCTAssertEqual(response.statusCode, 200, "statusCode should match")
         }
 
-        var request = HTTPClient.Request(method: .get, url: url)
-        request.options.authorizationProvider = { requestUrl in
-            requestUrl == url ? authorization : nil
-        }
+        do {
+            let httpClient = HTTPClient { request, _ in
+                XCTAssertFalse(request.headers.contains("Authorization"), "not expecting Authorization")
+                return .init(statusCode: 200)
+            }
 
-        let response = try await httpClient.execute(request)
-        XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+            var request = HTTPClient.Request(method: .get, url: url)
+            request.options.authorizationProvider = { _ in "" }
+
+            let response = try await httpClient.execute(request)
+            XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+        }
     }
 
     func testValidResponseCodes() async throws {
