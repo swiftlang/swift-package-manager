@@ -4865,4 +4865,59 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertTrue(exeProduct.objects.contains(exeCompileObject))
         }
     }
+
+    func testPackageDependencySetsUserModuleVersion() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift", "/ExtPkg/Sources/ExtLib/best.swift")
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    dependencies: [
+                        .localSourceControl(path: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: [
+                            .product(name: "ExtPkg", package: "ExtPkg"),
+                        ]),
+                    ]),
+                Manifest.createLocalSourceControlManifest(
+                    displayName: "ExtPkg",
+                    path: "/ExtPkg",
+                    version: "1.0.0",
+                    toolsVersion: .v5_9,
+                    products: [
+                        ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ExtLib", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .release
+            )),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        switch try XCTUnwrap(result.targetMap["ExtLib"]) {
+        case .swift(let swiftTarget):
+            if #available(macOS 13, *) { // `.contains` is only available in macOS 13 or newer
+                XCTAssertTrue(try swiftTarget.compileArguments().contains(["-user-module-version", "1.0.0"]))
+            }
+        case .clang:
+            XCTFail("expected a Swift target")
+        }
+    }
 }
