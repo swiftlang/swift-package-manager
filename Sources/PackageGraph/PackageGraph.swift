@@ -40,7 +40,7 @@ enum PackageGraphError: Swift.Error {
     /// Dependency between a plugin and a dependent target/product of a given type is unsupported
     case unsupportedPluginDependency(targetName: String, dependencyName: String, dependencyType: String, dependencyPackage: String?)
     /// A product was found in multiple packages.
-    case duplicateProduct(product: String, packages: [String])
+    case duplicateProduct(product: String, packages: [Package])
 
     /// Duplicate aliases for a target found in a product.
     case multipleModuleAliases(target: String,
@@ -245,7 +245,22 @@ extension PackageGraphError: CustomStringConvertible {
             return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
 
         case .duplicateProduct(let product, let packages):
-            return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
+            let packagesDescriptions = packages.sorted(by: { $0.identity < $1.identity }).map {
+                var description = "'\($0.identity)'"
+                switch $0.manifest.packageKind {
+                case .root(let path),
+                        .fileSystem(let path),
+                        .localSourceControl(let path):
+                    description += " (at '\(path)')"
+                case .remoteSourceControl(let url):
+                    description += " (from '\(url)')"
+                case .registry:
+                    break
+                }
+                return description
+            }
+
+            return "multiple products named '\(product)' in: \(packagesDescriptions.joined(separator: ", "))"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):

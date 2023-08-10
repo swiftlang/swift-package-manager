@@ -12047,13 +12047,7 @@ final class WorkspaceTests: XCTestCase {
                     )
                 }
             }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                   realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+                XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
             }
         }
 
@@ -12174,13 +12168,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12358,13 +12346,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12517,13 +12499,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12663,13 +12639,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12830,13 +12800,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12992,13 +12956,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'BazProduct' in: 'baz' (from 'https://git/org/baz'), 'org.baz'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -13183,13 +13141,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'BazProduct' in: 'baz' (from 'https://git/org/baz'), 'org.baz'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -13329,13 +13281,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
