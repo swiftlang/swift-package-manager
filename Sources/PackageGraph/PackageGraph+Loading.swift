@@ -402,7 +402,11 @@ private func createResolvedPackages(
         }
     }
 
-    let dupProductsChecker = DuplicateProductsChecker(packageBuilders: packageBuilders)
+    let dupProductsChecker = DuplicateProductsChecker(
+        packageBuilders: packageBuilders,
+        moduleAliasingUsed: moduleAliasingUsed,
+        observabilityScope: observabilityScope
+    )
     try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
     // The set of all target names.
@@ -430,7 +434,8 @@ private func createResolvedPackages(
                 return false
             })
 
-        let lookupByProductIDs = packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed
+        let packageDoesNotSupportProductAliases = packageBuilder.package.doesNotSupportProductAliases
+        let lookupByProductIDs = !packageDoesNotSupportProductAliases && (packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed)
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
@@ -457,9 +462,11 @@ private func createResolvedPackages(
                 productDependencies.map { ($0.product.name, $0) },
                 uniquingKeysWith: { lhs, _ in
                     let duplicates = productDependencies.filter { $0.product.name == lhs.product.name }
-                    throw PackageGraphError.duplicateProduct(
-                        product: lhs.product.name,
-                        packages: duplicates.map(\.packageBuilder.package)
+                    throw emitDuplicateProductDiagnostic(
+                        productName: lhs.product.name,
+                        packages: duplicates.map(\.packageBuilder.package),
+                        moduleAliasingUsed: moduleAliasingUsed,
+                        observabilityScope: observabilityScope
                     )
                 }
             )
@@ -600,6 +607,31 @@ private func createResolvedPackages(
     return try packageBuilders.map{ try $0.construct() }
 }
 
+private func emitDuplicateProductDiagnostic(
+    productName: String,
+    packages: [Package],
+    moduleAliasingUsed: Bool,
+    observabilityScope: ObservabilityScope
+) -> PackageGraphError {
+    if moduleAliasingUsed {
+        packages.filter { $0.doesNotSupportProductAliases }.forEach {
+            // Emit an additional warning about product aliasing in case of older tools-versions.
+            observabilityScope.emit(warning: "product aliasing requires tools-version 5.2 or later, so it is not supported by '\($0.identity.description)'")
+        }
+    }
+    return PackageGraphError.duplicateProduct(
+        product: productName,
+        packages: packages
+    )
+}
+
+fileprivate extension Package {
+    var doesNotSupportProductAliases: Bool {
+        // We can never use the identity based lookup for older packages because they lack the necessary information.
+        return self.manifest.toolsVersion < .v5_2
+    }
+}
+
 fileprivate struct Pair: Hashable {
     let package1: Package
     let package2: Package
@@ -625,11 +657,16 @@ private class DuplicateProductsChecker {
     var packageIDToBuilder = [PackageIdentity: ResolvedPackageBuilder]()
     var checkedPkgIDs = [PackageIdentity]()
 
-    init(packageBuilders: [ResolvedPackageBuilder]) {
+    let moduleAliasingUsed: Bool
+    let observabilityScope: ObservabilityScope
+
+    init(packageBuilders: [ResolvedPackageBuilder], moduleAliasingUsed: Bool, observabilityScope: ObservabilityScope) {
         for packageBuilder in packageBuilders {
             let pkgID = packageBuilder.package.identity
             self.packageIDToBuilder[pkgID] = packageBuilder
         }
+        self.moduleAliasingUsed = moduleAliasingUsed
+        self.observabilityScope = observabilityScope
     }
 
     func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
@@ -657,9 +694,11 @@ private class DuplicateProductsChecker {
             }
             for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
                 let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
-                throw PackageGraphError.duplicateProduct(
-                    product: name.isEmpty ? depIDOrName : name,
-                    packages: depPkgs.compactMap{ packageIDToBuilder[$0]?.package }
+                throw emitDuplicateProductDiagnostic(
+                    productName: name.isEmpty ? depIDOrName : name,
+                    packages: depPkgs.compactMap{ packageIDToBuilder[$0]?.package },
+                    moduleAliasingUsed: self.moduleAliasingUsed,
+                    observabilityScope: self.observabilityScope
                 )
             }
         }
@@ -683,9 +722,11 @@ private class DuplicateProductsChecker {
 
         let duplicates = productToPkgMap.filter{ $0.value.count > 1 }
         for (productName, pkgs) in duplicates {
-            throw PackageGraphError.duplicateProduct(
-                product: productName,
-                packages: pkgs.compactMap{ packageIDToBuilder[$0]?.package }
+            throw emitDuplicateProductDiagnostic(
+                productName: productName,
+                packages: pkgs.compactMap{ packageIDToBuilder[$0]?.package },
+                moduleAliasingUsed: self.moduleAliasingUsed,
+                observabilityScope: self.observabilityScope
             )
         }
     }
