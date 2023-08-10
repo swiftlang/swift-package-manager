@@ -258,13 +258,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'"
-            {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '/barPkg'), 'foopkg' (at '/fooPkg')")
         }
     }
 
@@ -324,13 +318,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'"
-            {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '/barPkg'), 'foopkg' (at '/fooPkg')")
         }
     }
 

@@ -1233,12 +1233,7 @@ class PackageGraphTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Bar' in: 'bar', 'baz'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Bar' in: 'bar' (at '/Bar'), 'baz' (at '/Baz')")
         }
     }
 
