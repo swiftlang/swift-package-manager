@@ -1153,7 +1153,13 @@ public final class PackageBuilder {
             conditions.append(condition)
         }
 
-        if let platforms = condition?.platformNames.compactMap({ platformRegistry.platformByName[$0] }),
+        if let platforms = condition?.platformNames.map({
+            if let platform = platformRegistry.platformByName[$0] {
+                return platform
+            } else {
+                return PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
+            }
+        }),
            !platforms.isEmpty
         {
             let condition = PlatformsCondition(platforms: platforms)
