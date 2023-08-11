@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
-import os.log
+import os
 #endif
 
 /// Emits a signpost.
