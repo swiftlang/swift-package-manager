@@ -764,4 +764,19 @@ class ToolsVersionParserTests: XCTestCase {
         }
     }
 
+    func testVersionSpecificManifestMostCompatibleIfLower() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/foo"
+        )
+        let root = AbsolutePath("/pkg")
+
+        try fs.writeFileContents(root.appending("Package.swift"), string: "// swift-tools-version:6.0.0\n")
+        try fs.writeFileContents(root.appending("Package@swift-5.0.swift"), string: "// swift-tools-version:5.0.0\n")
+
+        let currentToolsVersion = ToolsVersion(version: "5.5.0")
+        let manifestPath = try ManifestLoader.findManifest(packagePath: root, fileSystem: fs, currentToolsVersion: currentToolsVersion)
+        let version = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs)
+        try version.validateToolsVersion(currentToolsVersion, packageIdentity: .plain("lunch"))
+        XCTAssertEqual(version.description, "5.0.0")
+    }
 }
