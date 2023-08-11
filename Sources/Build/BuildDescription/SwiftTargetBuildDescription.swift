@@ -547,7 +547,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
-        if let version = package.manifest.version, version.prereleaseIdentifiers.isEmpty, version.buildMetadataIdentifiers.isEmpty, toolsVersion >= .v5_9 {
+        if let version = package.manifest.version, version.prereleaseIdentifiers.isEmpty, version.buildMetadataIdentifiers.isEmpty, toolsVersion >= .vNext {
             args += ["-user-module-version", version.description]
         }
 
