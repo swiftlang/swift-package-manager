@@ -29,11 +29,9 @@ import var TSCBasic.stderrStream
 import struct TSCBasic.SHA256
 import func TSCBasic.topologicalSort
 import func TSCBasic.transitiveClosure
-import func TSCBasic.os_signpost
 import func TSCBasic.findCycle
 
 import enum TSCUtility.Diagnostics
-import enum TSCUtility.SignpostName
 import struct TSCUtility.Version
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
@@ -127,6 +125,21 @@ public protocol WorkspaceDelegate: AnyObject {
     // handlers for unsigned and untrusted registry based dependencies
     func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void)
     func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void)
+
+    /// The workspace has started updating dependencies
+    func willUpdateDependencies()
+    /// The workspace has finished updating dependencies
+    func didUpdateDependencies(duration: DispatchTimeInterval)
+
+    /// The workspace has started resolving dependencies
+    func willResolveDependencies()
+    /// The workspace has finished resolving dependencies
+    func didResolveDependencies(duration: DispatchTimeInterval)
+
+    /// The workspace has started loading the graph to memory
+    func willLoadGraph()
+    /// The workspace has finished loading the graph to memory
+    func didLoadGraph(duration: DispatchTimeInterval)
 }
 
 // FIXME: default implementation until the feature is stable, at which point we should remove this and force the clients to implement
@@ -1022,6 +1035,12 @@ extension Workspace {
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+        let start = DispatchTime.now()
+        self.delegate?.willUpdateDependencies()
+        defer {
+            self.delegate?.didUpdateDependencies(duration: start.distance(to: .now()))
+        }
+
         // Create cache directories.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
@@ -1125,6 +1144,12 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
+        let start = DispatchTime.now()
+        self.delegate?.willLoadGraph()
+        defer {
+            self.delegate?.didLoadGraph(duration: start.distance(to: .now()))
+        }
+
         // reload state in case it was modified externally (eg by another process) before reloading the graph
         // long running host processes (ie IDEs) need this in case other SwiftPM processes (ie CLI) made changes to the state
         // such hosts processes call loadPackageGraph to make sure the workspace state is correct
@@ -2435,6 +2460,12 @@ extension Workspace {
         resolvedFileStrategy: ResolvedFileStrategy,
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
+        let start = DispatchTime.now()
+        self.delegate?.willResolveDependencies()
+        defer {
+            self.delegate?.didResolveDependencies(duration: start.distance(to: .now()))
+        }
+
         switch resolvedFileStrategy {
         case .lockFile:
             observabilityScope.emit(info: "using '\(self.location.resolvedVersionsFile.basename)' file as lock file")
@@ -3215,9 +3246,9 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) -> [(package: PackageReference, binding: BoundVersion, products: ProductFilter)] {
 
-        os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
+        os_signpost(.begin, name: SignpostName.pubgrub)
         let result = resolver.solve(constraints: constraints)
-        os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
+        os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.
         switch result {

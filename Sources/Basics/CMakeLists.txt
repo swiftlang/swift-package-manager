@@ -48,6 +48,7 @@ add_library(Basics
   JSONDecoder+Extensions.swift
   Netrc.swift
   Observability.swift
+  OSSignpost.swift
   SQLite.swift
   Sandbox.swift
   SendableTimeInterval.swift
