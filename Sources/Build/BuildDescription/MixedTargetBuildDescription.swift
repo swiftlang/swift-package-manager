@@ -127,7 +127,6 @@ public final class MixedTargetBuildDescription {
         // distinguish between build artifacts:
         // - Product: Stores artifacts used by clients of the target.
         let tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
-        let productDirectory = tempsPath.appending(component: "Product")
 
         // Filenames for VFS overlay files.
         let allProductHeadersFilename = "all-product-headers.yaml"
@@ -147,10 +146,6 @@ public final class MixedTargetBuildDescription {
         self.publicHeaderPaths = [mixedTarget.clangTarget.includeDir]
 
         // MARK: Generate products to be used by client of the target.
-
-        // Path to the module map used by clients to access the mixed target's
-        // public API.
-        let productModuleMapPath = productDirectory.appending(component: moduleMapFilename)
 
         switch mixedTarget.clangTarget.moduleMapType {
         // When the mixed target has a custom module map, clients of the target
@@ -175,6 +170,12 @@ public final class MixedTargetBuildDescription {
                         "submodule for the module \(target.c99name)."
                 )
             }
+            
+            // If it's named 'module.modulemap', there will be a module
+            // redeclaration error as both the public headers dir. and the
+            // build dir. are passed as import paths and there will be a
+            // `module.modulemap` in each directory.
+            let productModuleMapPath = tempsPath.appending(component: "extended-custom-module.modulemap")
 
             // Extend the contents and write it to disk, if needed.
             let productModuleMap = """
@@ -193,7 +194,7 @@ public final class MixedTargetBuildDescription {
             // for the target. The below VFS overlay will redirect to the
             // contents of the modified module map.
             self.moduleMap = customModuleMapPath
-            self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
+            self.allProductHeadersOverlay = tempsPath.appending(component: allProductHeadersFilename)
 
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
@@ -214,7 +215,16 @@ public final class MixedTargetBuildDescription {
                     ]
                 ),
             ]).write(to: self.allProductHeadersOverlay, fileSystem: fileSystem)
-
+            
+            // Importing the underlying module will build the Objective-C
+            // part of the module. In order to find the underlying module,
+            // a `module.modulemap` needs to be discoverable via directory passed
+            // as a header search path.
+            self.swiftTargetBuildDescription.additionalFlags += [
+                "-import-underlying-module",
+                "-I", mixedTarget.clangTarget.includeDir.pathString
+            ]
+            
         // When the mixed target does not have a custom module map, one will be
         // generated as a product for use by clients.
         // - Note: When `.none`, the mixed target has no public headers. Even
@@ -223,15 +233,16 @@ public final class MixedTargetBuildDescription {
         //   Swift API in a Clang context.
         case .umbrellaHeader, .umbrellaDirectory, .none:
             let generatedModuleMapType = mixedTarget.clangTarget.moduleMapType.generatedModuleMapType
+            let productModuleMapPath = tempsPath.appending(component: moduleMapFilename)
             try moduleMapGenerator.generateModuleMap(
                 type: generatedModuleMapType,
                 at: productModuleMapPath,
-                interopHeaderPath: nil//interopHeaderPath
+                interopHeaderPath: interopHeaderPath
             )
 
             // Set the generated module map as the module map for the target.
             self.moduleMap = productModuleMapPath
-            self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
+            self.allProductHeadersOverlay = tempsPath.appending(component: allProductHeadersFilename)
 
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
@@ -246,25 +257,41 @@ public final class MixedTargetBuildDescription {
                     ]
                 ),
             ]).write(to: self.allProductHeadersOverlay, fileSystem: fileSystem)
+
+            let unextendedModuleMapPath = tempsPath.appending(component: unextendedModuleMapFilename)
+            try moduleMapGenerator.generateModuleMap(
+                type: generatedModuleMapType,
+                at: unextendedModuleMapPath,
+                interopHeaderPath: nil
+            )
+            let unextendedModuleMapOverlayPath = tempsPath.appending(component: unextendedModuleOverlayFilename)
+
+            try VFSOverlay(roots: [
+                VFSOverlay.Directory(
+                    name: tempsPath.pathString,
+                    contents: [
+                        // Redirect the `module.modulemap` to the *unextended*
+                        // module map in the intermediates directory.
+                        VFSOverlay.File(
+                            name: moduleMapFilename,
+                            externalContents: unextendedModuleMapPath.pathString
+                        ),
+                    ]
+                ),
+            ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
             
-            
+            // Importing the underlying module will build the Objective-C
+            // part of the module. In order to find the underlying module,
+            // a `module.modulemap` needs to be discoverable via directory passed
+            // as a header search path.
+            self.swiftTargetBuildDescription.additionalFlags += [
+                "-import-underlying-module",
+                "-I", tempsPath.pathString,
+                "-Xcc", "-ivfsoverlay", "-Xcc", unextendedModuleMapOverlayPath.pathString
+            ]
         }
 
-        // 3. Tie everything together by passing build flags.
-
-        // Importing the underlying module will build the Objective-C
-        // part of the module. In order to find the underlying module,
-        // a `module.modulemap` needs to be discoverable via directory passed
-        // as a header search path.
-        self.swiftTargetBuildDescription.additionalFlags += [
-            "-import-underlying-module",
-            "-I", tempsPath.pathString,
-        ]
-
         self.swiftTargetBuildDescription.appendClangFlags(
-            // Pass both VFS overlays to the underlying Clang compiler.
-//            "-ivfsoverlay", allProductHeadersPath.pathString,
-//            "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString,
             // Adding the root of the target's source as a header search
             // path allows for importing headers (within the mixed target's
             // headers) using paths relative to the root.

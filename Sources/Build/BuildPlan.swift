@@ -952,11 +952,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     swiftTarget.appendClangFlags("-I", $0.pathString)
                 }
 
-                // Add the dependency's public VFS overlay.
-                swiftTarget.appendClangFlags(
-                    "-ivfsoverlay", target.allProductHeadersOverlay.pathString
-                )
-
             default:
                 break
             }
