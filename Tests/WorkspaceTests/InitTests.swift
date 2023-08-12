@@ -141,7 +141,9 @@ class InitTests: XCTestCase {
                           \(testFileContents)
                           """)
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
-
+            
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo.docc")), ["Foo.md", "Resources"])
+            
             // Try building it
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
