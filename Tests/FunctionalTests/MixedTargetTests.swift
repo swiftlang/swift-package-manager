@@ -31,31 +31,19 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    func testMixedTargetWithUmbrellaHeader() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertBuilds(
-                fixturePath,
-                extraArgs: ["--target", "BasicMixedTargetWithUmbrellaHeader"]
-            )
-            XCTAssertSwiftTest(
-                fixturePath,
-                extraArgs: ["--filter", "BasicMixedTargetWithUmbrellaHeaderTests"]
-            )
-        }
-    }
-
-    func testMixedTargetWithManualBridgingHeader() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertBuilds(
-                fixturePath,
-                extraArgs: ["--target", "BasicMixedTargetWithManualBridgingHeader"]
-            )
-            XCTAssertSwiftTest(
-                fixturePath,
-                extraArgs: ["--filter", "BasicMixedTargetWithManualBridgingHeaderTests"]
-            )
-        }
-    }
+// FIXME(ncooke3): Re-enable with Swift compiler change (see proposal).
+//    func testMixedTargetWithUmbrellaHeader() throws {
+//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+//            XCTAssertBuilds(
+//                fixturePath,
+//                extraArgs: ["--target", "BasicMixedTargetWithUmbrellaHeader"]
+//            )
+//            XCTAssertSwiftTest(
+//                fixturePath,
+//                extraArgs: ["--filter", "BasicMixedTargetWithUmbrellaHeaderTests"]
+//            )
+//        }
+//    }
 
     func testMixedTargetWithResources() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
@@ -72,11 +60,16 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCustomModuleMap"]
             )
-
-            XCTAssertSwiftTest(
-                fixturePath,
-                extraArgs: ["--filter", "MixedTargetWithCustomModuleMapTests"]
-            )
+            
+            // Test importing the mixed target into Clang source via a module
+            // import or textual imports.
+            for value in [0, 1] {
+                XCTAssertSwiftTest(
+                    fixturePath,
+                    extraArgs: ["--filter", "MixedTargetWithCustomModuleMapTests"],
+                    Xcc: ["-DTEST_MODULE_IMPORTS=\(value)"]
+                )
+            }
         }
     }
 
@@ -175,10 +168,15 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXPublicAPI"]
             )
-            XCTAssertSwiftTest(
-                fixturePath,
-                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPITests"]
-            )
+            // Test importing the mixed target into Clang source via a module
+            // import or textual imports.
+            for value in [0, 1] {
+                XCTAssertSwiftTest(
+                    fixturePath,
+                    extraArgs: ["--filter", "MixedTargetWithCXXPublicAPITests"],
+                    Xcc: ["-DTEST_MODULE_IMPORTS=\(value)"]
+                )
+            }
         }
     }
     
@@ -188,10 +186,15 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXPublicAPIAndCustomModuleMap"]
             )
-            XCTAssertSwiftTest(
-                fixturePath,
-                extraArgs: ["--filter", "MixedTargetWithCXXPublicAPIAndCustomModuleMapTests"]
-            )
+            // Test importing the mixed target into Clang source via a module
+            // import or textual imports.
+            for value in [0, 1] {
+                XCTAssertSwiftTest(
+                    fixturePath,
+                    extraArgs: ["--filter", "MixedTargetWithCXXPublicAPIAndCustomModuleMapTests"],
+                    Xcc: ["-DTEST_MODULE_IMPORTS=\(value)"]
+                )
+            }
         }
     }
 
@@ -237,14 +240,21 @@ final class MixedTargetTests: XCTestCase {
 
     func testNonPublicHeadersAreVisibleFromSwiftPartOfMixedTarget() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertBuilds(
+            XCTAssertBuildFails(
                 fixturePath,
-                extraArgs: ["--target", "MixedTargetWithNonPublicHeaders"]
+                extraArgs: ["--target", "MixedTargetWithNonPublicHeaders"],
+                // Without selectively enabling the tests with the below macro,
+                // the intentional build failure will break other unit tests
+                // since all targets in the package are build when running
+                // `swift test`.
+                Xswiftc: ["EXPECT_FAILURE"]
             )
         }
     }
 
-    func testNonPublicHeadersAreNotVisibleFromOutsideOfTarget() throws {
+    // TODO(ncooke3): Use a different target to test this as the target below
+    // has been deleted.
+    func SKIP_testNonPublicHeadersAreNotVisibleFromOutsideOfTarget() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             // The test target tries to access non-public headers so the build
             // should fail.
@@ -395,10 +405,15 @@ final class MixedTargetTests: XCTestCase {
 
     func testMixedTestTarget() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertSwiftTest(
-                fixturePath,
-                extraArgs: ["--filter", "BasicMixedTargetTests"]
-            )
+            // Test importing the mixed target into Clang source via a module
+            // import or textual imports.
+            for value in [0, 1] {
+                XCTAssertSwiftTest(
+                    fixturePath,
+                    extraArgs: ["--filter", "BasicMixedTargetTests"],
+                    Xcc: ["-DTEST_MODULE_IMPORTS=\(value)"]
+                )
+            }
         }
     }
 

@@ -1,11 +1,19 @@
 #import <XCTest/XCTest.h>
 
+#if TEST_MODULE_IMPORTS
 @import MixedTargetWithCustomModuleMap;
+#else
+#import "Machine.h"
+#import "MixedTarget.h"
+#import "Driver.h"
+#import "OldCar.h"
+#import "MixedTargetWithCustomModuleMap-Swift.h"
+#endif // TEST_MODULE_IMPORTS
 
-@interface ObjcMixedTargetWithCustomModuleMapTestsViaModuleImport : XCTestCase
+@interface ObjcMixedTargetWithCustomModuleMapTests : XCTestCase
 @end
 
-@implementation ObjcMixedTargetWithCustomModuleMapTestsViaModuleImport
+@implementation ObjcMixedTargetWithCustomModuleMapTests
 
 - (void)testPublicSwiftAPI {
     // Check that Objective-C compatible Swift API surface is exposed...

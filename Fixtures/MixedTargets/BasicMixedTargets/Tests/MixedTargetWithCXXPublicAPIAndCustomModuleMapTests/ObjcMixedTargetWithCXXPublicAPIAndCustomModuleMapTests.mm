@@ -1,11 +1,17 @@
 #import <XCTest/XCTest.h>
 
+#if TEST_MODULE_IMPORTS
 @import MixedTargetWithCXXPublicAPIAndCustomModuleMap;
+#else
+#import "XYZCxxSumFinder.hpp"
+#import "XYZObjcCalculator.h"
+#import "MixedTargetWithCXXPublicAPIAndCustomModuleMap-Swift.h"
+#endif // TEST_MODULE_IMPORTS
 
-@interface ObjcMixedTargetWithCXXPublicAPIAndCustomModuleMapTestsViaModuleImport : XCTestCase
+@interface ObjcMixedTargetWithCXXPublicAPIAndCustomModuleMapTests : XCTestCase
 @end
 
-@implementation ObjcMixedTargetWithCXXPublicAPIAndCustomModuleMapTestsViaModuleImport
+@implementation ObjcMixedTargetWithCXXPublicAPIAndCustomModuleMapTests
 
 - (void)testPublicObjcAPI {
     XCTAssertEqual([XYZObjcCalculator factorialForInt:5], 120);

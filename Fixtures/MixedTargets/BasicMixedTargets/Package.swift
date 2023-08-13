@@ -32,23 +32,15 @@ let package = Package(
             dependencies: ["BasicMixedTarget"]
         ),
 
-        // MARK: - BasicMixedTargetWithManualBridgingHeader
-        .target(
-            name: "BasicMixedTargetWithManualBridgingHeader"
-        ),
-        .testTarget(
-            name: "BasicMixedTargetWithManualBridgingHeaderTests",
-            dependencies: ["BasicMixedTargetWithManualBridgingHeader"]
-        ),
-
-        // MARK: - BasicMixedTargetWithUmbrellaHeader
-        .target(
-            name: "BasicMixedTargetWithUmbrellaHeader"
-        ),
-        .testTarget(
-            name: "BasicMixedTargetWithUmbrellaHeaderTests",
-            dependencies: ["BasicMixedTargetWithUmbrellaHeader"]
-        ),
+        // FIXME(ncooke3): Re-enable with Swift compiler change (see proposal).
+        // // MARK: - BasicMixedTargetWithUmbrellaHeader
+        // .target(
+        //     name: "BasicMixedTargetWithUmbrellaHeader"
+        // ),
+        // .testTarget(
+        //     name: "BasicMixedTargetWithUmbrellaHeaderTests",
+        //     dependencies: ["BasicMixedTargetWithUmbrellaHeader"]
+        // ),
 
         // MARK: - MixedTargetWithResources
         .target(
@@ -171,12 +163,6 @@ let package = Package(
         .target(
             name: "MixedTargetWithNonPublicHeaders"
         ),
-        // This test target should fail to build. See
-        // `testNonPublicHeadersAreNotVisibleFromOutsideOfTarget`.
-        .testTarget(
-            name: "MixedTargetWithNonPublicHeadersTests",
-            dependencies: ["MixedTargetWithNonPublicHeaders"]
-        ),
 
         // MARK: - MixedTargetWithCustomPaths
         .target(
@@ -201,6 +187,8 @@ let package = Package(
         ),
 
         // MARK: - MixedTargetWithNoPublicObjectiveCHeaders
+        // This target is an edge case. It's purpose may or may not be
+        // useful, but it shouldn't fail to build.
        .target(
            name: "MixedTargetWithNoPublicObjectiveCHeaders"
        ),

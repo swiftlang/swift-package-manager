@@ -1,9 +1,14 @@
 #import <Foundation/Foundation.h>
 
-#import "XYZOldCar.h"
+#import "OnLoadHook.h"
 
 // Import the Swift part of the module.
 #import "MixedTargetWithNoPublicObjectiveCHeaders-Swift.h"
 
-@implementation XYZOldCar
+@implementation OnLoadHook
+
++ (void)load {
+  [[[Bar alloc] init] doStuff];
+}
+
 @end
