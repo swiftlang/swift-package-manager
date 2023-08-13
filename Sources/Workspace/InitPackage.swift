@@ -596,7 +596,7 @@ public final class InitPackage {
           try writeMacroClientSources(sources.appending("\(pkgname)Client"))
         }
         if packageType == .library {
-            try writeLibraryDocumentation(sources)
+            try writeLibraryDocumentation(moduleDir)
         }
     }
 

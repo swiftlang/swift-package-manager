@@ -129,7 +129,7 @@ class InitTests: XCTestCase {
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift", "Foo.docc"])
 
             let tests = path.appending("Tests")
             XCTAssertEqual(try fs.getDirectoryContents(tests).sorted(), ["FooTests"])
@@ -142,7 +142,7 @@ class InitTests: XCTestCase {
                           """)
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
             
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo.docc")), ["Foo.md", "Resources"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo").appending("Foo.docc")), ["Foo.md", "Resources"])
             
             // Try building it
             XCTAssertBuilds(path)
