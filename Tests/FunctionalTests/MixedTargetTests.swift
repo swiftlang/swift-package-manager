@@ -61,8 +61,6 @@ final class MixedTargetTests: XCTestCase {
                 extraArgs: ["--target", "MixedTargetWithCustomModuleMap"]
             )
             
-            // Test importing the mixed target into Clang source via a module
-            // import or textual imports.
             for value in [0, 1] {
                 XCTAssertSwiftTest(
                     fixturePath,
@@ -168,8 +166,6 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXPublicAPI"]
             )
-            // Test importing the mixed target into Clang source via a module
-            // import or textual imports.
             for value in [0, 1] {
                 XCTAssertSwiftTest(
                     fixturePath,
@@ -186,8 +182,6 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXPublicAPIAndCustomModuleMap"]
             )
-            // Test importing the mixed target into Clang source via a module
-            // import or textual imports.
             for value in [0, 1] {
                 XCTAssertSwiftTest(
                     fixturePath,
@@ -405,8 +399,6 @@ final class MixedTargetTests: XCTestCase {
 
     func testMixedTestTarget() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            // Test importing the mixed target into Clang source via a module
-            // import or textual imports.
             for value in [0, 1] {
                 XCTAssertSwiftTest(
                     fixturePath,
@@ -439,10 +431,13 @@ final class MixedTargetTests: XCTestCase {
 
     func testClangTargetDependsOnMixedTarget() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertBuilds(
-                fixturePath,
-                extraArgs: ["--target", "ClangTargetDependsOnMixedTarget"]
-            )
+            for value in [0, 1] {
+                XCTAssertBuilds(
+                    fixturePath,
+                    extraArgs: ["--target", "ClangTargetDependsOnMixedTarget"],
+                    Xcc: ["-DTEST_MODULE_IMPORTS=\(value)"]
+                )
+            }
         }
     }
 
@@ -457,10 +452,13 @@ final class MixedTargetTests: XCTestCase {
 
      func testMixedTargetDependsOnOtherMixedTarget() throws {
          try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-             XCTAssertBuilds(
-                 fixturePath,
-                 extraArgs: ["--target", "MixedTargetDependsOnMixedTarget"]
-             )
+             for value in [0, 1] {
+                 XCTAssertBuilds(
+                    fixturePath,
+                    extraArgs: ["--target", "MixedTargetDependsOnMixedTarget"],
+                    Xcc: ["-DTEST_MODULE_IMPORTS=\(value)"]
+                 )
+             }
          }
      }
 
