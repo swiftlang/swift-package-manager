@@ -77,8 +77,6 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testImportOfMissedDepWarning() throws {
-        try XCTSkipIf(true, "tested functionality doesn't work due to 'libSwiftScan dependency scan query failed' (rdar://108512158)")
-
         // Verify the warning flow
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = try resolveSymlinks(path)
