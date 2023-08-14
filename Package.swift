@@ -196,7 +196,10 @@ let package = Package(
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
-            dependencies: ["Basics"],
+            dependencies: [
+                "Basics",
+                .product(name: "llbuild", package: "swift-llbuild"),
+            ],
             exclude: ["CMakeLists.txt"]
         ),
 
