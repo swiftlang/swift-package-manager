@@ -909,6 +909,30 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
+    public func willUpdateDependencies() {
+        // noop
+    }
+
+    public func didUpdateDependencies(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willResolveDependencies() {
+        // noop
+    }
+
+    public func didResolveDependencies(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willLoadGraph() {
+        // noop
+    }
+
+    public func didLoadGraph(duration: DispatchTimeInterval) {
+        // noop
+    }
+
     private func append(_ event: String) {
         self.lock.withLock {
             self._events.append(event)
