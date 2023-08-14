@@ -136,14 +136,19 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
     }
 
     private func machine(for url: URL) -> Basics.Netrc.Machine? {
+        // Since updates are appended to the end of the file, we
+        // take the _last_ match to use the most recent entry.
         if let machine = Self.machine(for: url),
-           let existing = self.machines.first(where: { $0.name.lowercased() == machine })
+           let existing = self.machines.last(where: { $0.name.lowercased() == machine })
         {
             return existing
         }
+
+        // No match found. Use the first default if any.
         if let existing = self.machines.first(where: { $0.isDefault }) {
             return existing
         }
+
         return .none
     }
 
