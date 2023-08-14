@@ -126,14 +126,6 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testCache() throws {
-        if #available(macOS 11, *) {
-            // No need to skip the test.
-        }
-        else {
-            // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
-            try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
-        }
-
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
