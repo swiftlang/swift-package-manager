@@ -664,6 +664,54 @@ public final class SwiftTool {
         return buildSystem
     }
 
+    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+        let destinationTriple = toolchain.triple
+
+        let dataPath = self.scratchDirectory.appending(
+            component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+        )
+
+        return try BuildParameters(
+            dataPath: dataPath,
+            configuration: options.build.configuration,
+            toolchain: toolchain,
+            destinationTriple: destinationTriple,
+            flags: options.build.buildFlags,
+            pkgConfigDirectories: options.locations.pkgConfigDirectories,
+            architectures: options.build.architectures,
+            workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
+            canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                flags: ["entry-point-function-name"],
+                toolchain: toolchain,
+                fileSystem: self.fileSystem
+            ),
+            sanitizers: options.build.enabledSanitizers,
+            enableCodeCoverage: false, // set by test commands when appropriate
+            indexStoreMode: options.build.indexStoreMode.buildParameter,
+            enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
+            useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
+            useExplicitModuleBuild: options.build.useExplicitModuleBuild,
+            isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+            testEntryPointPath: options.build.testEntryPointPath,
+            explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
+            linkerDeadStrip: options.linker.linkerDeadStrip,
+            verboseOutput: self.logLevel <= .info
+        )
+    }
+
+    /// Return the build parameters for the host toolchain.
+    public func hostBuildParameters() throws -> BuildParameters {
+        return try _hostBuildParameters.get()
+    }
+
+    private lazy var _hostBuildParameters: Result<BuildParameters, Swift.Error> = {
+        return Result(catching: {
+            try _buildParams(toolchain: self.getHostToolchain())
+        })
+    }()
+
     /// Return the build parameters.
     public func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
@@ -671,43 +719,7 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let destinationToolchain = try self.getDestinationToolchain()
-            let destinationTriple = destinationToolchain.triple
-
-            // Use "apple" as the subdirectory because in theory Xcode build system
-            // can be used to build for any Apple platform and it has it's own
-            // conventions for build subpaths based on platforms.
-            let dataPath = self.scratchDirectory.appending(
-                component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
-            )
-
-            return try BuildParameters(
-                dataPath: dataPath,
-                configuration: options.build.configuration,
-                toolchain: destinationToolchain,
-                destinationTriple: destinationTriple,
-                flags: options.build.buildFlags,
-                pkgConfigDirectories: options.locations.pkgConfigDirectories,
-                architectures: options.build.architectures,
-                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], toolchain: destinationToolchain, fileSystem: self.fileSystem
-                ),
-                sanitizers: options.build.enabledSanitizers,
-                enableCodeCoverage: false, // set by test commands when appropriate
-                indexStoreMode: options.build.indexStoreMode.buildParameter,
-                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
-                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                testEntryPointPath: options.build.testEntryPointPath,
-                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
-                linkerDeadStrip: options.linker.linkerDeadStrip,
-                verboseOutput: self.logLevel <= .info
-            )
+            try _buildParams(toolchain: self.getDestinationToolchain())
         })
     }()
 
