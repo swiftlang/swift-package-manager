@@ -205,45 +205,33 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func willUpdateDependencies() {
-        #if DEBUG
+        self.observabilityScope.emit(debug: "Updating dependencies")
         os_signpost(.begin, name: SignpostName.updatingDependencies)
-        self.outputHandler("Updating dependencies", false)
-        #endif
     }
 
     public func didUpdateDependencies(duration: DispatchTimeInterval) {
-        #if DEBUG
+        self.observabilityScope.emit(debug: "Dependencies updated (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.updatingDependencies)
-        self.outputHandler("Dependencies updated (\(duration.descriptionInSeconds))", false)
-        #endif
     }
 
     public func willResolveDependencies() {
-        #if DEBUG
+        self.observabilityScope.emit(debug: "Resolving dependencies")
         os_signpost(.begin, name: SignpostName.resolvingDependencies)
-        self.outputHandler("Resolving dependencies", false)
-        #endif
     }
 
     public func didResolveDependencies(duration: DispatchTimeInterval) {
-        #if DEBUG
+        self.observabilityScope.emit(debug: "Dependencies resolved (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.resolvingDependencies)
-        self.outputHandler("Dependencies resolved (\(duration.descriptionInSeconds))", false)
-        #endif
     }
 
     func willLoadGraph() {
-        #if DEBUG
+        self.observabilityScope.emit(debug: "Loading and validating graph")
         os_signpost(.begin, name: SignpostName.loadingGraph)
-        self.outputHandler("Loading and validating graph", false)
-        #endif
     }
 
     func didLoadGraph(duration: DispatchTimeInterval) {
-        #if DEBUG
+        self.observabilityScope.emit(debug: "Graph loaded (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.loadingGraph)
-        self.outputHandler("Graph loaded (\(duration.descriptionInSeconds))", false)
-        #endif
     }
 
     // noop
