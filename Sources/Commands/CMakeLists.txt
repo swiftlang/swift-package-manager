@@ -50,6 +50,7 @@ target_link_libraries(Commands PUBLIC
   Basics
   Build
   CoreCommands
+  LLBuildManifest
   PackageGraph
   SourceControl
   TSCBasic
