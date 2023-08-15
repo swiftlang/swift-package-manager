@@ -55,14 +55,14 @@ final class AuthorizationProviderTests: XCTestCase {
             })
 
             // .netrc file now contains two entries for `url`: one with `password` and the other with `newPassword`.
-            // `NetrcAuthorizationProvider` returns the first entry it finds.
-            self.assertAuthentication(provider, for: url, expected: (user, password))
+            // `NetrcAuthorizationProvider` returns the last entry it finds.
+            self.assertAuthentication(provider, for: url, expected: (user, newPassword))
 
-            // Make sure the new entry is saved
+            // Make sure the previous entry is still there
             XCTAssertNotNil(
-                provider.machines
-                    .first(where: { $0.name == url.host!.lowercased() && $0.login == user && $0.password == newPassword
-                    })
+                provider.machines.first(where: {
+                    $0.name == url.host!.lowercased() && $0.login == user && $0.password == password
+                })
             )
 
             self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
