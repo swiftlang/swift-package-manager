@@ -158,7 +158,8 @@ extension SwiftPackageRegistryTool {
                 throw ValidationError.unknownCredentialStore
             }
 
-            let configuration = try getRegistriesConfig(swiftTool)
+            // Auth config is in user-level registries config only
+            let configuration = try getRegistriesConfig(swiftTool, global: true)
 
             // compute and validate registry URL
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
@@ -338,7 +339,8 @@ extension SwiftPackageRegistryTool {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
-            let configuration = try getRegistriesConfig(swiftTool)
+            // Auth config is in user-level registries config only
+            let configuration = try getRegistriesConfig(swiftTool, global: true)
 
             // compute and validate registry URL
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {

@@ -75,7 +75,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
 
-            let configuration = try getRegistriesConfig(swiftTool)
+            let configuration = try getRegistriesConfig(swiftTool, global: self.global)
             if self.global {
                 try configuration.updateShared(with: set)
             } else {
@@ -115,7 +115,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
 
-            let configuration = try getRegistriesConfig(swiftTool)
+            let configuration = try getRegistriesConfig(swiftTool, global: self.global)
             if self.global {
                 try configuration.updateShared(with: unset)
             } else {
@@ -139,13 +139,24 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         case credentialLengthLimitExceeded(Int)
     }
 
-    static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
-        let workspace = try swiftTool.getActiveWorkspace()
-        return try .init(
-            fileSystem: swiftTool.fileSystem,
-            localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
-            sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
-        )
+    static func getRegistriesConfig(_ swiftTool: SwiftTool, global: Bool) throws -> Workspace.Configuration.Registries {
+        if global {
+            // Workspace not needed when working with user-level registries config
+            return try .init(
+                fileSystem: swiftTool.fileSystem,
+                localRegistriesFile: .none,
+                sharedRegistriesFile: swiftTool.sharedConfigurationDirectory.map {
+                    Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
+                }
+            )
+        } else {
+            let workspace = try swiftTool.getActiveWorkspace()
+            return try .init(
+                fileSystem: swiftTool.fileSystem,
+                localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
+                sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
+            )
+        }
     }
 }
 
