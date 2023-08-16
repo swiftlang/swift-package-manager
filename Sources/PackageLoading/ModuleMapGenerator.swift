@@ -128,6 +128,8 @@ public struct ModuleMapGenerator {
 
         // Filter out headers and directories at the top level of the public-headers directory.
         // FIXME: What about .hh files, or .hpp, etc?  We should centralize the detection of file types based on names (and ideally share with SwiftDriver).
+        // TODO(ncooke3): Per above FIXME and last line in function, public header
+        // directories with only C++ headers will default to umbrella directory.
         let headers = entries.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
         let directories = entries.filter({ fileSystem.isDirectory($0) })
 
