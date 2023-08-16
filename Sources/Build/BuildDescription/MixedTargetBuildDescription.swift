@@ -151,11 +151,11 @@ public final class MixedTargetBuildDescription {
         // When the mixed target has a custom module map, clients of the target
         // will be passed a module map *and* VFS overlay at buildtime to access
         // the mixed target's public API. The following is therefore needed:
-        // - Create a copy of the custom module map, adding a submodule to
-        //   expose the target's generated interop header. This allows clients
-        //   of the target to consume the mixed target's public Objective-C
-        //   compatible Swift API in a Clang context.
-        // - Create a VFS overlay to swap in the modified module map for the
+        // - Create a copy of the custom module map, and extend its contents by
+        //   adding a submodule that modularizes the target's generated interop
+        //   header. This allows clients of the target to consume the mixed
+        //   target's public Obj-C compatible Swift API in a Clang context.
+        // - Create a VFS overlay to swap in the extended module map for the
         //   original custom module map. This is done so relative paths in the
         //   modified module map can be resolved as they would have been in the
         //   original module map.
@@ -181,7 +181,7 @@ public final class MixedTargetBuildDescription {
             let productModuleMap = """
             \(customModuleMapContents)
             module \(target.c99name).Swift {
-                header "\(interopHeaderPath)"
+                header "\(interopHeaderPath.basename)"
             }
             """
             try fileSystem.writeFileContentsIfNeeded(
@@ -190,8 +190,9 @@ public final class MixedTargetBuildDescription {
             )
 
             // Set the original custom module map path as the module map path
-            // for the target. The below VFS overlay will redirect to the
-            // contents of the modified module map.
+            // for the target. With the below VFS overlay, evaluating the
+            // custom module map path will redirect to the extended module map
+            // path.
             self.moduleMap = customModuleMapPath
             self.allProductHeadersOverlay = tempsPath.appending(component: allProductHeadersFilename)
 

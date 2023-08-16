@@ -705,6 +705,7 @@ public final class SwiftTargetBuildDescription {
     private func generateModuleMap() throws -> AbsolutePath {
         let path = self.tempsPath.appending(component: moduleMapFilename)
 
+        // TODO(ncooke3): Is the `requires objc` an issue for C++ interop?
         let bytes = ByteString(
             #"""
             module \#(self.target.c99name) {

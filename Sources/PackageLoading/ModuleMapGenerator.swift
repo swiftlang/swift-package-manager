@@ -206,7 +206,7 @@ public struct ModuleMapGenerator {
             moduleMap.append(
                 """
                 module \(moduleName).Swift {
-                    header \"\(interopHeaderPath.moduleEscapedPathString)\"
+                    header \"\(interopHeaderPath.basename)\"
                 }
 
                 """
