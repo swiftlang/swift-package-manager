@@ -69,9 +69,6 @@ extension ClangTarget: ModuleMapProtocol {
 /// These rules are documented at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the target.
 ///
 /// Note that a module map generator doesn't require a target to already have been instantiated; it can operate on information that will later be used to instantiate a target.
-///
-/// For Mixed language targets, the module map generator will generate a module map that includes a
-/// module declaration for the Mixed target's C-language API and a submodule declaration for the Swift API.
 public struct ModuleMapGenerator {
 
     /// The name of the Clang target (for diagnostics).
