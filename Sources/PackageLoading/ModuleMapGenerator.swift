@@ -184,8 +184,7 @@ public struct ModuleMapGenerator {
     /// Generates a module map based of the specified type, throwing an error if anything goes wrong. Any diagnostics are added to the receiver's diagnostics engine.
     public func generateModuleMap(
         type: GeneratedModuleMapType?,
-        at path: AbsolutePath,
-        interopHeaderPath: AbsolutePath? = nil
+        at path: AbsolutePath
     ) throws {
         var moduleMap = "module \(moduleName) {\n"
         if let type = type {
