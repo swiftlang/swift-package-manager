@@ -160,41 +160,23 @@ public final class MixedTargetBuildDescription {
         //   modified module map can be resolved as they would have been in the
         //   original module map.
         case .custom(let customModuleMapPath):
-            let customModuleMapContents: String =
-                try fileSystem.readFileContents(customModuleMapPath)
-
-            // Check that custom module map does not contain a Swift submodule.
-            if customModuleMapContents.contains("\(target.c99name).Swift") {
-                throw StringError(
-                    "The target's module map may not contain a Swift " +
-                        "submodule for the module \(target.c99name)."
-                )
-            }
-            
-            // If it's named 'module.modulemap', there will be a module
-            // redeclaration error as both the public headers dir. and the
-            // build dir. are passed as import paths and there will be a
-            // `module.modulemap` in each directory.
-            let productModuleMapPath = tempsPath.appending(component: "extended-custom-module.modulemap")
-
-            // Extend the contents and write it to disk, if needed.
-            let productModuleMap = """
-            \(customModuleMapContents)
-            module \(target.c99name).Swift {
-                header "\(interopHeaderPath.basename)"
-            }
-            """
-            try fileSystem.writeFileContentsIfNeeded(
-                productModuleMapPath,
-                string: productModuleMap
-            )
-
             // Set the original custom module map path as the module map path
             // for the target. With the below VFS overlay, evaluating the
             // custom module map path will redirect to the extended module map
             // path.
             self.moduleMap = customModuleMapPath
             self.allProductHeadersOverlay = tempsPath.appending(component: allProductHeadersFilename)
+
+            // If it's named 'module.modulemap', there will be a module
+            // redeclaration error as both the public headers dir. and the
+            // build dir. are passed as import paths and there will be a
+            // `module.modulemap` in each directory.
+            let extendedCustomModuleMapPath = tempsPath.appending(component: "extended-custom-module.modulemap")
+            try generateExtendedModuleMap(
+                from: customModuleMapPath,
+                at: extendedCustomModuleMapPath,
+                fileSystem: fileSystem
+            )
 
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
@@ -204,7 +186,7 @@ public final class MixedTargetBuildDescription {
                         // modified module map in the product directory.
                         VFSOverlay.File(
                             name: moduleMapFilename,
-                            externalContents: productModuleMapPath.pathString
+                            externalContents: extendedCustomModuleMapPath.pathString
                         ),
                         // Add a generated Swift header that redirects to the
                         // generated header in the build directory's root.
@@ -224,7 +206,7 @@ public final class MixedTargetBuildDescription {
                 "-import-underlying-module",
                 "-I", mixedTarget.clangTarget.includeDir.pathString
             ]
-            
+
         // When the mixed target does not have a custom module map, one will be
         // generated as a product for use by clients.
         // - Note: When `.none`, the mixed target has no public headers. Even
@@ -233,16 +215,38 @@ public final class MixedTargetBuildDescription {
         //   Swift API in a Clang context.
         case .umbrellaHeader, .umbrellaDirectory, .none:
             let generatedModuleMapType = mixedTarget.clangTarget.moduleMapType.generatedModuleMapType
-            let productModuleMapPath = tempsPath.appending(component: moduleMapFilename)
+            let unextendedModuleMapPath = tempsPath.appending(component: unextendedModuleMapFilename)
             try moduleMapGenerator.generateModuleMap(
                 type: generatedModuleMapType,
-                at: productModuleMapPath,
-                interopHeaderPath: interopHeaderPath
+                at: unextendedModuleMapPath
             )
 
+            let unextendedModuleMapOverlayPath = tempsPath.appending(component: unextendedModuleOverlayFilename)
+            try VFSOverlay(roots: [
+                VFSOverlay.Directory(
+                    name: tempsPath.pathString,
+                    contents: [
+                        // Redirect the `module.modulemap` to the *unextended*
+                        // module map in the intermediates directory.
+                        VFSOverlay.File(
+                            name: moduleMapFilename,
+                            externalContents: unextendedModuleMapPath.pathString
+                        ),
+                    ]
+                ),
+            ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
+
+            let extendedModuleMapPath = tempsPath.appending(component: moduleMapFilename)
+
             // Set the generated module map as the module map for the target.
-            self.moduleMap = productModuleMapPath
+            self.moduleMap = extendedModuleMapPath
             self.allProductHeadersOverlay = tempsPath.appending(component: allProductHeadersFilename)
+            
+            try generateExtendedModuleMap(
+                from: unextendedModuleMapPath,
+                at: extendedModuleMapPath,
+                fileSystem: fileSystem
+            )
 
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
@@ -258,28 +262,6 @@ public final class MixedTargetBuildDescription {
                 ),
             ]).write(to: self.allProductHeadersOverlay, fileSystem: fileSystem)
 
-            let unextendedModuleMapPath = tempsPath.appending(component: unextendedModuleMapFilename)
-            try moduleMapGenerator.generateModuleMap(
-                type: generatedModuleMapType,
-                at: unextendedModuleMapPath,
-                interopHeaderPath: nil
-            )
-            let unextendedModuleMapOverlayPath = tempsPath.appending(component: unextendedModuleOverlayFilename)
-
-            try VFSOverlay(roots: [
-                VFSOverlay.Directory(
-                    name: tempsPath.pathString,
-                    contents: [
-                        // Redirect the `module.modulemap` to the *unextended*
-                        // module map in the intermediates directory.
-                        VFSOverlay.File(
-                            name: moduleMapFilename,
-                            externalContents: unextendedModuleMapPath.pathString
-                        ),
-                    ]
-                ),
-            ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
-            
             // Importing the underlying module will build the Objective-C
             // part of the module. In order to find the underlying module,
             // a `module.modulemap` needs to be discoverable via directory passed
@@ -312,5 +294,36 @@ public final class MixedTargetBuildDescription {
             // Include overlay file to add interop header to overlay directory.
             "-I", interopHeaderPath.parentDirectory.pathString
         ]
+    }
+
+    /// Extends the contents of the given module map to contain the target's generated Swift header
+    /// modularized in a submodule. This "extended" module map is written at the given `path`.
+    private func generateExtendedModuleMap(
+        from unextendedModuleMapPath: AbsolutePath,
+        at path: AbsolutePath,
+        fileSystem: FileSystem
+    ) throws {
+        let unextendedModuleMapContents: String =
+            try fileSystem.readFileContents(unextendedModuleMapPath)
+
+        // Check that custom module map does not contain a Swift submodule.
+        if unextendedModuleMapContents.contains("\(target.c99name).Swift") {
+            throw StringError(
+                "The target's module map may not contain a Swift " +
+                    "submodule for the module \(target.c99name)."
+            )
+        }
+
+        // Extend the contents and write it to disk, if needed.
+        let productModuleMap = """
+        \(unextendedModuleMapContents)
+        module \(target.c99name).Swift {
+            header "\(target.c99name)-Swift.h"
+        }
+        """
+        try fileSystem.writeFileContentsIfNeeded(
+            path,
+            string: productModuleMap
+        )
     }
 }

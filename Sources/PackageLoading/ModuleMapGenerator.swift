@@ -204,17 +204,6 @@ public struct ModuleMapGenerator {
             """
         )
 
-        if let interopHeaderPath = interopHeaderPath {
-            moduleMap.append(
-                """
-                module \(moduleName).Swift {
-                    header \"\(interopHeaderPath.basename)\"
-                }
-
-                """
-            )
-        }
-
         // If the file exists with the identical contents, we don't need to rewrite it.
         // Otherwise, compiler will recompile even if nothing else has changed.
         try fileSystem.writeFileContentsIfNeeded(path, string: moduleMap)

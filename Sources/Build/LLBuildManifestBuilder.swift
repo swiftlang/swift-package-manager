@@ -845,6 +845,7 @@ extension LLBuildManifestBuilder {
         // the Swift part of the mixed target generates. This header acts as an
         // input to the Clang compile command, which therefore forces the
         // Swift part of the mixed target to be built first.
+        // TODO(ncooke3): I think this can be passed in via a param.
         if target.isWithinMixedTarget {
             inputs += [
                 .file(target.tempsPath.appending(component: "\(target.target.c99name)-Swift.h"))
