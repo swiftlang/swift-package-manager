@@ -182,7 +182,6 @@ public final class MixedTargetBuildDescription {
             \(customModuleMapContents)
             module \(target.c99name).Swift {
                 header "\(interopHeaderPath)"
-                requires objc
             }
             """
             try fileSystem.writeFileContentsIfNeeded(
