@@ -48,7 +48,9 @@ public final class MixedTargetBuildDescription {
     let allProductHeadersOverlay: AbsolutePath
 
     /// The paths to the targets's public headers.
-    let publicHeaderPaths: [AbsolutePath]
+    var publicHeadersDir: AbsolutePath {
+        clangTargetBuildDescription.clangTarget.includeDir
+    }
 
     /// The modulemap file for this target.
     let moduleMap: AbsolutePath
@@ -140,10 +142,6 @@ public final class MixedTargetBuildDescription {
             publicHeadersDir: mixedTarget.clangTarget.includeDir,
             fileSystem: fileSystem
         )
-
-        // Clients will later depend on the public header directory, and, if an
-        // umbrella header was created, the header's root directory.
-        self.publicHeaderPaths = [mixedTarget.clangTarget.includeDir]
 
         // MARK: Generate products to be used by client of the target.
 
@@ -241,7 +239,7 @@ public final class MixedTargetBuildDescription {
             // Set the generated module map as the module map for the target.
             self.moduleMap = extendedModuleMapPath
             self.allProductHeadersOverlay = tempsPath.appending(component: allProductHeadersFilename)
-            
+
             try generateExtendedModuleMap(
                 from: unextendedModuleMapPath,
                 at: extendedModuleMapPath,

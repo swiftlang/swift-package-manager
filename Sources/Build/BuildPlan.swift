@@ -878,9 +878,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     )
 
                     // Add the dependency's public headers.
-                    dependencyTargetDescription.publicHeaderPaths.forEach {
-                        clangTarget.additionalFlags += [ "-I", $0.pathString ]
-                    }
+                    clangTarget.additionalFlags += [ "-I", dependencyTargetDescription.publicHeadersDir.pathString ]
 
                     // Add the dependency's public VFS overlay.
                     clangTarget.additionalFlags += [
@@ -948,9 +946,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 )
 
                 // Add the dependency's public headers.
-                target.publicHeaderPaths.forEach {
-                    swiftTarget.appendClangFlags("-I", $0.pathString)
-                }
+                swiftTarget.appendClangFlags("-I", target.publicHeadersDir.pathString)
 
             default:
                 break
