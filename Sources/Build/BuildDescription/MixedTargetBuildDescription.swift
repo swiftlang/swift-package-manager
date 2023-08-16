@@ -214,6 +214,8 @@ public final class MixedTargetBuildDescription {
         case .umbrellaHeader, .umbrellaDirectory, .none:
             let generatedModuleMapType = mixedTarget.clangTarget.moduleMapType.generatedModuleMapType
             let unextendedModuleMapPath = tempsPath.appending(component: unextendedModuleMapFilename)
+
+            // TODO(ncooke3): We might be able to shift this to ClangTargetBuildDescription.
             try moduleMapGenerator.generateModuleMap(
                 type: generatedModuleMapType,
                 at: unextendedModuleMapPath
