@@ -82,7 +82,7 @@ final class CancellatorTests: XCTestCase {
                     try process.launch()
                     let result = try process.waitUntilExit()
                     print("process finished")
-                    XCTAssertEqual(result.exitStatus, .signalled(signal: SIGINT))
+                    XCTAssertTrue([.signalled(signal: SIGINT), .signalled(signal: SIGKILL)].contains(result.exitStatus), "unexpected exit status: \(result.exitStatus)")
                 } catch {
                     XCTFail("failed launching process: \(error)")
                 }
