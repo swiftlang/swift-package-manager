@@ -179,12 +179,10 @@ public struct ModuleMapGenerator {
         return .umbrellaDirectory(publicHeadersDir)
     }
 
-    /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any
-    /// diagnostics are added to the receiver's diagnostics engine..
+    /// Generates a module map based of the specified type, throwing an error if anything goes wrong. Any diagnostics are added to the receiver's diagnostics engine.
     public func generateModuleMap(
         type: GeneratedModuleMapType?,
         at path: AbsolutePath,
-        excludeHeaders: [AbsolutePath] = [],
         interopHeaderPath: AbsolutePath? = nil
     ) throws {
         var moduleMap = "module \(moduleName) {\n"
@@ -194,9 +192,6 @@ public struct ModuleMapGenerator {
                 moduleMap.append("    umbrella header \"\(hdr.moduleEscapedPathString)\"\n")
             case .umbrellaDirectory(let dir):
                 moduleMap.append("    umbrella \"\(dir.moduleEscapedPathString)\"\n")
-            }
-            excludeHeaders.forEach {
-                moduleMap.append("    exclude header \"\($0.moduleEscapedPathString)\"\n")
             }
         }
         moduleMap.append(
