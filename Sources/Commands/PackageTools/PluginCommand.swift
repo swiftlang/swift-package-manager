@@ -89,8 +89,9 @@ struct PluginCommand: SwiftCommand {
                 {
                     line += " in package ‘\(package.manifest.displayName)’"
                 }
-                line += ")"
-                print(line)
+                line += ")\n"
+                swiftTool.outputStream.write(line.utf8)
+                swiftTool.outputStream.flush()
             }
             return
         }
