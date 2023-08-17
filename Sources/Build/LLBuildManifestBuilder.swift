@@ -610,23 +610,7 @@ extension LLBuildManifestBuilder {
         let cmdName = target.target.getCommandName(config: self.buildConfig)
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
-
-        var otherArguments = try target.compileArguments()
-        if mixedTarget {
-            otherArguments += [
-                "-import-underlying-module",
-                "-Xcc",
-                "-ivfsoverlay",
-                "-Xcc",
-                "\(target.tempsPath)/all-product-headers.yaml",
-                "-Xcc",
-                "-ivfsoverlay",
-                "-Xcc",
-                "\(target.tempsPath)/unextended-module-overlay.yaml"
-            ]
-        }
-
-        manifest.addSwiftCmd(
+        self.manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
             outputs: cmdOutputs,

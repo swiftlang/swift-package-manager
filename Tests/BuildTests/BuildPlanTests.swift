@@ -5299,7 +5299,7 @@ final class BuildPlanTests: XCTestCase {
             if #available(macOS 13, *) { // `.contains` is only available in macOS 13 or newer
                 XCTAssertTrue(try swiftTarget.compileArguments().contains(["-user-module-version", "1.0.0"]))
             }
-        case .clang:
+        case .clang, .mixed:
             XCTFail("expected a Swift target")
         }
     }

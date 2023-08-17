@@ -607,6 +607,13 @@ public final class SwiftTargetBuildDescription {
         return result
     }
 
+    func appendClangFlags(_ flags: String...) {
+        flags.forEach { flag in
+            additionalFlags.append("-Xcc")
+            additionalFlags.append(flag)
+        }
+    }
+
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
         // Emitting the interop header for mixed test targets enables the
