@@ -1521,16 +1521,13 @@ final class BuildPlanTests: XCTestCase {
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        
+
         XCTAssertMatch(exe, [
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
             "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
-            "-fmodule-map-file=/path/to/build/debug/lib.build/Product/module.modulemap",
-            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include", "-Xcc", "-I",
-            "-Xcc", "/path/to/build/debug/lib.build/InteropSupport", "-Xcc",
-            "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/Product/all-product-headers.yaml",
+            "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
+            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
             "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))",
             .anySequence, "-parseable-output", "-g", "-Xcc", "-g",
@@ -1541,14 +1538,10 @@ final class BuildPlanTests: XCTestCase {
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
             "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-import-underlying-module", "-I",
-            "/path/to/build/debug/lib.build/Intermediates", "-Xcc",
-            "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
-            "-Xcc", "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/Intermediates/unextended-module-overlay.yaml",
+            "/path/to/build/debug/lib.build", "-Xcc", "-ivfsoverlay",
+            "-Xcc", "/path/to/build/debug/lib.build/unextended-module-overlay.yaml",
             "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib", "-Xcc", "-I", "-Xcc",
-            "/Pkg/Sources/lib/include", "-Xcc", "-I", "-Xcc",
-            "/path/to/build/debug/lib.build/InteropSupport", "-module-cache-path",
+            "/Pkg/Sources/lib/include", "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parse-as-library", "-emit-objc-header", "-emit-objc-header-path",
             "/path/to/build/debug/lib.build/lib-Swift.h", "-DHELLO_SWIFT=1", "-Xfrontend",
@@ -1560,10 +1553,7 @@ final class BuildPlanTests: XCTestCase {
             "-fobjc-arc", "-target", "\(defaultTargetTriple)", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
             "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
-            "/Pkg/Sources/lib", "-ivfsoverlay",
-            "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
-            "-I", "/path/to/build/debug/lib.build/Intermediates",
-            "-I", "/path/to/build/debug/lib.build/InteropSupport",
+            "/Pkg/Sources/lib", "-I", "/path/to/build/debug/lib.build",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-DHELLO_CLANG=1",
             "-g"
         ])
@@ -1578,7 +1568,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertEqual(
             try result.target(for: "lib").mixedTarget().moduleMap.pathString,
-            buildPath.appending(components: "lib.build", "Product", "module.modulemap").pathString
+            buildPath.appending(components: "lib.build", "module.modulemap").pathString
         )
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -1661,10 +1651,7 @@ final class BuildPlanTests: XCTestCase {
             "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
             "-fmodule-map-file=/Pkg/Sources/lib/include/module.modulemap",
-            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include", "-Xcc", "-I",
-            "-Xcc", "/path/to/build/debug/lib.build/InteropSupport", "-Xcc",
-            "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/Product/all-product-headers.yaml",
+            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
             "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parseable-output", "-g", "-Xcc", "-g"
@@ -1675,13 +1662,9 @@ final class BuildPlanTests: XCTestCase {
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
             "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-import-underlying-module", "-I",
-            "/Pkg/Sources/lib/include", "-Xcc", "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
-            "-Xcc", "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/Intermediates/unextended-module-overlay.yaml",
-            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib","-Xcc", "-I", "-Xcc",
             "/Pkg/Sources/lib/include", "-Xcc", "-I", "-Xcc",
-            "/path/to/build/debug/lib.build/InteropSupport", "-module-cache-path",
+            "/Pkg/Sources/lib", "-Xcc", "-I", "-Xcc",
+            "/Pkg/Sources/lib/include", "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parse-as-library", "-emit-objc-header", "-emit-objc-header-path",
             "/path/to/build/debug/lib.build/lib-Swift.h", "-g", "-Xcc", "-g"
@@ -1692,10 +1675,7 @@ final class BuildPlanTests: XCTestCase {
             "-fobjc-arc", "-target", "\(defaultTargetTriple)", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
             "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
-            "/Pkg/Sources/lib", "-ivfsoverlay",
-            "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
-            "-I", "/path/to/build/debug/lib.build/Intermediates", "-I",
-            "/path/to/build/debug/lib.build/InteropSupport",
+            "/Pkg/Sources/lib", "-I", "/path/to/build/debug/lib.build",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-g"
         ])
 
