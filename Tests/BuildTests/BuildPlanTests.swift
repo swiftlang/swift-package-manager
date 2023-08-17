@@ -1492,22 +1492,6 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        #if !os(macOS)
-        XCTAssertThrowsError(
-            try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-                graph: graph,
-                fileSystem: fs,
-                observabilityScope: observability.topScope
-            )),
-            "This should fail when run on non-Apple platforms."
-        ) { error in
-            XCTAssertEqual(
-                error.localizedDescription,
-                "Targets with mixed language sources are only supported on Apple platforms."
-            )
-        }
-        #else
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
@@ -1586,8 +1570,6 @@ final class BuildPlanTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: .contains("can be downloaded"), severity: .warning)
         }
-
-        #endif
     }
 
     func testBasicMixedLanguagesWithCustomModuleMap() throws {
@@ -1618,22 +1600,6 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        #if !os(macOS)
-        XCTAssertThrowsError(
-            try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-                graph: graph,
-                fileSystem: fs,
-                observabilityScope: observability.topScope
-            )),
-            "This should fail when run on non-Apple platforms."
-        ) { error in
-            XCTAssertEqual(
-                error.localizedDescription,
-                "Targets with mixed language sources are only supported on Apple platforms."
-            )
-        }
-        #else
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
@@ -1707,11 +1673,7 @@ final class BuildPlanTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: .contains("can be downloaded"), severity: .warning)
         }
-
-        #endif
     }
-
-
 
     func testSwiftCMixed() throws {
         let Pkg: AbsolutePath = "/Pkg"
@@ -2664,22 +2626,6 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        #if !os(macOS)
-        XCTAssertThrowsError(
-            try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-                graph: g,
-                fileSystem: fs,
-                observabilityScope: observability.topScope
-            )),
-            "This should fail when run on non-Apple platforms."
-        ) { error in
-            XCTAssertEqual(
-                error.localizedDescription,
-                "Targets with mixed language sources are only supported on Apple platforms."
-            )
-        }
-        #else
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: g,
@@ -2721,7 +2667,6 @@ final class BuildPlanTests: XCTestCase {
             "-runtime-compatibility-version", "none", "-target", defaultTargetTriple,
             "-g"
         ])
-        #endif
     }
 
     func testStaticProductsForMixedTarget() throws {
@@ -2773,22 +2718,6 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        #if !os(macOS)
-        XCTAssertThrowsError(
-            try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-                graph: g,
-                fileSystem: fs,
-                observabilityScope: observability.topScope
-            )),
-            "This should fail when run on non-Apple platforms."
-        ) { error in
-            XCTAssertEqual(
-                error.localizedDescription,
-                "Targets with mixed language sources are only supported on Apple platforms."
-            )
-        }
-        #else
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: g,
@@ -2819,7 +2748,6 @@ final class BuildPlanTests: XCTestCase {
 
         // No arguments for linking static libraries.
         XCTAssertEqual(barLinkArgs, [])
-        #endif
     }
 
     func testExecAsDependency() throws {

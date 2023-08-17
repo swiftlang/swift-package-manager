@@ -82,11 +82,6 @@ public final class MixedTargetBuildDescription {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
-        guard buildParameters.targetTriple.isDarwin() else {
-            throw StringError("Targets with mixed language sources are only " +
-                "supported on Apple platforms.")
-        }
-
         self.target = target
 
         let clangResolvedTarget = ResolvedTarget(

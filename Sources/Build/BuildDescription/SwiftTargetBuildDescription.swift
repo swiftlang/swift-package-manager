@@ -609,11 +609,10 @@ public final class SwiftTargetBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.targetTriple.isDarwin() &&
-            // Emitting the interop header for mixed test targets enables the
-            // sharing of Objective-C compatible Swift test helpers between
-            // Swift and Objective-C test files.
-            (self.target.type == .library || self.target.type == .test && self.isWithinMixedTarget)
+        // Emitting the interop header for mixed test targets enables the
+        // sharing of Objective-C compatible Swift test helpers between
+        // Swift and Objective-C test files.
+        self.target.type == .library || self.target.type == .test && self.isWithinMixedTarget
     }
 
     func writeOutputFileMap() throws -> AbsolutePath {
