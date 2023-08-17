@@ -128,10 +128,11 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if targetTriple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
+            let platform = buildEnvironment.platform
+            guard let supportedPlatform = target.platforms.getDerived(for: platform) else {
+                throw StringError("the target \(target) doesn't support building for the \(platform.name) platform")
             }
-            args += [targetTriple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+            args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
             args += [targetTriple.tripleString]
         }

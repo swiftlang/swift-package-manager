@@ -231,7 +231,18 @@ public struct BuildParameters: Encodable {
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
         if self.targetTriple.isDarwin() {
-            return .macOS
+            switch self.targetTriple.darwinPlatform {
+            case .iOS(.catalyst):
+                return .macCatalyst
+            case .iOS(.device), .iOS(.simulator):
+                return .iOS
+            case .tvOS:
+                return .tvOS
+            case .watchOS:
+                return .watchOS
+            case .macOS, nil:
+                return .macOS
+            }
         } else if self.targetTriple.isAndroid() {
             return .android
         } else if self.targetTriple.isWASI() {

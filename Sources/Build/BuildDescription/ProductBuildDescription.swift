@@ -267,7 +267,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
-            if useStdlibRpath, self.buildParameters.targetTriple.isDarwin(),
+            if useStdlibRpath, self.buildParameters.targetTriple.isMacOSX,
                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
                macOSSupportedPlatform.version.major < 12
             {
