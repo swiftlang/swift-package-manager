@@ -35,6 +35,6 @@ extension DefaultStringInterpolation {
 
 extension SerializedJSON.StringInterpolation {
     public mutating func appendInterpolation(_ value: AbsolutePath) {
-        self.appendInterpolation(value._nativePathString(escaped: false))
+        self.appendInterpolation(value._nativePathString(escaped: true))
     }
 }
