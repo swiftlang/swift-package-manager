@@ -262,16 +262,7 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
-        // TODO(ncooke3): Do we need to support building mixed targets with the
-        // `--use-integrated-swiftdriver` or `--emit-swift-module-separately`
-        // flags? Ideally no because doing so does not look straightforward.
-        if target.isWithinMixedTarget {
-            try self.addCmdWithBuiltinSwiftTool(
-                target,
-                inputs: inputs,
-                cmdOutputs: cmdOutputs + [.file(target.objCompatibilityHeaderPath)]
-            )
-        } else if buildParameters.useIntegratedSwiftDriver {
+        if buildParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
