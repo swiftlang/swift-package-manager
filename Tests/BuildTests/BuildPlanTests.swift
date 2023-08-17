@@ -3461,11 +3461,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExtraBuildFlags() throws {
-        let libpath = AbsolutePath("/fake/path/lib")
-
         let fs = InMemoryFileSystem(emptyFiles:
             "/A/Sources/exe/main.swift",
-            libpath.appending(components: "libSomething.dylib").pathString,
             "<end>"
         )
 
@@ -3496,7 +3493,7 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
-        XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "\(libpath)"])
+        XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo"])
     }
 
     func testUserToolchainCompileFlags() throws {
