@@ -822,6 +822,7 @@ extension LLBuildManifestBuilder {
     private func createClangCompileCommand(
         _ target: ClangTargetBuildDescription,
         addTargetCmd: Bool = true,
+        inputs: [Node] = [],
         createResourceBundle: Bool = true
     ) throws -> [Node] {
         let standards = [
@@ -829,7 +830,7 @@ extension LLBuildManifestBuilder {
             (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
         ]
 
-        var inputs: [Node] = []
+        var inputs: [Node] = inputs
 
         if createResourceBundle {
             // Add resources node as the input to the target. This isn't great because we
@@ -839,17 +840,6 @@ extension LLBuildManifestBuilder {
             if let resourcesNode = try createResourcesBundle(for: .clang(target)) {
                 inputs.append(resourcesNode)
             }
-        }
-
-        // If it's a mixed target, add the Objective-C compatibility header that
-        // the Swift part of the mixed target generates. This header acts as an
-        // input to the Clang compile command, which therefore forces the
-        // Swift part of the mixed target to be built first.
-        // TODO(ncooke3): I think this can be passed in via a param.
-        if target.isWithinMixedTarget {
-            inputs += [
-                .file(target.tempsPath.appending(component: "\(target.target.c99name)-Swift.h"))
-            ]
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
@@ -954,6 +944,10 @@ extension LLBuildManifestBuilder {
         let clangOutputs = try createClangCompileCommand(
             target.clangTargetBuildDescription,
             addTargetCmd: false,
+            // This forces the Swift sub-target to build first. This is needed
+            // since the Clang sub-target depends on build artifacts from the
+            // Swift sub-target (e.g. generated Swift header).
+            inputs: swiftOutputs,
             // The Swift compile command already created the resource bundle.
             createResourceBundle: false
         )
