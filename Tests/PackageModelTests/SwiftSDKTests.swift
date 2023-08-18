@@ -556,7 +556,7 @@ final class DestinationTests: XCTestCase {
     }
 
     func testDefaultSDKs() throws {
-        let hostSDK = try SwiftSDK.default
+        let hostSDK = try SwiftSDK.hostSwiftSDK("/prefix/bin")
 
         #if os(macOS)
         let iOSTriple = try Triple("arm64-apple-ios")
