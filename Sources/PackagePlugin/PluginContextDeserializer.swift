@@ -159,10 +159,11 @@ internal struct PluginContextDeserializer {
                 dependencies: dependencies,
                 moduleName: moduleName,
                 sourceFiles: sourceFiles,
-                swiftCompilationConditions: compilationConditions,
-                clangPreprocessorDefinitions: preprocessorDefinitions,
-                headerSearchPaths: headerSearchPaths,
-                publicHeadersDirectory: publicHeadersDir,
+                swift: .init(compilationConditions: compilationConditions),
+                clang: .init(
+                    preprocessorDefinitions: preprocessorDefinitions,
+                    headerSearchPaths: headerSearchPaths,
+                    publicHeadersDirectory: publicHeadersDir),
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks
             )

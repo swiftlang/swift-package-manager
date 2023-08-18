@@ -318,8 +318,28 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     public let linkedFrameworks: [String]
 }
 
-/// Represents a target consisting of a source code module compiled using both the Clang and Swift compiler.
+/// Represents a target consisting of a source code module containing both Swift and C-family language sources.
 public struct MixedSourceModuleTarget: SourceModuleTarget {
+
+    /// Describes attributes specific to the target's Swift sources.
+    public struct SwiftSourceAttributes {
+        /// Any custom compilation conditions specified for the target's Swift sources.
+        public let compilationConditions: [String]
+    }
+
+    /// Describes settings specific to the target's C-family language sources.
+    public struct ClangSourceAttributes {
+        /// Any preprocessor definitions specified for the Clang target.
+        public let preprocessorDefinitions: [String]
+
+        /// Any custom header search paths specified for the Clang target.
+        public let headerSearchPaths: [String]
+
+        /// The directory containing public C headers, if applicable. This will
+        /// only be set for targets that have a directory of a public headers.
+        public let publicHeadersDirectory: Path?
+    }
+
     /// Unique identifier for the target.
     public let id: ID
 
@@ -347,18 +367,11 @@ public struct MixedSourceModuleTarget: SourceModuleTarget {
     /// have been excluded in the manifest have already been filtered out).
     public let sourceFiles: FileList
 
-    /// Any custom compilation conditions specified for the target's Swift sources.
-    public let swiftCompilationConditions: [String]
+    /// Attributes specific to the target's Swift sources.
+    public let swift: SwiftSourceAttributes
 
-    /// Any preprocessor definitions specified for the target's Clang sources.
-    public let clangPreprocessorDefinitions: [String]
-
-    /// Any custom header search paths specified for the Clang target.
-    public let headerSearchPaths: [String]
-
-    /// The directory containing public C headers, if applicable. This will
-    /// only be set for targets that have a directory of a public headers.
-    public let publicHeadersDirectory: Path?
+    /// Attributes specific to the target's Clang sources.
+    public let clang: ClangSourceAttributes
 
     /// Any custom linked libraries required by the module, as specified in the
     /// package manifest.
