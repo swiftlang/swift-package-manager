@@ -108,6 +108,16 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     @Flag()
     public var useIntegratedSwiftDriver: Bool = false
 
+    /// A flag that indicates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    @Option()
+    public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+
+    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+        case none
+        case error
+    }
+
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
@@ -177,7 +187,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 architectures: self.architectures,
                 buildFlags: self.buildFlags,
                 manifestBuildFlags: self.manifestFlags,
-                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver
+                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
+                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck
             )
         } catch _ as Diagnostics {
             throw ExitCode.failure
@@ -218,7 +229,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             architectures: [String],
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
-            useIntegratedSwiftDriver: Bool
+            useIntegratedSwiftDriver: Bool,
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode
         ) throws {
             let buildSystem = try createBuildSystem(
                 packagePath: packagePath,
@@ -229,6 +241,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 buildFlags: buildFlags,
                 manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+                explicitTargetDependencyImportCheck: explicitTargetDependencyImportCheck,
                 logLevel: logLevel
             )
             try buildSystem.build(subset: .allExcludingTests)
@@ -243,6 +256,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
 
@@ -263,6 +277,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 architectures: architectures,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
+                explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                 verboseOutput: logLevel <= .info
             )
 

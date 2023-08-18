@@ -569,9 +569,16 @@ extension RepositorySpecifier {
     /// This identifier is suitable for use in a file system path, and
     /// unique for each repository.
     private var fileSystemIdentifier: String {
+        // canonicalize across similar locations (mainly for URLs)
         // Use first 8 chars of a stable hash.
-        let suffix = self.location.description .sha256Checksum.prefix(8)
+        let suffix = self.canonicalLocation.description.sha256Checksum.prefix(8)
         return "\(self.basename)-\(suffix)"
+    }
+}
+
+extension RepositorySpecifier {
+    fileprivate var canonicalLocation: CanonicalPackageLocation {
+        .init(self.location.description)
     }
 }
 

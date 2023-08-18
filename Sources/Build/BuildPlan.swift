@@ -128,10 +128,11 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if targetTriple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
+            let platform = buildEnvironment.platform
+            guard let supportedPlatform = target.platforms.getDerived(for: platform) else {
+                throw StringError("the target \(target) doesn't support building for the \(platform.name) platform")
             }
-            args += [targetTriple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+            args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
             args += [targetTriple.tripleString]
         }
@@ -695,13 +696,28 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         libraryBinaryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
-        /* Prior to tools-version 5.9, we used to errorneously recursively traverse plugin dependencies and statically include their
+        /* Prior to tools-version 5.9, we used to errorneously recursively traverse executable/plugin dependencies and statically include their
          targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
-        let shouldExcludePlugins: Bool
+        let shouldExcludeExecutablesAndPlugins: Bool
         if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
-            shouldExcludePlugins = toolsVersion >= .v5_9
+            shouldExcludeExecutablesAndPlugins = toolsVersion >= .v5_9
         } else {
-            shouldExcludePlugins = false
+            shouldExcludeExecutablesAndPlugins = false
+        }
+
+        // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
+        let topLevelDependencies: [PackageModel.Target]
+        if product.type == .test {
+            topLevelDependencies = product.targets.flatMap { $0.underlyingTarget.dependencies }.compactMap {
+                switch $0 {
+                case .product:
+                    return nil
+                case .target(let target, _):
+                    return target
+                }
+            }
+        } else {
+            topLevelDependencies = []
         }
 
         // Sort the product targets in topological order.
@@ -710,10 +726,19 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
-                if target.type == .macro {
+                let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                let topLevelIsExecutable = isTopLevel && product.type == .executable
+                let topLevelIsMacro = isTopLevel && product.type == .macro
+                let topLevelIsPlugin = isTopLevel && product.type == .plugin
+                let topLevelIsTest = isTopLevel && product.type == .test
+
+                if !topLevelIsMacro && !topLevelIsTest && target.type == .macro {
                     return []
                 }
-                if shouldExcludePlugins, target.type == .plugin {
+                if shouldExcludeExecutablesAndPlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
+                    return []
+                }
+                if shouldExcludeExecutablesAndPlugins, !topLevelIsExecutable && topLevelIsTest && target.type == .executable {
                     return []
                 }
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
@@ -730,7 +755,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 case .library(.automatic), .library(.static):
                     return productDependencies
                 case .plugin:
-                    return shouldExcludePlugins ? [] : productDependencies
+                    return shouldExcludeExecutablesAndPlugins ? [] : productDependencies
                 case .library(.dynamic), .test, .executable, .snippet, .macro:
                     return []
                 }
@@ -892,7 +917,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         let buildPath = buildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
-        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
+        // will silently error failing the operation.  Filter out this flag
+        // similar to how we filter out the library search path unless
+        // explicitly requested.
+        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags.filter { !$0.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
                 if extraSwiftCFlags[index] == "-L" {

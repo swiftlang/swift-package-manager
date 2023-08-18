@@ -306,7 +306,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() throws {
-        let fooURL = URL("https://example.com/foo")
+        let fooURL = SourceControlURL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
@@ -3253,7 +3253,7 @@ class DependencyGraphBuilder {
             store.pin(packageRef: try reference(for: package), state: pin.0)
         }
 
-        try! store.saveState(toolsVersion: ToolsVersion.current)
+        try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         return store
     }
 

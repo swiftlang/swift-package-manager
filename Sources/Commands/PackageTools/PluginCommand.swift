@@ -250,7 +250,11 @@ struct PluginCommand: SwiftCommand {
             + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
 
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
-        let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try swiftTool.createBuildSystem(
+            explicitBuildSystem: .native,
+            cacheBuildManifest: false,
+            customBuildParameters: swiftTool.hostBuildParameters()
+        )
         let accessibleTools = try plugin.processAccessibleTools(
             packageGraph: packageGraph,
             fileSystem: swiftTool.fileSystem,

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@testable import Basics
 @testable import Build
 @_implementationOnly import DriverSupport
 import PackageLoading
@@ -43,12 +43,14 @@ final class BuildPlanTests: XCTestCase {
             "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
+        let fooPkg: AbsolutePath = "/fooPkg"
+        let barPkg: AbsolutePath = "/barPkg"
         XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: "/fooPkg",
+                    path: fooPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["FooLogging"]),
                     ],
@@ -57,7 +59,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: "/barPkg",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.static), targets: ["BarLogging"]),
                     ],
@@ -69,29 +71,21 @@ final class BuildPlanTests: XCTestCase {
                     path: "/thisPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: fooPkg, requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: barPkg, requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
-                                          dependencies: [.product(name: "Logging",
-                                                                  package: "fooPkg"
-                                                                 ),
-                                                         .product(name: "Logging",
-                                                                  package: "barPkg"
-                                                                 ),
+                                          dependencies: [.product(name: "Logging", package: "fooPkg"),
+                                                         .product(name: "Logging", package: "barPkg"),
                                           ],
                                           type: .executable),
                     ]),
             ],
             observabilityScope: observability.topScope
         )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+            XCTAssertEqual((error as? PackageGraphError)?.description,
+                           "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
         }
     }
 
@@ -423,13 +417,15 @@ final class BuildPlanTests: XCTestCase {
                                     "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
+        let fooPkg: AbsolutePath = "/fooPkg"
+        let barPkg: AbsolutePath = "/barPkg"
 
         XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: "/fooPkg",
+                    path: fooPkg,
                     toolsVersion: .v5_8,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
@@ -439,7 +435,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: "/barPkg",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -455,24 +451,16 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "exe",
-                                          dependencies: [.product(name: "Logging",
-                                                                  package: "fooPkg"
-                                                                 ),
-                                                         .product(name: "Logging",
-                                                                  package: "barPkg"
-                                                                 ),
+                                          dependencies: [.product(name: "Logging", package: "fooPkg"),
+                                                         .product(name: "Logging", package: "barPkg"),
                                           ],
                                           type: .executable),
                     ]),
             ],
             observabilityScope: observability.topScope
         )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+            XCTAssertEqual((error as? PackageGraphError)?.description,
+                           "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
         }
     }
 
@@ -3270,6 +3258,65 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testPlatformsCustomTriple() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/B/Sources/BTarget/foo.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    platforms: [
+                        PlatformDescription(name: "ios", version: "11.0"),
+                        PlatformDescription(name: "macos", version: "10.13"),
+                    ],
+                    toolsVersion: .v5,
+                    dependencies: [
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    displayName: "B",
+                    path: "/B",
+                    platforms: [
+                        PlatformDescription(name: "ios", version: "10.0"),
+                        PlatformDescription(name: "macos", version: "10.12"),
+                    ],
+                    toolsVersion: .v5,
+                    products: [
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(targetTriple: .init("arm64-apple-ios")),
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+
+        let targetTriple = try Triple("arm64-apple-ios")
+
+        let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
+        XCTAssertMatch(aTarget, [.equal("-target"), .equal(targetTriple.tripleString(forPlatformVersion: "11.0")), .anySequence])
+
+        let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
+        XCTAssertMatch(bTarget, [.equal("-target"), .equal(targetTriple.tripleString(forPlatformVersion: "11.0")), .anySequence])
+    }
+
     func testPlatformsValidation() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -3450,7 +3497,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "best", "-Ilfoo", "-L", "lbar", "-g", .end])
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
         }
 
         do {
@@ -3539,7 +3586,7 @@ final class BuildPlanTests: XCTestCase {
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"]),
-                    .swiftCompiler: .init(extraCLIOptions: ["-swift-flag-from-json"])
+                    .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld", "-swift-flag-from-json"])
                 ],
                 rootPaths: try UserToolchain.default.swiftSDK.toolset.rootPaths
             ),
@@ -3574,7 +3621,18 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(exe, ["-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", "-resource-dir", "/fake/lib/swift", .anySequence, "-swift-flag-from-json", "-g", "-swift-command-line-flag", .anySequence, "-Xcc", "-clang-flag-from-json", "-Xcc", "-g", "-Xcc", "-clang-command-line-flag"])
+        XCTAssertMatch(exe, [
+            "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+            "-resource-dir", "/fake/lib/swift",
+            .anySequence,
+            "-swift-flag-from-json",
+            .anySequence,
+            "-swift-command-line-flag",
+            .anySequence,
+            "-Xcc", "-clang-flag-from-json",
+            .anySequence,
+            "-Xcc", "-clang-command-line-flag"
+        ])
 
         let exeProduct = try result.buildProduct(for: "exe").linkArguments()
         XCTAssertMatch(exeProduct, [.anySequence, "-resource-dir", "/fake/lib/swift", "-Xclang-linker", "-resource-dir", "-Xclang-linker", "/fake/lib/swift/clang", .anySequence])
@@ -3780,14 +3838,17 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let targetTriple = try UserToolchain.default.targetTriple
-        let sdkIncludeSearchPath = "/usr/lib/swift_static/none/include"
-        let sdkLibrarySearchPath = "/usr/lib/swift_static/none/lib"
+        let sdkIncludeSearchPath = AbsolutePath("/usr/lib/swift_static/none/include")
+        let sdkLibrarySearchPath = AbsolutePath("/usr/lib/swift_static/none/lib")
         let swiftSDK = try SwiftSDK(
             targetTriple: targetTriple,
             properties: .init(
                 sdkRootPath: "/fake/sdk",
-                includeSearchPaths: [sdkIncludeSearchPath],
-                librarySearchPaths: [sdkLibrarySearchPath]))
+                includeSearchPaths: [sdkIncludeSearchPath.pathString],
+                librarySearchPaths: [sdkLibrarySearchPath.pathString]),
+            toolset: .init(knownTools: [
+                .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld"]),
+            ]))
         let toolchain = try UserToolchain(swiftSDK: swiftSDK)
         let buildParameters = mockBuildParameters(toolchain: toolchain)
         let result = try BuildPlanResult(plan: BuildPlan(
@@ -4779,10 +4840,10 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
 
         let yamlContents: String = try fs.readFileContents(yaml)
-        XCTAssertMatch(yamlContents, .contains("""
-            inputs: ["/Pkg/Snippets/ASnippet.swift","/Pkg/.build/debug/Lib.swiftmodule"
-        """))
-
+        let inputs: SerializedJSON = """
+            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
+        """
+        XCTAssertMatch(yamlContents, .contains(inputs.underlying))
     }
 
     private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
@@ -4893,6 +4954,61 @@ final class BuildPlanTests: XCTestCase {
         let exeProduct = try result.buildProduct(for: "exe")
         for exeCompileObject in exeCompileObjects {
             XCTAssertTrue(exeProduct.objects.contains(exeCompileObject))
+        }
+    }
+
+    func testPackageDependencySetsUserModuleVersion() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift", "/ExtPkg/Sources/ExtLib/best.swift")
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    dependencies: [
+                        .localSourceControl(path: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: [
+                            .product(name: "ExtPkg", package: "ExtPkg"),
+                        ]),
+                    ]),
+                Manifest.createLocalSourceControlManifest(
+                    displayName: "ExtPkg",
+                    path: "/ExtPkg",
+                    version: "1.0.0",
+                    toolsVersion: .vNext,
+                    products: [
+                        ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ExtLib", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .release
+            )),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        switch try XCTUnwrap(result.targetMap["ExtLib"]) {
+        case .swift(let swiftTarget):
+            if #available(macOS 13, *) { // `.contains` is only available in macOS 13 or newer
+                XCTAssertTrue(try swiftTarget.compileArguments().contains(["-user-module-version", "1.0.0"]))
+            }
+        case .clang:
+            XCTFail("expected a Swift target")
         }
     }
 }

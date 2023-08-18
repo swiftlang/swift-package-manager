@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import CoreCommands
+import Dispatch
 import PackageModel
 import PackageGraph
 import Workspace
@@ -40,7 +41,7 @@ extension SwiftPackageTool {
                 dryRun: dryRun,
                 observabilityScope: swiftTool.observabilityScope
             )
-            
+
             // try to load the graph which will emit any errors
             if !swiftTool.observabilityScope.errorsReported {
                 _ = try workspace.loadPackageGraph(
@@ -48,9 +49,9 @@ extension SwiftPackageTool {
                     observabilityScope: swiftTool.observabilityScope
                 )
             }
-            
+
             if self.dryRun, let changes = changes, let pinsStore = swiftTool.observabilityScope.trap({ try workspace.pinsStore.load() }){
-                logPackageChanges(changes: changes, pins: pinsStore)
+                self.logPackageChanges(changes: changes, pins: pinsStore)
             }
             
             if !self.dryRun {

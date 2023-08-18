@@ -371,7 +371,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
                 // If package identity is set, use that. Otherwise create one from URL.
                 return .init(
-                    identity: package.identity.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: package.url),
+                    identity: package.identity.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: SourceControlURL(package.url)),
                     location: package.url.absoluteString,
                     summary: package.summary,
                     keywords: package.keywords,

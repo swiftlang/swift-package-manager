@@ -57,6 +57,7 @@ public extension GitRepository {
         try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "user.name", "Example Example"])
         try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "commit.gpgsign", "false"])
+        try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "tag.gpgsign", "false"])
         try systemQuietly([Git.tool, "-C", self.path.pathString, "commit", "-m", message ?? "Add some files."])
     }
 

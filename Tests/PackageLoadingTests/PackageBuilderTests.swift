@@ -2971,6 +2971,37 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testCustomPlatformInConditionals() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/Foo/Best.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            path: .root,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    settings: [
+                        .init(tool: .swift, kind: .define("YOLO"), condition: .init(platformNames: ["bestOS"])),
+                    ]
+                )
+            ]
+        )
+
+        var assignment = BuildSettings.Assignment()
+        assignment.values = ["YOLO"]
+        assignment.conditions = [PlatformsCondition(platforms: [PackageModel.Platform.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
+
+        var settings = BuildSettings.AssignmentTable()
+        settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.check(buildSettings: settings)
+            }
+        }
+    }
 }
 
 final class PackageBuilderTester {
@@ -3197,6 +3228,10 @@ final class PackageBuilderTester {
                 return XCTFail("Plugin capability is being checked on a target", file: file, line: line)
             }
             XCTAssertEqual(target.capability, pluginCapability, file: file, line: line)
+        }
+
+        func check(buildSettings: PackageModel.BuildSettings.AssignmentTable, file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(target.buildSettings.assignments, buildSettings.assignments, file: file, line: line)
         }
     }
 

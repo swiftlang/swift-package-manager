@@ -23,4 +23,8 @@ extension ByteString {
     public var sha256Checksum: String {
         SHA256().hash(self).hexadecimalRepresentation
     }
+
+    public init(json: SerializedJSON) {
+        self.init(json.underlying.utf8)
+    }
 }

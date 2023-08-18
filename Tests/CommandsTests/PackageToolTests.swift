@@ -953,7 +953,7 @@ final class PackageToolTests: CommandsTestCase {
             // Test pins file.
             do {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
+                XCTAssertEqual(pinsStore.pins.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pins[PackageIdentity(path: path)]!
@@ -1427,7 +1427,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string:
                 """
-                // swift-tools-version: 5.5
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1635,7 +1635,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string:
                 """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -2539,7 +2539,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",

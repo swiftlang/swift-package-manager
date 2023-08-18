@@ -206,11 +206,6 @@ public struct BuildParameters: Encodable {
     /// `.swiftmodule`s.
     public var enableParseableModuleInterfaces: Bool
 
-    /// Emit Swift module separately from object files. This can enable more parallelism
-    /// since downstream targets can begin compiling without waiting for the entire
-    /// module to finish building.
-    public var emitSwiftModuleSeparately: Bool
-
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
@@ -236,7 +231,18 @@ public struct BuildParameters: Encodable {
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
         if self.targetTriple.isDarwin() {
-            return .macOS
+            switch self.targetTriple.darwinPlatform {
+            case .iOS(.catalyst):
+                return .macCatalyst
+            case .iOS(.device), .iOS(.simulator):
+                return .iOS
+            case .tvOS:
+                return .tvOS
+            case .watchOS:
+                return .watchOS
+            case .macOS, nil:
+                return .macOS
+            }
         } else if self.targetTriple.isAndroid() {
             return .android
         } else if self.targetTriple.isWASI() {
@@ -270,6 +276,8 @@ public struct BuildParameters: Encodable {
 
     public var debugInfoFormat: DebugInfoFormat
 
+    public var shouldSkipBuilding: Bool
+
     @available(*, deprecated, message: "use `init` overload with `targetTriple` parameter name instead")
     @_disfavoredOverload
     public init(
@@ -290,7 +298,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
@@ -302,7 +309,8 @@ public struct BuildParameters: Encodable {
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
-        debugInfoFormat: DebugInfoFormat = .dwarf
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false
     ) throws {
         try self.init(
             dataPath: dataPath,
@@ -322,7 +330,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: enableCodeCoverage,
             indexStoreMode: indexStoreMode,
             enableParseableModuleInterfaces: enableParseableModuleInterfaces,
-            emitSwiftModuleSeparately: emitSwiftModuleSeparately,
             useIntegratedSwiftDriver: useIntegratedSwiftDriver,
             useExplicitModuleBuild: useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: isXcodeBuildSystemEnabled,
@@ -334,7 +341,8 @@ public struct BuildParameters: Encodable {
             colorizedOutput: colorizedOutput,
             verboseOutput: verboseOutput,
             linkTimeOptimizationMode: linkTimeOptimizationMode,
-            debugInfoFormat: debugInfoFormat
+            debugInfoFormat: debugInfoFormat,
+            shouldSkipBuilding: shouldSkipBuilding
         )
     }
 
@@ -356,7 +364,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
@@ -368,7 +375,8 @@ public struct BuildParameters: Encodable {
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
-        debugInfoFormat: DebugInfoFormat = .dwarf
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
@@ -417,7 +425,6 @@ public struct BuildParameters: Encodable {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
@@ -439,6 +446,7 @@ public struct BuildParameters: Encodable {
         self.verboseOutput = verboseOutput
         self.linkTimeOptimizationMode = linkTimeOptimizationMode
         self.debugInfoFormat = debugInfoFormat
+        self.shouldSkipBuilding = shouldSkipBuilding
     }
 
     @available(*, deprecated, renamed: "forTriple()")
@@ -476,7 +484,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: self.enableCodeCoverage,
             indexStoreMode: self.indexStoreMode,
             enableParseableModuleInterfaces: self.enableParseableModuleInterfaces,
-            emitSwiftModuleSeparately: self.emitSwiftModuleSeparately,
             useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
             useExplicitModuleBuild: self.useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
@@ -487,7 +494,8 @@ public struct BuildParameters: Encodable {
             linkerDeadStrip: self.linkerDeadStrip,
             colorizedOutput: self.colorizedOutput,
             verboseOutput: self.verboseOutput,
-            linkTimeOptimizationMode: self.linkTimeOptimizationMode
+            linkTimeOptimizationMode: self.linkTimeOptimizationMode,
+            shouldSkipBuilding: self.shouldSkipBuilding
         )
     }
 

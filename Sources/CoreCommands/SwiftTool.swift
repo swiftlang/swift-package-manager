@@ -452,7 +452,7 @@ public final class SwiftTool {
     private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", Workspace.DefaultLocations.resolvedFileName)
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
@@ -529,11 +529,12 @@ public final class SwiftTool {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        if options.resolver.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: self.observabilityScope)
-        } else {
-            try workspace.resolve(root: root, observabilityScope: self.observabilityScope)
-        }
+        try workspace.resolve(
+            root: root,
+            forceResolution: false,
+            forceResolvedVersions: options.resolver.forceResolvedVersions,
+            observabilityScope: self.observabilityScope
+        )
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
@@ -663,6 +664,56 @@ public final class SwiftTool {
         return buildSystem
     }
 
+    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+        let targetTriple = toolchain.targetTriple
+
+        let dataPath = self.scratchDirectory.appending(
+            component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+        )
+
+        return try BuildParameters(
+            dataPath: dataPath,
+            configuration: options.build.configuration,
+            toolchain: toolchain,
+            targetTriple: targetTriple,
+            flags: options.build.buildFlags,
+            pkgConfigDirectories: options.locations.pkgConfigDirectories,
+            architectures: options.build.architectures,
+            workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
+            canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                flags: ["entry-point-function-name"],
+                toolchain: toolchain,
+                fileSystem: self.fileSystem
+            ),
+            sanitizers: options.build.enabledSanitizers,
+            enableCodeCoverage: false, // set by test commands when appropriate
+            indexStoreMode: options.build.indexStoreMode.buildParameter,
+            enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
+            useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
+            useExplicitModuleBuild: options.build.useExplicitModuleBuild,
+            isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+            testEntryPointPath: options.build.testEntryPointPath,
+            explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
+            linkerDeadStrip: options.linker.linkerDeadStrip,
+            verboseOutput: self.logLevel <= .info,
+            linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
+            debugInfoFormat: options.build.debugInfoFormat.buildParameter
+        )
+    }
+
+    /// Return the build parameters for the host toolchain.
+    public func hostBuildParameters() throws -> BuildParameters {
+        return try _hostBuildParameters.get()
+    }
+
+    private lazy var _hostBuildParameters: Result<BuildParameters, Swift.Error> = {
+        return Result(catching: {
+            try _buildParams(toolchain: self.getHostToolchain())
+        })
+    }()
+
     /// Return the build parameters.
     public func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
@@ -670,45 +721,7 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let targetToolchain = try self.getTargetToolchain()
-            let targetTriple = targetToolchain.targetTriple
-
-            // Use "apple" as the subdirectory because in theory Xcode build system
-            // can be used to build for any Apple platform and it has it's own
-            // conventions for build subpaths based on platforms.
-            let dataPath = self.scratchDirectory.appending(
-                component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
-            )
-
-            return try BuildParameters(
-                dataPath: dataPath,
-                configuration: options.build.configuration,
-                toolchain: targetToolchain,
-                targetTriple: targetTriple,
-                flags: options.build.buildFlags,
-                pkgConfigDirectories: options.locations.pkgConfigDirectories,
-                architectures: options.build.architectures,
-                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], toolchain: targetToolchain, fileSystem: self.fileSystem
-                ),
-                sanitizers: options.build.enabledSanitizers,
-                enableCodeCoverage: false, // set by test commands when appropriate
-                indexStoreMode: options.build.indexStoreMode.buildParameter,
-                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
-                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                testEntryPointPath: options.build.testEntryPointPath,
-                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
-                linkerDeadStrip: options.linker.linkerDeadStrip,
-                verboseOutput: self.logLevel <= .info,
-                linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
-                debugInfoFormat: options.build.debugInfoFormat.buildParameter
-            )
+            try _buildParams(toolchain: self.getTargetToolchain())
         })
     }()
 

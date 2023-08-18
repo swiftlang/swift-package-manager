@@ -189,4 +189,36 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testTargetDependencyProductInvalidPackage() throws {
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(id: "org.foo", from: "1.0.0"),
+                        .package(id: "org.bar", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target1",
+                            dependencies: [.product(name: "product", package: "org.baz")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            testDiagnostics(validationDiagnostics) { result in
+                result.checkUnordered(diagnostic: "unknown package 'org.baz' in dependencies of target 'Target1'; valid packages are: 'org.foo', 'org.bar'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'org.foo', 'org.bar'", severity: .error)
+            }
+        }
+    }
 }

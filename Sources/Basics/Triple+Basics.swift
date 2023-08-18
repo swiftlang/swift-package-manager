@@ -136,7 +136,7 @@ extension Triple {
         }
 
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
@@ -155,7 +155,7 @@ extension Triple {
         }
 
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ""
         case .linux, .openbsd:
             return ""
@@ -178,7 +178,7 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md

@@ -13,6 +13,19 @@
 @_implementationOnly import Foundation
 #if os(Windows)
 @_implementationOnly import ucrt
+
+internal func dup(_ fd: CInt) -> CInt {
+    return _dup(fd)
+}
+internal func dup2(_ fd1: CInt, _ fd2: CInt) -> CInt {
+    return _dup2(fd1, fd2)
+}
+internal func close(_ fd: CInt) -> CInt {
+    return _close(fd)
+}
+internal func fileno(_ fh: UnsafeMutablePointer<FILE>?) -> CInt {
+    return _fileno(fh)
+}
 #endif
 
 //

@@ -280,7 +280,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
-            if useStdlibRpath, self.buildParameters.targetTriple.isDarwin(),
+            if useStdlibRpath, self.buildParameters.targetTriple.isMacOSX,
                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
                macOSSupportedPlatform.version.major < 12
             {
@@ -356,10 +356,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         flags += libraries.map { "-l" + $0 }
 
         // Linked frameworks.
-        let frameworks = OrderedSet(staticTargets.reduce([]) {
-            $0 + buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
-        })
-        flags += frameworks.flatMap { ["-framework", $0] }
+        if self.buildParameters.targetTriple.supportsFrameworks {
+            let frameworks = OrderedSet(staticTargets.reduce([]) {
+                $0 + buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
+            })
+            flags += frameworks.flatMap { ["-framework", $0] }
+        }
 
         // Other linker flags.
         for target in self.staticTargets {
@@ -374,5 +376,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 extension SortedArray where Element == AbsolutePath {
     public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
         lhs.insert(contentsOf: rhs)
+    }
+}
+
+extension Triple {
+    var supportsFrameworks: Bool {
+        return self.isDarwin()
     }
 }

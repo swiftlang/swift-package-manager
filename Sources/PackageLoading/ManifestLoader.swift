@@ -24,6 +24,30 @@ import struct TSCBasic.ProcessResult
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
+#if os(Windows)
+import WinSDK
+#endif
+
+extension AbsolutePath {
+    /// Returns the `pathString` on non-Windows platforms.  On Windows
+    /// platforms, this provides the path string normalized as per the Windows
+    /// path normalization rules.  In the case that the path is a long path, the
+    /// path will use the extended path syntax (UNC style, NT Path).
+    internal var _normalized: String {
+#if os(Windows)
+        return self.pathString.withCString(encodedAs: UTF16.self) { pwszPath in
+            let dwLength = GetFullPathNameW(pwszPath, 0, nil, nil)
+            return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) {
+                _ = GetFullPathNameW(pwszPath, dwLength, $0.baseAddress, nil)
+                return String(decodingCString: $0.baseAddress!, as: UTF16.self)
+            }
+        }
+#else
+        return self.pathString
+#endif
+    }
+}
+
 public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest is empty, or at least from SwiftPM's perspective it is.
     case emptyManifest(path: AbsolutePath)
@@ -540,7 +564,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
-                    VFSOverlay.File(name: manifestPath._nativePathString(escaped: true),
+                    VFSOverlay.File(name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
                                     externalContents: manifestTempFilePath._nativePathString(escaped: true))
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
 
@@ -672,7 +696,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
         }
 
-        cmd += [manifestPath.pathString]
+        cmd += [manifestPath._normalized]
 
         cmd += self.extraManifestFlags
 
@@ -751,7 +775,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
-                                cmd = try Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                                cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
                             } catch {
                                 return completion(.failure(error))
                             }

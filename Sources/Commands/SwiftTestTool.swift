@@ -187,7 +187,7 @@ public struct SwiftTestTool: SwiftCommand {
         } else if !self.options.shouldRunInParallel {
             let toolchain = try swiftTool.getTargetToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
@@ -216,6 +216,7 @@ public struct SwiftTestTool: SwiftCommand {
                     in: testProducts,
                     swiftTool: swiftTool,
                     enableCodeCoverage: options.enableCodeCoverage,
+                    shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
                     sanitizers: globalOptions.build.sanitizers
                 )
                 let tests = try testSuites
@@ -267,12 +268,13 @@ public struct SwiftTestTool: SwiftCommand {
                 in: testProducts,
                 swiftTool: swiftTool,
                 enableCodeCoverage: options.enableCodeCoverage,
+                shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
                 sanitizers: globalOptions.build.sanitizers
             )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
-            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -338,7 +340,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
@@ -352,7 +354,7 @@ public struct SwiftTestTool: SwiftCommand {
         let llvmProf = try swiftTool.getTargetToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         let codeCovFiles = try swiftTool.fileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
@@ -372,7 +374,7 @@ public struct SwiftTestTool: SwiftCommand {
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftTool.getTargetToolchain().getLLVMCov()
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         let args = [
             llvmCov.pathString,
             "export",
@@ -392,13 +394,11 @@ public struct SwiftTestTool: SwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
-        if !self.sharedOptions.shouldSkipBuilding {
-            let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-            try buildSystem.build(subset: subset)
-        }
+        let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
+        try buildSystem.build(subset: subset)
 
         // Find the test product.
         let testProducts = buildSystem.builtTestProducts
@@ -498,6 +498,7 @@ extension SwiftTestTool {
                 in: testProducts,
                 swiftTool: swiftTool,
                 enableCodeCoverage: false,
+                shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
                 sanitizers: globalOptions.build.sanitizers
             )
 
@@ -508,13 +509,11 @@ extension SwiftTestTool {
         }
 
         private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-            let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false)
+            let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false, shouldSkipBuilding: sharedOptions.shouldSkipBuilding)
             let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
-            if !self.sharedOptions.shouldSkipBuilding {
-                let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-                try buildSystem.build(subset: subset)
-            }
+            let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
+            try buildSystem.build(subset: subset)
 
             // Find the test product.
             let testProducts = buildSystem.builtTestProducts
@@ -1041,10 +1040,11 @@ final class XUnitGenerator {
 }
 
 extension SwiftTool {
-    func buildParametersForTest(options: TestToolOptions) throws -> BuildParameters {
+    func buildParametersForTest(options: TestToolOptions, sharedOptions: SharedOptions) throws -> BuildParameters {
         try self.buildParametersForTest(
             enableCodeCoverage: options.enableCodeCoverage,
-            enableTestability: options.enableTestableImports
+            enableTestability: options.enableTestableImports,
+            shouldSkipBuilding: sharedOptions.shouldSkipBuilding
         )
     }
 }

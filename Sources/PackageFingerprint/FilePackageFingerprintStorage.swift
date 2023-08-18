@@ -265,15 +265,14 @@ private enum StorageModel {
 
                                 let fingerprintsByContentType = try Dictionary(
                                     throwingUniqueKeysWithValues: fingerprintsForKind.map { _, storedFingerprint in
-                                        guard let originURL = URL(string: storedFingerprint.origin) else {
-                                            throw SerializationError.invalidURL(storedFingerprint.origin)
-                                        }
-
                                         let origin: Fingerprint.Origin
                                         switch kind {
                                         case .sourceControl:
-                                            origin = .sourceControl(originURL)
+                                            origin = .sourceControl(SourceControlURL(storedFingerprint.origin))
                                         case .registry:
+                                            guard let originURL = URL(string: storedFingerprint.origin) else {
+                                                throw SerializationError.invalidURL(storedFingerprint.origin)
+                                            }
                                             origin = .registry(originURL)
                                         }
 
@@ -399,7 +398,8 @@ extension PackageReference: FingerprintReference {
         }
 
         let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
-        let locationHash = String(format: "%02x", canonicalLocation.description.hashValue)
+        // Cannot use hashValue because it is not consistent across executions
+        let locationHash = canonicalLocation.description.sha256Checksum.prefix(8)
         return "\(self.identity.description)-\(locationHash).json"
     }
 }

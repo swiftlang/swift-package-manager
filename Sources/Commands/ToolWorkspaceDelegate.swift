@@ -204,6 +204,36 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
+    public func willUpdateDependencies() {
+        self.observabilityScope.emit(debug: "Updating dependencies")
+        os_signpost(.begin, name: SignpostName.updatingDependencies)
+    }
+
+    public func didUpdateDependencies(duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Dependencies updated (\(duration.descriptionInSeconds))")
+        os_signpost(.end, name: SignpostName.updatingDependencies)
+    }
+
+    public func willResolveDependencies() {
+        self.observabilityScope.emit(debug: "Resolving dependencies")
+        os_signpost(.begin, name: SignpostName.resolvingDependencies)
+    }
+
+    public func didResolveDependencies(duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Dependencies resolved (\(duration.descriptionInSeconds))")
+        os_signpost(.end, name: SignpostName.resolvingDependencies)
+    }
+
+    func willLoadGraph() {
+        self.observabilityScope.emit(debug: "Loading and validating graph")
+        os_signpost(.begin, name: SignpostName.loadingGraph)
+    }
+
+    func didLoadGraph(duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Graph loaded (\(duration.descriptionInSeconds))")
+        os_signpost(.end, name: SignpostName.loadingGraph)
+    }
+
     // noop
 
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}

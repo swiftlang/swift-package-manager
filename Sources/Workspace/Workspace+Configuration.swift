@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2018-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2018-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -197,6 +197,8 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
+        public static var resolvedFileName = "Package.resolved"
+
         public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             rootPath.appending(".build")
         }
@@ -206,7 +208,7 @@ extension Workspace {
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending("Package.resolved")
+            rootPath.appending(Self.resolvedFileName)
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -603,7 +605,7 @@ extension Workspace.Configuration {
 
 extension Workspace.Configuration {
     public class Registries {
-        private let localRegistries: RegistriesStorage
+        private let localRegistries: RegistriesStorage?
         private let sharedRegistries: RegistriesStorage?
         private let fileSystem: FileSystem
 
@@ -622,14 +624,20 @@ extension Workspace.Configuration {
         /// - Parameters:
         ///   - fileSystem: The file system to use.
         ///   - localRegistriesFile: Path to the workspace registries configuration file
-        ///   - sharedRegistriesFile: Path to the shared registries configuration file, defaults to the standard location.
+        ///   - sharedRegistriesFile: Path to the shared registries configuration file,
+        ///                           defaults to the standard location.
         public init(
             fileSystem: FileSystem,
-            localRegistriesFile: AbsolutePath,
+            localRegistriesFile: AbsolutePath?,
             sharedRegistriesFile: AbsolutePath?
         ) throws {
+            // At least one of local or shared is required
+            if localRegistriesFile == nil, sharedRegistriesFile == nil {
+                throw StringError("No registries configuration provided")
+            }
+
             self.fileSystem = fileSystem
-            self.localRegistries = .init(path: localRegistriesFile, fileSystem: fileSystem)
+            self.localRegistries = localRegistriesFile.map { .init(path: $0, fileSystem: fileSystem) }
             self.sharedRegistries = sharedRegistriesFile.map { .init(path: $0, fileSystem: fileSystem) }
             try self.computeRegistries()
         }
@@ -638,7 +646,10 @@ extension Workspace.Configuration {
         public func updateLocal(with handler: (inout RegistryConfiguration) throws -> Void) throws
             -> RegistryConfiguration
         {
-            try self.localRegistries.update(with: handler)
+            guard let localRegistries else {
+                throw InternalError("local registries not configured")
+            }
+            try localRegistries.update(with: handler)
             try self.computeRegistries()
             return self.configuration
         }
@@ -665,8 +676,9 @@ extension Workspace.Configuration {
                     configuration.merge(sharedConfiguration)
                 }
 
-                let localConfiguration = try localRegistries.load()
-                configuration.merge(localConfiguration)
+                if let localConfiguration = try localRegistries?.load() {
+                    configuration.merge(localConfiguration)
+                }
 
                 self._configuration = configuration
             }
@@ -693,7 +705,9 @@ extension Workspace.Configuration {
                 let decoder = JSONDecoder.makeWithDefaults()
                 return try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: RegistryConfiguration.self)
             } catch {
-                throw StringError("Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)")
+                throw StringError(
+                    "Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)"
+                )
             }
         }
 
@@ -742,7 +756,7 @@ public struct WorkspaceConfiguration {
 
     ///  Signing entity checking mode. Defaults to warn.
     public var signingEntityCheckingMode: CheckingMode
-    
+
     /// Whether to skip validating signature of signed packages downloaded from registry
     public var skipSignatureValidation: Bool
 

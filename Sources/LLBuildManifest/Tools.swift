@@ -316,7 +316,6 @@ public struct SwiftCompilerTool: ToolProtocol {
             }
         }
         arguments += [
-            "-incremental",
             "-emit-dependencies",
             "-emit-module",
             "-emit-module-path", moduleOutputPath.pathString,
@@ -327,6 +326,8 @@ public struct SwiftCompilerTool: ToolProtocol {
         }
         if wholeModuleOptimization {
             arguments += ["-whole-module-optimization", "-num-threads", "\(Self.numThreads)"]
+        } else {
+            arguments += ["-incremental"]
         }
         arguments += ["-c", "@\(self.fileList.pathString)"]
         arguments += ["-I", importPath.pathString]

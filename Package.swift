@@ -711,7 +711,10 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
             .package(name: "swift-llbuild", path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [.product(name: "llbuildSwift", package: "swift-llbuild")]
+    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [
+        .product(name: "llbuildSwift", package: "swift-llbuild"),
+        .product(name: "llbuild", package: "swift-llbuild"),
+    ]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {

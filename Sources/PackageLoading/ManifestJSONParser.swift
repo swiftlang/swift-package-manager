@@ -15,6 +15,7 @@ import PackageModel
 
 import struct Basics.AbsolutePath
 import protocol Basics.FileSystem
+import struct Basics.SourceControlURL
 import struct Basics.InternalError
 import struct Basics.RelativePath
 
@@ -237,7 +238,8 @@ enum ManifestJSONParser {
                 requirement: requirement,
                 productFilter: .everything
             )
-        } else if let url = URL(string: location){
+        } else {
+            let url = SourceControlURL(location)
             // in the future this will check with the registries for the identity of the URL
             let identity = try identityResolver.resolveIdentity(for: url)
             return .remoteSourceControl(
@@ -247,8 +249,6 @@ enum ManifestJSONParser {
                 requirement: requirement,
                 productFilter: .everything
             )
-        } else {
-            throw StringError("invalid location: \(location)")
         }
     }
 
@@ -268,8 +268,9 @@ enum ManifestJSONParser {
                 productFilter: .everything
             )
         } else if let url = URL(string: location){
+            let SourceControlURL = SourceControlURL(url)
             // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: url)
+            let identity = try identityResolver.resolveIdentity(for: SourceControlURL)
             let sourceControlRequirement: PackageDependency.SourceControl.Requirement
             switch requirement {
             case .exact(let value):
@@ -280,7 +281,7 @@ enum ManifestJSONParser {
             return .remoteSourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: identity.description,
-                url: url,
+                url: SourceControlURL,
                 requirement: sourceControlRequirement,
                 productFilter: .everything
             )
