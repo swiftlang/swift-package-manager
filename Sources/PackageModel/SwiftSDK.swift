@@ -532,7 +532,7 @@ public struct SwiftSDK: Equatable {
         for darwinPlatform: DarwinPlatform = .macOS,
         environment: EnvironmentVariables = .process()
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
-        if let path = _sdkPlatformFrameworkPath {
+        if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
             return path
         }
         let platformPath = try TSCBasic.Process.checkNonZeroExit(
@@ -555,13 +555,13 @@ public struct SwiftSDK: Equatable {
         )
 
         let sdkPlatformFrameworkPath = (fwk, lib)
-        _sdkPlatformFrameworkPath = sdkPlatformFrameworkPath
+        _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }
 
     // FIXME: convert this from a tuple to a proper struct with documented properties
     /// Cache storage for sdk platform path.
-    private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
+    private static var _sdkPlatformFrameworkPath: [DarwinPlatform: (fwk: AbsolutePath, lib: AbsolutePath)] = [:]
 
     /// Returns a default destination of a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")
