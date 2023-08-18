@@ -22,10 +22,8 @@ struct MockToolchain: PackageModel.Toolchain {
     let librarianPath = AbsolutePath("/fake/path/to/link.exe")
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
     let librarianPath = AbsolutePath("/fake/path/to/libtool")
-#elseif os(Android)
-    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
 #else
-    let librarianPath = AbsolutePath("/fake/path/to/ar")
+    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
 #endif
     let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let includeSearchPaths = [AbsolutePath]()

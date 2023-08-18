@@ -172,9 +172,7 @@ public final class UserToolchain: Toolchain {
                 }
                 return "link"
             }
-            // TODO(compnerd) consider defaulting to `llvm-ar` universally with
-            // a fallback to `ar`.
-            return triple.isAndroid() ? "llvm-ar" : "ar"
+            return "llvm-ar"
         }()
 
         if let librarian = UserToolchain.lookup(
@@ -190,7 +188,18 @@ public final class UserToolchain: Toolchain {
         if let librarian = try? UserToolchain.getTool(tool, binDirectories: binDirectories) {
             return librarian
         }
-        return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+        if triple.isApple() || triple.isWindows() {
+            return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+        } else {
+            if let librarian = try? UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: false) {
+                return librarian
+            }
+            // Fall back to looking for binutils `ar` if `llvm-ar` can't be found.
+            if let librarian = try? UserToolchain.getTool("ar", binDirectories: binDirectories) {
+                return librarian
+            }
+            return try UserToolchain.findTool("ar", envSearchPaths: searchPaths, useXcrun: false)
+        }
     }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
