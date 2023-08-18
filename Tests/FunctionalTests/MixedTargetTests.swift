@@ -17,6 +17,9 @@ import SPMTestSupport
 
 final class MixedTargetTests: XCTestCase {
 
+    // Mixed language targets are only supported on macOS.
+    #if os(macOS)
+
     // MARK: - Testing Mixed Targets
 
     func testMixedTarget() throws {
@@ -476,4 +479,28 @@ final class MixedTargetTests: XCTestCase {
             )
         }
     }
+
+    #else
+
+    // MARK: - Test Mixed Targets unsupported on non-macOS
+
+    func testMixedTargetOnlySupportedOnMacOS() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            let commandExecutionError = try XCTUnwrap(
+                XCTAssertBuildFails(
+                    fixturePath,
+                    extraArgs: ["--target", "BasicMixedTarget"]
+                )
+            )
+
+            XCTAssert(
+                commandExecutionError.stderr.contains(
+                    "error: Targets with mixed language sources are only supported on Apple platforms."
+                )
+            )
+        }
+    }
+
+    #endif
+
 }
