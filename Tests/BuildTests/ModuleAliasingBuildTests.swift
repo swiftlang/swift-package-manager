@@ -203,6 +203,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
     }
 
     func testModuleAliasingDuplicateDylibProductNames() throws {
+        let fooPkg: AbsolutePath = "/fooPkg"
+        let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -215,7 +217,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: "/fooPkg",
+                    path: fooPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -225,7 +227,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: "/barPkg",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -258,11 +260,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '/barPkg'), 'foopkg' (at '/fooPkg')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
         }
     }
 
     func testModuleAliasingDuplicateDylibStaticLibProductNames() throws {
+        let fooPkg: AbsolutePath = "/fooPkg"
+        let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -275,7 +279,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: "/fooPkg",
+                    path: fooPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -285,7 +289,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: "/barPkg",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
                     ],
@@ -318,7 +322,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '/barPkg'), 'foopkg' (at '/fooPkg')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
         }
     }
 
