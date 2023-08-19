@@ -105,7 +105,7 @@ enum TestingSupport {
         let targetTriple = try swiftTool.getTargetToolchain().targetTriple
         guard targetTriple.darwinPlatform == .macOS else {
             swiftTool.observabilityScope.emit(error: """
-            Attempting to run test suite cross-compiled for non-macOS target '\(targetTriple)'; \
+            Attempting to run tests cross-compiled for non-macOS target '\(targetTriple)'; \
             this is currently unsupported.
             """)
             return []
