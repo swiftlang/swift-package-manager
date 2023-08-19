@@ -504,7 +504,7 @@ public struct SwiftSDK: Equatable {
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
-        let sdkPaths = try SwiftSDK.sdkPlatformFrameworkPaths(for: darwinPlatform, environment: environment)
+        let sdkPaths = try SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
         extraCCFlags += ["-F", sdkPaths.frameworks.pathString]
         extraSwiftCFlags += ["-F", sdkPaths.frameworks.pathString]
         extraSwiftCFlags += ["-I", sdkPaths.libraries.pathString]
@@ -540,8 +540,17 @@ public struct SwiftSDK: Equatable {
         public var libraries: AbsolutePath
     }
 
-    /// Returns framework paths for the provided Darwin platform.
+    /// Returns `macosx` sdk platform framework path.
+    @available(*, deprecated, message: "use sdkPlatformPaths(for:) instead")
     public static func sdkPlatformFrameworkPaths(
+        environment: EnvironmentVariables = .process()
+    ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
+        let paths = try sdkPlatformPaths(for: .macOS, environment: environment)
+        return (fwk: paths.frameworks, lib: paths.libraries)
+    }
+
+    /// Returns ``SwiftSDK/PlatformPaths`` for the provided Darwin platform.
+    public static func sdkPlatformPaths(
         for darwinPlatform: DarwinPlatform,
         environment: EnvironmentVariables = .process()
     ) throws -> PlatformPaths {
