@@ -505,10 +505,10 @@ public struct SwiftSDK: Equatable {
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
         let sdkPaths = try SwiftSDK.sdkPlatformFrameworkPaths(for: darwinPlatform, environment: environment)
-        extraCCFlags += ["-F", sdkPaths.fwk.pathString]
-        extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
-        extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
-        extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
+        extraCCFlags += ["-F", sdkPaths.frameworks.pathString]
+        extraSwiftCFlags += ["-F", sdkPaths.frameworks.pathString]
+        extraSwiftCFlags += ["-I", sdkPaths.libraries.pathString]
+        extraSwiftCFlags += ["-L", sdkPaths.libraries.pathString]
         #endif
 
         #if !os(Windows)
@@ -527,11 +527,24 @@ public struct SwiftSDK: Equatable {
         )
     }
 
+    /// Auxiliary platform frameworks and libraries.
+    ///
+    /// The referenced directories may contain, for example, test support utilities.
+    ///
+    /// - SeeAlso: ``sdkPlatformFrameworkPaths(for:environment:)``
+    public struct PlatformPaths {
+        /// Path to the directory containing auxiliary platform frameworks.
+        public var frameworks: AbsolutePath
+
+        /// Path to the directory containing auxiliary platform libraries.
+        public var libraries: AbsolutePath
+    }
+
     /// Returns framework paths for the provided Darwin platform.
     public static func sdkPlatformFrameworkPaths(
-        for darwinPlatform: DarwinPlatform = .macOS,
+        for darwinPlatform: DarwinPlatform,
         environment: EnvironmentVariables = .process()
-    ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
+    ) throws -> PlatformPaths {
         if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
             return path
         }
@@ -554,14 +567,13 @@ public struct SwiftSDK: Equatable {
             components: "Developer", "usr", "lib"
         )
 
-        let sdkPlatformFrameworkPath = (fwk, lib)
+        let sdkPlatformFrameworkPath = PlatformPaths(frameworks: fwk, libraries: lib)
         _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }
 
-    // FIXME: convert this from a tuple to a proper struct with documented properties
-    /// Cache storage for sdk platform path.
-    private static var _sdkPlatformFrameworkPath: [DarwinPlatform: (fwk: AbsolutePath, lib: AbsolutePath)] = [:]
+    /// Cache storage for sdk platform paths.
+    private static var _sdkPlatformFrameworkPath: [DarwinPlatform: PlatformPaths] = [:]
 
     /// Returns a default destination of a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")

@@ -114,10 +114,11 @@ enum TestingSupport {
             )
 
             // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-            let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths()
+            // Since XCTestHelper targets macOS, we need the macOS platform paths here.
+            let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths(for: .macOS)
             // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.frameworks.pathString)
+            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.libraries.pathString)
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
