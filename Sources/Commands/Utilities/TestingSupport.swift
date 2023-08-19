@@ -102,6 +102,15 @@ enum TestingSupport {
     ) throws -> [TestSuite] {
         // Run the correct tool.
         #if os(macOS)
+        let targetTriple = try swiftTool.getTargetToolchain().targetTriple
+        guard targetTriple.darwinPlatform == .macOS else {
+            swiftTool.observabilityScope.emit(error: """
+            Attempting to run test suite cross-compiled for non-macOS target '\(targetTriple)'; \
+            this is currently unsupported.
+            """)
+            return []
+        }
+
         let data: String = try withTemporaryFile { tempFile in
             let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try Self.constructTestEnvironment(
