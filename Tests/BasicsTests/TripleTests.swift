@@ -122,6 +122,12 @@ final class TripleTests: XCTestCase {
 
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "", is: "mips-apple-darwin")
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "22", is: "mips-apple-darwin22")
+
+        XCTAssertTriple("arm64-apple-ios-simulator", forPlatformVersion: "", is: "arm64-apple-ios-simulator")
+        XCTAssertTriple("arm64-apple-ios-simulator", forPlatformVersion: "13.0", is: "arm64-apple-ios13.0-simulator")
+
+        XCTAssertTriple("arm64-apple-ios12-simulator", forPlatformVersion: "", is: "arm64-apple-ios-simulator")
+        XCTAssertTriple("arm64-apple-ios12-simulator", forPlatformVersion: "13.0", is: "arm64-apple-ios13.0-simulator")
     }
 
     func testKnownTripleParsing() {

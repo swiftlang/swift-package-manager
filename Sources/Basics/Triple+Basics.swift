@@ -64,13 +64,11 @@ extension Triple {
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
         precondition(isDarwin())
-        // This function did not handle triples with a specific environments and
-        // object formats previously to using SwiftDriver.Triple and still does
-        // not.
         return """
             \(self.archName)-\
             \(self.vendorName)-\
-            \(self.osNameUnversioned)\(version)
+            \(self.osNameUnversioned)\(version)\
+            \(self.environmentName.isEmpty ? "" : "-\(self.environmentName)")
             """
     }
 
