@@ -13,17 +13,31 @@
 import XCTest
 import SPMTestSupport
 
-// MARK: - MixedTargetTests
-
 final class MixedTargetTests: XCTestCase {
+    // MARK: - All Platforms Tests
 
-    // Mixed language targets are only supported on macOS.
-    #if os(macOS)
+    // The below tests build targets with C++ interoperability mode enabled, a
+    // feature that requires Swift 5.9 or greater.
+    // FIXME(ncooke3): Update with next version of SPM.
+    #if swift(>=5.9)
+    func testMixedTargetWithCXX_InteropEnabled() throws {
+        try fixture(name: "MixedTargets/MixedTargetsWithCXX_InteropEnabled") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTarget"]
+            )
+        }
+    }
+    #endif  // swift(>=5.9)
+}
 
-    // MARK: - Testing Mixed Targets
+#if os(macOS)
+extension MixedTargetTests {
+    // MARK: - macOS Tests
+    // The targets tested contain Objective-C, and thus require macOS to be tested.
 
     func testMixedTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "BasicMixedTarget"]
@@ -33,7 +47,7 @@ final class MixedTargetTests: XCTestCase {
 
 // FIXME(ncooke3): Re-enable with Swift compiler change (see proposal).
 //    func testMixedTargetWithUmbrellaHeader() throws {
-//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+//        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
 //            XCTAssertBuilds(
 //                fixturePath,
 //                extraArgs: ["--target", "BasicMixedTargetWithUmbrellaHeader"]
@@ -46,7 +60,7 @@ final class MixedTargetTests: XCTestCase {
 //    }
 
     func testMixedTargetWithResources() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "MixedTargetWithResources"]
@@ -55,7 +69,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithCustomModuleMap() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCustomModuleMap"]
@@ -72,7 +86,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithInvalidCustomModuleMap() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             // An invalid module map will cause the whole package to fail to
             // build. To work around this, the module map is made invalid
             // during the actual test.
@@ -108,7 +122,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithCustomModuleMapAndResources() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: [
@@ -129,21 +143,8 @@ final class MixedTargetTests: XCTestCase {
         } 
     }
 
-// The below tests build targets with C++ interoperability mode enabled, a
-// feature that requires Swift 5.9 or greater.
-#if swift(>=5.9)
-    func testMixedTargetWithCXX_CXXInteropEnabled() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertBuilds(
-                fixturePath,
-                extraArgs: ["--target", "MixedTargetWithCXX_CXXInteropEnabled"]
-            )
-        }
-    }
-#endif  // swift(>=5.9)
-
     func testMixedTargetWithCXX() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "MixedTargetWithCXXTests"]
@@ -152,7 +153,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithCXXAndCustomModuleMap() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXAndCustomModuleMap"]
@@ -161,7 +162,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithCXXPublicAPI() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXPublicAPI"]
@@ -177,7 +178,7 @@ final class MixedTargetTests: XCTestCase {
     }
     
     func testMixedTargetWithCXXPublicAPIAndCustomModuleMap() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCXXPublicAPIAndCustomModuleMap"]
@@ -194,7 +195,7 @@ final class MixedTargetTests: XCTestCase {
 
 
     func testMixedTargetWithC() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "MixedTargetWithC"]
@@ -203,7 +204,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithNoPublicObjectiveCHeaders() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "MixedTargetWithNoPublicObjectiveCHeadersTests"]
@@ -218,7 +219,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithNoObjectiveCCompatibleSwiftAPI() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithNoObjectiveCCompatibleSwiftAPI"]
@@ -233,7 +234,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testNonPublicHeadersAreVisibleFromSwiftPartOfMixedTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuildFails(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithNonPublicHeaders"],
@@ -249,7 +250,7 @@ final class MixedTargetTests: XCTestCase {
     // TODO(ncooke3): Use a different target to test this as the target below
     // has been deleted.
     func SKIP_testNonPublicHeadersAreNotVisibleFromOutsideOfTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             // The test target tries to access non-public headers so the build
             // should fail.
             XCTAssertBuildFails(
@@ -265,7 +266,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithCustomPaths() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCustomPaths"]
@@ -275,7 +276,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetBuildsInReleaseMode() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: [
@@ -287,7 +288,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testStaticallyLinkedMixedTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--product", "StaticallyLinkedBasicMixedTarget"]
@@ -318,7 +319,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testDynamicallyLinkedMixedTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--product", "DynamicallyLinkedBasicMixedTarget"]
@@ -363,7 +364,7 @@ final class MixedTargetTests: XCTestCase {
         // - #import "include/OldCar.h"
         //
         // This aligns with the behavior of a Clang-only target.
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: [
@@ -375,7 +376,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithNestedPublicHeaders() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithNestedPublicHeaders"]
@@ -384,7 +385,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testMixedTargetWithNestedPublicHeadersAndCustomModuleMap() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: [
@@ -398,7 +399,7 @@ final class MixedTargetTests: XCTestCase {
     // MARK: - Testing Mixed *Test* Targets
 
     func testMixedTestTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             for value in [0, 1] {
                 XCTAssertSwiftTest(
                     fixturePath,
@@ -410,7 +411,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testTestUtilitiesCanBeSharedAcrossSwiftAndObjcTestFiles() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "MixedTestTargetWithSharedUtilitiesTests"]
@@ -419,7 +420,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
     func testPrivateHeadersCanBeTestedViaHeaderSearchPaths() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "PrivateHeadersCanBeTestedViaHeaderSearchPathsTests"]
@@ -430,7 +431,7 @@ final class MixedTargetTests: XCTestCase {
     // MARK: - Integrating Mixed Target with other Targets
 
     func testClangTargetDependsOnMixedTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             for value in [0, 1] {
                 XCTAssertBuilds(
                     fixturePath,
@@ -442,7 +443,7 @@ final class MixedTargetTests: XCTestCase {
     }
 
      func testSwiftTargetDependsOnMixedTarget() throws {
-         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+         try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
              XCTAssertBuilds(
                  fixturePath,
                  extraArgs: ["--target", "SwiftTargetDependsOnMixedTarget"]
@@ -451,7 +452,7 @@ final class MixedTargetTests: XCTestCase {
      }
 
      func testMixedTargetDependsOnOtherMixedTarget() throws {
-         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+         try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
              for value in [0, 1] {
                  XCTAssertBuilds(
                     fixturePath,
@@ -463,7 +464,7 @@ final class MixedTargetTests: XCTestCase {
      }
 
      func testMixedTargetDependsOnClangTarget() throws {
-         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+         try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
              XCTAssertBuilds(
                  fixturePath,
                  extraArgs: ["--target", "MixedTargetDependsOnClangTarget"]
@@ -472,35 +473,12 @@ final class MixedTargetTests: XCTestCase {
      }
 
     func testMixedTargetDependsOnSwiftTarget() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetDependsOnSwiftTarget"]
             )
         }
     }
-
-    #else
-
-    // MARK: - Test Mixed Targets unsupported on non-macOS
-
-    func testMixedTargetOnlySupportedOnMacOS() throws {
-        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            let commandExecutionError = try XCTUnwrap(
-                XCTAssertBuildFails(
-                    fixturePath,
-                    extraArgs: ["--target", "BasicMixedTarget"]
-                )
-            )
-
-            XCTAssert(
-                commandExecutionError.stderr.contains(
-                    "error: Targets with mixed language sources are only supported on Apple platforms."
-                )
-            )
-        }
-    }
-
-    #endif
-
 }
+#endif  // os(macOS)

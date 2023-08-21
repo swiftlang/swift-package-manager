@@ -3,11 +3,11 @@
 
 import PackageDescription
 
-// This package vends targets to aid in testing the BasicMixedTargets package.
+// This package vends targets to aid in testing the MixedTargetsWithObjC package.
 let package = Package(
     name: "DummyTargets",
     dependencies: [
-         .package(path: "../BasicMixedTargets")
+         .package(path: "../MixedTargetsWithObjC")
     ],
     targets: [
         .executableTarget(
@@ -15,7 +15,7 @@ let package = Package(
             dependencies: [
                 .product(
                     name: "DynamicallyLinkedBasicMixedTarget", 
-                    package: "BasicMixedTargets"
+                    package: "MixedTargetsWithObjC"
                 )
             ]
          ),
@@ -24,7 +24,7 @@ let package = Package(
              dependencies: [
                 .product(
                     name: "StaticallyLinkedBasicMixedTarget", 
-                    package: "BasicMixedTargets"
+                    package: "MixedTargetsWithObjC"
                 )
             ]
          ),
@@ -33,7 +33,7 @@ let package = Package(
              dependencies: [
                 .product(
                     name: "DynamicallyLinkedBasicMixedTarget", 
-                    package: "BasicMixedTargets"
+                    package: "MixedTargetsWithObjC"
                 )
              ]
          ),
@@ -42,7 +42,7 @@ let package = Package(
              dependencies: [
                 .product(
                     name: "StaticallyLinkedBasicMixedTarget", 
-                    package: "BasicMixedTargets"
+                    package: "MixedTargetsWithObjC"
                 )
              ]
          )

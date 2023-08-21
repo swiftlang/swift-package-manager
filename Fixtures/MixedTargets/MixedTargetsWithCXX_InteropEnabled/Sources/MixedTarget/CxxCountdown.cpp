@@ -1,8 +1,9 @@
 #include "CxxCountdown.hpp"
-// #include "MixedTargetWithCXX_CXXInteropEnabled-Swift.h"
-// #include <MixedTargetWithCXX_CXXInteropEnabled/MixedTargetWithCXX_CXXInteropEnabled-Swift.h>
-#include <MixedTargetWithCXX_CXXInteropEnabled-Swift.h>
+
 #include <iostream>
+
+#include "MixedTarget-Swift.h"
+#include <MixedTarget-Swift.h>
 
 CxxCountdown::CxxCountdown(bool printCount) : printCount(printCount) {}
 
@@ -16,6 +17,6 @@ void CxxCountdown::countdown(int x )const {
     if (x == 0)
       std::cout << "[c++] We have liftoff!";
 
-    auto swiftCountdown = MixedTargetWithCXX_CXXInteropEnabled::SwiftCountdown::init(printCount);
+    auto swiftCountdown = MixedTarget::SwiftCountdown::init(printCount);
     swiftCountdown.countdown(x - 1);
 }

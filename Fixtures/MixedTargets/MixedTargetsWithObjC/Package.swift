@@ -247,25 +247,5 @@ let package = Package(
          // The below two targets are used for testing the above targets.
          .target(name: "SwiftTarget"),
          .target(name: "ClangTarget")
-    ] + targetsWithCxxInteropEnabled(),
-    // TODO(ncooke3): Is the below note behavior that we want to be intended?
-    // This is needed for targets with that have
-    // `swiftSettings: [.interoperabilityMode(.Cxx)]` set.
-    cxxLanguageStandard: .cxx11
+    ]
 )
-
-func targetsWithCxxInteropEnabled() -> [Target] {
-// The below targets have C++ interoperability mode enabled, a feature that
-// requires Swift 5.9 or greater.
-#if swift(>=5.9)
-  // MARK: - MixedTargetWithCXX_CXXInteropEnabled
-  return [
-    .target(
-      name: "MixedTargetWithCXX_CXXInteropEnabled",
-      swiftSettings: [.interoperabilityMode(.Cxx)]
-    )
-  ]
-#else
-  return []
-#endif  // swift(>=5.9)
-}
