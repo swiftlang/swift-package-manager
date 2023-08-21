@@ -19,6 +19,5 @@ void CxxCountdown::countdown(int x )const {
       std::cout << "[c++] We have liftoff!";
       return;
 
-    auto swiftCountdown = MixedTarget::SwiftCountdown::init(printCount);
-    swiftCountdown.countdown(x - 1);
+    CxxCountdown::countdown(x - 1);
 }

@@ -6,7 +6,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "MixedTargetsWithCXX_InteropEnabled",
+    name: "MixedTargetsWithCXX_InteropDisabled",
     products: [
         .library(
             name: "MixedTarget",
@@ -26,12 +26,7 @@ let package = Package(
     dependencies: [],
     targets: [
         .target(
-          name: "MixedTarget",
-          swiftSettings: [.interoperabilityMode(.Cxx)]
+          name: "MixedTarget"
         )
-    ],
-    // TODO(ncooke3): Is the below note behavior that we want to be intended?
-    // This is needed for targets with that have
-    // `swiftSettings: [.interoperabilityMode(.Cxx)]` set.
-    cxxLanguageStandard: .cxx11
+    ]
 )

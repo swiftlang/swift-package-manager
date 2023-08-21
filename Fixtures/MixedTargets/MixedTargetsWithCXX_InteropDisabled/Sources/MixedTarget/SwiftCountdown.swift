@@ -22,7 +22,6 @@ public struct SwiftCountdown {
         return
       }
 
-      let cxxCountdown = CxxCountdown(printCount)
-      cxxCountdown.countdown(Int32(x) - 1)
+      countdown(x: x - 1)
     }
 }

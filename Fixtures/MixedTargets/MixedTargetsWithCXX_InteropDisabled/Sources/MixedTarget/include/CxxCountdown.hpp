@@ -1,3 +1,4 @@
+#ifdef __cplusplus
 class CxxCountdown
 {
 public:
@@ -6,3 +7,4 @@ public:
 private:
     bool printCount;
 };
+#endif  // __cplusplus

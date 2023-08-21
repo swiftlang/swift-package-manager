@@ -29,6 +29,15 @@ final class MixedTargetTests: XCTestCase {
         }
     }
     #endif  // swift(>=5.9)
+
+    func testMixedTargetWithCXX_InteropDisabled() throws {
+        try fixture(name: "MixedTargets/MixedTargetsWithCXX_InteropDisabled") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTarget"]
+            )
+        }
+    }
 }
 
 #if os(macOS)
