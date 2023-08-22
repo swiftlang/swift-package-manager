@@ -2972,21 +2972,17 @@ final class PackageToolTests: CommandsTestCase {
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "Foo.swift"), string:
                 """
-                public struct Foo { }
+                a file with a filename suffix handled by the plugin
                 """
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "include", "Bar.h"), string:
                 """
-                #import <Foundation/Foundation.h>
-                @interface Bar: NSObject
-                @end
+                a file with a filename suffix handled by the plugin
                 """
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "Bar.m"), string:
                 """
-                #import "Bar.h"
-                @implementation Bar
-                @end
+                a file with a filename suffix handled by the plugin
                 """
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.foo"), string:
