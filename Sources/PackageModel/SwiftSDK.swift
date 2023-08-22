@@ -610,11 +610,13 @@ public struct SwiftSDK: Equatable {
         #if os(macOS)
         if let darwinPlatform = targetTriple.darwinPlatform {
             // the Darwin SDKs are trivially available on macOS
-            return try? self.systemSwiftSDK(
+            var sdk = try? self.systemSwiftSDK(
                 hostSDK.toolset.rootPaths.first,
                 environment: environment,
                 darwinPlatformOverride: darwinPlatform
             )
+            sdk?.targetTriple = targetTriple
+            return sdk
         }
         #endif
 
