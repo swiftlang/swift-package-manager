@@ -4360,18 +4360,10 @@ final class BuildPlanTests: XCTestCase {
         let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
-        #if os(macOS)
-          XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
-        #else
-          XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
-        #endif
+        XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
 
         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
-        #if os(macOS)
-          XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
-        #else
-          XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
-        #endif
+        XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -4433,19 +4425,11 @@ final class BuildPlanTests: XCTestCase {
 
         let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
-         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
-         #if os(macOS)
-           XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
-         #else
-           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
-         #endif
+        let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
+        XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
 
-         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
-         #if os(macOS)
-           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
-         #else
-           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
-         #endif
+        let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
+        XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -4511,19 +4495,11 @@ final class BuildPlanTests: XCTestCase {
 #endif
         let result = try BuildPlanResult(plan: plan)
 
-         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
-         #if os(macOS)
-           XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
-         #else
-           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
-         #endif
+        let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
+        XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
 
-         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
-         #if os(macOS)
-           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
-         #else
-           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
-         #endif
+        let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
+        XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
 
         let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
