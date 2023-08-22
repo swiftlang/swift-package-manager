@@ -46,14 +46,18 @@ extension SwiftPM {
 
     /// Path to currently built binary.
     public var path: AbsolutePath {
+        return Self.testBinaryPath(for: self.executableName)
+    }
+
+    public static func testBinaryPath(for executableName: RelativePath) -> AbsolutePath {
         #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, self.executableName)
+            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
         }
         fatalError()
         #else
         return try! AbsolutePath(validating: CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
-            .parentDirectory.appending(self.executableName)
+            .parentDirectory.appending(executableName)
         #endif
     }
 }

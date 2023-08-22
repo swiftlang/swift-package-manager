@@ -400,4 +400,53 @@ final class BuildToolTests: CommandsTestCase {
             }
         }
     }
+
+    func testSwiftGetVersion() throws {
+        try fixture(name: "Miscellaneous/Simple") { fixturePath in
+            func findSwiftGetVersionFile() throws -> AbsolutePath {
+                let buildArenaPath = fixturePath.appending(components: ".build", "debug")
+                let files = try localFileSystem.getDirectoryContents(buildArenaPath)
+                let filename = try XCTUnwrap(files.first { $0.hasPrefix("swift-version") })
+                return buildArenaPath.appending(component: filename)
+            }
+
+            let dummySwiftcPath = SwiftPM.testBinaryPath(for: "dummy-swiftc")
+            let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
+
+            var environment = [
+                "SWIFT_EXEC": dummySwiftcPath.pathString,
+                // Environment variables used by `dummy-swiftc.sh`
+                "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString,
+                "CUSTOM_SWIFT_VERSION": "1.0",
+            ]
+
+            // Build with a swiftc that returns version 1.0, we expect a successful build which compiles our one source file.
+            do {
+                let result = try execute(["--verbose"], environment: environment, packagePath: fixturePath)
+                XCTAssertTrue(result.stdout.contains("\(dummySwiftcPath.pathString) -module-name"), "compilation task missing from build result: \(result.stdout)")
+                XCTAssertTrue(result.stdout.contains("Build complete!"), "unexpected build result: \(result.stdout)")
+                let swiftGetVersionFilePath = try findSwiftGetVersionFile()
+                XCTAssertEqual(try String(contentsOfFile: swiftGetVersionFilePath.pathString).spm_chomp(), "1.0")
+            }
+
+            // Build again with that same version, we do not expect any compilation tasks.
+            do {
+                let result = try execute(["--verbose"], environment: environment, packagePath: fixturePath)
+                XCTAssertFalse(result.stdout.contains("\(dummySwiftcPath.pathString) -module-name"), "compilation task present in build result: \(result.stdout)")
+                XCTAssertTrue(result.stdout.contains("Build complete!"), "unexpected build result: \(result.stdout)")
+                let swiftGetVersionFilePath = try findSwiftGetVersionFile()
+                XCTAssertEqual(try String(contentsOfFile: swiftGetVersionFilePath.pathString).spm_chomp(), "1.0")
+            }
+
+            // Build again with a swiftc that returns version 2.0, we expect compilation happening once more.
+            do {
+                environment["CUSTOM_SWIFT_VERSION"] = "2.0"
+                let result = try execute(["--verbose"], environment: environment, packagePath: fixturePath)
+                XCTAssertTrue(result.stdout.contains("\(dummySwiftcPath.pathString) -module-name"), "compilation task missing from build result: \(result.stdout)")
+                XCTAssertTrue(result.stdout.contains("Build complete!"), "unexpected build result: \(result.stdout)")
+                let swiftGetVersionFilePath = try findSwiftGetVersionFile()
+                XCTAssertEqual(try String(contentsOfFile: swiftGetVersionFilePath.pathString).spm_chomp(), "2.0")
+            }
+        }
+    }
 }

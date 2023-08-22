@@ -666,6 +666,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             ]
         ),
 
+        .executableTarget(
+            name: "dummy-swiftc",
+            dependencies: [
+                "Basics",
+            ]
+        ),
+
         .testTarget(
             name: "CommandsTests",
             dependencies: [
@@ -681,6 +688,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",
+                "dummy-swiftc",
             ]
         ),
     ])
