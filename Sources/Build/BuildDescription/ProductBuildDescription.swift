@@ -314,14 +314,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += ["-L", librarySearchPath.pathString]
         }
 
-        // Add toolchain's libdir at the very end (even after the user -Xlinker arguments).
-        //
-        // This will allow linking to libraries shipped in the toolchain.
-        let toolchainLibDir = try buildParameters.toolchain.toolchainLibDir
-        if self.fileSystem.isDirectory(toolchainLibDir) {
-            args += ["-L", toolchainLibDir.pathString]
-        }
-
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
