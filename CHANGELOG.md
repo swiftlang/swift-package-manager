@@ -3,24 +3,29 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
-* [#6111]
-
-  Package creation using `package init` now also supports the build tool plugin and command plugin types.
-
 * [#5728]
 
   In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
 
-* [#6185], [#6200]
-
-  Add a new `CompilerPluginSupport` module which contains the definition for macro targets. Macro targets allow authoring and distribution of custom Swift macros such as [expression macros](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md).
 
 Swift 5.9
 -----------
 
+* [SE-0386]
+
+  SwiftPM packages can now use `package` as a new access modifier, allowing accessing symbols in another target / module within the same package without making it public.
+
+* [SE-0391]
+
+  SwiftPM can now publish to a registry following the pulish spec defined in [SE-0391]
+
 * [#5966]
 
   Plugin compilation can be influenced by using `-Xbuild-tools-swiftc` arguments in the SwiftPM command line. This is similar to the existing mechanism for influencing the manifest compilation using `-Xmanifest` arguments. Manifest compilation will also be influenced by `-Xbuild-tools-swiftc`, but only if no other `-Xmanifest` arguments are provided. Using `-Xmanifest` will show a deprecation message. `-Xmanifest` will be removed in the future.
+
+* [#6060]
+
+  Support for building plugin dependencies for the host when cross-compiling.
 
 * [#6067]
 
@@ -32,21 +37,33 @@ Swift 5.9
   }
   ```
 
-* [#6294]
+* [#6111]
 
-  When a package contains a single target, sources may be distributed anywhere within the `./Sources` directory. If sources are placed in a subdirectory under `./Sources/<target>`, or there is more than one target, the existing expectation for sources apply.
+  Package creation using `package init` now also supports the build tool plugin and command plugin types.
 
 * [#6114]
 
   Added a new `allowNetworkConnections(scope:reason:)` for giving a command plugin permissions to access the network. Permissions can be scoped to Unix domain sockets in general or specifically for Docker, as well as local or remote IP connections which can be limited by port. For non-interactive use cases, there is also a `--allow-network-connections` commandline flag to allow network connections for a particular scope.
 
-* [#6060]
-
-  Support for building plugin dependencies for the host when cross-compiling.
-
 * [#6144]
 
   Remove the `system-module` and `manifest` templates and clean up the remaining `empty`, `library`, and `executable` templates so they include the minimum information needed to get started, with links to documentation in the generated library, executable, and test content.
+
+* [#6185], [#6200]
+
+  Add a new `CompilerPluginSupport` module which contains the definition for macro targets. Macro targets allow authoring and distribution of custom Swift macros such as [expression macros](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md).
+
+* [#6294]
+
+  When a package contains a single target, sources may be distributed anywhere within the `./Sources` directory. If sources are placed in a subdirectory under `./Sources/<target>`, or there is more than one target, the existing expectation for sources apply.
+
+* [#6540]
+
+  Build tool plugins can be used with C-family targets
+
+* [#6663]
+
+  Add `visionOS` as a platform alongside `iOS`, `tvOS`, `watchOS`, and the other
 
 Swift 5.8
 -----------
@@ -302,6 +319,8 @@ Swift 3.0
 [SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
 [SE-0362]: https://github.com/apple/swift-evolution/blob/main/proposals/0362-piecemeal-future-features.md
 [SE-0378]: https://github.com/apple/swift-evolution/blob/main/proposals/0378-package-registry-auth.md
+[SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
+[SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
