@@ -1505,17 +1505,29 @@ final class BuildPlanTests: XCTestCase {
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-
-        XCTAssertMatch(exe, [
-            "-target", "\(defaultTargetTriple)", "-swift-version", "5",
-            "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
-            "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
-            "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
-            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
-            "-module-cache-path",
-            "\(buildPath.appending(components: "ModuleCache"))",
-            .anySequence, "-parseable-output", "-g", "-Xcc", "-g",
-        ])
+        #if os(macOS)
+          XCTAssertMatch(exe, [
+              "-target", "\(defaultTargetTriple)", "-swift-version", "5",
+              "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
+              "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
+              "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
+              "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
+              "-module-cache-path",
+              "\(buildPath.appending(components: "ModuleCache"))",
+              .anySequence, "-parseable-output", "-g", "-Xcc", "-g",
+          ])
+        #elseif os(Linux)
+          XCTAssertMatch(exe, [
+              "-target", "\(defaultTargetTriple)", "-swift-version", "5",
+              "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
+              "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
+              "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
+              "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
+              "-module-cache-path",
+              "\(buildPath.appending(components: "ModuleCache"))",
+              .anySequence, "-static-stdlib", "-parseable-output", "-g", "-Xcc", "-g",
+          ])
+        #endif
 
         let swiftPartOfLib = try result.target(for: "lib").mixedTarget().swiftTargetBuildDescription.compileArguments()
         XCTAssertMatch(swiftPartOfLib, [
@@ -1633,6 +1645,18 @@ final class BuildPlanTests: XCTestCase {
 
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        #if os(macOS)
+          XCTAssertMatch(exe, [
+              "-target", "\(defaultTargetTriple)", "-swift-version", "5",
+              "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
+              "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
+              "-fmodule-map-file=/Pkg/Sources/lib/include/module.modulemap",
+              "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
+              "-module-cache-path",
+              "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
+              "-parseable-output", "-g", "-Xcc", "-g"
+          ])
+      #elseif os(Linux)
         XCTAssertMatch(exe, [
             "-target", "\(defaultTargetTriple)", "-swift-version", "5",
             "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j),
@@ -1641,8 +1665,9 @@ final class BuildPlanTests: XCTestCase {
             "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
             "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
-            "-parseable-output", "-g", "-Xcc", "-g"
+            "-static-stdlib", "-parseable-output", "-g", "-Xcc", "-g"
         ])
+      #endif
 
         let swiftPartOfLib = try result.target(for: "lib").mixedTarget().swiftTargetBuildDescription.compileArguments()
         XCTAssertMatch(swiftPartOfLib, [
