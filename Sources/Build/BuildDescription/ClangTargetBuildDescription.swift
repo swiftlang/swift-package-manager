@@ -100,11 +100,6 @@ public final class ClangTargetBuildDescription {
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
 
-    /// Whether or not the target belongs to a mixed language target.
-    ///
-    /// Mixed language targets consist of an underlying Swift and Clang target.
-    private let isWithinMixedTarget: Bool
-
     /// If this target is a test target.
     public var isTestTarget: Bool {
         target.type == .test
@@ -135,7 +130,6 @@ public final class ClangTargetBuildDescription {
         self.buildParameters = buildParameters
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
-        self.isWithinMixedTarget = isWithinMixedTarget
 
         // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.
         if toolsVersion >= .v5_9 {
