@@ -218,8 +218,10 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (at '/foo'), 'bar' (at '/bar')", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (at '/foo'), 'bar' (at '/bar')", severity: .error)
+                let fooPkg: AbsolutePath = "/foo"
+                let barPkg: AbsolutePath = "/bar"
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
             }
         }
 
@@ -248,8 +250,10 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (at '/foo1'), 'Bar' (at '/bar1')", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (at '/foo1'), 'Bar' (at '/bar1')", severity: .error)
+                let foo1Pkg: AbsolutePath = "/foo1"
+                let bar1Pkg: AbsolutePath = "/bar1"
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
             }
         }
     }
