@@ -15,6 +15,10 @@ Swift 5.9
 
   SwiftPM packages can now use `package` as a new access modifier, allowing accessing symbols in another target / module within the same package without making it public.
 
+* [SE-0387]
+
+  New `swift experimental-sdk` experimental command is now available for managing Swift SDK bundles that follow the format described in [SE-0387]: "Swift SDKs for Cross-Compilation".
+
 * [SE-0391]
 
   SwiftPM can now publish to a registry following the publishing spec as defined in [SE-0391]. SwiftPM also gains support for signed packages. Trust-on-first-use (TOFU) check which includes only fingerprints (e.g., checksums) previously has been extended to include signing identities, and it is enforced for source archives as well as package manifests.
@@ -33,7 +37,7 @@ Swift 5.9
 
   ```
   struct PackageResources {
-  static let best_txt: [UInt8] = [104,101,108,108,111,32,119,111,114,108,100,10]
+    static let best_txt: [UInt8] = [104,101,108,108,111,32,119,111,114,108,100,10]
   }
   ```
 
@@ -53,6 +57,14 @@ Swift 5.9
 
   Add a new `CompilerPluginSupport` module which contains the definition for macro targets. Macro targets allow authoring and distribution of custom Swift macros such as [expression macros](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md).
 
+* [#6276]
+
+  Add newbuild setting in the package manifest that enables Swift/C++ Interoperability for a given Swift target.
+
+  ```
+  .interoperabilityMode(.Cxx, version: "swift-5.9")
+  ```
+  
 * [#6294]
 
   When a package contains a single target, sources may be distributed anywhere within the `./Sources` directory. If sources are placed in a subdirectory under `./Sources/<target>`, or there is more than one target, the existing expectation for sources apply.
@@ -63,11 +75,8 @@ Swift 5.9
 
 * [#6663]
 
-  Add `visionOS` as a platform alongside `iOS`, `tvOS`, `watchOS`, and the other
+  Add `visionOS` as a platform alongside `iOS` and other platforms
   
-* [#5911], [#5922], [#6023], [#6425]
-
-New `swift experimental-sdk` command is now available for managing Swift SDK bundles that follow the format described in [SE-0387]: "Swift SDKs for Cross-Compilation".
 
 Swift 5.8
 -----------
@@ -362,9 +371,12 @@ Swift 3.0
 [#5966]: https://github.com/apple/swift-package-manager/pull/5966
 [#6060]: https://github.com/apple/swift-package-manager/pull/6060
 [#6067]: https://github.com/apple/swift-package-manager/pull/6067
+[#6111]: https://github.com/apple/swift-package-manager/pull/6111
 [#6114]: https://github.com/apple/swift-package-manager/pull/6114
 [#6144]: https://github.com/apple/swift-package-manager/pull/6144
 [#6294]: https://github.com/apple/swift-package-manager/pull/6294
 [#6185]: https://github.com/apple/swift-package-manager/pull/6185
 [#6200]: https://github.com/apple/swift-package-manager/pull/6200
-[#6111]: https://github.com/apple/swift-package-manager/pull/6111
+[#6276]: https://github.com/apple/swift-package-manager/pull/6276
+[#6540]: https://github.com/apple/swift-package-manager/pull/6540
+[#6663]: https://github.com/apple/swift-package-manager/pull/6663
