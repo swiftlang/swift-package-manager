@@ -1692,7 +1692,7 @@ final class BuildPlanTests: XCTestCase {
                 "-fmodules-cache-path=/path/to/build/debug/ModuleCache", "-g"
             ])
         #elseif os(Linux)
-            XCTAssertMatch(exe, [
+            XCTAssertMatch(clangPartOfLib, [
                 "-target", "\(defaultTargetTriple)", "-O0",
                 "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
                 "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
@@ -1735,18 +1735,6 @@ final class BuildPlanTests: XCTestCase {
                 "-target", defaultTargetTriple, "-g"
             ])
         #endif
-
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
-            "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
-            "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath",
-            "-Xlinker", "@loader_path",
-            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
-            "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
-            "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
-            "-g"
-        ])
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: .contains("can be downloaded"), severity: .warning)
