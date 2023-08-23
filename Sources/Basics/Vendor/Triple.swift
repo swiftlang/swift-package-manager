@@ -1526,7 +1526,7 @@ extension Triple {
   /// `darwin` OS version number is not adjusted to match the equivalent
   /// `macosx` version number. It's usually better to use `version(for:)`
   /// to get Darwin versions.
-  public var osVersion: Version {
+  public var osVersion: Version? {
     var osName = self.osName[...]
 
     // Assume that the OS portion of the triple starts with the canonical name.
@@ -1623,7 +1623,7 @@ extension Triple {
   ///
   /// This accessor is semi-private; it's typically better to use `version(for:)` or
   /// `Triple.FeatureAvailability`.
-  public var _iOSVersion: Version {
+  public var _iOSVersion: Version? {
     switch os {
     case .darwin, .macosx:
       // Ignore the version from the triple.  This is only handled because the
@@ -1650,7 +1650,7 @@ extension Triple {
   ///
   /// This accessor is semi-private; it's typically better to use `version(for:)` or
   /// `Triple.FeatureAvailability`.
-  public var _watchOSVersion: Version {
+  public var _watchOSVersion: Version? {
     switch os {
     case .darwin, .macosx:
       // Ignore the version from the triple.  This is only handled because the
@@ -1659,7 +1659,7 @@ extension Triple {
       // OS X.
       return Version(2, 0, 0)
     case .watchos:
-      var version = self.osVersion
+      guard var version = self.osVersion else { return nil }
       if version.major == 0 {
         version.major = 2
       }
