@@ -59,7 +59,7 @@ Swift 5.9
 
 * [#6276]
 
-  Add newbuild setting in the package manifest that enables Swift/C++ Interoperability for a given Swift target.
+  Add new build setting in the package manifest that enables Swift/C++ Interoperability for a given Swift target.
 
   ```
   .interoperabilityMode(.Cxx, version: "swift-5.9")
