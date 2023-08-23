@@ -1,12 +1,12 @@
-//===--------------- Triple+Platforms.swift - Swift Platform Triples ------===//
+//===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 
@@ -199,7 +199,7 @@ extension Triple {
   ///   Not all combinations are valid; in particular, you cannot fetch a watchOS version
   ///   from an iOS/tvOS triple or vice versa.
   public func version(for compatibilityPlatform: DarwinPlatform? = nil)
-    -> Triple.Version
+    -> Triple.Version?
   {
     switch compatibilityPlatform ?? darwinPlatform! {
     case .macOS:
@@ -236,53 +236,6 @@ extension Triple {
       return .tvOS(makeEnvironment())
     default:
       return nil
-    }
-  }
-
-  // The Darwin platform version used for linking.
-  public var darwinLinkerPlatformVersion: Version {
-    precondition(self.os?.isDarwin ?? false)
-    switch darwinPlatform! {
-    case .macOS:
-      // The integrated driver falls back to `osVersion` for ivalid macOS
-      // versions, this decision might be worth revisiting.
-      let macVersion = _macOSVersion ?? osVersion
-      // The first deployment of arm64 for macOS is version 11
-      if macVersion.major < 11 && arch == .aarch64 {
-        return Version(11, 0, 0)
-      }
-
-      return macVersion
-    case .iOS(.catalyst):
-      // Mac Catalyst on arm was introduced with an iOS deployment target of
-      // 14.0; the linker doesn't want to see a deployment target before that.
-      if _iOSVersion.major < 14 && arch == .aarch64 {
-        return Version(14, 0, 0)
-      }
-
-      // Mac Catalyst was introduced with an iOS deployment target of 13.1;
-      // the linker doesn't want to see a deployment target before that.
-      if _iOSVersion.major < 13 {
-        return Version(13, 1, 0)
-      }
-
-      return _iOSVersion
-    case .iOS(.device), .iOS(.simulator), .tvOS(_):
-      // The first deployment of arm64 simulators is iOS/tvOS 14.0;
-      // the linker doesn't want to see a deployment target before that.
-      if _isSimulatorEnvironment && _iOSVersion.major < 14 && arch == .aarch64 {
-        return Version(14, 0, 0)
-      }
-
-      return _iOSVersion
-    case .watchOS(_):
-      // The first deployment of arm64 simulators is watchOS 7;
-      // the linker doesn't want to see a deployment target before that.
-      if _isSimulatorEnvironment && osVersion.major < 7 && arch == .aarch64 {
-        return Version(7, 0, 0)
-      }
-
-      return osVersion
     }
   }
 
@@ -409,7 +362,8 @@ extension Triple {
     case .unavailable:
       return false
     case .available(let introducedVersion):
-      return version(for: darwinPlatform) >= introducedVersion
+      guard let tripleVersion = version(for: darwinPlatform) else { return false }
+      return tripleVersion >= introducedVersion
     case .availableInAllVersions:
       return true
     }

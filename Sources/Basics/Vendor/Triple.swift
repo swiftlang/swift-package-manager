@@ -1,12 +1,12 @@
-//===--------------- Triple.swift - Swift Target Triples ------------------===//
+//===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 
@@ -72,14 +72,16 @@ public struct Triple {
 
   /// Represents a version that may be present in the target triple.
   public struct Version: Equatable, Comparable, CustomStringConvertible {
-    public static let zero = Version(0, 0, 0)
-
     public var major: Int
     public var minor: Int
     public var micro: Int
 
-    public init<S: StringProtocol>(parse string: S) {
-      let components = string.split(separator: ".", maxSplits: 3).map{ Int($0) ?? 0 }
+    public init?(parse string: some StringProtocol) {
+      guard !string.isEmpty else {
+        return nil
+      }
+
+      let components = string.split(separator: ".", maxSplits: 3).map { Int($0) ?? 0 }
       self.major = components.count > 0 ? components[0] : 0
       self.minor = components.count > 1 ? components[1] : 0
       self.micro = components.count > 2 ? components[2] : 0
@@ -162,10 +164,9 @@ public struct Triple {
 
       // Now that we've parsed everything, we construct a normalized form of the
       // triple string.
-      triple = parser.components.map({ $0.isEmpty ? "unknown" : $0 }).joined(separator: "-")
-    }
-    else {
-      triple = string
+      self.triple = parser.components.map { $0.isEmpty ? "unknown" : $0 }.joined(separator: "-")
+    } else {
+      self.triple = string
     }
 
     // Unpack the parsed data into the fields. If no environment info was found,
@@ -1569,7 +1570,9 @@ extension Triple {
   /// This accessor is semi-private; it's typically better to use `version(for:)` or
   /// `Triple.FeatureAvailability`.
   public var _macOSVersion: Version? {
-    var version = osVersion
+    guard var version = osVersion else {
+      return nil
+    }
 
     switch os {
     case .darwin:
@@ -1632,7 +1635,7 @@ extension Triple {
       // OS X.
       return Version(5, 0, 0)
     case .ios, .tvos:
-      var version = self.osVersion
+      guard var version = self.osVersion else { return nil }
       // Default to 5.0 (or 7.0 for arm64).
       if version.major == 0 {
         version.major = arch == .aarch64 ? 7 : 5

@@ -203,7 +203,11 @@ extension Triple: CustomStringConvertible {
 }
 
 extension Triple: Equatable {
-    public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.triple == rhs.triple
+    public static func ==(lhs: Triple, rhs: Triple) -> Bool {
+      lhs.arch == rhs.arch
+        && lhs.vendor == rhs.vendor
+        && lhs.os == rhs.os
+        && lhs.environment == rhs.environment
+        && lhs.osVersion == rhs.osVersion
     }
 }
