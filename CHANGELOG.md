@@ -321,6 +321,7 @@ Swift 3.0
 [SE-0378]: https://github.com/apple/swift-evolution/blob/main/proposals/0378-package-registry-auth.md
 [SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
 [SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
+[SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
 [SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
