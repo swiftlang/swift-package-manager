@@ -2941,13 +2941,6 @@ final class PackageToolTests: CommandsTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        #if !os(macOS)
-          // TODO(ncooke3): Re-evaluate why this failed on Linux. Probably
-          // should make a mixed lang. plugin test with Swift + C/C++ instead.
-          // See https://ci.swift.org/job/swift-package-manager-self-hosted-Linux-smoke-test/2685/console
-          try XCTSkipIf(true, "skipping on non-macOS")
-        #endif
-
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -2979,21 +2972,17 @@ final class PackageToolTests: CommandsTestCase {
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "Foo.swift"), string:
                 """
-                public struct Foo { }
+                // a file with a filename suffix handled by the plugin
                 """
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "include", "Bar.h"), string:
                 """
-                #import <Foundation/Foundation.h>
-                @interface Bar: NSObject
-                @end
+                // a file with a filename suffix handled by the plugin
                 """
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "Bar.m"), string:
                 """
-                #import "Bar.h"
-                @implementation Bar
-                @end
+                // a file with a filename suffix handled by the plugin
                 """
             )
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.foo"), string:
