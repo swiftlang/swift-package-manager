@@ -17,7 +17,7 @@ Swift 5.9
 
 * [SE-0391]
 
-  SwiftPM can now publish to a registry following the publishing spec as defined in [SE-0391]
+  SwiftPM can now publish to a registry following the publishing spec as defined in [SE-0391]. SwiftPM also gains support for signed packages. Trust-on-first-use (TOFU) check which includes only fingerprints (e.g., checksums) previously has been extended to include signing identities, and it is enforced for source archives as well as package manifests.
 
 * [#5966]
 
