@@ -64,6 +64,10 @@ Swift 5.9
 * [#6663]
 
   Add `visionOS` as a platform alongside `iOS`, `tvOS`, `watchOS`, and the other
+  
+* [#5911], [#5922], [#6023], [#6425]
+
+New `swift experimental-sdk` command is now available for managing Swift SDK bundles that follow the format described in [SE-0387]: "Swift SDKs for Cross-Compilation".
 
 Swift 5.8
 -----------
