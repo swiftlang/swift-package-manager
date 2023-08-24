@@ -1722,7 +1722,7 @@ final class BuildPlanTests: XCTestCase {
                 "-Xlinker", "@loader_path",
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
-                "-target", defaultTargetTriple, "-framework", "OtherFramework", "-Xlinker", "-add_ast_path",
+                "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
                 "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString,
                 "-g"
             ])
