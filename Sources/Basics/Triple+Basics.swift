@@ -114,14 +114,6 @@ extension Triple {
             )
         }
     }
-
-    public func isRuntimeCompatible(with triple: Triple) -> Bool {
-        guard self.isMacOSX, let version = self._macOSVersion, let comparedVersion = triple._macOSVersion else {
-            return self.tripleString == triple.tripleString
-        }
-
-        return version >= comparedVersion
-    }
 }
 
 extension Triple {

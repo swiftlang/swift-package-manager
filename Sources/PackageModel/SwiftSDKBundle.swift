@@ -428,8 +428,17 @@ extension [SwiftSDKBundle] {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(where: { 
-                        hostTriple.isRuntimeCompatible(with: $0) 
+                    guard variant.metadata.supportedTriples.contains(where: { variantTriple in
+                        if
+                            hostTriple.arch == variantTriple.arch &&
+                            hostTriple.vendor == variantTriple.vendor &&
+                            hostTriple.os == variantTriple.os &&
+                            hostTriple.environment == variantTriple.environment
+                        {
+                            return hostTriple.osVersion >= variantTriple.osVersion
+                        } else {
+                            return false
+                        }
                     }) else {
                         continue
                     }
