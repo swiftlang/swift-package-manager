@@ -441,7 +441,11 @@ extension [SwiftSDKBundle] {
                             hostTriple.os == variantTriple.os &&
                             hostTriple.environment == variantTriple.environment
                         {
-                            return hostTriple.osVersion >= variantTriple.osVersion
+                            if let hostOSVersion = hostTriple.osVersion, let variantOSVersion = variantTriple.osVersion {
+                                return hostOSVersion >= variantOSVersion
+                            } else {
+                                return true
+                            }
                         } else {
                             return false
                         }
