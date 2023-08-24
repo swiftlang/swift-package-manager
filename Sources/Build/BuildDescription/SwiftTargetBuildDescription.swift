@@ -353,7 +353,8 @@ public final class SwiftTargetBuildDescription {
                     let preferredBundle = Bundle(path: mainPath)
 
                     guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
-                        fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
+                        // Users can write a function called fatalError themselves, we should be resilient against that.
+                        Swift.fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
                     }
 
                     return bundle
