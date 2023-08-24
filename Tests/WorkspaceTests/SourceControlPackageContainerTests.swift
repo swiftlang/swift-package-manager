@@ -132,7 +132,10 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        return self.repositories[repository.location]!
+        guard let repository = self.repositories[repository.location] else {
+            throw InternalError("unknown repository at \(repository.location)")
+        }
+        return repository
     }
 
     func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {

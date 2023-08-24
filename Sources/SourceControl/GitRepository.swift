@@ -85,6 +85,8 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
     private let git: GitShellHelper
 
+    private var repositoryCache = ThreadSafeKeyValueStore<String, Repository>()
+
     public init() {
         // helper to cancel outstanding processes
         self.cancellator = Cancellator(observabilityScope: .none)
@@ -200,10 +202,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func repositoryExists(at directory: Basics.AbsolutePath) -> Bool {
-        if !localFileSystem.isDirectory(directory) {
-            return false
-        }
-        return self.isValidDirectory(directory)
+        return localFileSystem.isDirectory(directory)
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) -> Bool {
@@ -230,7 +229,10 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func open(repository: RepositorySpecifier, at path: Basics.AbsolutePath) -> Repository {
-        GitRepository(git: self.git, path: path, isWorkingRepo: false)
+        let key = "\(repository)@\(path)"
+        return self.repositoryCache.memoize(key) {
+            GitRepository(git: self.git, path: path, isWorkingRepo: false)
+        }
     }
 
     public func createWorkingCopy(
@@ -421,6 +423,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
     private var cachedBranches = ThreadSafeBox<[String]>()
+    private var cachedIsBareRepo = ThreadSafeBox<Bool>()
+    private var cachedHasSubmodules = ThreadSafeBox<Bool>()
 
     public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
         // used in one-off operations on git repo, as such the terminator is not ver important
@@ -639,7 +643,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 tag,
                 failureMessage: "Couldn’t check out tag ‘\(tag)’"
             )
-            try self.updateSubmoduleAndCleanNotOnQueue()
+            try self.updateSubmoduleAndCleanIfNecessary()
         }
     }
 
@@ -654,33 +658,30 @@ public final class GitRepository: Repository, WorkingCheckout {
                 revision.identifier,
                 failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"
             )
-            try self.updateSubmoduleAndCleanNotOnQueue()
+            try self.updateSubmoduleAndCleanIfNecessary()
         }
     }
 
     internal func isBare() throws -> Bool {
-        do {
+        return try self.cachedIsBareRepo.memoize(body: {
             let output = try callGit(
                 "rev-parse",
                 "--is-bare-repository",
                 failureMessage: "Couldn’t test for bare repository"
             )
+
             return output == "true"
-        }
+        })
     }
 
     internal func checkoutExists() throws -> Bool {
-        self.lock.withLock {
-            do {
-                let output = try callGit(
-                    "rev-parse",
-                    "--is-bare-repository",
-                    failureMessage: "Couldn’t test if check-out exists"
-                )
-                return output == "false"
-            } catch {
-                return false
-            }
+        return try !self.isBare()
+    }
+
+    private func updateSubmoduleAndCleanIfNecessary() throws {
+        if self.cachedHasSubmodules.get(default: false) || localFileSystem.exists(self.path.appending(".gitmodules")) {
+            self.cachedHasSubmodules.put(true)
+            try self.updateSubmoduleAndCleanNotOnQueue()
         }
     }
 
@@ -702,10 +703,8 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
-        self.lock.withLock {
-            let output = try? callGit("rev-parse", "--verify", "\(revision.identifier)^{commit}")
-            return output != nil
-        }
+        let output = try? callGit("rev-parse", "--verify", "\(revision.identifier)^{commit}")
+        return output != nil
     }
 
     public func checkout(newBranch: String) throws {
