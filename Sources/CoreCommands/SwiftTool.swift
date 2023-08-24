@@ -665,6 +665,7 @@ public final class SwiftTool {
     }
 
     private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+        let hostTriple = try self.getHostToolchain().targetTriple
         let targetTriple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
@@ -675,6 +676,7 @@ public final class SwiftTool {
             dataPath: dataPath,
             configuration: options.build.configuration,
             toolchain: toolchain,
+            hostTriple: hostTriple,
             targetTriple: targetTriple,
             flags: options.build.buildFlags,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
@@ -732,7 +734,7 @@ public final class SwiftTool {
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
-            let hostTriple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+            let hostTriple = hostToolchain.targetTriple
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {
@@ -780,7 +782,7 @@ public final class SwiftTool {
         if let sdk = options.build.customCompileSDK {
             swiftSDK.pathsConfiguration.sdkRootPath = sdk
         }
-        swiftSDK.architectures = options.build.architectures
+        swiftSDK.architectures = options.build.architectures.isEmpty ? nil : options.build.architectures
 
         // Check if we ended up with the host toolchain.
         if hostSwiftSDK == swiftSDK {
