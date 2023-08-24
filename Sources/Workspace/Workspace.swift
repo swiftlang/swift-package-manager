@@ -2603,8 +2603,8 @@ extension Workspace {
                     return .never
                 } else {
                     switch pin.state {
-                    case .branch:
-                        return .always
+                    case .branch(_, let revision):
+                        return .ifNeeded(revision: revision)
                     case .revision(let revision):
                         return .ifNeeded(revision: revision)
                     case .version(_, let .some(revision)):
