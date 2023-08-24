@@ -1555,7 +1555,7 @@ final class BuildPlanTests: XCTestCase {
                 "-g"
             ])
         #elseif os(Linux)
-            XCTAssertMatch(exe, [
+            XCTAssertMatch(clangPartOfLib, [
                 "-target", "\(defaultTargetTriple)", "-O0",
                 "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
                 "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
