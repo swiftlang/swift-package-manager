@@ -85,7 +85,7 @@ public class RepositoryManager: Cancellable {
         self.delegate = delegate
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
-        let maxConcurrentOperations = min(maxConcurrentOperations ?? 3, Concurrency.maxOperations)
+        let maxConcurrentOperations = max(1, maxConcurrentOperations ?? 3*Concurrency.maxOperations/4)
         self.lookupQueue = OperationQueue()
         self.lookupQueue.name = "org.swift.swiftpm.repository-manager"
         self.lookupQueue.maxConcurrentOperationCount = maxConcurrentOperations
