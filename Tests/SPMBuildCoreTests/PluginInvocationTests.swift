@@ -495,6 +495,8 @@ class PluginInvocationTests: XCTestCase {
                 }
                 """)
 
+            Thread.sleep(forTimeInterval: 1)
+
             // Recompile the plugin again.
             let thirdExecModTime: Date
             do {
