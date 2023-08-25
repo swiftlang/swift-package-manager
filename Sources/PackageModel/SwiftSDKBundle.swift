@@ -79,30 +79,30 @@ public struct SwiftSDKBundle {
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
     /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
     public static func selectBundle(
-        fromBundlesAt destinationsDirectory: AbsolutePath?,
+        fromBundlesAt swiftSDKsDirectory: AbsolutePath?,
         fileSystem: FileSystem,
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) throws -> Destination {
-        guard let destinationsDirectory = destinationsDirectory else {
+        guard let swiftSDKsDirectory else {
             throw StringError(
                 """
-                No directory found for installed Swift SDKs, specify one
+                No directory found for installed Swift SDKs, specify one \
                 with `--experimental-swift-sdks-path` option.
                 """
             )
         }
 
         let validBundles = try SwiftSDKBundle.getAllValidBundles(
-            swiftSDKsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
 
         guard !validBundles.isEmpty else {
             throw StringError(
-                "No valid Swift SDK bundles found at \(destinationsDirectory)."
+                "No valid Swift SDK bundles found at \(swiftSDKsDirectory)."
             )
         }
 
@@ -113,8 +113,8 @@ public struct SwiftSDKBundle {
         ) else {
             throw StringError(
                 """
-                No Swift SDK found matching query `\(selector)` and host triple
-                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see
+                No Swift SDK found matching query `\(selector)` and host triple \
+                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
                 available destinations.
                 """
             )
@@ -434,7 +434,22 @@ extension [SwiftSDKBundle] {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
+                    guard variant.metadata.supportedTriples.contains(where: { variantTriple in
+                        if
+                            hostTriple.arch == variantTriple.arch &&
+                            hostTriple.vendor == variantTriple.vendor &&
+                            hostTriple.os == variantTriple.os &&
+                            hostTriple.environment == variantTriple.environment
+                        {
+                            if let hostOSVersion = hostTriple.osVersion, let variantOSVersion = variantTriple.osVersion {
+                                return hostOSVersion >= variantOSVersion
+                            } else {
+                                return true
+                            }
+                        } else {
+                            return false
+                        }
+                    }) else {
                         continue
                     }
 
