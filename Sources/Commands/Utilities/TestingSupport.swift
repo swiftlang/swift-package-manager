@@ -67,6 +67,7 @@ enum TestingSupport {
         swiftTool: SwiftTool,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
@@ -77,6 +78,7 @@ enum TestingSupport {
                     swiftTool: swiftTool,
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
                     sanitizers: sanitizers
                 )
             )}
@@ -98,6 +100,7 @@ enum TestingSupport {
         swiftTool: SwiftTool,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [TestSuite] {
         // Run the correct tool.
@@ -109,7 +112,8 @@ enum TestingSupport {
                 toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput
                 ),
                 sanitizers: sanitizers
             )
@@ -201,7 +205,8 @@ extension SwiftTool {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
         enableTestability: Bool? = nil,
-        shouldSkipBuilding: Bool = false
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
         parameters.enableCodeCoverage = enableCodeCoverage
@@ -209,6 +214,7 @@ extension SwiftTool {
         // but we let users override this with a flag
         parameters.enableTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
+        parameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

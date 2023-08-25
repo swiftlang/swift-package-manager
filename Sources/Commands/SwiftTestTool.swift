@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import Dispatch
+import class Foundation.JSONDecoder
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
@@ -124,6 +125,14 @@ struct TestToolOptions: ParsableArguments {
           inversion: .prefixedEnableDisable,
           help: "Enable code coverage")
     var enableCodeCoverage: Bool = false
+
+    /// Configure test output.
+    @Option(help: ArgumentHelp("", visibility: .hidden))
+    public var testOutput: TestOutput = .default
+
+    var enableExperimentalTestOutput: Bool {
+        return testOutput == .experimentalSummary
+    }
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -139,6 +148,18 @@ public enum TestCaseSpecifier {
     
     /// RegEx patterns for tests to skip
     case skip([String])
+}
+
+/// Different styles of test output.
+public enum TestOutput: String, ExpressibleByArgument {
+    /// Whatever `xctest` emits to the console.
+    case `default`
+
+    /// Capture XCTest events and provide a summary.
+    case experimentalSummary
+
+    /// Let the test process emit parseable output to the console.
+    case experimentalParseable
 }
 
 /// swift-test tool namespace
@@ -178,6 +199,17 @@ public struct SwiftTestTool: SwiftCommand {
             throw ExitCode.failure
         }
 
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
+
+        // Remove test output from prior runs and validate priors.
+        if self.options.enableExperimentalTestOutput {
+            if !buildParameters.targetTriple.isDarwin() {
+                swiftTool.observabilityScope.emit(error: "The experimental test output feature is only available on Darwin.")
+                throw ExitCode.failure
+            }
+            _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
+        }
+
         if self.options.shouldPrintCodeCovPath {
             let command = try PrintCodeCovPath.parse()
             try command.run(swiftTool)
@@ -188,7 +220,6 @@ public struct SwiftTestTool: SwiftCommand {
         } else if !self.options.shouldRunInParallel {
             let toolchain = try swiftTool.getTargetToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
@@ -218,6 +249,7 @@ public struct SwiftTestTool: SwiftCommand {
                     swiftTool: swiftTool,
                     enableCodeCoverage: options.enableCodeCoverage,
                     shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+                    experimentalTestOutput: options.enableExperimentalTestOutput,
                     sanitizers: globalOptions.build.sanitizers
                 )
                 let tests = try testSuites
@@ -262,6 +294,10 @@ public struct SwiftTestTool: SwiftCommand {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
+            if self.options.enableExperimentalTestOutput, !ranSuccessfully {
+                try handleTestOutput(buildParameters: buildParameters)
+            }
+
         } else {
             let toolchain = try swiftTool.getTargetToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
@@ -270,12 +306,12 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool: swiftTool,
                 enableCodeCoverage: options.enableCodeCoverage,
                 shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: options.enableExperimentalTestOutput,
                 sanitizers: globalOptions.build.sanitizers
             )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
-            let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -320,7 +356,19 @@ public struct SwiftTestTool: SwiftCommand {
             if !runner.ranSuccessfully {
                 swiftTool.executionStatus = .failure
             }
+
+            if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
+                try handleTestOutput(buildParameters: buildParameters)
+            }
         }
+    }
+
+    private func handleTestOutput(buildParameters: BuildParameters) throws {
+        let lines = try String(contentsOfFile: buildParameters.testOutputPath.pathString).components(separatedBy: "\n")
+        let failureRecords = try lines.map {
+            return try JSONDecoder().decode(TestEventRecord.self, from: $0)
+        }.compactMap { $0.caseFailure }.filter { $0.failureKind.isExpected == false }.map { $0.description }
+        print("\n\(failureRecords.count) test(s) failed:\n\n\(failureRecords.joined(separator: "\n"))")
     }
 
     /// Processes the code coverage data and emits a json.
@@ -500,6 +548,7 @@ extension SwiftTestTool {
                 swiftTool: swiftTool,
                 enableCodeCoverage: false,
                 shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: false,
                 sanitizers: globalOptions.build.sanitizers
             )
 
@@ -832,7 +881,7 @@ final class ParallelTestRunner {
 
         // Print test results.
         for test in processedTests.get() {
-            if !test.success || shouldOutputSuccess {
+            if (!test.success || shouldOutputSuccess) && !buildParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print(test.output)
@@ -1052,7 +1101,8 @@ extension SwiftTool {
         try self.buildParametersForTest(
             enableCodeCoverage: options.enableCodeCoverage,
             enableTestability: options.enableTestableImports,
-            shouldSkipBuilding: sharedOptions.shouldSkipBuilding
+            shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+            experimentalTestOutput: options.enableExperimentalTestOutput
         )
     }
 }

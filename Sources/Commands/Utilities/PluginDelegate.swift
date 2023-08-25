@@ -199,6 +199,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 swiftTool: swiftTool,
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
+                experimentalTestOutput: false,
                 sanitizers: swiftTool.options.build.sanitizers
             )
             for testSuite in testSuites {

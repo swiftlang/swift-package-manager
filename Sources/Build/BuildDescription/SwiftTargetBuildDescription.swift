@@ -291,6 +291,307 @@ public final class SwiftTargetBuildDescription {
         }
 
         try self.generateResourceEmbeddingCode()
+        try self.generateTestObservation()
+    }
+
+    private func generateTestObservation() throws {
+        guard target.type == .test, buildParameters.targetTriple.isDarwin(), buildParameters.experimentalTestOutput else {
+            return
+        }
+
+        // FIXME: Ensure we don't make multiple of these.
+
+        let content =
+            """
+            import Foundation
+            import XCTest
+
+            public final class SwiftPMXCTestObserver: NSObject {
+                public override init() {
+                    super.init()
+                    XCTestObservationCenter.shared.addTestObserver(self)
+                }
+            }
+
+            extension SwiftPMXCTestObserver: XCTestObservation {
+                private func write(record: Encodable) {
+                    let outputPath = "\(buildParameters.testOutputPath)"
+                    if let data = try? JSONEncoder().encode(record) {
+                        if let fileHandle = FileHandle(forWritingAtPath: outputPath) {
+                            defer { fileHandle.closeFile() }
+                            fileHandle.seekToEndOfFile()
+                            fileHandle.write("\\n".data(using: .utf8)!)
+                            fileHandle.write(data)
+                        } else {
+                            _ = try? data.write(to: URL(fileURLWithPath: outputPath))
+                        }
+                    }
+                }
+
+                public func testBundleWillStart(_ testBundle: Bundle) {
+                    let record = TestBundleEventRecord(bundle: .init(testBundle), event: .start)
+                    write(record: TestEventRecord(bundleEvent: record))
+                }
+
+                public func testSuiteWillStart(_ testSuite: XCTestSuite) {
+                    let record = TestSuiteEventRecord(suite: .init(testSuite), event: .start)
+                    write(record: TestEventRecord(suiteEvent: record))
+                }
+
+                public func testCaseWillStart(_ testCase: XCTestCase) {
+                    let record = TestCaseEventRecord(testCase: .init(testCase), event: .start)
+                    write(record: TestEventRecord(caseEvent: record))
+                }
+
+                public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
+                    let record = TestCaseFailureRecord(testCase: .init(testCase), issue: .init(issue), failureKind: .unexpected)
+                    write(record: TestEventRecord(caseFailure: record))
+                }
+
+                public func testCase(_ testCase: XCTestCase, didRecord expectedFailure: XCTExpectedFailure) {
+                    let record = TestCaseFailureRecord(testCase: .init(testCase), issue: .init(expectedFailure.issue), failureKind: .expected(failureReason: expectedFailure.failureReason))
+                    write(record: TestEventRecord(caseFailure: record))
+                }
+
+                public func testCaseDidFinish(_ testCase: XCTestCase) {
+                    let record = TestCaseEventRecord(testCase: .init(testCase), event: .finish)
+                    write(record: TestEventRecord(caseEvent: record))
+                }
+
+                public func testSuite(_ testSuite: XCTestSuite, didRecord issue: XCTIssue) {
+                    let record = TestSuiteFailureRecord(suite: .init(testSuite), issue: .init(issue), failureKind: .unexpected)
+                    write(record: TestEventRecord(suiteFailure: record))
+                }
+
+                public func testSuite(_ testSuite: XCTestSuite, didRecord expectedFailure: XCTExpectedFailure) {
+                    let record = TestSuiteFailureRecord(suite: .init(testSuite), issue: .init(expectedFailure.issue), failureKind: .expected(failureReason: expectedFailure.failureReason))
+                    write(record: TestEventRecord(suiteFailure: record))
+                }
+
+                public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
+                    let record = TestSuiteEventRecord(suite: .init(testSuite), event: .finish)
+                    write(record: TestEventRecord(suiteEvent: record))
+                }
+
+                public func testBundleDidFinish(_ testBundle: Bundle) {
+                    let record = TestBundleEventRecord(bundle: .init(testBundle), event: .finish)
+                    write(record: TestEventRecord(bundleEvent: record))
+                }
+            }
+
+            // FIXME: Copied from `XCTEvents.swift`, would be nice if we had a better way
+
+            struct TestEventRecord: Codable {
+                let caseFailure: TestCaseFailureRecord?
+                let suiteFailure: TestSuiteFailureRecord?
+
+                let bundleEvent: TestBundleEventRecord?
+                let suiteEvent: TestSuiteEventRecord?
+                let caseEvent: TestCaseEventRecord?
+
+                init(
+                    caseFailure: TestCaseFailureRecord? = nil,
+                    suiteFailure: TestSuiteFailureRecord? = nil,
+                    bundleEvent: TestBundleEventRecord? = nil,
+                    suiteEvent: TestSuiteEventRecord? = nil,
+                    caseEvent: TestCaseEventRecord? = nil
+                ) {
+                    self.caseFailure = caseFailure
+                    self.suiteFailure = suiteFailure
+                    self.bundleEvent = bundleEvent
+                    self.suiteEvent = suiteEvent
+                    self.caseEvent = caseEvent
+                }
+            }
+
+            // MARK: - Records
+
+            struct TestBundleEventRecord: Codable {
+                let bundle: TestBundle
+                let event: TestEvent
+            }
+
+            struct TestCaseEventRecord: Codable {
+                let testCase: TestCase
+                let event: TestEvent
+            }
+
+            struct TestCaseFailureRecord: Codable, CustomStringConvertible {
+                let testCase: TestCase
+                let issue: TestIssue
+                let failureKind: TestFailureKind
+
+                var description: String {
+                    return "\\(issue.sourceCodeContext.description)\\(testCase) \\(issue.compactDescription)"
+                }
+            }
+
+            struct TestSuiteEventRecord: Codable {
+                let suite: TestSuiteRecord
+                let event: TestEvent
+            }
+
+            struct TestSuiteFailureRecord: Codable {
+                let suite: TestSuiteRecord
+                let issue: TestIssue
+                let failureKind: TestFailureKind
+            }
+
+            // MARK: Primitives
+
+            struct TestBundle: Codable {
+                let bundleIdentifier: String?
+                let bundlePath: String
+            }
+
+            struct TestCase: Codable {
+                let name: String
+            }
+
+            struct TestErrorInfo: Codable {
+                let description: String
+                let type: String
+            }
+
+            enum TestEvent: Codable {
+                case start
+                case finish
+            }
+
+            enum TestFailureKind: Codable, Equatable {
+                case unexpected
+                case expected(failureReason: String?)
+
+                var isExpected: Bool {
+                    switch self {
+                    case .expected: return true
+                    case .unexpected: return false
+                    }
+                }
+            }
+
+            struct TestIssue: Codable {
+                let type: TestIssueType
+                let compactDescription: String
+                let detailedDescription: String?
+                let associatedError: TestErrorInfo?
+                let sourceCodeContext: TestSourceCodeContext
+                // TODO: Handle `var attachments: [XCTAttachment]`
+            }
+
+            enum TestIssueType: Codable {
+                case assertionFailure
+                case performanceRegression
+                case system
+                case thrownError
+                case uncaughtException
+                case unmatchedExpectedFailure
+                case unknown
+            }
+
+            struct TestLocation: Codable, CustomStringConvertible {
+                let file: String
+                let line: Int
+
+                var description: String {
+                    return "\\(file):\\(line) "
+                }
+            }
+
+            struct TestSourceCodeContext: Codable, CustomStringConvertible {
+                // TODO: Handle `var callStack: [XCTSourceCodeFrame]`
+                let location: TestLocation?
+
+                var description: String {
+                    return location?.description ?? ""
+                }
+            }
+
+            struct TestSuiteRecord: Codable {
+                let name: String
+            }
+
+            // MARK: XCTest compatibility
+
+            import XCTest
+
+            extension TestBundle {
+                init(_ testBundle: Bundle) {
+                    self.init(
+                        bundleIdentifier: testBundle.bundleIdentifier,
+                        bundlePath: testBundle.bundlePath
+                    )
+                }
+            }
+
+            extension TestCase {
+                init(_ testCase: XCTestCase) {
+                    self.init(name: testCase.name)
+                }
+            }
+
+            extension TestErrorInfo {
+                init(_ error: Swift.Error) {
+                    self.init(description: "\\(error)", type: "\\(Swift.type(of: error))")
+                }
+            }
+
+            extension TestIssue {
+                init(_ issue: XCTIssue) {
+                    self.init(
+                        type: .init(issue.type),
+                        compactDescription: issue.compactDescription,
+                        detailedDescription: issue.detailedDescription,
+                        associatedError: issue.associatedError.map { .init($0) },
+                        sourceCodeContext: .init(issue.sourceCodeContext)
+                    )
+                }
+            }
+
+            extension TestIssueType {
+                init(_ type: XCTIssue.IssueType) {
+                    switch type {
+                    case .assertionFailure: self = .assertionFailure
+                    case .thrownError: self = .thrownError
+                    case .uncaughtException: self = .uncaughtException
+                    case .performanceRegression: self = .performanceRegression
+                    case .system: self = .system
+                    case .unmatchedExpectedFailure: self = .unmatchedExpectedFailure
+                    @unknown default: self = .unknown
+                    }
+                }
+            }
+
+            extension TestLocation {
+                init(_ location: XCTSourceCodeLocation) {
+                    self.init(
+                        file: location.fileURL.absoluteString,
+                        line: location.lineNumber
+                    )
+                }
+            }
+
+            extension TestSourceCodeContext {
+                init(_ context: XCTSourceCodeContext) {
+                    self.init(
+                        location: context.location.map { .init($0) }
+                    )
+                }
+            }
+
+            extension TestSuiteRecord {
+                init(_ testSuite: XCTestSuite) {
+                    self.init(name: testSuite.name)
+                }
+            }
+            """
+
+        let subpath = try RelativePath(validating: "test_observation.swift")
+        self.derivedSources.relativePaths.append(subpath)
+
+        // FIXME: We should generate this file during the actual build.
+        let path = self.derivedSources.root.appending(subpath)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
     // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array representation in memory and also `writeIfChanged()` will read the entire generated file again.
