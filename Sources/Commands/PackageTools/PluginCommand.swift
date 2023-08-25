@@ -299,7 +299,17 @@ struct PluginCommand: SwiftCommand {
     }
 
     static func availableCommandPlugins(in graph: PackageGraph) -> [PluginTarget] {
-        graph.allTargets.compactMap { $0.underlyingTarget as? PluginTarget }
+        // All targets from plugin products of direct dependencies are "available".
+        let directDependencyPackages = graph.rootPackages.flatMap { $0.dependencies }
+        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
+        // As well as any plugin targets in root packages.
+        let rootPackageTargets = graph.rootPackages.flatMap { $0.targets }
+        return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlyingTarget as? PluginTarget }.filter {
+            switch $0.capability {
+            case .buildTool: return false
+            case .command: return true
+            }
+        }
     }
 
     static func findPlugins(matching verb: String, in graph: PackageGraph) -> [PluginTarget] {
