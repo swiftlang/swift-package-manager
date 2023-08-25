@@ -205,18 +205,20 @@ public class RepositoryManager: Cancellable {
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
-
+                
                 delegateQueue.async {
                     self.delegate?.willUpdate(package: package, repository: handle.repository)
                 }
-
+                
                 try repository.fetch()
                 let duration = start.distance(to: .now())
                 delegateQueue.async {
                     self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                 }
+                return handle
+            } else if self.provider.isValidDirectory(repositoryPath) {
+                return handle
             }
-            return handle
         }
 
         // inform delegate that we are starting to fetch
