@@ -35,7 +35,7 @@ import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
-    case invalidListTestJSONData
+    case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
     case testsExecutableNotFound
     case multipleTestProducts([String])
     case xctestNotAvailable
@@ -46,8 +46,9 @@ extension TestError: CustomStringConvertible {
         switch self {
         case .testsExecutableNotFound:
             return "no tests found; create a target in the 'Tests' directory"
-        case .invalidListTestJSONData:
-            return "invalid list test JSON structure"
+        case .invalidListTestJSONData(let context, let underlyingError):
+            let underlying = underlyingError != nil ? ", underlying error: \(underlyingError!)" : ""
+            return "invalid list test JSON structure, produced by \(context)\(underlying)"
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
         case .xctestNotAvailable:
@@ -865,46 +866,53 @@ struct TestSuite {
     ///
     /// - Parameters:
     ///     - jsonString: JSON string to be parsed.
+    ///     - context: the commandline which produced the given JSON.
     ///
     /// - Throws: JSONDecodingError, TestError
     ///
     /// - Returns: Array of TestSuite.
-    static func parse(jsonString: String) throws -> [TestSuite] {
-        let json = try JSON(string: jsonString)
-        return try TestSuite.parse(json: json)
+    static func parse(jsonString: String, context: String) throws -> [TestSuite] {
+        let json: JSON
+        do {
+            json = try JSON(string: jsonString)
+        } catch {
+            throw TestError.invalidListTestJSONData(context: context, underlyingError: error)
+        }
+        return try TestSuite.parse(json: json, context: context)
     }
 
     /// Parses the JSON object into array of TestSuite.
     ///
     /// - Parameters:
     ///     - json: An object of JSON.
+    ///     - context: the commandline which produced the given JSON.
     ///
     /// - Throws: TestError
     ///
     /// - Returns: Array of TestSuite.
-    static func parse(json: JSON) throws -> [TestSuite] {
+    static func parse(json: JSON, context: String) throws -> [TestSuite] {
         guard case let .dictionary(contents) = json,
               case let .array(testSuites)? = contents["tests"] else {
-            throw TestError.invalidListTestJSONData
+            throw TestError.invalidListTestJSONData(context: context)
         }
 
         return try testSuites.map({ testSuite in
             guard case let .dictionary(testSuiteData) = testSuite,
                   case let .string(name)? = testSuiteData["name"],
                   case let .array(allTestsData)? = testSuiteData["tests"] else {
-                throw TestError.invalidListTestJSONData
+                throw TestError.invalidListTestJSONData(context: context)
             }
 
             let testCases: [TestSuite.TestCase] = try allTestsData.map({ testCase in
                 guard case let .dictionary(testCaseData) = testCase,
                       case let .string(name)? = testCaseData["name"],
                       case let .array(tests)? = testCaseData["tests"] else {
-                    throw TestError.invalidListTestJSONData
+                    throw TestError.invalidListTestJSONData(context: context)
                 }
                 let testMethods: [String] = try tests.map({ test in
                     guard case let .dictionary(testData) = test,
                           case let .string(testMethod)? = testData["name"] else {
-                        throw TestError.invalidListTestJSONData
+                        throw TestError.invalidListTestJSONData(context: context)
                     }
                     return testMethod
                 })

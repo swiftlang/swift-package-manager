@@ -101,9 +101,10 @@ enum TestingSupport {
         sanitizers: [Sanitizer]
     ) throws -> [TestSuite] {
         // Run the correct tool.
+        var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
@@ -132,11 +133,11 @@ enum TestingSupport {
             ),
             sanitizers: sanitizers
         )
-        let args = [path.description, "--dump-tests-json"]
+        args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+        return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
     }
 
     /// Creates the environment needed to test related tools.
