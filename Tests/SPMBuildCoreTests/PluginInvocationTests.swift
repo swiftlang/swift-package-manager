@@ -495,7 +495,7 @@ class PluginInvocationTests: XCTestCase {
                 }
                 """)
 
-            // The file system on Windows does not have nanosecond granularity (nor is this is a guaranteed file 
+            // NTFS does not have nanosecond granularity (nor is this is a guaranteed file 
             // system feature on all file systems). Add a sleep before the execution to ensure that we have sufficient 
             // precision to read a difference.
             Thread.sleep(forTimeInterval: 1)
