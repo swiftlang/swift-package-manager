@@ -82,7 +82,7 @@ struct PluginCommand: SwiftCommand {
             let packageGraph = try swiftTool.loadPackageGraph()
             let allPlugins = PluginCommand.availableCommandPlugins(in: packageGraph)
             for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
-                guard case .command(let intent, _) = plugin.capability else { return }
+                guard case .command(let intent, _) = plugin.capability else { continue }
                 var line = "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
                 if let package = packageGraph.packages
                     .first(where: { $0.targets.contains(where: { $0.name == plugin.name }) })
