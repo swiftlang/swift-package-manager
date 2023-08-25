@@ -14,3 +14,4 @@ public struct Baz {
     self.bar = bar
   }
 }
+

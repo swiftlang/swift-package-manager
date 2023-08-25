@@ -7,3 +7,4 @@ public:
 };
 
 #endif  // __cplusplus
+
