@@ -773,7 +773,7 @@ public struct WorkspaceConfiguration {
     public var createREPLProduct: Bool
 
     /// Whether or not there should be import restrictions applied when loading manifests
-    public var restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+    public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
     public init(
         skipDependenciesUpdates: Bool,
@@ -787,7 +787,7 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -800,7 +800,7 @@ public struct WorkspaceConfiguration {
         self.skipSignatureValidation = skipSignatureValidation
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
-        self.restrictImports = restrictImports
+        self.manifestImportRestrictions = manifestImportRestrictions
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -817,7 +817,7 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            restrictImports: .none
+            manifestImportRestrictions: .none
         )
     }
 

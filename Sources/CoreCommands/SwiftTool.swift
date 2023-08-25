@@ -428,7 +428,7 @@ public final class SwiftTool {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
-                restrictImports: .none
+                manifestImportRestrictions: .none
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -833,7 +833,7 @@ public final class SwiftTool {
                 isManifestSandboxEnabled: !self.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags,
-                restrictImports: nil
+                importRestrictions: .none
             )
         })
     }()

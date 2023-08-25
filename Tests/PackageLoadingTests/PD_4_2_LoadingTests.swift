@@ -23,6 +23,8 @@ import enum TSCBasic.PathValidationError
 
 import func TSCTestSupport.withCustomEnv
 
+import struct TSCUtility.Version
+
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2
@@ -988,15 +990,40 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
         }
 
-        func willLoad(manifest: AbsolutePath) {
-            self.loaded.append(manifest)
+        func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+            // noop
+        }
+
+        func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+            self.loaded.append(manifestPath)
             self.loadingGroup.leave()
         }
 
-        func willParse(manifest: AbsolutePath) {
-            self.parsed.append(manifest)
+        func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+            // noop
+        }
+
+        func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+            // noop
+        }
+
+        func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+            // noop
+        }
+
+        func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+            // noop
+        }
+
+        func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+            // noop
+        }
+
+        func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+            self.parsed.append(manifestPath)
             self.parsingGroup.leave()
         }
+
 
         func clear() {
             self.loaded.clear()

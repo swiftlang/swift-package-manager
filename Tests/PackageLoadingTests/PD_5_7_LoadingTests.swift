@@ -180,7 +180,7 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, restrictImports: (.v5_7, []))
+        let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, importRestrictions: (.v5_7, []))
         XCTAssertThrowsError(try loadAndValidateManifest(content, customManifestLoader: manifestLoader, observabilityScope: observability.topScope)) { error in
             if case ManifestParseError.importsRestrictedModules(let modules) = error {
                 XCTAssertEqual(modules.sorted(), ["BestModule", "Foundation"])

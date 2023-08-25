@@ -295,7 +295,7 @@ public final class MockWorkspace {
                 skipSignatureValidation: false,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 defaultRegistry: self.defaultRegistry,
-                restrictImports: .none
+                manifestImportRestrictions: .none
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -930,6 +930,22 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func didLoadGraph(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         // noop
     }
 
