@@ -867,8 +867,9 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
+            let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(swiftGetVersionFilePath.escapedPathString())","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
                 """))
 
         }
@@ -896,8 +897,9 @@ final class BuildPlanTests: XCTestCase {
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
             let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
+            let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(swiftGetVersionFilePath.escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
                 """))
         }
     }
@@ -3894,6 +3896,7 @@ final class BuildPlanTests: XCTestCase {
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
+        let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
 
 #if os(Windows)
         let suffix = ".exe"
@@ -3901,7 +3904,7 @@ final class BuildPlanTests: XCTestCase {
         let suffix = ""
 #endif
         XCTAssertMatch(contents, .contains("""
-                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString())","\(buildPath.appending(components: "exe\(suffix)").escapedPathString())","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString())"]
+                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString())","\(swiftGetVersionFilePath.escapedPathString())","\(buildPath.appending(components: "exe\(suffix)").escapedPathString())","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString())"]
                 outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString())","\(buildPath.escapedPathString())
             """))
     }
@@ -4804,10 +4807,11 @@ final class BuildPlanTests: XCTestCase {
         let yaml = buildPath.appending("release.yaml")
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.generateManifest(at: yaml)
+        let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
 
         let yamlContents: String = try fs.readFileContents(yaml)
         let inputs: SerializedJSON = """
-            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
+            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath.escapedPathString())","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
         """
         XCTAssertMatch(yamlContents, .contains(inputs.underlying))
     }

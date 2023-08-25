@@ -12,6 +12,8 @@
 
 import Basics
 
+import class TSCBasic.Process
+
 public protocol AuxiliaryFileType {
     static var name: String { get }
 
@@ -19,7 +21,7 @@ public protocol AuxiliaryFileType {
 }
 
 public enum WriteAuxiliary {
-    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self, SourcesFileList.self]
+    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self, SourcesFileList.self, SwiftGetVersion.self]
 
     public struct LinkFileList: AuxiliaryFileType {
         public static let name = "link-file-list"
@@ -74,6 +76,26 @@ public enum WriteAuxiliary {
                 .joined(separator: "\n")
             contents.append("\n")
             return contents
+        }
+    }
+
+    public struct SwiftGetVersion: AuxiliaryFileType {
+        public static let name = "swift-get-version"
+
+        public static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
+            return [.virtual(Self.name), .file(swiftCompilerPath)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let swiftCompilerPathString = inputs.first(where: { $0.kind == .file })?.name else {
+                throw Error.unknownSwiftCompilerPath
+            }
+            let swiftCompilerPath = try AbsolutePath(validating: swiftCompilerPathString)
+            return try TSCBasic.Process.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
+        }
+
+        private enum Error: Swift.Error {
+            case unknownSwiftCompilerPath
         }
     }
 }
@@ -170,6 +192,16 @@ public struct BuildManifest {
         let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
         let name = sourcesFileListPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addSwiftGetVersionCommand(
+        swiftCompilerPath: AbsolutePath,
+        swiftVersionFilePath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.SwiftGetVersion.computeInputs(swiftCompilerPath: swiftCompilerPath)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: swiftVersionFilePath, alwaysOutOfDate: true)
+        let name = swiftVersionFilePath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 

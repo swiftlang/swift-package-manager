@@ -53,6 +53,9 @@ public class LLBuildManifestBuilder {
     var buildParameters: BuildParameters { self.plan.buildParameters }
     var buildEnvironment: BuildEnvironment { self.buildParameters.buildEnvironment }
 
+    /// Mapping from Swift compiler path to Swift get version files.
+    var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
+
     /// Create a new builder with a build plan.
     public init(
         _ plan: BuildPlan,
@@ -71,6 +74,8 @@ public class LLBuildManifestBuilder {
     /// Generate manifest at the given path.
     @discardableResult
     public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
+        self.swiftGetVersionFiles.removeAll()
+
         self.manifest.createTarget(TargetKind.main.targetName)
         self.manifest.createTarget(TargetKind.test.targetName)
         self.manifest.defaultTarget = TargetKind.main.targetName
@@ -608,6 +613,9 @@ extension LLBuildManifestBuilder {
     ) throws -> [Node] {
         var inputs = target.sources.map(Node.file)
 
+        let swiftVersionFilePath = addSwiftGetVersionCommand(buildParameters: target.buildParameters)
+        inputs.append(.file(swiftVersionFilePath))
+
         // Add resources node as the input to the target. This isn't great because we
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
@@ -732,6 +740,22 @@ extension LLBuildManifestBuilder {
             outputs: [.file(target.wrappedModuleOutputPath)],
             arguments: moduleWrapArgs
         )
+    }
+
+    private func addSwiftGetVersionCommand(buildParameters: BuildParameters) -> AbsolutePath {
+        let swiftCompilerPath = buildParameters.toolchain.swiftCompilerPath
+
+        // If we are already tracking this compiler, we can re-use the existing command by just returning the tracking file.
+        if let swiftVersionFilePath = swiftGetVersionFiles[swiftCompilerPath] {
+            return swiftVersionFilePath
+        }
+
+        // Otherwise, come up with a path for the new file and generate a command to populate it.
+        let swiftCompilerPathHash = String(swiftCompilerPath.pathString.hash, radix: 16, uppercase: true)
+        let swiftVersionFilePath = buildParameters.buildPath.appending(component: "swift-version-\(swiftCompilerPathHash).txt")
+        self.manifest.addSwiftGetVersionCommand(swiftCompilerPath: swiftCompilerPath, swiftVersionFilePath: swiftVersionFilePath)
+        swiftGetVersionFiles[swiftCompilerPath] = swiftVersionFilePath
+        return swiftVersionFilePath
     }
 }
 

@@ -473,9 +473,11 @@ public final class BuildExecutionContext {
 final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
     override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
         guard let buildDescription = self.context.buildDescription else {
+            self.context.observabilityScope.emit(error: "unknown build description")
             return []
         }
-        guard let tool = buildDescription.copyCommands[command.name] else {
+        guard let tool = buildDescription.writeCommands[command.name] else {
+            self.context.observabilityScope.emit(error: "command \(command.name) not registered")
             return []
         }
 

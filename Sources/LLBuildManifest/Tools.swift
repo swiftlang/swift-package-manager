@@ -17,6 +17,9 @@ public protocol ToolProtocol: Codable {
     /// The name of the tool.
     static var name: String { get }
 
+    /// Whether or not the tool should run on every build instead of using dependency tracking.
+    var alwaysOutOfDate: Bool { get }
+
     /// The list of inputs to declare.
     var inputs: [Node] { get }
 
@@ -28,6 +31,8 @@ public protocol ToolProtocol: Codable {
 }
 
 extension ToolProtocol {
+    public var alwaysOutOfDate: Bool { return false }
+
     public func write(to stream: ManifestToolStream) {}
 }
 
@@ -155,10 +160,12 @@ public struct WriteAuxiliaryFile: ToolProtocol {
 
     public let inputs: [Node]
     private let outputFilePath: AbsolutePath
+    public let alwaysOutOfDate: Bool
 
-    public init(inputs: [Node], outputFilePath: AbsolutePath) {
+    public init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false) {
         self.inputs = inputs
         self.outputFilePath = outputFilePath
+        self.alwaysOutOfDate = alwaysOutOfDate
     }
 
     public var outputs: [Node] {
