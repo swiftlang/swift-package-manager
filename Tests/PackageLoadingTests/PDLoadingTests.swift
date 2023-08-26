@@ -21,12 +21,37 @@ import class TSCBasic.InMemoryFileSystem
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
     var parsedManifest = ThreadSafeBox<AbsolutePath>()
-    
-    public func willLoad(manifest: AbsolutePath) {
+
+    func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
     }
-    
-    public func willParse(manifest: AbsolutePath) {
-        parsedManifest.put(manifest)
+
+    func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didEvaluate(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        parsedManifest.put(manifestPath)
     }
 
     var toolsVersion: ToolsVersion {

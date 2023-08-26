@@ -68,9 +68,18 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occur during
     /// dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
-    
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic], duration: DispatchTimeInterval)
+
+    /// The workspace is about to compile a package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String)
+    /// The workspace successfully compiled a package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval)
+   
+    /// The workspace is about to evaluate (execute) a compiled package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String)
+    /// The workspace successfully evaluated (executed) a compiled package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval)
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -157,56 +166,96 @@ extension WorkspaceDelegate {
     }
 }
 
+private class WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
+    private weak var workspaceDelegate: Workspace.Delegate?
+
+    init(workspaceDelegate: Workspace.Delegate) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func willLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // handled by workspace directly
+    }
+
+    func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        // handled by workspace directly
+    }
+
+    func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        self.workspaceDelegate?.willCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation)
+    }
+    
+    func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.workspaceDelegate?.didCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation, duration: duration)
+    }
+
+    func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        self.workspaceDelegate?.willCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation)
+    }
+
+    func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.workspaceDelegate?.didEvaluateManifest(packageIdentity: packageIdentity, packageLocation: packageLocation, duration: duration)
+    }
+}
+
 private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: package, packageLocation: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+        self.workspaceDelegate?.willFetchPackage(package: package, packageLocation: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
     }
 
     func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
+        self.workspaceDelegate?.fetchingPackage(package: package, packageLocation: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
     }
 
     func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didFetchPackage(package: package, packageLocation: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+        self.workspaceDelegate?.didFetchPackage(package: package, packageLocation: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
     func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
-        self.workspaceDelegate.willUpdateRepository(package: package, repository: repository.location.description)
+        self.workspaceDelegate?.willUpdateRepository(package: package, repository: repository.location.description)
     }
 
     func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didUpdateRepository(package: package, repository: repository.location.description, duration: duration)
+        self.workspaceDelegate?.didUpdateRepository(package: package, repository: repository.location.description, duration: duration)
     }
 }
 
 private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: package, packageLocation: .none, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
+        self.workspaceDelegate?.willFetchPackage(package: package, packageLocation: .none, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
     }
 
     func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+        self.workspaceDelegate?.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
     func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
+        self.workspaceDelegate?.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
     }
 }
 
 private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate?) {
         self.workspaceDelegate = workspaceDelegate
@@ -244,7 +293,7 @@ private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
 }
 
 private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
     private let resolving = ThreadSafeKeyValueStore<PackageIdentity, Bool>()
 
     init(_ delegate: Workspace.Delegate) {
@@ -254,13 +303,13 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func willResolve(term: Term) {
         // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at package level
         resolving.memoize(term.node.package.identity) {
-            self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
+            self.workspaceDelegate?.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
             return true
         }
     }
 
     func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didComputeVersion(package: term.node.package.identity, location: term.node.package.locationString, version: version.description, duration: duration)
+        self.workspaceDelegate?.didComputeVersion(package: term.node.package.identity, location: term.node.package.locationString, version: version.description, duration: duration)
     }
 
     // noop
@@ -273,26 +322,26 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
 }
 
 private class WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willDownloadBinaryArtifact(from url: String) {
-        self.workspaceDelegate.willDownloadBinaryArtifact(from: url)
+        self.workspaceDelegate?.willDownloadBinaryArtifact(from: url)
     }
 
     func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didDownloadBinaryArtifact(from: url, result: result, duration: duration)
+        self.workspaceDelegate?.didDownloadBinaryArtifact(from: url, result: result, duration: duration)
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        self.workspaceDelegate.downloadingBinaryArtifact(from: url, bytesDownloaded: bytesDownloaded, totalBytesToDownload: totalBytesToDownload)
+        self.workspaceDelegate?.downloadingBinaryArtifact(from: url, bytesDownloaded: bytesDownloaded, totalBytesToDownload: totalBytesToDownload)
     }
 
     func didDownloadAllBinaryArtifacts() {
-        self.workspaceDelegate.didDownloadAllBinaryArtifacts()
+        self.workspaceDelegate?.didDownloadAllBinaryArtifacts()
     }
 }
 
@@ -532,7 +581,8 @@ public class Workspace {
         let manifestLoader = ManifestLoader(
             toolchain: customHostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
-            restrictImports: configuration?.restrictImports
+            importRestrictions: configuration?.manifestImportRestrictions,
+            delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
         )
         try self.init(
             fileSystem: fileSystem,
@@ -647,8 +697,12 @@ public class Workspace {
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
-            restrictImports: configuration?.restrictImports
+            importRestrictions: configuration?.manifestImportRestrictions
         )
+        // set delegate if not set
+        if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {
+            manifestLoader.delegate = delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
+        }
 
         let configuration = configuration ?? .default
 
