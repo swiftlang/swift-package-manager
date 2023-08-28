@@ -18,7 +18,7 @@ if info.arguments.last == "-version" {
     if let swiftOriginalPath = env["SWIFT_ORIGINAL_PATH"] {
         swiftPath = swiftOriginalPath
     } else {
-        swiftPath = "/usr/bin/swiftc"
+        fatalError("need `SWIFT_ORIGINAL_PATH` in the environment")
     }
 
     let result = try Process.popen(arguments: [swiftPath] + info.arguments.dropFirst())
