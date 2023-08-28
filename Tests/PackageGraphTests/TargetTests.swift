@@ -30,7 +30,7 @@ private extension ResolvedTarget {
             ),
             dependencies: deps.map { .target($0, conditions: []) },
             defaultLocalization: nil,
-            platforms: .init(declared: [], derived: [])
+            platforms: .init(declared: [], deriveXCTestPlatform: { _ in nil })
         )
     }
 }

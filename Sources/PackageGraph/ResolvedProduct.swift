@@ -70,7 +70,7 @@ public final class ResolvedProduct {
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: .none, // safe since this is a derived product
-                platforms: .init(declared: [], derived: []) // safe since this is a derived product
+                platforms: .init(declared: [], deriveXCTestPlatform: { _ in nil }) // safe since this is a derived product
             )
         }
 
@@ -118,16 +118,13 @@ public final class ResolvedProduct {
             merge(into: &partial, platforms: item.platforms.declared)
         }
 
-        let derived = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-            merge(into: &partial, platforms: item.platforms.derived)
-        }
-
         return SupportedPlatforms(
-            declared: declared.sorted(by: { $0.platform.name < $1.platform.name }),
-            derived: derived.sorted(by: { $0.platform.name < $1.platform.name })
-        )
-
-
+            declared: declared.sorted(by: { $0.platform.name < $1.platform.name })) { declared in
+                let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+                    merge(into: &partial, platforms: [item.platforms.getDerived(for: declared, usingXCTest: item.type == .test)])
+                }
+                return platforms.first!.version
+            }
     }
 }
 

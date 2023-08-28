@@ -267,16 +267,17 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
-            if useStdlibRpath, self.buildParameters.targetTriple.isMacOSX,
-               let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
-               macOSSupportedPlatform.version.major < 12
+            if useStdlibRpath, self.buildParameters.targetTriple.isMacOSX
             {
-                let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
-                    .parentDirectory
-                    .parentDirectory
-                    .appending("swift-5.5")
-                    .appending("macosx")
-                args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
+                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS, usingXCTest: product.type == .test)
+                if macOSSupportedPlatform.version.major < 12 {
+                    let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
+                        .parentDirectory
+                        .parentDirectory
+                        .appending("swift-5.5")
+                        .appending("macosx")
+                    args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
+                }
             }
         }
 
