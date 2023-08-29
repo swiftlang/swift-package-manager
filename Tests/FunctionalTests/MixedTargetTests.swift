@@ -256,24 +256,6 @@ extension MixedTargetTests {
         }
     }
 
-    // TODO(ncooke3): Use a different target to test this as the target below
-    // has been deleted.
-    func SKIP_testNonPublicHeadersAreNotVisibleFromOutsideOfTarget() throws {
-        try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
-            // The test target tries to access non-public headers so the build
-            // should fail.
-            XCTAssertBuildFails(
-                fixturePath,
-                extraArgs: ["--target", "MixedTargetWithNonPublicHeadersTests"],
-                // Without selectively enabling the tests with the below macro,
-                // the intentional build failure will break other unit tests
-                // since all targets in the package are build when running
-                // `swift test`.
-                Xswiftc: ["EXPECT_FAILURE"]
-            )
-        }
-    }
-
     func testMixedTargetWithCustomPaths() throws {
         try fixture(name: "MixedTargets/MixedTargetsWithObjC") { fixturePath in
             XCTAssertBuilds(
