@@ -60,6 +60,9 @@ public final class MixedTargetBuildDescription {
         self.swiftTargetBuildDescription.libraryBinaryPaths
             .union(self.clangTargetBuildDescription.libraryBinaryPaths)
     }
+    
+    /// The results of applying any build tool plugins to this target.
+    let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// The build description for the Clang sources.
     let clangTargetBuildDescription: ClangTargetBuildDescription
@@ -83,6 +86,7 @@ public final class MixedTargetBuildDescription {
         }
 
         self.target = target
+        self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
         let clangResolvedTarget = ResolvedTarget(
             target: mixedTarget.clangTarget,
@@ -94,6 +98,8 @@ public final class MixedTargetBuildDescription {
             target: clangResolvedTarget,
             toolsVersion: toolsVersion,
             buildParameters: buildParameters,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
             fileSystem: fileSystem,
             isWithinMixedTarget: true,
             observabilityScope: observabilityScope
