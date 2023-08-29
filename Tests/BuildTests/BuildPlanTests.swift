@@ -1600,9 +1600,13 @@ final class BuildPlanTests: XCTestCase {
             ])
         #endif
 
-        testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("can be downloaded"), severity: .warning)
-        }
+        #if os(macOS)
+          testDiagnostics(observability.diagnostics) { result in
+              result.check(diagnostic: .contains("can be downloaded"), severity: .warning)
+          }
+        #else
+          XCTAssertNoDiagnostics(observability.diagnostics)
+        #endif
     }
 
     func testBasicMixedLanguagesWithCustomModuleMap() throws {
