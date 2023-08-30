@@ -495,6 +495,11 @@ class PluginInvocationTests: XCTestCase {
                 }
                 """)
 
+            // NTFS does not have nanosecond granularity (nor is this is a guaranteed file 
+            // system feature on all file systems). Add a sleep before the execution to ensure that we have sufficient 
+            // precision to read a difference.
+            Thread.sleep(forTimeInterval: 1)
+
             // Recompile the plugin again.
             let thirdExecModTime: Date
             do {
