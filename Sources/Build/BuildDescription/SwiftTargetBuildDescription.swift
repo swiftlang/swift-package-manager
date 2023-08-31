@@ -314,16 +314,26 @@ public final class SwiftTargetBuildDescription {
             }
 
             extension SwiftPMXCTestObserver: XCTestObservation {
+                var testOutputPath: String {
+                    return "\(buildParameters.testOutputPath)"
+                }
+
                 private func write(record: Encodable) {
-                    let outputPath = "\(buildParameters.testOutputPath)"
+                    let lock = FileLock(at: URL(fileURLWithPath: self.testOutputPath + ".lock"))
+                    _ = try? lock.withLock {
+                        self._write(record: record)
+                    }
+                }
+
+                private func _write(record: Encodable) {
                     if let data = try? JSONEncoder().encode(record) {
-                        if let fileHandle = FileHandle(forWritingAtPath: outputPath) {
+                        if let fileHandle = FileHandle(forWritingAtPath: self.testOutputPath) {
                             defer { fileHandle.closeFile() }
                             fileHandle.seekToEndOfFile()
                             fileHandle.write("\\n".data(using: .utf8)!)
                             fileHandle.write(data)
                         } else {
-                            _ = try? data.write(to: URL(fileURLWithPath: outputPath))
+                            _ = try? data.write(to: URL(fileURLWithPath: self.testOutputPath))
                         }
                     }
                 }
@@ -376,6 +386,115 @@ public final class SwiftTargetBuildDescription {
                 public func testBundleDidFinish(_ testBundle: Bundle) {
                     let record = TestBundleEventRecord(bundle: .init(testBundle), event: .finish)
                     write(record: TestEventRecord(bundleEvent: record))
+                }
+            }
+
+            // FIXME: Copied from `Lock.swift` in TSCBasic, would be nice if we had a better way
+
+            #if canImport(Glibc)
+            @_exported import Glibc
+            #elseif canImport(Musl)
+            @_exported import Musl
+            #elseif os(Windows)
+            @_exported import CRT
+            @_exported import WinSDK
+            #else
+            @_exported import Darwin.C
+            #endif
+
+            import Foundation
+
+            public final class FileLock {
+              #if os(Windows)
+                private var handle: HANDLE?
+              #else
+                private var fileDescriptor: CInt?
+              #endif
+
+                private let lockFile: URL
+
+                public init(at lockFile: URL) {
+                    self.lockFile = lockFile
+                }
+
+                public func lock() throws {
+                  #if os(Windows)
+                    if handle == nil {
+                        let h: HANDLE = lockFile.path.withCString(encodedAs: UTF16.self, {
+                            CreateFileW(
+                                $0,
+                                UInt32(GENERIC_READ) | UInt32(GENERIC_WRITE),
+                                UInt32(FILE_SHARE_READ) | UInt32(FILE_SHARE_WRITE),
+                                nil,
+                                DWORD(OPEN_ALWAYS),
+                                DWORD(FILE_ATTRIBUTE_NORMAL),
+                                nil
+                            )
+                        })
+                        if h == INVALID_HANDLE_VALUE {
+                            throw FileSystemError(errno: Int32(GetLastError()), lockFile)
+                        }
+                        self.handle = h
+                    }
+                    var overlapped = OVERLAPPED()
+                    overlapped.Offset = 0
+                    overlapped.OffsetHigh = 0
+                    overlapped.hEvent = nil
+                    if !LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0,
+                                       UInt32.max, UInt32.max, &overlapped) {
+                            throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
+                        }
+                  #else
+                    if fileDescriptor == nil {
+                        let fd = open(lockFile.path, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
+                        if fd == -1 {
+                            fatalError("errno: \\(errno), lockFile: \\(lockFile)")
+                        }
+                        self.fileDescriptor = fd
+                    }
+                    while true {
+                        if flock(fileDescriptor!, LOCK_EX) == 0 {
+                            break
+                        }
+                        if errno == EINTR { continue }
+                        fatalError("unable to aquire lock, errno: \\(errno)")
+                    }
+                  #endif
+                }
+
+                public func unlock() {
+                  #if os(Windows)
+                    var overlapped = OVERLAPPED()
+                    overlapped.Offset = 0
+                    overlapped.OffsetHigh = 0
+                    overlapped.hEvent = nil
+                    UnlockFileEx(handle, 0, UInt32.max, UInt32.max, &overlapped)
+                  #else
+                    guard let fd = fileDescriptor else { return }
+                    flock(fd, LOCK_UN)
+                  #endif
+                }
+
+                deinit {
+                  #if os(Windows)
+                    guard let handle = handle else { return }
+                    CloseHandle(handle)
+                  #else
+                    guard let fd = fileDescriptor else { return }
+                    close(fd)
+                  #endif
+                }
+
+                public func withLock<T>(_ body: () throws -> T) throws -> T {
+                    try lock()
+                    defer { unlock() }
+                    return try body()
+                }
+
+                public func withLock<T>(_ body: () async throws -> T) async throws -> T {
+                    try lock()
+                    defer { unlock() }
+                    return try await body()
                 }
             }
 
