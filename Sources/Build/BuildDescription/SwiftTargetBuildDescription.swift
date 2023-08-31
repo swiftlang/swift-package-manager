@@ -540,6 +540,13 @@ public final class SwiftTargetBuildDescription {
 
             // MARK: - Records
 
+            struct TestAttachment: Codable {
+                let name: String?
+                // TODO: Handle `userInfo: [AnyHashable : Any]?`
+                let uniformTypeIdentifier: String
+                let payload: Data?
+            }
+
             struct TestBundleEventRecord: Codable {
                 let bundle: TestBundle
                 let event: TestEvent
@@ -610,7 +617,7 @@ public final class SwiftTargetBuildDescription {
                 let detailedDescription: String?
                 let associatedError: TestErrorInfo?
                 let sourceCodeContext: TestSourceCodeContext
-                // TODO: Handle `var attachments: [XCTAttachment]`
+                let attachments: [TestAttachment]
             }
 
             enum TestIssueType: Codable {
@@ -633,12 +640,24 @@ public final class SwiftTargetBuildDescription {
             }
 
             struct TestSourceCodeContext: Codable, CustomStringConvertible {
-                // TODO: Handle `var callStack: [XCTSourceCodeFrame]`
+                let callStack: [TestSourceCodeFrame]
                 let location: TestLocation?
 
                 var description: String {
                     return location?.description ?? ""
                 }
+            }
+
+            struct TestSourceCodeFrame: Codable {
+                let address: UInt64
+                let symbolInfo: TestSourceCodeSymbolInfo?
+                let symbolicationError: TestErrorInfo?
+            }
+
+            struct TestSourceCodeSymbolInfo: Codable {
+                let imageName: String
+                let symbolName: String
+                let location: TestLocation?
             }
 
             struct TestSuiteRecord: Codable {
@@ -648,6 +667,16 @@ public final class SwiftTargetBuildDescription {
             // MARK: XCTest compatibility
 
             import XCTest
+
+            extension TestAttachment {
+                init(_ attachment: XCTAttachment) {
+                    self.init(
+                        name: attachment.name,
+                        uniformTypeIdentifier: attachment.uniformTypeIdentifier,
+                        payload: attachment.value(forKey: "payload") as? Data
+                    )
+                }
+            }
 
             extension TestBundle {
                 init(_ testBundle: Bundle) {
@@ -677,7 +706,8 @@ public final class SwiftTargetBuildDescription {
                         compactDescription: issue.compactDescription,
                         detailedDescription: issue.detailedDescription,
                         associatedError: issue.associatedError.map { .init($0) },
-                        sourceCodeContext: .init(issue.sourceCodeContext)
+                        sourceCodeContext: .init(issue.sourceCodeContext),
+                        attachments: issue.attachments.map { .init($0) }
                     )
                 }
             }
@@ -708,7 +738,28 @@ public final class SwiftTargetBuildDescription {
             extension TestSourceCodeContext {
                 init(_ context: XCTSourceCodeContext) {
                     self.init(
+                        callStack: context.callStack.map { .init($0) },
                         location: context.location.map { .init($0) }
+                    )
+                }
+            }
+
+            extension TestSourceCodeFrame {
+                init(_ frame: XCTSourceCodeFrame) {
+                    self.init(
+                        address: frame.address,
+                        symbolInfo: (try? frame.symbolInfo()).map { .init($0) },
+                        symbolicationError: frame.symbolicationError.map { .init($0) }
+                    )
+                }
+            }
+
+            extension TestSourceCodeSymbolInfo {
+                init(_ symbolInfo: XCTSourceCodeSymbolInfo) {
+                    self.init(
+                        imageName: symbolInfo.imageName,
+                        symbolName: symbolInfo.symbolName,
+                        location: symbolInfo.location.map { .init($0) }
                     )
                 }
             }
