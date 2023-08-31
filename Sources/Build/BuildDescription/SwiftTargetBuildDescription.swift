@@ -229,6 +229,9 @@ public final class SwiftTargetBuildDescription {
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
+    /// Whether or not to generate code for test observation.
+    private let shouldGenerateTestObservation: Bool
+
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -240,6 +243,7 @@ public final class SwiftTargetBuildDescription {
         prebuildCommandResults: [PrebuildCommandResult] = [],
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
+        shouldGenerateTestObservation: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -264,6 +268,7 @@ public final class SwiftTargetBuildDescription {
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
+        self.shouldGenerateTestObservation = shouldGenerateTestObservation
         self.observabilityScope = observabilityScope
 
         (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
@@ -295,11 +300,21 @@ public final class SwiftTargetBuildDescription {
     }
 
     private func generateTestObservation() throws {
-        guard target.type == .test, buildParameters.targetTriple.isDarwin(), buildParameters.experimentalTestOutput else {
+        guard target.type == .test else {
             return
         }
 
-        // FIXME: Ensure we don't make multiple of these.
+        let subpath = try RelativePath(validating: "test_observation.swift")
+        let path = self.derivedSources.root.appending(subpath)
+
+        guard shouldGenerateTestObservation else {
+            _ = try? fileSystem.removeFileTree(path)
+            return
+        }
+
+        guard buildParameters.targetTriple.isDarwin(), buildParameters.experimentalTestOutput else {
+            return
+        }
 
         let content =
             """
@@ -705,11 +720,8 @@ public final class SwiftTargetBuildDescription {
             }
             """
 
-        let subpath = try RelativePath(validating: "test_observation.swift")
-        self.derivedSources.relativePaths.append(subpath)
-
         // FIXME: We should generate this file during the actual build.
-        let path = self.derivedSources.root.appending(subpath)
+        self.derivedSources.relativePaths.append(subpath)
         try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 

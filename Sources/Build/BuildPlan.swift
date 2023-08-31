@@ -449,6 +449,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // given to LLBuild.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
+        var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
@@ -481,6 +482,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlyingTarget.type == .macro }.compactMap { macroProductsByTarget[$0] }
 
+                var generateTestObservation = false
+                if target.type == .test && shouldGenerateTestObservation {
+                    generateTestObservation = true
+                    shouldGenerateTestObservation = false // Only generate the code once.
+                }
+
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     package: package,
                     target: target,
@@ -490,6 +497,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     requiredMacroProducts: requiredMacroProducts,
+                    shouldGenerateTestObservation: generateTestObservation,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
