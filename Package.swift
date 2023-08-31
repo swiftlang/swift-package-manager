@@ -519,13 +519,6 @@ let package = Package(
             name: "swift-package-registry",
             dependencies: ["Commands", "PackageRegistryTool"]
         ),
-        .executableTarget(
-            /** Shim tool to find test names on OS X */
-            name: "swiftpm-xctest-helper",
-            dependencies: [],
-            linkerSettings: [
-                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
-            ]),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 

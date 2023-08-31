@@ -430,11 +430,6 @@ def install_swiftpm(prefix, args):
         note("Creating tool symlink from %s to %s" % (src, dest))
         symlink_force(src, dest)
 
-    # On Darwin, also install the swiftpm-xctest-helper tool.
-    if platform.system() == 'Darwin':
-        dest = os.path.join(prefix, "libexec", "swift", "pm")
-        install_binary(args, "swiftpm-xctest-helper", dest)
-
     # Install the PackageDescription/CompilerPluginSupport libraries and associated modules.
     dest = os.path.join(prefix, "lib", "swift", "pm", "ManifestAPI")
     install_dylib(args, "PackageDescription", dest, ["PackageDescription", "CompilerPluginSupport"])

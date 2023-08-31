@@ -20,7 +20,6 @@ public enum SwiftPMProduct: Product {
     case SwiftPackageRegistry
     case SwiftTest
     case SwiftRun
-    case XCTestHelper
 
     /// Executable name.
     public var exec: RelativePath {
@@ -35,8 +34,6 @@ public enum SwiftPMProduct: Product {
             return RelativePath("swift-test")
         case .SwiftRun:
             return RelativePath("swift-run")
-        case .XCTestHelper:
-            return RelativePath("swiftpm-xctest-helper")
         }
     }
 }
