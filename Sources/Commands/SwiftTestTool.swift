@@ -171,7 +171,7 @@ public struct SwiftTestTool: SwiftCommand {
         discussion: "SEE ALSO: swift build, swift run, swift package",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
-            List.self,
+            List.self, Last.self
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
@@ -295,7 +295,7 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             if self.options.enableExperimentalTestOutput, !ranSuccessfully {
-                try handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
+                try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
 
         } else {
@@ -358,12 +358,17 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
-                try handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
+                try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
         }
     }
 
-    private func handleTestOutput(buildParameters: BuildParameters, packagePath: AbsolutePath) throws {
+    private static func handleTestOutput(buildParameters: BuildParameters, packagePath: AbsolutePath) throws {
+        guard localFileSystem.exists(buildParameters.testOutputPath) else {
+            print("No existing test output found.")
+            return
+        }
+
         let lines = try String(contentsOfFile: buildParameters.testOutputPath.pathString).components(separatedBy: "\n")
         let events = try lines.map { try JSONDecoder().decode(TestEventRecord.self, from: $0) }
 
@@ -544,6 +549,18 @@ extension SwiftTestTool {
  }
 
 extension SwiftTestTool {
+    struct Last: SwiftCommand {
+        @OptionGroup(visibility: .hidden)
+        var globalOptions: GlobalOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
+            try SwiftTestTool.handleTestOutput(
+                buildParameters: try swiftTool.buildParameters(),
+                packagePath: localFileSystem.currentWorkingDirectory ?? .root // by definition runs in the current working directory
+            )
+        }
+    }
+
     struct List: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Lists test methods in specifier format"
