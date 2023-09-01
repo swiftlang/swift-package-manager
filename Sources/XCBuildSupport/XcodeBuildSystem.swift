@@ -55,7 +55,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                     builtProducts.append(
                         BuiltTestProduct(
                             productName: product.name,
-                            binaryPath: binaryPath
+                            binaryPath: binaryPath,
+                            packagePath: package.path
                         )
                     )
                 }

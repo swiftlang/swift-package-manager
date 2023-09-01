@@ -295,7 +295,7 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             if self.options.enableExperimentalTestOutput, !ranSuccessfully {
-                try handleTestOutput(buildParameters: buildParameters)
+                try handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
 
         } else {
@@ -358,17 +358,35 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
-                try handleTestOutput(buildParameters: buildParameters)
+                try handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
         }
     }
 
-    private func handleTestOutput(buildParameters: BuildParameters) throws {
+    private func handleTestOutput(buildParameters: BuildParameters, packagePath: AbsolutePath) throws {
         let lines = try String(contentsOfFile: buildParameters.testOutputPath.pathString).components(separatedBy: "\n")
-        let failureRecords = try lines.map {
-            return try JSONDecoder().decode(TestEventRecord.self, from: $0)
-        }.compactMap { $0.caseFailure }.filter { $0.failureKind.isExpected == false }.map { $0.description }
-        print("\n\(failureRecords.count) test(s) failed:\n\n\(failureRecords.joined(separator: "\n"))")
+        let events = try lines.map { try JSONDecoder().decode(TestEventRecord.self, from: $0) }
+
+        let caseEvents = events.compactMap { $0.caseEvent }
+        let failureRecords = events.compactMap { $0.caseFailure }
+        let expectedFailures = failureRecords.filter({ $0.failureKind.isExpected == true })
+        let unexpectedFailures = failureRecords.filter { $0.failureKind.isExpected == false }.sorted(by: { lhs, rhs in
+            guard let lhsLocation = lhs.issue.sourceCodeContext.location, let rhsLocation = rhs.issue.sourceCodeContext.location else {
+                return lhs.description < rhs.description
+            }
+
+            if lhsLocation.file == rhsLocation.file {
+                return lhsLocation.line < rhsLocation.line
+            } else {
+                return lhsLocation.file < rhsLocation.file
+            }
+        }).map { $0.description(with: packagePath.pathString) }
+
+        let startedTests = caseEvents.filter { $0.event == .start }.count
+        let finishedTests = caseEvents.filter { $0.event == .finish }.count
+        let totalFailures = expectedFailures.count + unexpectedFailures.count
+        print("\nRan \(finishedTests)/\(startedTests) tests, \(totalFailures) failures (\(unexpectedFailures.count) unexpected):\n")
+        print("\(unexpectedFailures.joined(separator: "\n"))")
     }
 
     /// Processes the code coverage data and emits a json.

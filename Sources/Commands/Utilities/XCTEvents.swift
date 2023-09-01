@@ -62,6 +62,10 @@ struct TestCaseFailureRecord: Codable, CustomStringConvertible {
     var description: String {
         return "\(issue.sourceCodeContext.description)\(testCase) \(issue.compactDescription)"
     }
+
+    func description(with knownLocation: String) -> String {
+        return "\(issue.sourceCodeContext.description(with: knownLocation))\(testCase) \(issue.compactDescription)"
+    }
 }
 
 struct TestSuiteEventRecord: Codable {
@@ -82,8 +86,12 @@ struct TestBundle: Codable {
     let bundlePath: String
 }
 
-struct TestCase: Codable {
+struct TestCase: Codable, CustomStringConvertible {
     let name: String
+
+    var description: String {
+        return name
+    }
 }
 
 struct TestErrorInfo: Codable {
@@ -134,6 +142,16 @@ struct TestLocation: Codable, CustomStringConvertible {
     var description: String {
         return "\(file):\(line) "
     }
+
+    func description(with knownLocation: String) -> String {
+        var file = self.file
+        ["file:/", knownLocation].forEach {
+            if file.hasPrefix($0) {
+                file = String(file.dropFirst($0.count + 1))
+            }
+        }
+        return "\(file):\(line) "
+    }
 }
 
 struct TestSourceCodeContext: Codable, CustomStringConvertible {
@@ -142,6 +160,10 @@ struct TestSourceCodeContext: Codable, CustomStringConvertible {
 
     var description: String {
         return location?.description ?? ""
+    }
+
+    func description(with knownLocation: String) -> String {
+        return location?.description(with: knownLocation) ?? ""
     }
 }
 
