@@ -768,7 +768,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPM.Package.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -842,7 +842,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -861,7 +861,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -931,7 +931,7 @@ final class PackageToolTests: CommandsTestCase {
             func build() throws -> String {
                 return try SwiftPM.Build.execute(packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // Build and check.
             _ = try build()

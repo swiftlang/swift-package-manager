@@ -88,7 +88,7 @@ class InitTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
-            let binPath = path.appending(components: ".build", triple.platformBuildPathComponent(), "debug")
+            let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
 #if os(Windows)
             XCTAssertFileExists(binPath.appending("Foo.exe"))
 #else
@@ -145,7 +145,7 @@ class InitTests: XCTestCase {
             // Try building it
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Foo.swiftmodule"))
         }
     }
         
@@ -243,7 +243,7 @@ class InitTests: XCTestCase {
             // Try building it.
             XCTAssertBuilds(packageRoot)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "some_package.swiftmodule"))
+            XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "some_package.swiftmodule"))
         }
     }
     

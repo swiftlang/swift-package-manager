@@ -88,7 +88,7 @@ public struct PackageGraphRoot {
         
         let depend = try dependencies.map{
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter
             )

@@ -449,7 +449,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5ProductMapping[$0.identity.description]!
             )
@@ -461,7 +461,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.identity.description]!
             )

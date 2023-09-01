@@ -337,7 +337,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
             _ = try topologicalSort(input) { pair in
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
-                let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
+                let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try temp_await { self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0) }
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in

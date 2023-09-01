@@ -165,7 +165,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     private func loadFromDisk(reference: FingerprintReference) throws -> PackageFingerprints {
-        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
+        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename)
 
         guard self.fileSystem.exists(path) else {
             return .init()
@@ -185,7 +185,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         }
 
         let buffer = try StorageModel.encode(packageFingerprints: fingerprints, encoder: self.encoder)
-        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
+        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename)
         try self.fileSystem.writeFileContents(path, data: buffer)
     }
 
@@ -382,25 +382,27 @@ extension Fingerprint.ContentType {
 }
 
 protocol FingerprintReference {
-    func fingerprintsFilename() throws -> String
+    var fingerprintsFilename: String { get throws }
 }
 
 extension PackageIdentity: FingerprintReference {
-    func fingerprintsFilename() -> String {
+    var fingerprintsFilename: String {
         "\(self.description).json"
     }
 }
 
 extension PackageReference: FingerprintReference {
-    func fingerprintsFilename() throws -> String {
-        guard case .remoteSourceControl(let sourceControlURL) = self.kind else {
-            throw StringError("Package kind [\(self.kind)] does not support fingerprints")
+    var fingerprintsFilename: String {
+        get throws {
+            guard case .remoteSourceControl(let sourceControlURL) = self.kind else {
+                throw StringError("Package kind [\(self.kind)] does not support fingerprints")
+            }
+            
+            let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
+            // Cannot use hashValue because it is not consistent across executions
+            let locationHash = canonicalLocation.description.sha256Checksum.prefix(8)
+            return "\(self.identity.description)-\(locationHash).json"
         }
-
-        let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
-        // Cannot use hashValue because it is not consistent across executions
-        let locationHash = canonicalLocation.description.sha256Checksum.prefix(8)
-        return "\(self.identity.description)-\(locationHash).json"
     }
 }
 

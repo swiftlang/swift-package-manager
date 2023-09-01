@@ -46,7 +46,7 @@ extension PackageGraph {
             manifestMap[$0.key] = ($0.value, fileSystem)
         }
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
-            node.requiredDependencies().compactMap{ dependency in
+            node.requiredDependencies.compactMap{ dependency in
                 return manifestMap[dependency.identity].map { (manifest, fileSystem) in
                     GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: fileSystem)
                 }
@@ -272,7 +272,7 @@ private func createResolvedPackages(
 
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
-            let dependencyPackageRef = dependency.createPackageRef()
+            let dependencyPackageRef = dependency.packageRef
 
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.identity] {

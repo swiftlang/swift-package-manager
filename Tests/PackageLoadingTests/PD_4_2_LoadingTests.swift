@@ -40,7 +40,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
-                    .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                    .package(url: "\(AbsolutePath("/foo1").escapedPathString)", from: "1.0.0"),
                 ],
                 targets: [
                     .target(
@@ -255,15 +255,15 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
-                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath("/foo1").escapedPathString)", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath("/foo2").escapedPathString)", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
-                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString())"),
-                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .exact("1.2.3")),
-                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
-                   .package(url: "\(AbsolutePath("/foo7").escapedPathString())", .branch("master")),
-                   .package(url: "\(AbsolutePath("/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "\(AbsolutePath("/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString)"),
+                   .package(url: "\(AbsolutePath("/foo5").escapedPathString)", .exact("1.2.3")),
+                   .package(url: "\(AbsolutePath("/foo6").escapedPathString)", "1.2.3"..<"2.0.0"),
+                   .package(url: "\(AbsolutePath("/foo7").escapedPathString)", .branch("master")),
+                   .package(url: "\(AbsolutePath("/foo8").escapedPathString)", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "\(AbsolutePath("/foo9").escapedPathString)", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
                    .package(path: "~foo11"),
                    .package(path: "~/path/to/~/foo12"),

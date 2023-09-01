@@ -869,7 +869,7 @@ final class BuildPlanTests: XCTestCase {
             let contents: String = try fs.readFileContents(yaml)
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(swiftGetVersionFilePath.escapedPathString())","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
                 """))
 
         }
@@ -899,7 +899,7 @@ final class BuildPlanTests: XCTestCase {
             let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString())","\(swiftGetVersionFilePath.escapedPathString())","\(buildPath.appending(components: "exe.build", "sources").escapedPathString())"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
                 """))
         }
     }
@@ -1446,8 +1446,8 @@ final class BuildPlanTests: XCTestCase {
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
-        XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","\#(Pkg.appending(components: "Sources", "lib", "lib.c").escapedPathString())"#))
-        XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","\#(Pkg.appending(components: "Sources", "lib", "libx.cpp").escapedPathString())"#))
+        XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","\#(Pkg.appending(components: "Sources", "lib", "lib.c").escapedPathString)"#))
+        XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","\#(Pkg.appending(components: "Sources", "lib", "libx.cpp").escapedPathString)"#))
 
         let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
         XCTAssertMatch(swiftInteropLib, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .anySequence])
@@ -3904,8 +3904,8 @@ final class BuildPlanTests: XCTestCase {
         let suffix = ""
 #endif
         XCTAssertMatch(contents, .contains("""
-                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString())","\(swiftGetVersionFilePath.escapedPathString())","\(buildPath.appending(components: "exe\(suffix)").escapedPathString())","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString())","\(buildPath.escapedPathString())
+                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe\(suffix)").escapedPathString)","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString)"]
+                outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString)","\(buildPath.escapedPathString)
             """))
     }
 
@@ -3964,10 +3964,10 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-              "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString())":
+              "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
                 tool: clang
-                inputs: ["\(buildPath.appending(components: "Foo.swiftmodule").escapedPathString())","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString())"]
+                inputs: ["\(buildPath.appending(components: "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+                outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
                 description: "Compiling Bar main.m"
             """))
     }
@@ -4038,10 +4038,10 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString())":
+               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
                  tool: clang
-                 inputs: ["\(buildPath.appending(components: "Foo.swiftmodule").escapedPathString())","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString())"]
-                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString())"]
+                 inputs: ["\(buildPath.appending(components: "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
                  description: "Compiling Bar main.m"
              """))
     }
@@ -4118,10 +4118,10 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString())":
+               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
                  tool: clang
-                 inputs: ["\(buildPath.appending(components: "\(dynamicLibraryPrefix)Foo\(dynamicLibraryExtension)").escapedPathString())","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString())"]
-                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString())"]
+                 inputs: ["\(buildPath.appending(components: "\(dynamicLibraryPrefix)Foo\(dynamicLibraryExtension)").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
                  description: "Compiling Bar main.m"
              """))
     }
@@ -4168,20 +4168,20 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-              "\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString())":
+              "\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)":
                 tool: shell
-                inputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString())"]
+                inputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)"]
+                outputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)"]
                 description: "Wrapping AST for exe for debugging"
-                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString())","-modulewrap","\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString())","-o","\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString())","-target","x86_64-unknown-linux-gnu"]
+                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
             """))
         XCTAssertMatch(contents, .contains("""
-              "\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString())":
+              "\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)":
                 tool: shell
-                inputs: ["\(buildPath.appending(components: "lib.swiftmodule").escapedPathString())"]
-                outputs: ["\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString())"]
+                inputs: ["\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)"]
+                outputs: ["\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)"]
                 description: "Wrapping AST for lib for debugging"
-                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString())","-modulewrap","\(buildPath.appending(components: "lib.swiftmodule").escapedPathString())","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString())","-target","x86_64-unknown-linux-gnu"]
+                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
             """))
     }
 
@@ -4230,28 +4230,28 @@ final class BuildPlanTests: XCTestCase {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
-                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
-                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
-                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
             } else if result.plan.buildParameters.targetTriple.isDarwin() {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
-                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
-                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
-                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
             } else {    // assume Unix `ar` is the librarian
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
-                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
-                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
-                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","crs","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                    inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","crs","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
             }
         }
@@ -4811,7 +4811,7 @@ final class BuildPlanTests: XCTestCase {
 
         let yamlContents: String = try fs.readFileContents(yaml)
         let inputs: SerializedJSON = """
-            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath.escapedPathString())","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
+            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath.escapedPathString)","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
         """
         XCTAssertMatch(yamlContents, .contains(inputs.underlying))
     }
