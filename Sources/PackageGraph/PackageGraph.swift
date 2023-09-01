@@ -74,7 +74,7 @@ public struct PackageGraph {
     ///
     //// This set will also have references to packages that are currently present
     /// in the graph due to loading errors. This set doesn't include the root packages.
-    public let requiredDependencies: Set<PackageReference>
+    public let requiredDependencies: [PackageReference]
 
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
@@ -123,7 +123,7 @@ public struct PackageGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        dependencies requiredDependencies: Set<PackageReference>,
+        dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
         self.rootPackages = rootPackages
