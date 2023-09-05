@@ -25,12 +25,8 @@ public struct MinimumDeploymentTarget {
     }
 
     public func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
-        if let result = xcTestMinimumDeploymentTargets[platform] {
-            return result
-        } else {
-            let result = Self.computeXCTestMinimumDeploymentTarget(for: platform)
-            xcTestMinimumDeploymentTargets[platform] = result
-            return result
+        self.xcTestMinimumDeploymentTargets.memoize(platform) {
+            return Self.computeXCTestMinimumDeploymentTarget(for: platform)
         }
     }
 

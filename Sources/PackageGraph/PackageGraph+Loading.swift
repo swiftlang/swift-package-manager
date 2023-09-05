@@ -145,7 +145,7 @@ extension PackageGraph {
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
-            deriveXCTestPlatform: { declared in
+            derivedXCTestPlatformProvider: { declared in
                 if let customXCTestMinimumDeploymentTargets {
                     return customXCTestMinimumDeploymentTargets[declared]
                 } else {
@@ -232,7 +232,7 @@ private func createResolvedPackages(
     rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
-    deriveXCTestPlatform: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?,
+    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -356,7 +356,7 @@ private func createResolvedPackages(
         packageBuilder.platforms = computePlatforms(
             package: package,
             platformRegistry: platformRegistry,
-            deriveXCTestPlatform: deriveXCTestPlatform
+            derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
         )
 
         // Create target builders for each target in the package.
@@ -733,7 +733,7 @@ private class DuplicateProductsChecker {
 private func computePlatforms(
     package: Package,
     platformRegistry: PlatformRegistry,
-    deriveXCTestPlatform: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?
+    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?
 ) -> SupportedPlatforms {
 
     // the supported platforms as declared in the manifest
@@ -749,7 +749,7 @@ private func computePlatforms(
 
     return SupportedPlatforms(
         declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
-        deriveXCTestPlatform: deriveXCTestPlatform
+        derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
     )
 }
 
@@ -873,7 +873,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], deriveXCTestPlatform: nil)
+    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
 
     init(
         target: Target,
@@ -965,7 +965,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], deriveXCTestPlatform: nil)
+    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     var registryMetadata: RegistryReleaseMetadata?
