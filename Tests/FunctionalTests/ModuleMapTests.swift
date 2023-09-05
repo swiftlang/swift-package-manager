@@ -23,7 +23,7 @@ class ModuleMapsTestCase: XCTestCase {
         try SPMTestSupport.fixture(name: name) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
             let triple = try UserToolchain.default.targetTriple
-            let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent(), "debug")
+            let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
@@ -43,7 +43,7 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(fixturePath.appending("App"), Xld: Xld)
 
             let triple = try UserToolchain.default.targetTriple
-            let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent())
+            let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent)
             let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").pathString)
             XCTAssertEqual(debugout, "123\n")
             let releaseout = try Process.checkNonZeroExit(args: targetPath.appending(components: "release", "App").pathString)
@@ -58,7 +58,7 @@ class ModuleMapsTestCase: XCTestCase {
 
             func verify(_ conf: String) throws {
                 let triple = try UserToolchain.default.targetTriple
-                let out = try Process.checkNonZeroExit(args: fixturePath.appending(components: "packageA", ".build", triple.platformBuildPathComponent(), conf, "packageA").pathString)
+                let out = try Process.checkNonZeroExit(args: fixturePath.appending(components: "packageA", ".build", triple.platformBuildPathComponent, conf, "packageA").pathString)
                 XCTAssertEqual(out, """
                     calling Y.bar()
                     Y.bar() called

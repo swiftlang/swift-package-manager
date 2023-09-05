@@ -60,10 +60,10 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // A checksum file should have been created for each package
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintsFilename())))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintsFilename)))
         XCTAssertTrue(
             mockFileSystem
-                .exists(storage.directoryPath.appending(component: otherPackage.fingerprintsFilename()))
+                .exists(storage.directoryPath.appending(component: otherPackage.fingerprintsFilename))
         )
 
         // Fingerprints should be saved
@@ -248,16 +248,16 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             fingerprint: .init(origin: .sourceControl(barURL), value: "abcde-bar", contentType: .sourceCode)
         )
 
-        XCTAssertNotEqual(try fooRef.fingerprintsFilename(), try barRef.fingerprintsFilename())
+        XCTAssertNotEqual(try fooRef.fingerprintsFilename, try barRef.fingerprintsFilename)
 
         // A checksum file should have been created for each package
         XCTAssertTrue(
             mockFileSystem
-                .exists(storage.directoryPath.appending(component: try fooRef.fingerprintsFilename()))
+                .exists(storage.directoryPath.appending(component: try fooRef.fingerprintsFilename))
         )
         XCTAssertTrue(
             mockFileSystem
-                .exists(storage.directoryPath.appending(component: try barRef.fingerprintsFilename()))
+                .exists(storage.directoryPath.appending(component: try barRef.fingerprintsFilename))
         )
 
         // This should fail because fingerprint for 1.0.0 already exists and it's different
@@ -291,7 +291,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
         let package = PackageIdentity.plain("mona.LinkedList")
-        let fingerprintsPath = directoryPath.appending(package.fingerprintsFilename())
+        let fingerprintsPath = directoryPath.appending(package.fingerprintsFilename)
         let v1Fingerprints = """
         {
           "versionFingerprints" : {

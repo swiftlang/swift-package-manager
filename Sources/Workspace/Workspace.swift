@@ -1857,7 +1857,7 @@ extension Workspace {
                 let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: self.workspace.fileSystem)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
-                let package = dependency.createPackageRef()
+                let package = dependency.packageRef
                 inputIdentities.insert(package)
                 return manifestsMap[dependency.identity].map { manifest in
                     GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
@@ -1868,7 +1868,7 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
-                    let package = dependency.createPackageRef()
+                    let package = dependency.packageRef
                     requiredIdentities.insert(package)
                     return manifestsMap[dependency.identity].map { manifest in
                         GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
@@ -2050,7 +2050,7 @@ extension Workspace {
         }
 
         // Load root dependencies manifests (in parallel)
-        let rootDependencies = root.dependencies.map{ $0.createPackageRef() }
+        let rootDependencies = root.dependencies.map{ $0.packageRef }
         let rootDependenciesManifests = try temp_await { self.loadManagedManifests(for: rootDependencies, observabilityScope: observabilityScope, completion: $0) }
 
         let topLevelManifests = root.manifests.merging(rootDependenciesManifests, uniquingKeysWith: { lhs, rhs in
@@ -2058,7 +2058,7 @@ extension Workspace {
         })
 
         // optimization: preload first level dependencies manifest (in parallel)
-        let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map{ $0.createPackageRef() } }.flatMap({ $0 })
+        let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map{ $0.packageRef } }.flatMap({ $0 })
         let firstLevelManifests = try temp_await { self.loadManagedManifests(for: firstLevelDependencies, observabilityScope: observabilityScope, completion: $0) } // FIXME: this should not block
 
         // Continue to load the rest of the manifest for this graph
@@ -2069,7 +2069,7 @@ extension Workspace {
         let topologicalSortSuccessors: (KeyedPair<Manifest, Key>) throws -> [KeyedPair<Manifest, Key>] = { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
-            let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
+            let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
             // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved file)
             if automaticallyAddManagedDependencies {
                 try dependenciesToLoad.forEach { ref in
@@ -2088,7 +2088,7 @@ extension Workspace {
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
                     // is prepared to handle the case where not all manifest are available
-                    $0.canonicalPackageLocation == dependency.createPackageRef().canonicalLocation ?
+                    $0.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
                     KeyedPair($0, key: Key(identity: dependency.identity, productFilter: dependency.productFilter)) : nil
                 }
             }

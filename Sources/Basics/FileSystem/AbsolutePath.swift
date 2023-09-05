@@ -268,7 +268,7 @@ extension AbsolutePath {
     }
 
     /// Returns the basename dropping any possible  extension.
-    public func basenameWithoutAnyExtension() -> String {
+    public var basenameWithoutAnyExtension: String {
         var basename = self.basename
         if let index = basename.firstIndex(of: ".") {
             basename.removeSubrange(index ..< basename.endIndex)
@@ -320,7 +320,7 @@ extension AbsolutePath {
 }
 
 extension AbsolutePath {
-    public func escapedPathString() -> String {
+    public var escapedPathString: String {
         self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
     }
 }

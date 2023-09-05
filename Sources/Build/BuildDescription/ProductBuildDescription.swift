@@ -295,7 +295,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += try self.buildParameters.targetTripleArgs(for: self.product.targets[0])
 
         // Add arguments from declared build settings.
-        args += self.buildSettingsFlags()
+        args += self.buildSettingsFlags
 
         // Add AST paths to make the product debuggable. This array is only populated when we're
         // building for Darwin in debug configuration.
@@ -325,19 +325,19 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     /// Returns the build flags from the declared build settings.
-    private func buildSettingsFlags() -> [String] {
+    private var buildSettingsFlags: [String] {
         var flags: [String] = []
 
         // Linked libraries.
-        let libraries = OrderedSet(staticTargets.reduce([]) {
-            $0 + buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
+        let libraries = OrderedSet(self.staticTargets.reduce([]) {
+            $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
         })
         flags += libraries.map { "-l" + $0 }
 
         // Linked frameworks.
         if self.buildParameters.targetTriple.supportsFrameworks {
-            let frameworks = OrderedSet(staticTargets.reduce([]) {
-                $0 + buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
+            let frameworks = OrderedSet(self.staticTargets.reduce([]) {
+                $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
             })
             flags += frameworks.flatMap { ["-framework", $0] }
         }

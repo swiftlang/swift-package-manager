@@ -52,7 +52,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
             XCTAssertBuilds(fixturePath.appending("app"))
-            let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug")
+            let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertFileExists(buildDir.appending("FooExec"))
             XCTAssertFileExists(buildDir.appending("FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending("FooLib2.swiftmodule"))
@@ -107,7 +107,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() throws {
         try fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
-            let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Foo").pathString
+            let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString
 
             XCTAssertBuilds(fixturePath)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -131,7 +131,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Dealer").pathString
+            let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString
 
             let packageRoot = fixturePath.appending("app")
             XCTAssertBuilds(packageRoot)
@@ -158,7 +158,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() throws {
         try fixture(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
-            let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "dep2").pathString]
+            let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "dep2").pathString]
 
             let packageRoot = fixturePath.appending("root")
             XCTAssertBuilds(fixturePath.appending("root"))
@@ -182,7 +182,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() throws {
         try fixture(name: "Miscellaneous/Spaces Fixture") { fixturePath in
             XCTAssertBuilds(fixturePath)
-            XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -239,7 +239,7 @@ class MiscellaneousTestCase: XCTestCase {
             let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
-            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SystemModuleUserClang"))
+            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent, "debug", "SystemModuleUserClang"))
 
             // Clean up the build directory before re-running the build with
             // different arguments.
@@ -247,7 +247,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             _ = try executeSwiftBuild(moduleUser, extraArgs: ["--pkg-config-path", fixturePath.pathString])
 
-            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SystemModuleUserClang"))
+            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent, "debug", "SystemModuleUserClang"))
         }
     }
 

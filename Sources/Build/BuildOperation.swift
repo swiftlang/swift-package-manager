@@ -669,7 +669,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func packageStructureChanged() -> Bool {
         do {
-            _ = try plan()
+            _ = try self.plan()
         }
         catch Diagnostics.fatalError {
             return false
