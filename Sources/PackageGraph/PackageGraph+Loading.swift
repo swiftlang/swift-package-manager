@@ -146,7 +146,7 @@ extension PackageGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             deriveXCTestPlatform: { declared in
-                if let customXCTestMinimumDeploymentTargets = customXCTestMinimumDeploymentTargets {
+                if let customXCTestMinimumDeploymentTargets {
                     return customXCTestMinimumDeploymentTargets[declared]
                 } else {
                     return MinimumDeploymentTarget.default.computeXCTestMinimumDeploymentTarget(for: declared)
@@ -873,7 +873,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], deriveXCTestPlatform: { _ in nil })
+    var platforms: SupportedPlatforms = .init(declared: [], deriveXCTestPlatform: nil)
 
     init(
         target: Target,
@@ -965,7 +965,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], deriveXCTestPlatform: { _ in nil })
+    var platforms: SupportedPlatforms = .init(declared: [], deriveXCTestPlatform: nil)
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     var registryMetadata: RegistryReleaseMetadata?

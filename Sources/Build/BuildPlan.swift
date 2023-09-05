@@ -292,7 +292,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], deriveXCTestPlatform: { _ in nil }) // safe since this is a derived target
+                    platforms: .init(declared: [], deriveXCTestPlatform: nil) // safe since this is a derived target
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -325,7 +325,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
                     defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], deriveXCTestPlatform: { _ in nil }) // safe since this is a derived target
+                    platforms: .init(declared: [], deriveXCTestPlatform: nil) // safe since this is a derived target
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -354,7 +354,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             target: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
                             defaultLocalization: .none, // safe since this is a derived target
-                            platforms: .init(declared: [], deriveXCTestPlatform: { _ in nil }) // safe since this is a derived target
+                            platforms: .init(declared: [], deriveXCTestPlatform: nil) // safe since this is a derived target
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,

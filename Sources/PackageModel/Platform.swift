@@ -54,9 +54,9 @@ public struct Platform: Equatable, Hashable, Codable {
 
 public struct SupportedPlatforms {
     public let declared: [SupportedPlatform]
-    private let deriveXCTestPlatform: (Platform) -> PlatformVersion?
+    private let deriveXCTestPlatform: ((Platform) -> PlatformVersion?)?
 
-    public init(declared: [SupportedPlatform], deriveXCTestPlatform: @escaping (_ declared: Platform) -> PlatformVersion?) {
+    public init(declared: [SupportedPlatform], deriveXCTestPlatform: ((_ declared: Platform) -> PlatformVersion?)?) {
         self.declared = declared
         self.deriveXCTestPlatform = deriveXCTestPlatform
     }
@@ -67,7 +67,7 @@ public struct SupportedPlatforms {
         if let declaredPlatform = self.declared.first(where: { $0.platform == platform }) {
             var version = declaredPlatform.version
 
-            if usingXCTest, let xcTestMinimumDeploymentTarget = deriveXCTestPlatform(platform), version < xcTestMinimumDeploymentTarget {
+            if usingXCTest, let xcTestMinimumDeploymentTarget = deriveXCTestPlatform?(platform), version < xcTestMinimumDeploymentTarget {
                 version = xcTestMinimumDeploymentTarget
             }
 
@@ -83,7 +83,7 @@ public struct SupportedPlatforms {
             )
         } else {
             let minimumSupportedVersion: PlatformVersion
-            if usingXCTest, let xcTestMinimumDeploymentTarget = deriveXCTestPlatform(platform), xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
+            if usingXCTest, let xcTestMinimumDeploymentTarget = deriveXCTestPlatform?(platform), xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
                 minimumSupportedVersion = xcTestMinimumDeploymentTarget
             } else {
                 minimumSupportedVersion = platform.oldestSupportedVersion

@@ -70,7 +70,7 @@ public final class ResolvedProduct {
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: .none, // safe since this is a derived product
-                platforms: .init(declared: [], deriveXCTestPlatform: { _ in nil }) // safe since this is a derived product
+                platforms: .init(declared: [], deriveXCTestPlatform: nil) // safe since this is a derived product
             )
         }
 
