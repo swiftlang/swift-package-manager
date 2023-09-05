@@ -1917,18 +1917,31 @@ extension Workspace {
                                 let preferred = [existing, package].sorted(by: {
                                     $0.locationString > $1.locationString
                                 }).first! // safe
-                                observabilityScope.emit(debug: "similar variants of package '\(package.identity)' found at '\(package.locationString)' and '\(existing.locationString)'. using preferred variant '\(preferred.locationString)'")
+                                observabilityScope.emit(debug: """
+                                similar variants of package '\(package.identity)' \
+                                found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                using preferred variant '\(preferred.locationString)'
+                                """)
                                 if preferred.locationString != existing.locationString {
                                     requiredIdentities.remove(existing)
                                     requiredIdentities.insert(preferred, at: index)
                                 }
                             }
                         } else {
-                            observabilityScope.emit(debug: "'\(package.identity)' from '\(package.locationString)' was omitted from required dependencies because it has the same identity as the one from '\(existing.locationString)'")
+                            observabilityScope.emit(debug: """
+                            '\(package.identity)' from '\(package.locationString)' was omitted \
+                            from required dependencies because it has the same identity as the \
+                            one from '\(existing.locationString)'
+                            """)
                         }
                     }
                     return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: workspace.fileSystem)
+                        GraphLoadingNode(
+                            identity: dependency.identity,
+                            manifest: manifest,
+                            productFilter: dependency.productFilter, 
+                            fileSystem: workspace.fileSystem
+                        )
                     }
                 }
             }
