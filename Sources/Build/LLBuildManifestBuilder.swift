@@ -267,7 +267,6 @@ extension LLBuildManifestBuilder {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
-                objectNodes: objectNodes,
                 moduleNode: moduleNode
             )
         } else {
@@ -281,7 +280,6 @@ extension LLBuildManifestBuilder {
     private func addSwiftCmdsViaIntegratedDriver(
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
-        objectNodes: [Node],
         moduleNode: Node
     ) throws {
         // Use the integrated Swift driver to compute the set of frontend
