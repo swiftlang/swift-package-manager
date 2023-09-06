@@ -976,6 +976,17 @@ extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
         let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
 
+        // Add dependency on Info.plist generation on Darwin platforms.
+        let testInputs: [AbsolutePath]
+        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin(), buildProduct.buildParameters.experimentalTestOutput {
+            let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
+            testInputs = [testBundleInfoPlistPath]
+
+            self.manifest.addWriteInfoPlistCommand(principalClass: "\(buildProduct.product.targets[0].c99name).SwiftPMXCTestObserver", outputPath: testBundleInfoPlistPath)
+        } else {
+            testInputs = []
+        }
+
         switch buildProduct.product.type {
         case .library(.static):
             try self.manifest.addShellCmd(
@@ -987,7 +998,7 @@ extension LLBuildManifestBuilder {
             )
 
         default:
-            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath } + [buildProduct.linkFileListPath]
+            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath } + [buildProduct.linkFileListPath] + testInputs
 
             try self.manifest.addShellCmd(
                 name: cmdName,

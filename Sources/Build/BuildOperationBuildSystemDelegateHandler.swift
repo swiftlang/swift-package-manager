@@ -369,9 +369,10 @@ public struct BuildDescription: Codable {
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)
         self.builtTestProducts = try plan.buildProducts.filter { $0.product.type == .test }.map { desc in
-            try BuiltTestProduct(
+            return try BuiltTestProduct(
                 productName: desc.product.name,
-                binaryPath: desc.binaryPath
+                binaryPath: desc.binaryPath,
+                packagePath: desc.package.path
             )
         }
         self.pluginDescriptions = pluginDescriptions

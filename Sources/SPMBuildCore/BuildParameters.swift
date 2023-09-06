@@ -223,6 +223,9 @@ public struct BuildParameters: Encodable {
     /// Whether to enable the entry-point-function-name feature.
     public var canRenameEntrypointFunctionName: Bool
 
+    /// Whether or not to enable the experimental test output mode.
+    public var experimentalTestOutput: Bool
+
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
@@ -310,7 +313,8 @@ public struct BuildParameters: Encodable {
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
         debugInfoFormat: DebugInfoFormat = .dwarf,
-        shouldSkipBuilding: Bool = false
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws {
         try self.init(
             dataPath: dataPath,
@@ -342,7 +346,8 @@ public struct BuildParameters: Encodable {
             verboseOutput: verboseOutput,
             linkTimeOptimizationMode: linkTimeOptimizationMode,
             debugInfoFormat: debugInfoFormat,
-            shouldSkipBuilding: shouldSkipBuilding
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput
         )
     }
 
@@ -376,7 +381,8 @@ public struct BuildParameters: Encodable {
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
         debugInfoFormat: DebugInfoFormat = .dwarf,
-        shouldSkipBuilding: Bool = false
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
@@ -447,6 +453,7 @@ public struct BuildParameters: Encodable {
         self.linkTimeOptimizationMode = linkTimeOptimizationMode
         self.debugInfoFormat = debugInfoFormat
         self.shouldSkipBuilding = shouldSkipBuilding
+        self.experimentalTestOutput = experimentalTestOutput
     }
 
     @available(*, deprecated, renamed: "forTriple()")
@@ -534,6 +541,10 @@ public struct BuildParameters: Encodable {
 
     public var buildDescriptionPath: AbsolutePath {
         return buildPath.appending(components: "description.json")
+    }
+
+    public var testOutputPath: AbsolutePath {
+        return buildPath.appending(component: "testOutput.txt")
     }
 
     /// The debugging strategy according to the current build parameters.
