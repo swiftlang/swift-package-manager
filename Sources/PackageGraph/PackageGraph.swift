@@ -70,11 +70,11 @@ public struct PackageGraph {
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
     public let allProducts: Set<ResolvedProduct>
 
-    /// The set of package dependencies required for a fully resolved graph.
+    /// Package dependencies required for a fully resolved graph.
     ///
-    //// This set will also have references to packages that are currently present
-    /// in the graph due to loading errors. This set doesn't include the root packages.
-    public let requiredDependencies: Set<PackageReference>
+    /// This will include a references to dependencies that are currently present
+    /// in the graph due to loading errors. This does not include the root packages.
+    public let requiredDependencies: [PackageReference]
 
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
@@ -123,7 +123,7 @@ public struct PackageGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        dependencies requiredDependencies: Set<PackageReference>,
+        dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
         self.rootPackages = rootPackages

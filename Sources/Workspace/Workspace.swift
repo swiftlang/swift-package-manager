@@ -1117,7 +1117,7 @@ extension Workspace {
         }
 
         // Add unversioned constraints for edited packages.
-        var updateConstraints = currentManifests.editedPackagesConstraints()
+        var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += try graphRoot.constraints()
@@ -1161,7 +1161,7 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
             observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
@@ -1226,9 +1226,9 @@ extension Workspace {
             root: manifests.root,
             identityResolver: self.identityResolver,
             additionalFileRules: self.configuration.additionalFileRules,
-            externalManifests: manifests.allDependencyManifests(),
-            requiredDependencies: manifests.computePackages().required,
-            unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
+            externalManifests: manifests.allDependencyManifests,
+            requiredDependencies: manifests.requiredPackages,
+            unsafeAllowedPackages: manifests.unsafeAllowedPackages,
             binaryArtifacts: binaryArtifacts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
@@ -1686,7 +1686,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws {
         var dependenciesToPin = [ManagedDependency]()
-        let requiredDependencies = try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        let requiredDependencies = try dependencyManifests.requiredPackages.filter({ $0.kind.isPinnable })
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
@@ -1799,30 +1799,61 @@ extension Workspace {
 
         private let workspace: Workspace
 
+        private let observabilityScope: ObservabilityScope
+
+        private let _dependencies: LoadableResult<(required: OrderedCollections.OrderedSet<PackageReference>, missing: OrderedCollections.OrderedSet<PackageReference>)>
+
+        private let _constraints: LoadableResult<[PackageContainerConstraint]>
+
         fileprivate init(
             root: PackageGraphRoot,
             dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)],
-            workspace: Workspace
+            workspace: Workspace,
+            observabilityScope: ObservabilityScope
         ) {
             self.root = root
             self.dependencies = dependencies
             self.workspace = workspace
+            self.observabilityScope = observabilityScope
+            self._dependencies = LoadableResult {
+                try Self.computeDependencies(
+                    root: root,
+                    dependencies: dependencies,
+                    workspace: workspace,
+                    observabilityScope: observabilityScope
+                )
+            }
+            self._constraints = LoadableResult {
+                try Self.computeConstraints(
+                    dependencies: dependencies,
+                    workspace: workspace
+                )
+            }
         }
 
         /// Returns all manifests contained in DependencyManifests.
-        public func allDependencyManifests() -> OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)> {
+        public var allDependencyManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)> {
             return self.dependencies.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
                 partial[item.dependency.packageRef.identity] = (item.manifest, item.fileSystem)
             }
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        public func missingPackages() throws -> Set<PackageReference> {
-            return try self.computePackages().missing
+        public var missingPackages: [PackageReference] {
+            get throws {
+                return try self._dependencies.load().missing.elements
+            }
+        }
+
+        /// Computes the identities which are declared in the manifests but aren't present in dependencies.
+        public var requiredPackages: [PackageReference] {
+            get throws {
+                return try self._dependencies.load().required.elements
+            }
         }
 
         /// Returns the list of packages which are allowed to vend products with unsafe flags.
-        func unsafeAllowedPackages() -> Set<PackageReference> {
+        var unsafeAllowedPackages: Set<PackageReference> {
             var result = Set<PackageReference>()
 
             for dependency in self.dependencies {
@@ -1845,37 +1876,75 @@ extension Workspace {
             return result
         }
 
-        func computePackages() throws -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [PackageIdentity: Manifest] = try Dictionary(throwingUniqueKeysWithValues:
-                self.root.packages.map { ($0.key, $0.value.manifest) } +
-                self.dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }
+        private static func computeDependencies(
+            root: PackageGraphRoot,
+            dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)],
+            workspace: Workspace,
+            observabilityScope: ObservabilityScope
+        ) throws -> (required: OrderedCollections.OrderedSet<PackageReference>, missing: OrderedCollections.OrderedSet<PackageReference>) {
+            let manifestsMap: [PackageIdentity: Manifest] = try Dictionary(
+                throwingUniqueKeysWithValues:
+                    root.packages.map { ($0.key, $0.value.manifest) } +
+                    dependencies.map {
+                        ($0.dependency.packageRef.identity, $0.manifest)
+                    }
             )
 
-            var inputIdentities: Set<PackageReference> = []
-            let inputNodes: [GraphLoadingNode] = self.root.packages.map{ identity, package in
-                inputIdentities.insert(package.reference)
-                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: self.workspace.fileSystem)
+            var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
+            let inputNodes: [GraphLoadingNode] = root.packages.map{ identity, package in
+                inputIdentities.append(package.reference)
+                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: workspace.fileSystem)
                 return node
-            } + self.root.dependencies.compactMap{ dependency in
+            } + root.dependencies.compactMap{ dependency in
                 let package = dependency.packageRef
-                inputIdentities.insert(package)
+                inputIdentities.append(package)
                 return manifestsMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
+                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: workspace.fileSystem)
                 }
             }
 
-            // FIXME: this is dropping legitimate packages with equal identities and should be revised as part of the identity work
-            var requiredIdentities: Set<PackageReference> = []
+            var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
                     let package = dependency.packageRef
-                    requiredIdentities.insert(package)
+                    let (inserted, index) = requiredIdentities.append(package)
+                    if !inserted {
+                        let existing = requiredIdentities.elements[index]
+                        // if identity already tracked, compare the locations and used the preferred variant
+                        if existing.canonicalLocation == package.canonicalLocation {
+                            // same literal location is fine
+                            if existing.locationString != package.locationString {
+                                let preferred = [existing, package].sorted(by: {
+                                    $0.locationString > $1.locationString
+                                }).first! // safe
+                                observabilityScope.emit(debug: """
+                                similar variants of package '\(package.identity)' \
+                                found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                using preferred variant '\(preferred.locationString)'
+                                """)
+                                if preferred.locationString != existing.locationString {
+                                    requiredIdentities.remove(existing)
+                                    requiredIdentities.insert(preferred, at: index)
+                                }
+                            }
+                        } else {
+                            observabilityScope.emit(debug: """
+                            '\(package.identity)' from '\(package.locationString)' was omitted \
+                            from required dependencies because it has the same identity as the \
+                            one from '\(existing.locationString)'
+                            """)
+                        }
+                    }
                     return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
+                        GraphLoadingNode(
+                            identity: dependency.identity,
+                            manifest: manifest,
+                            productFilter: dependency.productFilter, 
+                            fileSystem: workspace.fileSystem
+                        )
                     }
                 }
             }
-            // FIXME: This should be an ordered set.
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
@@ -1899,7 +1968,16 @@ extension Workspace {
         }
 
         /// Returns constraints of the dependencies, including edited package constraints.
-        func dependencyConstraints() throws -> [PackageContainerConstraint] {
+        var dependencyConstraints: [PackageContainerConstraint] {
+            get throws {
+                try self._constraints.load()
+            }
+        }
+
+        private static func computeConstraints(
+            dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)],
+            workspace: Workspace
+        ) throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
 
             for (externalManifest, managedDependency, productFilter, _) in dependencies {
@@ -1928,7 +2006,7 @@ extension Workspace {
 
         // FIXME: @testable(internal)
         /// Returns a list of constraints for all 'edited' package.
-        public func editedPackagesConstraints() -> [PackageContainerConstraint] {
+        public var editedPackagesConstraints: [PackageContainerConstraint] {
             var constraints = [PackageContainerConstraint]()
 
             for (_, managedDependency, productFilter, _) in dependencies {
@@ -2046,7 +2124,12 @@ extension Workspace {
         self.fixManagedDependencies(observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
             // return partial results
-            return DependencyManifests(root: root, dependencies: [], workspace: self)
+            return DependencyManifests(
+                root: root,
+                dependencies: [],
+                workspace: self,
+                observabilityScope: observabilityScope
+            )
         }
 
         // Load root dependencies manifests (in parallel)
@@ -2102,7 +2185,12 @@ extension Workspace {
                 " -> " + cycle.cycle[0].key.identity.description
             )
             // return partial results
-            return DependencyManifests(root: root, dependencies: [], workspace: self)
+            return DependencyManifests(
+                root: root,
+                dependencies: [],
+                workspace: self,
+                observabilityScope: observabilityScope
+            )
         }
         let allManifestsWithPossibleDuplicates = try topologicalSort(topologicalSortInput, successors: topologicalSortSuccessors)
 
@@ -2140,7 +2228,12 @@ extension Workspace {
             return (manifest, dependency, productFilter, fileSystem ?? self.fileSystem)
         }
 
-        return DependencyManifests(root: root, dependencies: dependencies, workspace: self)
+        return DependencyManifests(
+            root: root,
+            dependencies: dependencies, 
+            workspace: self,
+            observabilityScope: observabilityScope
+        )
     }
 
     /// Loads the given manifests, if it is present in the managed dependencies.
@@ -2773,7 +2866,7 @@ extension Workspace {
         }
 
         // Compute the missing package identities.
-        let missingPackages = try currentManifests.missingPackages()
+        let missingPackages = try currentManifests.missingPackages
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
@@ -2816,7 +2909,7 @@ extension Workspace {
 
         // Create the constraints.
         var computedConstraints = [PackageContainerConstraint]()
-        computedConstraints += currentManifests.editedPackagesConstraints()
+        computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
@@ -2845,7 +2938,7 @@ extension Workspace {
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
             observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
@@ -3013,7 +3106,7 @@ extension Workspace {
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
             root.manifests.values.flatMap{ try $0.dependencyConstraints(productFilter: .everything) } +
-            dependencyManifests.dependencyConstraints() +
+            dependencyManifests.dependencyConstraints +
             constraints
 
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
@@ -3050,7 +3143,7 @@ extension Workspace {
             return nil
         }
 
-        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable }) }) else {
+        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.requiredPackages.filter({ $0.kind.isPinnable }) }) else {
             return nil
         }
         for dependency in self.state.dependencies.filter({ $0.packageRef.kind.isPinnable }) {

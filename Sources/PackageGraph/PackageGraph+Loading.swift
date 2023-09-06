@@ -25,7 +25,7 @@ extension PackageGraph {
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
         externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
-        requiredDependencies: Set<PackageReference> = [],
+        requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
         shouldCreateMultipleTestProducts: Bool = false,
