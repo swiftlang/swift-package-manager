@@ -180,10 +180,14 @@ public final class ResolvedTargetResult {
 
     public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
         let derived = platforms.map {
-            let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform.custom(name: $0.key, oldestSupportedVersion: $0.value)
-            return target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
+            let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform
+                .custom(name: $0.key, oldestSupportedVersion: $0.value)
+            return self.target.platforms.getDerived(for: platform, usingXCTest: self.target.type == .test)
         }
-        let targetPlatforms = Dictionary(uniqueKeysWithValues: derived.map({ ($0.platform.name, $0.version.versionString) }))
+        let targetPlatforms = Dictionary(
+            uniqueKeysWithValues: derived
+                .map { ($0.platform.name, $0.version.versionString) }
+        )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
