@@ -143,3 +143,10 @@ extension ResolvedProduct: CustomStringConvertible {
         return "<ResolvedProduct: \(name)>"
     }
 }
+
+extension ResolvedProduct {
+    public var isLinkingXCTest: Bool {
+        // To retain existing behavior, we have to check both the product type, as well as the types of all of its targets.
+        return self.type == .test || self.targets.filter { $0.type == .test }.isEmpty == false
+    }
+}

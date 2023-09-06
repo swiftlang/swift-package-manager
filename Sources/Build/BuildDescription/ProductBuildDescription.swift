@@ -269,7 +269,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // back-deployed concurrency libraries.
             if useStdlibRpath, self.buildParameters.targetTriple.isMacOSX
             {
-                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS, usingXCTest: product.type == .test)
+                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
                 if macOSSupportedPlatform.version.major < 12 {
                     let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
                         .parentDirectory
