@@ -1711,6 +1711,7 @@ extension Sequence {
 
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
-        settings.filter(\.kind.isUnsafeFlags).isEmpty == false
+        //settings.filter(\.kind.isUnsafeFlags).isEmpty == false
+        self.settings.contains(where: { $0.kind.isUnsafeFlags })
     }
 }
