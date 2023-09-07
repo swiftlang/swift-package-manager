@@ -40,6 +40,16 @@ public final class UserToolchain: Toolchain {
     /// An array of paths to search for libraries at link time.
     public let librarySearchPaths: [AbsolutePath]
 
+    /// Path containing Swift resources for dynamic linking.
+    public var swiftResourcesPath: AbsolutePath? {
+        destination.pathsConfiguration.swiftResourcesPath
+    }
+
+    /// Path containing Swift resources for static linking.
+    public var swiftStaticResourcesPath: AbsolutePath? {
+        destination.pathsConfiguration.swiftStaticResourcesPath
+    }
+
     /// Additional flags to be passed to the build tools.
     public var extraFlags: BuildFlags
 
