@@ -298,7 +298,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         PlatformRegistry.default.knownPlatforms.forEach {
             guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
-            guard let supportedPlatform = package.platforms.getDerived(for: $0) else { return }
+            let supportedPlatform = package.platforms.getDerived(for: $0, usingXCTest: false)
             if !supportedPlatform.options.isEmpty {
                 settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
             }
@@ -427,11 +427,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
         if mainTarget.underlyingTarget.type == .test {
-            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .macOS)
-            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS)
-            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS)
-            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS)
-            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .visionOS)
+            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .macOS, usingXCTest: true)
+            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS, usingXCTest: true)
+            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS, usingXCTest: true)
+            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS, usingXCTest: true)
+            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .visionOS, usingXCTest: true)
         }
 
         if product.type == .executable {
@@ -1414,17 +1414,8 @@ extension Array where Element == ResolvedTarget.Dependency {
 }
 
 extension SupportedPlatforms {
-    func deploymentTarget(for platform: PackageModel.Platform) -> String? {
-        if let supportedPlatform = self.getDerived(for: platform) {
-            return supportedPlatform.version.versionString
-        } else if platform == .macCatalyst {
-            // If there is no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
-            return deploymentTarget(for: .iOS)
-        } else if platform.oldestSupportedVersion != .unknown {
-            return platform.oldestSupportedVersion.versionString
-        } else {
-            return nil
-        }
+    func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
+        return self.getDerived(for: platform, usingXCTest: usingXCTest).version.versionString
     }
 }
 
