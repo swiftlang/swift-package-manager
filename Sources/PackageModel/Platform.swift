@@ -50,16 +50,56 @@ public struct Platform: Equatable, Hashable, Codable {
 
 public struct SupportedPlatforms {
     public let declared: [SupportedPlatform]
-    public let derived: [SupportedPlatform]
+    private let derivedXCTestPlatformProvider: ((Platform) -> PlatformVersion?)?
 
-    public init(declared: [SupportedPlatform], derived: [SupportedPlatform]) {
+    public init(declared: [SupportedPlatform], derivedXCTestPlatformProvider: ((_ declared: Platform) -> PlatformVersion?)?) {
         self.declared = declared
-        self.derived = derived
+        self.derivedXCTestPlatformProvider = derivedXCTestPlatformProvider
     }
 
     /// Returns the supported platform instance for the given platform.
-    public func getDerived(for platform: Platform) -> SupportedPlatform? {
-        return self.derived.first(where: { $0.platform == platform })
+    public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        // derived platform based on known minimum deployment target logic
+        if let declaredPlatform = self.declared.first(where: { $0.platform == platform }) {
+            var version = declaredPlatform.version
+
+            if usingXCTest, let xcTestMinimumDeploymentTarget = derivedXCTestPlatformProvider?(platform), version < xcTestMinimumDeploymentTarget {
+                version = xcTestMinimumDeploymentTarget
+            }
+
+            // If the declared version is smaller than the oldest supported one, we raise the derived version to that.
+            if version < platform.oldestSupportedVersion {
+                version = platform.oldestSupportedVersion
+            }
+
+            return SupportedPlatform(
+                platform: declaredPlatform.platform,
+                version: version,
+                options: declaredPlatform.options
+            )
+        } else {
+            let minimumSupportedVersion: PlatformVersion
+            if usingXCTest, let xcTestMinimumDeploymentTarget = derivedXCTestPlatformProvider?(platform), xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
+                minimumSupportedVersion = xcTestMinimumDeploymentTarget
+            } else {
+                minimumSupportedVersion = platform.oldestSupportedVersion
+            }
+
+            let oldestSupportedVersion: PlatformVersion
+            if platform == .macCatalyst {
+                let iOS = getDerived(for: .iOS, usingXCTest: usingXCTest)
+                // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
+                oldestSupportedVersion = max(minimumSupportedVersion, iOS.version)
+            } else {
+                oldestSupportedVersion = minimumSupportedVersion
+            }
+
+            return SupportedPlatform(
+                platform: platform,
+                version: oldestSupportedVersion,
+                options: []
+            )
+        }
     }
 }
 

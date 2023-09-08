@@ -1710,6 +1710,12 @@ final class BuildPlanTests: XCTestCase {
 
       #if os(macOS)
         let version = MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString
+        let rpathsForBackdeployment: [String]
+        if let version = try? Version(string: version, lenient: true), version.major < 12 {
+            rpathsForBackdeployment = ["-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx"]
+        } else {
+            rpathsForBackdeployment = []
+        }
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
             result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
@@ -1717,9 +1723,9 @@ final class BuildPlanTests: XCTestCase {
             "-module-name", "PkgPackageTests",
             "-Xlinker", "-bundle",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
-            "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
-            "-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
+            "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))"] +
+            rpathsForBackdeployment +
+            ["-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
             "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.swiftmodule").pathString,
             "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "FooTests.swiftmodule").pathString,
         ])

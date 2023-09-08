@@ -140,9 +140,7 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
-            }
+            let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS, usingXCTest: target.type == .test)
             args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
             args += [triple.tripleString]
@@ -305,7 +303,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
+                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -338,7 +336,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
                     defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
+                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -367,7 +365,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             target: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
                             defaultLocalization: .none, // safe since this is a derived target
-                            platforms: .init(declared: [], derived: []) // safe since this is a derived target
+                            platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,
@@ -574,12 +572,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     ) throws {
         // Supported platforms are defined at the package level.
         // This will need to become a bit complicated once we have target-level or product-level platform support.
-        guard let productPlatform = product.platforms.getDerived(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in product \(product)")
-        }
-        guard let targetPlatform = target.platforms.getDerived(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in target \(target)")
-        }
+        let productPlatform = product.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
+        let targetPlatform = target.platforms.getDerived(for: .macOS, usingXCTest: target.type == .test)
 
         // Check if the version requirement is satisfied.
         //
