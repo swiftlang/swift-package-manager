@@ -751,8 +751,8 @@ public final class SwiftTool {
                 } else {
                     return .failure(SwiftSDKError.noSwiftSDKDecoded(customDestination))
                 }
-            } else if let triple = options.build.customCompileTriple,
-                      let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
+            } else if let targetTriple = options.build.customCompileTriple,
+                      let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
             {
                 swiftSDK = targetSwiftSDK
             } else if let swiftSDKSelector = options.build.swiftSDKSelector {
@@ -767,8 +767,8 @@ public final class SwiftTool {
                 } catch {
                     // If a user-installed bundle for the selector doesn't exist, check if the
                     // selector is recognized as a default SDK.
-                    if let triple = try? Triple(swiftSDKSelector),
-                       let defaultSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK) {
+                    if let targetTriple = try? Triple(swiftSDKSelector),
+                       let defaultSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK) {
                         swiftSDK = defaultSDK
                     } else {
                         throw error
