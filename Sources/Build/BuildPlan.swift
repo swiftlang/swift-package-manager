@@ -799,7 +799,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     } else if product.type == .test && (target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
-                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5 {
+                        // Only "top-level" targets should really be considered here, not transitive ones.
+                        let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
                             staticTargets.append(target)
                         }
                     }
