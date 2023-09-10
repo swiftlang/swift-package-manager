@@ -132,7 +132,6 @@ public class Product {
     ///     don't support both linkage types, use
     ///     ``Product/Library/LibraryType/static`` or
     ///     ``Product/Library/LibraryType/dynamic`` for this parameter.
-    ///
     ///  - targets: The targets that are bundled into a library product.
     ///
     /// - Returns: A `Product` instance.
