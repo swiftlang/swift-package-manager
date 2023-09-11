@@ -110,4 +110,9 @@ extension UserToolchain {
             return false
         }
     }
+
+    /// Helper function to determine whether we should run SDK-dependent tests.
+    public func supportsSDKDependentTests() -> Bool {
+        return ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil
+    }
 }
