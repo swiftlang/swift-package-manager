@@ -705,7 +705,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
 // this right now.
 
 /// When not using local dependencies, the branch to use for llbuild and TSC repositories.
-let relatedDependenciesBranch = "main"
+let relatedDependenciesBranch = "release/5.10"
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
