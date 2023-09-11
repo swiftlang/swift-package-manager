@@ -185,9 +185,22 @@ struct TestSuiteRecord: Codable {
 
 // MARK: XCTest compatibility
 
+extension TestIssue {
+    init(description: String, inFile filePath: String?, atLine lineNumber: Int) {
+        let location: TestLocation?
+        if let filePath = filePath {
+            location = .init(file: filePath, line: lineNumber)
+        } else {
+            location = nil
+        }
+        self.init(type: .assertionFailure, compactDescription: description, detailedDescription: description, associatedError: nil, sourceCodeContext: .init(callStack: [], location: location), attachments: [])
+    }
+}
+
 #if false // This is just here for pre-flighting the code generation done in `SwiftTargetBuildDescription`.
 import XCTest
 
+#if canImport(Darwin) // XCTAttachment is unavailable in swift-corelibs-xctest.
 extension TestAttachment {
     init(_ attachment: XCTAttachment) {
         self.init(
@@ -197,6 +210,7 @@ extension TestAttachment {
         )
     }
 }
+#endif
 
 extension TestBundle {
     init(_ testBundle: Bundle) {
@@ -219,6 +233,7 @@ extension TestErrorInfo {
     }
 }
 
+#if canImport(Darwin) // XCTIssue is unavailable in swift-corelibs-xctest.
 extension TestIssue {
     init(_ issue: XCTIssue) {
         self.init(
@@ -245,7 +260,9 @@ extension TestIssueType {
         }
     }
 }
+#endif
 
+#if canImport(Darwin) // XCTSourceCodeLocation/XCTSourceCodeContext/XCTSourceCodeFrame/XCTSourceCodeSymbolInfo is unavailable in swift-corelibs-xctest.
 extension TestLocation {
     init(_ location: XCTSourceCodeLocation) {
         self.init(
@@ -283,6 +300,7 @@ extension TestSourceCodeSymbolInfo {
         )
     }
 }
+#endif
 
 extension TestSuiteRecord {
     init(_ testSuite: XCTestSuite) {
