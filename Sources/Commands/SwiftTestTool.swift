@@ -65,7 +65,7 @@ struct SharedOptions: ParsableArguments {
 
     /// The test product to use. This is useful when there are multiple test products
     /// to choose from (usually in multiroot packages).
-    @Option(help: "Test the specified product.")
+    @Option(help: .hidden)
     var testProduct: String?
 }
 
