@@ -26,8 +26,6 @@ import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 enum ManifestJSONParser {
-    private static let filePrefix = "file://"
-
     struct Input: Codable {
         let package: Serialization.Package
         let errors: [String]
@@ -56,6 +54,7 @@ enum ManifestJSONParser {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> ManifestJSONParser.Result {
         let decoder = JSONDecoder.makeWithDefaults()
@@ -84,6 +83,7 @@ enum ManifestJSONParser {
                 toolsVersion: toolsVersion,
                 packageKind: packageKind,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem
             )
         }
@@ -148,180 +148,56 @@ enum ManifestJSONParser {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> PackageDependency {
         switch dependency.kind {
         case .registry(let identity, let requirement):
-            return try Self.parseRegistryDependency(
-                identity: .plain(identity),
-                requirement: .init(requirement),
-                identityResolver: identityResolver
-            )
-        case .sourceControl(let name, let location, let requirement):
-            return try Self.parseSourceControlDependency(
-                packageKind: packageKind,
-                at: location,
-                name: name,
-                requirement: .init(requirement),
-                identityResolver: identityResolver,
-                fileSystem: fileSystem
-            )
-        case .fileSystem(let name, let path):
-            return try Self.parseFileSystemDependency(
-                packageKind: packageKind,
-                at: path,
-                name: name,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem
-            )
-        }
-    }
-
-    private static func parseFileSystemDependency(
-        packageKind: PackageReference.Kind,
-        at location: String,
-        name: String?,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem
-    ) throws -> PackageDependency {
-        let location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
-        let path: AbsolutePath
-        do {
-            path = try AbsolutePath(validating: location)
-        } catch PathValidationError.invalidAbsolutePath(let path) {
-            throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
-        }
-        let identity = try identityResolver.resolveIdentity(for: path)
-        return .fileSystem(identity: identity,
-                           nameForTargetDependencyResolutionOnly: name,
-                           path: path,
-                           productFilter: .everything)
-    }
-
-    private static func parseSourceControlDependency(
-        packageKind: PackageReference.Kind,
-        at location: String,
-        name: String?,
-        requirement: PackageDependency.SourceControl.Requirement,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem
-    ) throws -> PackageDependency {
-        // cleans up variants of path based location
-        var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
-        // location mapping (aka mirrors) if any
-        location = identityResolver.mappedLocation(for: location)
-        if PackageIdentity.plain(location).isRegistry {
-            // re-mapped to registry
-            let identity = PackageIdentity.plain(location)
-            let registryRequirement: PackageDependency.Registry.Requirement
-            switch requirement {
-            case .branch, .revision:
-                throw StringError("invalid mapping of source control to registry, requirement information mismatch: cannot map branch or revision based dependencies to registry.")
-            case .exact(let value):
-                registryRequirement = .exact(value)
-            case .range(let value):
-                registryRequirement = .range(value)
-            }
-            return .registry(
-                identity: identity,
-                requirement: registryRequirement,
-                productFilter: .everything
-            )
-        } else if let localPath = try? AbsolutePath(validating: location) {
-            // a package in a git location, may be a remote URL or on disk
-            // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: localPath)
-            return .localSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                path: localPath,
-                requirement: requirement,
-                productFilter: .everything
-            )
-        } else {
-            let url = SourceControlURL(location)
-            // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: url)
-            return .remoteSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                url: url,
-                requirement: requirement,
-                productFilter: .everything
-            )
-        }
-    }
-
-    private static func parseRegistryDependency(
-        identity: PackageIdentity,
-        requirement: PackageDependency.Registry.Requirement,
-        identityResolver: IdentityResolver
-    ) throws -> PackageDependency {
-        // location mapping (aka mirrors) if any
-        let location = identityResolver.mappedLocation(for: identity.description)
-        if PackageIdentity.plain(location).isRegistry {
-            // re-mapped to registry
-            let identity = PackageIdentity.plain(location)
-            return .registry(
-                identity: identity,
-                requirement: requirement,
-                productFilter: .everything
-            )
-        } else if let url = URL(string: location){
-            let SourceControlURL = SourceControlURL(url)
-            // in the future this will check with the registries for the identity of the URL
-            let identity = try identityResolver.resolveIdentity(for: SourceControlURL)
-            let sourceControlRequirement: PackageDependency.SourceControl.Requirement
-            switch requirement {
-            case .exact(let value):
-                sourceControlRequirement = .exact(value)
-            case .range(let value):
-                sourceControlRequirement = .range(value)
-            }
-            return .remoteSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: identity.description,
-                url: SourceControlURL,
-                requirement: sourceControlRequirement,
-                productFilter: .everything
-            )
-        } else {
-            throw StringError("invalid location: \(location)")
-        }
-    }
-
-    private static func sanitizeDependencyLocation(fileSystem: FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
-        if dependencyLocation.hasPrefix("~/") {
-            // If the dependency URL starts with '~/', try to expand it.
-            return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
-        } else if dependencyLocation.hasPrefix(filePrefix) {
-            // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
-            // strip that. We need to design a Location data structure for SwiftPM.
-            let location = String(dependencyLocation.dropFirst(filePrefix.count))
-            let hostnameComponent = location.prefix(while: { $0 != "/" })
-            guard hostnameComponent.isEmpty else {
-              if hostnameComponent == ".." {
-                throw ManifestParseError.invalidManifestFormat(
-                  "file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil, compilerCommandLine: nil
+            do {
+                return try dependencyMapper.mappedDependency(
+                    packageKind: .registry(.plain(identity)),
+                    at: identity,
+                    nameForTargetDependencyResolutionOnly: nil,
+                    requirement: .init(requirement),
+                    productFilter: .everything,
+                    fileSystem: fileSystem
                 )
-              }
-              throw ManifestParseError.invalidManifestFormat(
-                "file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil, compilerCommandLine: nil
-              )
+            } catch let error as TSCBasic.PathValidationError {
+                throw error
+            } catch {
+                throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
             }
-            return try AbsolutePath(validating: location).pathString
-        } else if parseScheme(dependencyLocation) == nil {
-            // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-            switch packageKind {
-            case .root(let packagePath), .fileSystem(let packagePath), .localSourceControl(let packagePath):
-                return try AbsolutePath(validating: dependencyLocation, relativeTo: packagePath).pathString
-            case .remoteSourceControl, .registry:
-                // nothing to "fix"
-                return dependencyLocation
+        case .sourceControl(let name, let location, let requirement):
+            do {
+                return try dependencyMapper.mappedDependency(
+                    packageKind: packageKind,
+                    at: location,
+                    nameForTargetDependencyResolutionOnly: name,
+                    requirement: .init(requirement),
+                    productFilter: .everything,
+                    fileSystem: fileSystem
+                )
+            } catch let error as TSCBasic.PathValidationError {
+                throw error
+            } catch {
+                throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
             }
-        } else {
-            // nothing to "fix"
-            return dependencyLocation
+        case .fileSystem(let name, let path):
+            // FIXME: This case should really also be handled by `mappedDependency()` but that is currently impossible because `sanitizeDependencyLocation()` relies on the fact that we're calling it with an incorrect (file-system) `packageKind` for SCM-based dependencies, so we have no ability to distinguish between actual file-system dependencies and SCM-based ones without introducing some secondary package kind or other flag to pick the different behaviors. That seemed much worse than having this extra code path be here and `DefaultIdentityResolver.sanitizeDependencyLocation()` being public, but it should eventually be cleaned up. It seems to me as if that will mostly be a case of fixing the test suite to not rely on these fairly arbitrary behaviors.
+
+            // cleans up variants of path based location
+            let location = try DefaultDependencyMapper.sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: path)
+            let path: AbsolutePath
+            do {
+                path = try AbsolutePath(validating: location)
+            } catch PathValidationError.invalidAbsolutePath(let path) {
+                throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
+            }
+            let identity = try identityResolver.resolveIdentity(for: path)
+            return .fileSystem(identity: identity,
+                               nameForTargetDependencyResolutionOnly: name,
+                               path: path,
+                               productFilter: .everything)
         }
     }
 
@@ -390,33 +266,6 @@ enum ManifestJSONParser {
             settings.append(try .init($0))
         }
         return settings
-    }
-
-    /// Parses the URL type of a git repository
-    /// e.g. https://github.com/apple/swift returns "https"
-    /// e.g. git@github.com:apple/swift returns "git"
-    ///
-    /// This is *not* a generic URI scheme parser!
-    private static func parseScheme(_ location: String) -> String? {
-        func prefixOfSplitBy(_ delimiter: String) -> String? {
-            let (head, tail) = location.spm_split(around: delimiter)
-            if tail == nil {
-                //not found
-                return nil
-            } else {
-                //found, return head
-                //lowercase the "scheme", as specified by the URI RFC (just in case)
-                return head.lowercased()
-            }
-        }
-
-        for delim in ["://", "@"] {
-            if let found = prefixOfSplitBy(delim), !found.contains("/") {
-                return found
-            }
-        }
-
-        return nil
     }
 
     /// Looks for Xcode-style build setting macros "$()".
