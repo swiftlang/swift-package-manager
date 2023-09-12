@@ -37,7 +37,9 @@ import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
-    case testsExecutableNotFound
+    case testsNotFound
+    case testProductNotFound(productName: String)
+    case productIsNotTest(productName: String)
     case multipleTestProducts([String])
     case xctestNotAvailable
 }
@@ -45,8 +47,12 @@ private enum TestError: Swift.Error {
 extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
-        case .testsExecutableNotFound:
+        case .testsNotFound:
             return "no tests found; create a target in the 'Tests' directory"
+        case .testProductNotFound(let productName):
+            return "there is no test product named '\(productName)'"
+        case .productIsNotTest(let productName):
+            return "the product '\(productName)' is not a test"
         case .invalidListTestJSONData(let context, let underlyingError):
             let underlying = underlyingError != nil ? ", underlying error: \(underlyingError!)" : ""
             return "invalid list test JSON structure, produced by \(context)\(underlying)"
@@ -463,26 +469,7 @@ public struct SwiftTestTool: SwiftCommand {
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
-        let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
-
-        let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-        try buildSystem.build(subset: subset)
-
-        // Find the test product.
-        let testProducts = buildSystem.builtTestProducts
-        guard !testProducts.isEmpty else {
-            throw TestError.testsExecutableNotFound
-        }
-
-        if let testProductName = self.sharedOptions.testProduct {
-            guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-                throw TestError.testsExecutableNotFound
-            }
-
-            return [selectedTestProduct]
-        } else {
-            return testProducts
-        }
+        return try Commands.buildTestsIfNeeded(swiftTool: swiftTool, buildParameters: buildParameters, testProduct: self.sharedOptions.testProduct)
     }
 
     /// Private function that validates the commands arguments
@@ -591,26 +578,7 @@ extension SwiftTestTool {
 
         private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
             let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false, shouldSkipBuilding: sharedOptions.shouldSkipBuilding)
-            let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
-
-            let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-            try buildSystem.build(subset: subset)
-
-            // Find the test product.
-            let testProducts = buildSystem.builtTestProducts
-            guard !testProducts.isEmpty else {
-                throw TestError.testsExecutableNotFound
-            }
-
-            if let testProductName = self.sharedOptions.testProduct {
-                guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-                    throw TestError.testsExecutableNotFound
-                }
-
-                return [selectedTestProduct]
-            } else {
-                return testProducts
-            }
+            return try Commands.buildTestsIfNeeded(swiftTool: swiftTool, buildParameters: buildParameters, testProduct: self.sharedOptions.testProduct)
         }
     }
 }
@@ -1184,5 +1152,35 @@ extension BuildParameters {
 private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
+    }
+}
+
+/// Builds the "test" target if enabled in options.
+///
+/// - Returns: The paths to the build test products.
+private func buildTestsIfNeeded(swiftTool: SwiftTool, buildParameters: BuildParameters, testProduct: String?) throws -> [BuiltTestProduct] {
+    let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
+
+    let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
+    try buildSystem.build(subset: subset)
+
+    // Find the test product.
+    let testProducts = buildSystem.builtTestProducts
+    guard !testProducts.isEmpty else {
+        if let testProduct {
+            throw TestError.productIsNotTest(productName: testProduct)
+        } else {
+            throw TestError.testsNotFound
+        }
+    }
+
+    if let testProductName = testProduct {
+        guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
+            throw TestError.testProductNotFound(productName: testProductName)
+        }
+
+        return [selectedTestProduct]
+    } else {
+        return testProducts
     }
 }
