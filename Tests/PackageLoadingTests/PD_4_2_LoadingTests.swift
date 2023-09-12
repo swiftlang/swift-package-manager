@@ -833,6 +833,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             // warm up caches
             delegate.prepare()
@@ -845,6 +846,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -869,6 +871,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -914,6 +917,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
@@ -947,6 +951,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
