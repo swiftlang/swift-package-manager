@@ -57,6 +57,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let repositorySpecifier: RepositorySpecifier
     private let repository: Repository
     private let identityResolver: IdentityResolver
+    private let dependencyMapper: DependencyMapper
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
     private let fingerprintStorage: PackageFingerprintStorage?
@@ -78,6 +79,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     init(
         package: PackageReference,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         repositorySpecifier: RepositorySpecifier,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
@@ -88,6 +90,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     ) throws {
         self.package = package
         self.identityResolver = identityResolver
+        self.dependencyMapper = dependencyMapper
         self.repositorySpecifier = repositorySpecifier
         self.repository = repository
         self.manifestLoader = manifestLoader
@@ -409,6 +412,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 packageVersion: (version: version, revision: revision),
                 currentToolsVersion: self.currentToolsVersion,
                 identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: self.observabilityScope,
                 delegateQueue: .sharedConcurrent,

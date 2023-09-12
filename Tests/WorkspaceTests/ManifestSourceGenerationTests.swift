@@ -52,6 +52,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             try fs.writeFileContents(manifestPath, string: manifestContents)
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
             let manifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
@@ -61,6 +62,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                     packageLocation: packageDir.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fs,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -92,6 +94,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                     packageLocation: packageDir.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fs,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
