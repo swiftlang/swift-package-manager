@@ -201,8 +201,12 @@ public struct SwiftTestTool: SwiftCommand {
 
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
-        // Remove test output from prior runs.
+        // Remove test output from prior runs and validate priors.
         if self.options.enableExperimentalTestOutput {
+            if !buildParameters.targetTriple.isDarwin() {
+                swiftTool.observabilityScope.emit(error: "The experimental test output feature is only available on Darwin.")
+                throw ExitCode.failure
+            }
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 
