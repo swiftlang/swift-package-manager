@@ -17,8 +17,7 @@ add_library(Build
   BuildOperation.swift
   BuildPlan.swift
   LLBuildManifestBuilder.swift
-  SwiftCompilerOutputParser.swift
-  TestObservation.swift)
+  SwiftCompilerOutputParser.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
