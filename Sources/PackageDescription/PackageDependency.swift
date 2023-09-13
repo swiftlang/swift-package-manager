@@ -424,14 +424,14 @@ extension Package.Dependency {
     /// versions between 1.0.0 and 2.0.0
     ///
     /// ```swift
-    /// .package(url: "https://example.com/example-package.git", .upToNextMajor("1.0.0"),
+    /// .package(url: "https://example.com/example-package.git", .upToNextMajor(from: "1.0.0"),
     /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 1.1.0
     ///
     /// ```swift
-    /// .package(url: "https://example.com/example-package.git", .upToNextMinor("1.0.0"),
+    /// .package(url: "https://example.com/example-package.git", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
     /// - Parameters:
@@ -623,14 +623,14 @@ extension Package.Dependency {
     /// versions between 1.0.0 and 2.0.0
     ///
     /// ```swift
-    /// .package(id: "scope.name", .upToNextMajor("1.0.0"),
+    /// .package(id: "scope.name", .upToNextMajor(from: "1.0.0"),
     /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 1.1.0
     ///
     /// ```swift
-    /// .package(id: "scope.name", .upToNextMinor("1.0.0"),
+    /// .package(id: "scope.name", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
     /// - Parameters:
