@@ -338,7 +338,7 @@ extension PackageGraph {
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
     ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
-        for target in self.reachableTargets.sorted(by: { $0.name < $1.name }) {
+        for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
