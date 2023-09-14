@@ -948,12 +948,11 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
+        XCTAssertEqual(Set(result.productMap.keys), ["ATargetTests"])
       #if os(macOS)
         XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "ATargetTests"])
       #else
         XCTAssertEqual(Set(result.targetMap.keys), [
-            "APackageTests",
             "APackageDiscoveredTests",
             "ATarget",
             "ATargetTests",
@@ -1712,14 +1711,14 @@ final class BuildPlanTests: XCTestCase {
         } else {
             rpathsForBackdeployment = []
         }
-        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
+        XCTAssertEqual(try result.buildProduct(for: "FooTests").linkArguments(), [
             result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
-            "-o", buildPath.appending(components: "PkgPackageTests.xctest", "Contents", "MacOS", "PkgPackageTests").pathString,
-            "-module-name", "PkgPackageTests",
+            "-o", buildPath.appending(components: "FooTests.xctest", "Contents", "MacOS", "FooTests").pathString,
+            "-module-name", "FooTests",
             "-Xlinker", "-bundle",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
-            "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))"] +
+            "@\(buildPath.appending(components: "FooTests.product", "Objects.LinkFileList"))"] +
             rpathsForBackdeployment +
             ["-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
             "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.swiftmodule").pathString,
@@ -3090,16 +3089,16 @@ final class BuildPlanTests: XCTestCase {
         let executablePathExtension = try appBuildDescription.binaryPath.extension
         XCTAssertEqual(executablePathExtension, "wasm")
 
-        let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
+        let testBuildDescription = try result.buildProduct(for: "test")
         XCTAssertEqual(
             try testBuildDescription.linkArguments(),
             [
                 result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
-                "-o", buildPath.appending(components: "PkgPackageTests.wasm").pathString,
-                "-module-name", "PkgPackageTests",
+                "-o", buildPath.appending(components: "test.wasm").pathString,
+                "-module-name", "test",
                 "-emit-executable",
-                "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
+                "@\(buildPath.appending(components: "test.product", "Objects.LinkFileList"))",
                 "-target", "wasm32-unknown-wasi",
                 "-g",
             ]

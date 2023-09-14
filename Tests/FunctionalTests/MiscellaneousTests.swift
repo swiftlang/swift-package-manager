@@ -401,7 +401,7 @@ class MiscellaneousTestCase: XCTestCase {
                 // in "swift test" build output goes to stderr
                 XCTAssertMatch(stderr, .contains("Linking TestableExe1"))
                 XCTAssertMatch(stderr, .contains("Linking TestableExe2"))
-                XCTAssertMatch(stderr, .contains("Linking TestableExePackageTests"))
+                XCTAssertMatch(stderr, .contains("Linking TestableExeTests"))
                 XCTAssertMatch(stderr, .contains("Build complete!"))
                 // in "swift test" test output goes to stdout
                 XCTAssertMatch(stdout, .contains("Executed 1 test"))

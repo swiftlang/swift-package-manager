@@ -55,7 +55,7 @@ public struct ToolWorkspaceConfiguration {
 
     public init(
         shouldInstallSignalHandlers: Bool = true,
-        wantsMultipleTestProducts: Bool = false,
+        wantsMultipleTestProducts: Bool = true,
         wantsREPLProduct: Bool = false
     ) {
         self.shouldInstallSignalHandlers = shouldInstallSignalHandlers

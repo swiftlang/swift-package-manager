@@ -808,7 +808,7 @@ public struct WorkspaceConfiguration {
         .init(
             skipDependenciesUpdates: false,
             prefetchBasedOnResolvedFile: true,
-            shouldCreateMultipleTestProducts: false,
+            shouldCreateMultipleTestProducts: true,
             createREPLProduct: false,
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,

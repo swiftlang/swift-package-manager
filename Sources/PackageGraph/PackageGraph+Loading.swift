@@ -28,7 +28,7 @@ extension PackageGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        shouldCreateMultipleTestProducts: Bool = false,
+        shouldCreateMultipleTestProducts: Bool = true,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,

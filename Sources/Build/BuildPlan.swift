@@ -315,7 +315,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
                 let entryPointTarget = SwiftTarget(
-                    name: testProduct.name,
+                    name: testProduct.name + String(testProduct.name.hash, radix: 16, uppercase: true),
                     type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
                     packageAccess: true, // test target is allowed access to package decls

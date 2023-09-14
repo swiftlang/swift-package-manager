@@ -332,7 +332,7 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
-        shouldCreateMultipleTestProducts: Bool = false,
+        shouldCreateMultipleTestProducts: Bool = true,
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,

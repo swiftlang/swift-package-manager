@@ -251,7 +251,7 @@ public func loadPackageGraph(
     manifests: [Manifest],
     binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
     explicitProduct: String? = .none,
-    shouldCreateMultipleTestProducts: Bool = false,
+    shouldCreateMultipleTestProducts: Bool = true,
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
