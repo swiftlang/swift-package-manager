@@ -296,7 +296,7 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool.executionStatus = .failure
             }
 
-            if self.options.enableCodeCoverage {
+            if self.options.enableCodeCoverage, ranSuccessfully {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
@@ -355,7 +355,7 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             // process code Coverage if request
-            if self.options.enableCodeCoverage {
+            if self.options.enableCodeCoverage, runner.ranSuccessfully {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
