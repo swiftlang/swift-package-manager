@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+internal import Foundation
 #if os(Windows)
-@_implementationOnly import ucrt
+private import ucrt
 
 internal func dup(_ fd: CInt) -> CInt {
     return _dup(fd)

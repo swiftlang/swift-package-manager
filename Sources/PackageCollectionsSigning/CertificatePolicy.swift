@@ -14,8 +14,8 @@ import Dispatch
 import Foundation
 
 import Basics
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+internal import SwiftASN1
+internal import X509
 
 public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
     case `default`(subjectUserID: String? = nil, subjectOrganizationalUnit: String? = nil)

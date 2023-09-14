@@ -14,12 +14,12 @@ import struct Foundation.Data
 import struct Foundation.Date
 
 #if canImport(Security)
-@_implementationOnly import Security
+private import Security
 #endif
 
 import Basics
-@_implementationOnly import SwiftASN1
-@_implementationOnly @_spi(CMS) import X509
+internal import SwiftASN1
+@_spi(DisableValidityCheck) @_spi(CMS) internal import X509
 
 // MARK: - Public signature API
 

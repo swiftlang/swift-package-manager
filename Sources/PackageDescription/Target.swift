@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+private import Foundation
 
 /// The basic building block of a Swift package.
 ///

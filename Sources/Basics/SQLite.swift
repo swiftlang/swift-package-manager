@@ -12,7 +12,7 @@
 
 import Foundation
 
-@_implementationOnly import SPMSQLite3
+private import SPMSQLite3
 
 /// A minimal SQLite wrapper.
 public final class SQLite {

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
-@_implementationOnly import SwiftDriver
+private import class DriverSupport.SPMSwiftDriverExecutor
+private import SwiftDriver
 import struct Basics.InternalError
 import struct Basics.AbsolutePath
 import struct Basics.RelativePath

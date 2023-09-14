@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+private import Foundation
 import PackageModel
 
 import struct TSCBasic.ByteString

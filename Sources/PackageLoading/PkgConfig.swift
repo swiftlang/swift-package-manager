@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+private import Foundation
 import OrderedCollections
 
 import class TSCBasic.Process

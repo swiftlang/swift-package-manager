@@ -13,12 +13,12 @@
 import struct Foundation.Data
 
 #if canImport(Security)
-@_implementationOnly import Security
+private import Security
 #endif
 
 import Basics
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+internal import SwiftASN1
+@_spi(DisableValidityCheck) @_spi(CMS) internal import X509
 
 #if canImport(Security)
 extension Certificate {

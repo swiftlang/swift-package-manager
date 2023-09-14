@@ -16,7 +16,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-@_implementationOnly import DriverSupport
+private import DriverSupport
 
 import struct TSCBasic.ByteString
 
@@ -373,7 +373,7 @@ public final class SwiftTargetBuildDescription {
 
         let content =
             """
-            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") Foundation
+            \(self.toolsVersion < .vNext ? "import" : "private import") Foundation
 
             extension Foundation.Bundle {
                 static let module: Bundle = {

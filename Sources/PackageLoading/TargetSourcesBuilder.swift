@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+private import Foundation
 import PackageModel
 
 /// A utility to compute the source/resource files of a target.

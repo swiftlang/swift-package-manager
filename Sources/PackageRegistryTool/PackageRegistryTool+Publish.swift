@@ -19,7 +19,7 @@ import PackageModel
 import PackageRegistry
 import PackageSigning
 import Workspace
-@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
+private import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
 
 import struct TSCBasic.ByteString
 import struct TSCBasic.RegEx

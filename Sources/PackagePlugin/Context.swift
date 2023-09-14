@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+private import Foundation
 
 /// Provides information about the package for which the plugin is invoked,
 /// as well as contextual information based on the plugin's stated intent

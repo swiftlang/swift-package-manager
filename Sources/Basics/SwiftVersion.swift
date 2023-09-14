@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import TSCclibc
+private import TSCclibc
 
 public struct SwiftVersion {
     /// The version number.

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import DriverSupport
+private import DriverSupport
 import PackageGraph
 import PackageModel
 import OrderedCollections

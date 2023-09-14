@@ -12,7 +12,7 @@
 
 @testable import Basics
 @testable import Build
-@_implementationOnly import DriverSupport
+private import DriverSupport
 import PackageLoading
 @testable import PackageGraph
 @testable import PackageModel

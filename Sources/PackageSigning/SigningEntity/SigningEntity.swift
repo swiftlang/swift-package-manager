@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+internal import SwiftASN1
+@_spi(DisableValidityCheck) @_spi(CMS) internal import X509
 
 // MARK: - SigningEntity is the entity that generated the signature
 

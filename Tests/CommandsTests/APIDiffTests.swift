@@ -13,7 +13,7 @@
 import Basics
 import Build
 import Commands
-@_implementationOnly import DriverSupport
+private import DriverSupport
 import Foundation
 import PackageModel
 import SourceControl

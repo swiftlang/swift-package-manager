@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import X509
+@_spi(DisableValidityCheck) @_spi(CMS) internal import X509
 
 enum Certificates {
     static let appleRootsRaw = [

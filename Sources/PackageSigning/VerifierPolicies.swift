@@ -16,8 +16,8 @@ import struct Foundation.Date
 import struct Foundation.URL
 
 import Basics
-@_implementationOnly import SwiftASN1
-@_implementationOnly @_spi(DisableValidityCheck) import X509
+internal import SwiftASN1
+@_spi(DisableValidityCheck) @_spi(CMS) internal import X509
 
 extension SignatureProviderProtocol {
     @PolicyBuilder

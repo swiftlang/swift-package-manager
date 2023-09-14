@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Security)
-@_implementationOnly import Security
+private import Security
 #endif
 
 import Basics
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+private import Crypto
+@_spi(DisableValidityCheck) @_spi(CMS) internal import X509
 
 public protocol SigningIdentity {}
 

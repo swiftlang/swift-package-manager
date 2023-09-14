@@ -13,7 +13,7 @@
 import ArgumentParser
 import Basics
 import Dispatch
-@_implementationOnly import DriverSupport
+private import DriverSupport
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph

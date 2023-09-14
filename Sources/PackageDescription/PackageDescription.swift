@@ -11,16 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Glibc)
-@_implementationOnly import Glibc
+private import Glibc
 #elseif canImport(Musl)
-@_implementationOnly import Musl
+private import Musl
 #elseif canImport(Darwin)
-@_implementationOnly import Darwin.C
+private import Darwin.C
 #elseif canImport(ucrt) && canImport(WinSDK)
-@_implementationOnly import ucrt
-@_implementationOnly import struct WinSDK.HANDLE
+private import ucrt
+private import struct WinSDK.HANDLE
 #endif
-@_implementationOnly import Foundation
+private import Foundation
 
 /// The configuration of a Swift package.
 ///

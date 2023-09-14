@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+internal import SwiftASN1
+private import X509
 
 extension Certificate {
     func hasExtension(oid: ASN1ObjectIdentifier) -> Bool {

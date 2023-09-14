@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+private import Foundation
 
 struct ContextModel {
     let packageDirectory : String
