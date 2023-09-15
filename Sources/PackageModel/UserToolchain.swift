@@ -559,13 +559,10 @@ public final class UserToolchain: Toolchain {
             environment: environment
         )
 
-        let swiftPluginServerPath: AbsolutePath?
         let xctestPath: AbsolutePath?
         if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
-            swiftPluginServerPath = nil
             xctestPath = nil
         } else {
-            swiftPluginServerPath = try Self.derivePluginServerPath(triple: triple)
             xctestPath = try Self.deriveXCTestPath(
                 destination: self.destination,
                 triple: triple,
@@ -580,8 +577,7 @@ public final class UserToolchain: Toolchain {
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.destination.pathsConfiguration.sdkRootPath,
-            xctestPath: xctestPath,
-            swiftPluginServerPath: swiftPluginServerPath
+            xctestPath: xctestPath
         )
     }
 
@@ -655,8 +651,8 @@ public final class UserToolchain: Toolchain {
 
     private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
         if triple.isDarwin() {
-            let xctestFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
-            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: [:])
+            let pluginServerPathFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: pluginServerPathFindArgs, environment: [:])
                 .spm_chomp() {
                 return try AbsolutePath(validating: path)
             }
@@ -787,7 +783,13 @@ public final class UserToolchain: Toolchain {
         configuration.xctestPath
     }
 
+    private let _swiftPluginServerPath = ThreadSafeBox<AbsolutePath?>()
+
     public var swiftPluginServerPath: AbsolutePath? {
-        configuration.swiftPluginServerPath
+        get throws {
+            try _swiftPluginServerPath.memoize {
+                return try Self.derivePluginServerPath(triple: self.triple)
+            }
+        }
     }
 }
