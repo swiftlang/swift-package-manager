@@ -29,7 +29,7 @@ public protocol Toolchain {
     var isSwiftDevelopmentToolchain: Bool { get }
 
     /// Path to the Swift plugin server utility.
-    var swiftPluginServerPath: AbsolutePath? { get }
+    var swiftPluginServerPath: AbsolutePath? { get throws }
 
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
