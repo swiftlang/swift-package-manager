@@ -116,10 +116,16 @@ public struct RegistryConfiguration: Hashable {
 extension RegistryConfiguration {
     public struct Authentication: Hashable, Codable {
         public var type: AuthenticationType
+        public var swiftpmrcPath: AbsolutePath?
         public var loginAPIPath: String?
 
-        public init(type: AuthenticationType, loginAPIPath: String? = nil) {
+        public init(
+            type: AuthenticationType,
+            swiftpmrcPath: AbsolutePath? = nil,
+            loginAPIPath: String? = nil
+        ) {
             self.type = type
+            self.swiftpmrcPath = swiftpmrcPath
             self.loginAPIPath = loginAPIPath
         }
     }

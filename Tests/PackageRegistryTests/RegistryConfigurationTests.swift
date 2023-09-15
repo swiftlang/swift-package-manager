@@ -144,6 +144,10 @@ final class RegistryConfigurationTests: XCTestCase {
                 "packages.example.com": {
                     "type": "basic",
                     "loginAPIPath": "/v1/login"
+                },
+                "other.packages.example.com": {
+                    "type": "token",
+                    "swiftpmrcPath": "/me/.swiftpmrc"
                 }
             },
             "security": {
@@ -199,7 +203,14 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.scopedRegistries["foo"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
+        XCTAssertNil(configuration.registryAuthentication["packages.example.com"]?.swiftpmrcPath)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
+        XCTAssertEqual(configuration.registryAuthentication["other.packages.example.com"]?.type, .token)
+        XCTAssertEqual(
+            configuration.registryAuthentication["other.packages.example.com"]?.swiftpmrcPath,
+            "/me/.swiftpmrc"
+        )
+        XCTAssertNil(configuration.registryAuthentication["other.packages.example.com"]?.loginAPIPath)
         XCTAssertEqual(configuration.security?.default.signing?.onUnsigned, .error)
         XCTAssertEqual(configuration.security?.default.signing?.onUntrustedCertificate, .error)
         XCTAssertEqual(

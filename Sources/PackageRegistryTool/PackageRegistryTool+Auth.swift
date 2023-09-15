@@ -17,6 +17,7 @@ import CoreCommands
 import Foundation
 import PackageModel
 import PackageRegistry
+import Workspace
 
 import struct TSCBasic.SHA256
 
@@ -90,7 +91,6 @@ private func readpassword(_ prompt: String) throws -> String {
 
 extension SwiftPackageRegistryTool {
     struct Login: SwiftCommand {
-
         static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
             // Login URL must be HTTPS
             var loginURLComponents = URLComponents(url: registryURL, resolvingAgainstBaseURL: true)
@@ -139,6 +139,12 @@ extension SwiftPackageRegistryTool {
         )
         var tokenFilePath: AbsolutePath?
 
+        @Option(
+            name: .customLong("swiftpmrc-file"),
+            help: "Path to the swiftpmrc file"
+        )
+        var swiftpmrcPath: AbsolutePath?
+
         @Flag(help: "Allow writing to netrc file without confirmation")
         var noConfirm: Bool = false
 
@@ -167,6 +173,29 @@ extension SwiftPackageRegistryTool {
             }
 
             try registryURL.validateRegistryURL()
+
+            // `url` can either be base URL of the registry, in which case the login API
+            // is assumed to be at /login, or the full URL of the login API.
+            var loginAPIPath: String?
+            if !registryURL.path.isEmpty, registryURL.path != "/" {
+                loginAPIPath = registryURL.path
+            }
+
+            let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
+
+            // Special handling for `swiftpmrcPath` option if set
+            if let swiftpmrcPath {
+                return try self.handleSwiftpmrcOption(
+                    swiftpmrcPath: swiftpmrcPath,
+                    loginAPIPath: loginAPIPath,
+                    registryURL: registryURL,
+                    loginURL: loginURL,
+                    configuration: configuration,
+                    authorizationProvider: authorizationProvider,
+                    fileSystem: swiftTool.fileSystem,
+                    observabilityScope: swiftTool.observabilityScope
+                )
+            }
 
             let authenticationType: RegistryConfiguration.AuthenticationType
             let storeUsername: String
@@ -230,44 +259,25 @@ extension SwiftPackageRegistryTool {
                 )
             }
 
-            // `url` can either be base URL of the registry, in which case the login API
-            // is assumed to be at /login, or the full URL of the login API.
-            var loginAPIPath: String?
-            if !registryURL.path.isEmpty, registryURL.path != "/" {
-                loginAPIPath = registryURL.path
-            }
-
-            let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
-
+            let authenticationConfig = RegistryConfiguration.Authentication(
+                type: authenticationType,
+                swiftpmrcPath: .none, // we reach this point iff swiftpmrcPath is nil
+                loginAPIPath: loginAPIPath
+            )
 
             // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
-            try registryConfiguration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
-
-            // Build a RegistryClient to test login credentials (fingerprints don't matter in this case)
-            let registryClient = RegistryClient(
-                configuration: registryConfiguration,
-                fingerprintStorage: .none,
-                fingerprintCheckingMode: .strict,
-                skipSignatureValidation: false,
-                signingEntityStorage: .none,
-                signingEntityCheckingMode: .strict,
-                authorizationProvider: authorizationProvider,
-                delegate: .none,
-                checksumAlgorithm: SHA256()
+            try registryConfiguration.add(
+                authentication: authenticationConfig,
+                for: registryURL
             )
 
-            // Try logging in
-            try temp_await { callback in
-                registryClient.login(
-                    loginURL: loginURL,
-                    timeout: .seconds(5),
-                    observabilityScope: swiftTool.observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: callback
-                )
-            }
-            print("Login successful.")
+            try self.testRegistryLogin(
+                loginURL: loginURL,
+                registryConfiguration: registryConfiguration,
+                authorizationProvider: authorizationProvider,
+                observabilityScope: swiftTool.observabilityScope
+            )
 
             // Login successful. Persist credentials to storage.
 
@@ -313,9 +323,109 @@ extension SwiftPackageRegistryTool {
                 }
             }
 
+            try self.updateRegistryConfiguration(
+                configuration: configuration,
+                authenticationConfig: authenticationConfig,
+                registryURL: registryURL
+            )
+        }
+
+        private func handleSwiftpmrcOption(
+            swiftpmrcPath: AbsolutePath,
+            loginAPIPath: String?,
+            registryURL: URL,
+            loginURL: URL,
+            configuration: Workspace.Configuration.Registries,
+            authorizationProvider: AuthorizationProvider,
+            fileSystem: FileSystem,
+            observabilityScope: ObservabilityScope
+        ) throws {
+            // Read the swiftpmrc file
+            let swiftpmrc = try Swiftpmrc.parse(fileSystem: fileSystem, path: swiftpmrcPath)
+
+            // Look for entry for the registry so we can determine auth type
+            guard let found = swiftpmrc.authorization(for: registryURL) else {
+                throw StringError(
+                    "Credentials for '\(registryURL)' not found in the swiftpmrc file at '\(swiftpmrcPath)'"
+                )
+            }
+
+            let authenticationType: RegistryConfiguration.AuthenticationType
+            switch found.login {
+            case .some:
+                authenticationType = .basic
+            case .none:
+                // Token auth doesn't require username/login
+                authenticationType = .token
+            }
+
+            let authenticationConfig = RegistryConfiguration.Authentication(
+                type: authenticationType,
+                swiftpmrcPath: swiftpmrcPath,
+                loginAPIPath: loginAPIPath
+            )
+
+            // Build a RegistryConfiguration with the given authentication settings
+            var registryConfiguration = configuration.configuration
+            try registryConfiguration.add(
+                authentication: authenticationConfig,
+                for: registryURL
+            )
+
+            try self.testRegistryLogin(
+                loginURL: loginURL,
+                registryConfiguration: registryConfiguration,
+                authorizationProvider: authorizationProvider,
+                observabilityScope: observabilityScope
+            )
+
+            try self.updateRegistryConfiguration(
+                configuration: configuration,
+                authenticationConfig: authenticationConfig,
+                registryURL: registryURL
+            )
+        }
+
+        private func testRegistryLogin(
+            loginURL: URL,
+            registryConfiguration: RegistryConfiguration,
+            authorizationProvider: AuthorizationProvider,
+            observabilityScope: ObservabilityScope
+        ) throws {
+            // Build a RegistryClient to test login credentials (fingerprints don't matter in this case)
+            let registryClient = RegistryClient(
+                configuration: registryConfiguration,
+                fingerprintStorage: .none,
+                fingerprintCheckingMode: .strict,
+                skipSignatureValidation: false,
+                signingEntityStorage: .none,
+                signingEntityCheckingMode: .strict,
+                authorizationProvider: authorizationProvider,
+                delegate: .none,
+                checksumAlgorithm: SHA256()
+            )
+
+            // Try logging in
+            try temp_await { callback in
+                registryClient.login(
+                    loginURL: loginURL,
+                    timeout: .seconds(5),
+                    observabilityScope: observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    completion: callback
+                )
+            }
+            print("Login successful.")
+        }
+
+        private func updateRegistryConfiguration(
+            configuration: Workspace.Configuration.Registries,
+            authenticationConfig: RegistryConfiguration.Authentication,
+            registryURL: URL
+        ) throws {
             // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
-                try configuration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
+                try configuration.add(authentication: authenticationConfig, for: registryURL)
             }
             try configuration.updateShared(with: update)
 

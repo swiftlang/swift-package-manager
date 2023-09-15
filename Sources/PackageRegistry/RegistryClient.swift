@@ -75,17 +75,45 @@ public final class RegistryClient: Cancellable {
         self.configuration = configuration
 
         if let authorizationProvider {
+            let swiftpmrcCache = ThreadSafeKeyValueStore<AbsolutePath, Swiftpmrc>()
+
             self.authorizationProvider = { url in
                 guard let registryAuthentication = try? configuration.authentication(for: url) else {
                     return .none
                 }
-                guard let (user, password) = authorizationProvider.authentication(for: url) else {
-                    return .none
+
+                let user: String?
+                let password: String
+
+                // Use swiftpmrc file if set, otherwise use authorizationProvider.
+                if let swiftpmrcPath = registryAuthentication.swiftpmrcPath {
+                    let swiftpmrc: Swiftpmrc
+                    if let cached = swiftpmrcCache[swiftpmrcPath] {
+                        swiftpmrc = cached
+                    } else {
+                        guard let parsed = try? Swiftpmrc.parse(fileSystem: localFileSystem, path: swiftpmrcPath) else {
+                            return .none
+                        }
+                        swiftpmrcCache[swiftpmrcPath] = parsed
+                        swiftpmrc = parsed
+                    }
+
+                    guard let auth = swiftpmrc.authorization(for: url) else {
+                        return .none
+                    }
+                    user = auth.login
+                    password = auth.password
+                } else {
+                    guard let found = authorizationProvider.authentication(for: url) else {
+                        return .none
+                    }
+                    user = found.user
+                    password = found.password
                 }
 
                 switch registryAuthentication.type {
                 case .basic:
-                    let authorizationString = "\(user):\(password)"
+                    let authorizationString = "\(user ?? ""):\(password)"
                     guard let authorizationData = authorizationString.data(using: .utf8) else {
                         return nil
                     }
@@ -1611,14 +1639,14 @@ public final class RegistryClient: Cancellable {
             return RegistryError.unauthorized
         case 403:
             return RegistryError.forbidden
-        case 400...499:
+        case 400 ... 499:
             return RegistryError.clientError(
                 code: response.statusCode,
                 details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
             )
         case 501:
             return RegistryError.authenticationMethodNotSupported
-        case 500...599:
+        case 500 ... 599:
             return RegistryError.serverError(
                 code: response.statusCode,
                 details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
