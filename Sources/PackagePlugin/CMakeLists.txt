@@ -45,6 +45,9 @@ set_target_properties(PackagePlugin PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/PluginAPI
 )
 
+target_link_libraries(PackagePlugin PRIVATE
+  TSCBasic)
+
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   target_link_libraries(PackagePlugin PRIVATE
     Foundation)
