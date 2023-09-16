@@ -426,12 +426,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
         if let compilerOutput = result.compilerOutput {
+            // FIXME: We shouldn't assume the compiler output to be a single piece. There could be combined
+            // output from different stages of compiling the manifest, but it's hard to distinguish them.
+            // A better approach might be teaching the driver to emit a structured log with context and severity.
+            var outputSeverity: Basics.Diagnostic.Severity = .warning
+#if os(Windows)
+            // Filter out `LINK` note for creating manifest executable.
+            if let compiledManifestName = result.compiledManifestFile?.basenameWithoutExt,
+               !compilerOutput.contains(where: \.isNewline) {
+                if compilerOutput.contains("\(compiledManifestName).lib") && compilerOutput.contains("\(compiledManifestName).exp") {
+                    outputSeverity = .debug
+                }
+            }
+#endif
             let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                 var metadata = ObservabilityMetadata()
                 metadata.manifestLoadingDiagnosticFile = diagnosticFile
                 return metadata
             }
-            observabilityScope.emit(warning: compilerOutput, metadata: metadata)
+            observabilityScope.emit(severity: outputSeverity, message: compilerOutput, metadata: metadata)
         }
 
         let start = DispatchTime.now()
@@ -839,6 +852,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     #endif
                     let compiledManifestFile = tmpDir.appending("\(packageIdentity)-manifest\(executableSuffix)")
                     cmd += ["-o", compiledManifestFile.pathString]
+                    evaluationResult.compiledManifestFile = compiledManifestFile
 
                     evaluationResult.compilerCommandLine = cmd
 
@@ -1109,6 +1123,9 @@ extension ManifestLoader {
 
 extension ManifestLoader {
     struct EvaluationResult: Codable {
+        /// The path to the compiled manifest.
+        var compiledManifestFile: AbsolutePath?
+
         /// The path to the diagnostics file (.dia).
         ///
         /// This is only present if serialized diagnostics are enabled.
