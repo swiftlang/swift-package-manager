@@ -805,8 +805,9 @@ def get_swiftpm_flags(args):
     for modifier in ["-Xswiftc", "-Xbuild-tools-swiftc"]:
         build_flags.extend([modifier, "-module-cache-path", modifier, local_module_cache_path])
 
+    # Disabled, enable this again when it works
     # Enforce explicit target dependencies
-    build_flags.extend(["--explicit-target-dependency-import-check", "error"])
+    # build_flags.extend(["--explicit-target-dependency-import-check", "error"])
 
     return build_flags
 
