@@ -260,6 +260,7 @@ class RegistryPackageContainerTests: XCTestCase {
                           packageLocation: String,
                           packageVersion: (version: Version?, revision: String?)?,
                           identityResolver: IdentityResolver,
+                          dependencyMapper: DependencyMapper,
                           fileSystem: FileSystem,
                           observabilityScope: ObservabilityScope,
                           delegateQueue: DispatchQueue,

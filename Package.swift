@@ -548,7 +548,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "SPMTestSupport"]
+            dependencies: ["Build", "PackageModel", "SPMTestSupport"]
         ),
         .testTarget(
             name: "WorkspaceTests",

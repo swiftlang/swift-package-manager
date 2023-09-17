@@ -473,10 +473,13 @@ public struct BuildParameters: Encodable {
             testEntryPointPath = nil
         }
 
+        var hostSDK = try SwiftSDK.hostSwiftSDK()
+        hostSDK.targetTriple = targetTriple
+
         return try .init(
             dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
             configuration: self.configuration,
-            toolchain: try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK()),
+            toolchain: try UserToolchain(swiftSDK: hostSDK),
             hostTriple: self.hostTriple,
             targetTriple: targetTriple,
             flags: BuildFlags(),

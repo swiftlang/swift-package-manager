@@ -268,7 +268,12 @@ public func loadPackageGraph(
 
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages)
-    let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
+    let graphRoot = PackageGraphRoot(
+        input: input,
+        manifests: rootManifests,
+        explicitProduct: explicitProduct,
+        observabilityScope: observabilityScope
+    )
 
     return try PackageGraph.load(
         root: graphRoot,
