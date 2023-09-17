@@ -161,10 +161,10 @@ public final class UserToolchain: Toolchain {
     ) throws
         -> AbsolutePath
     {
-        let variable: String = triple.isApple() ? "LIBTOOL" : "AR"
+        let variable: String = triple.isApple ? "LIBTOOL" : "AR"
         let tool: String = {
-            if triple.isApple() { return "libtool" }
-            if triple.isWindows() {
+            if triple.isApple { return "libtool" }
+            if triple.isWindows {
                 if let librarian: AbsolutePath =
                     UserToolchain.lookup(
                         variable: "AR",
@@ -198,7 +198,7 @@ public final class UserToolchain: Toolchain {
         if let librarian = try? UserToolchain.getTool(tool, binDirectories: binDirectories) {
             return librarian
         }
-        if triple.isApple() || triple.isWindows() {
+        if triple.isApple || triple.isWindows {
             return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
         } else {
             if let librarian = try? UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: false) {
@@ -350,7 +350,7 @@ public final class UserToolchain: Toolchain {
         let swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
 
         guard let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath else {
-            if triple.isWindows() {
+            if triple.isWindows {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
@@ -443,7 +443,7 @@ public final class UserToolchain: Toolchain {
         }
 
         return (
-            triple.isDarwin() || triple.isAndroid() || triple.isWASI() || triple.isWindows()
+            triple.isDarwin || triple.isAndroid || triple.isWASI || triple.isWindows
                 ? ["-sdk", sdkDir.pathString]
                 : []
         ) + swiftCompilerFlags
@@ -553,11 +553,11 @@ public final class UserToolchain: Toolchain {
         )
 
         if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
-            let sysrootFlags = [triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
+            let sysrootFlags = [triple.isDarwin ? "-isysroot" : "--sysroot", sdkDir.pathString]
             self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags, at: 0)
         }
 
-        if triple.isWindows() {
+        if triple.isWindows {
             if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
@@ -696,7 +696,7 @@ public final class UserToolchain: Toolchain {
     }
 
     private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
-        if triple.isDarwin() {
+        if triple.isDarwin {
             let xctestFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
             if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: [:])
                 .spm_chomp() {
@@ -712,7 +712,7 @@ public final class UserToolchain: Toolchain {
         triple: Triple,
         environment: EnvironmentVariables
     ) throws -> AbsolutePath? {
-        if triple.isDarwin() {
+        if triple.isDarwin {
             // XCTest is optional on macOS, for example when Xcode is not installed
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
             if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment)
@@ -720,7 +720,7 @@ public final class UserToolchain: Toolchain {
             {
                 return try AbsolutePath(validating: path)
             }
-        } else if triple.isWindows() {
+        } else if triple.isWindows {
             let sdkRoot: AbsolutePath
 
             if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {

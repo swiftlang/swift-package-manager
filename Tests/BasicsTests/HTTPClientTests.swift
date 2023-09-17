@@ -233,7 +233,7 @@ final class HTTPClientTests: XCTestCase {
 
         let httpClient = HTTPClient { _, _ in
             let count = await counter.value!
-            let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
+            let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval!
             let delta = await lastCall.value.flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
@@ -332,7 +332,7 @@ final class HTTPClientTests: XCTestCase {
         for index in (0 ..< total) {
             // age it
             let sleepInterval = SendableTimeInterval.milliseconds(ageInMilliseconds)
-            try await Task.sleep(nanoseconds: UInt64(sleepInterval.nanoseconds()!))
+            try await Task.sleep(nanoseconds: UInt64(sleepInterval.nanoseconds!))
             let response = try await httpClient.get("\(host)/\(index)/okay")
             count.increment()
             XCTAssertEqual(response.statusCode, 200, "expected status code to match")

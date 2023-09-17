@@ -357,7 +357,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let delay = SendableTimeInterval.milliseconds(100)
 
         let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
-            let expectedDelta = pow(2.0, Double(count.get(default: 0) - 1)) * delay.timeInterval()!
+            let expectedDelta = pow(2.0, Double(count.get(default: 0) - 1)) * delay.timeInterval!
             let delta = lastCall.get().flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
@@ -382,7 +382,7 @@ final class LegacyHTTPClientTests: XCTestCase {
             promise.fulfill()
         }
 
-        let timeout = Double(Int(pow(2.0, Double(maxAttempts))) * delay.milliseconds()!) / 1000
+        let timeout = Double(Int(pow(2.0, Double(maxAttempts))) * delay.milliseconds!) / 1000
         wait(for: [promise], timeout: 1.0 + timeout)
     }
 

@@ -103,8 +103,8 @@ public final class SwiftTargetBuildDescription {
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
-        let allowLinkingAgainstExecutables = (buildParameters.targetTriple.isDarwin() || self.buildParameters.targetTriple
-            .isLinux() || self.buildParameters.targetTriple.isWindows()) && self.toolsVersion >= .v5_5
+        let allowLinkingAgainstExecutables = (buildParameters.targetTriple.isDarwin || self.buildParameters.targetTriple
+            .isLinux || self.buildParameters.targetTriple.isWindows) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self
             .buildParameters.buildPath
         return dirPath.appending(component: self.target.c99name + ".swiftmodule")
@@ -312,7 +312,7 @@ public final class SwiftTargetBuildDescription {
             return
         }
 
-        guard buildParameters.targetTriple.isDarwin(), buildParameters.experimentalTestOutput else {
+        guard buildParameters.targetTriple.isDarwin, buildParameters.experimentalTestOutput else {
             return
         }
 
@@ -809,7 +809,7 @@ public final class SwiftTargetBuildDescription {
         guard let bundlePath else { return }
 
         let mainPathSubstitution: String
-        if self.buildParameters.targetTriple.isWASI() {
+        if self.buildParameters.targetTriple.isWASI {
             // We prefer compile-time evaluation of the bundle path here for WASI. There's no benefit in evaluating this
             // at runtime, especially as `Bundle` support in WASI Foundation is partial. We expect all resource paths to
             // evaluate to `/\(resourceBundleName)/\(resourcePath)`, which allows us to pass this path to JS APIs like
@@ -1083,7 +1083,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.targetTriple.isDarwin() && self.target.type == .library
+        self.buildParameters.targetTriple.isDarwin && self.target.type == .library
     }
 
     func writeOutputFileMap() throws -> AbsolutePath {

@@ -259,7 +259,7 @@ public final class LegacyHTTPClient: Cancellable {
                 return .none
             }
             let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
-            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
+            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds ?? 0).partialValue
             let jitterMilli = Int.random(in: 1 ... 10)
             return .milliseconds(delayMilli + jitterMilli)
         }
@@ -292,7 +292,7 @@ public final class LegacyHTTPClient: Cancellable {
         switch strategy {
         case .hostErrors(let maxErrors, let age):
             if let host = request.url.host, let errors = (Self.hostsErrorsLock.withLock { Self.hostsErrors[host] }) {
-                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval() {
+                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval {
                     return Date().timeIntervalSince(lastError) <= age
                 } else if errors.count >= maxErrors {
                     // reset aged errors

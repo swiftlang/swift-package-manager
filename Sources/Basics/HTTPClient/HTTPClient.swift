@@ -126,7 +126,7 @@ public actor HTTPClient {
             response: response,
             request: request,
             requestNumber: requestNumber
-        ), let retryDelayInNanoseconds = retryDelay.nanoseconds() {
+        ), let retryDelayInNanoseconds = retryDelay.nanoseconds {
             observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
             try await Task.sleep(nanoseconds: UInt64(retryDelayInNanoseconds))
 
@@ -158,7 +158,7 @@ public actor HTTPClient {
                 return nil
             }
             let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
-            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
+            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds ?? 0).partialValue
             let jitterMilli = Int.random(in: 1 ... 10)
             return .milliseconds(delayMilli + jitterMilli)
         }
@@ -195,7 +195,7 @@ public actor HTTPClient {
         switch strategy {
         case .hostErrors(let maxErrors, let age):
             if let host = request.url.host, let errors = self.hostsErrors[host] {
-                if errors.numberOfErrors >= maxErrors, let age = age.timeInterval() {
+                if errors.numberOfErrors >= maxErrors, let age = age.timeInterval {
                     return Date().timeIntervalSince(errors.lastError) <= age
                 } else if errors.numberOfErrors >= maxErrors {
                     // reset aged errors

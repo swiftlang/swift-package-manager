@@ -343,7 +343,7 @@ extension URLRequest {
             self.addValue(header.value, forHTTPHeaderField: header.name)
         }
         self.httpBody = request.body
-        if let interval = request.options.timeout?.timeInterval() {
+        if let interval = request.options.timeout?.timeInterval {
             self.timeoutInterval = interval
         }
     }
@@ -355,7 +355,7 @@ extension URLRequest {
             self.addValue(header.value, forHTTPHeaderField: header.name)
         }
         self.httpBody = request.body
-        if let interval = request.options.timeout?.timeInterval() {
+        if let interval = request.options.timeout?.timeInterval {
             self.timeoutInterval = interval
         }
     }

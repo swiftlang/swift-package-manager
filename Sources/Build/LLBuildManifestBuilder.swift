@@ -978,7 +978,7 @@ extension LLBuildManifestBuilder {
 
         // Add dependency on Info.plist generation on Darwin platforms.
         let testInputs: [AbsolutePath]
-        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin(), buildProduct.buildParameters.experimentalTestOutput {
+        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin, buildProduct.buildParameters.experimentalTestOutput {
             let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
             testInputs = [testBundleInfoPlistPath]
 

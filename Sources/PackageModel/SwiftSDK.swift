@@ -547,7 +547,7 @@ public struct SwiftSDK: Equatable {
     /// Returns a default destination of a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")
     public static func defaultDestination(for triple: Triple, host: SwiftSDK) -> SwiftSDK? {
-        if triple.isWASI() {
+        if triple.isWASI {
             let wasiSysroot = host.toolset.rootPaths.first?
                 .parentDirectory // usr
                 .appending(components: "share", "wasi-sysroot")
@@ -562,7 +562,7 @@ public struct SwiftSDK: Equatable {
 
     /// Returns a default Swift SDK of a given target environment.
     public static func defaultSwiftSDK(for targetTriple: Triple, hostSDK: SwiftSDK) -> SwiftSDK? {
-        if targetTriple.isWASI() {
+        if targetTriple.isWASI {
             let wasiSysroot = hostSDK.toolset.rootPaths.first?
                 .parentDirectory // usr
                 .appending(components: "share", "wasi-sysroot")

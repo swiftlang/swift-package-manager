@@ -233,7 +233,7 @@ public struct BuildParameters: Encodable {
 
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
-        if self.targetTriple.isDarwin() {
+        if self.targetTriple.isDarwin {
             switch self.targetTriple.darwinPlatform {
             case .iOS(.catalyst):
                 return .macCatalyst
@@ -246,13 +246,13 @@ public struct BuildParameters: Encodable {
             case .macOS, nil:
                 return .macOS
             }
-        } else if self.targetTriple.isAndroid() {
+        } else if self.targetTriple.isAndroid {
             return .android
-        } else if self.targetTriple.isWASI() {
+        } else if self.targetTriple.isWASI {
             return .wasi
-        } else if self.targetTriple.isWindows() {
+        } else if self.targetTriple.isWindows {
             return .windows
-        } else if self.targetTriple.isOpenBSD() {
+        } else if self.targetTriple.isOpenBSD {
             return .openbsd
         } else {
             return .linux
@@ -395,14 +395,14 @@ public struct BuildParameters: Encodable {
         case .dwarf:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
-            self.flags = flags.merging(targetTriple.isWindows() ? BuildFlags(
+            self.flags = flags.merging(targetTriple.isWindows ? BuildFlags(
                 cCompilerFlags: ["-gdwarf"],
                 cxxCompilerFlags: ["-gdwarf"],
                 swiftCompilerFlags: ["-g", "-use-ld=lld"],
                 linkerFlags: ["-debug:dwarf"]
             ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
         case .codeview:
-            if !targetTriple.isWindows() {
+            if !targetTriple.isWindows {
                 throw StringError("CodeView debug information is currently not supported on \(targetTriple.osName)")
             }
             var flags = flags
@@ -442,7 +442,7 @@ public struct BuildParameters: Encodable {
         // when building and testing in release mode, one can use the '--disable-testable-imports' flag
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
-        self.testProductStyle = targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+        self.testProductStyle = targetTriple.isDarwin ? .loadableBundle : .entryPointExecutable(
             explicitlyEnabledDiscovery: forceTestDiscovery,
             explicitlySpecifiedPath: testEntryPointPath
         )
@@ -553,7 +553,7 @@ public struct BuildParameters: Encodable {
             return nil
         }
 
-        if targetTriple.isApple() {
+        if targetTriple.isApple {
             return .swiftAST
         }
         return .modulewrap
@@ -583,12 +583,12 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !targetTriple.isWASI() else {
+            guard !targetTriple.isWASI else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
 
             let base = "\(product.name).xctest"
-            if targetTriple.isDarwin() {
+            if targetTriple.isDarwin {
                 return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
             } else {
                 return try RelativePath(validating: base)

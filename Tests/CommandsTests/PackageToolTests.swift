@@ -1688,7 +1688,7 @@ final class PackageToolTests: CommandsTestCase {
                 """
             )
             let hostTriple = try UserToolchain(swiftSDK: .hostSwiftSDK()).targetTriple
-            let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
+            let hostTripleString = hostTriple.isDarwin ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
             try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"), string:
                 """
                 {   "schemaVersion": "1.0",

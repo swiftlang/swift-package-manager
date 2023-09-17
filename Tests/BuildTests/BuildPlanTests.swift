@@ -1183,7 +1183,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
 #endif
 
-        args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += [hostTriple.isWindows ? "-gdwarf" : "-g"]
 
         XCTAssertEqual(try ext.basicArguments(isCXX: false), args)
         XCTAssertEqual(try ext.objects, [buildPath.appending(components: "extlib.build", "extlib.c.o")])
@@ -1213,7 +1213,7 @@ final class BuildPlanTests: XCTestCase {
 #if !os(Windows)    // FIXME(5473) - modules flags on Windows dropped
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
 #endif
-        args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += [hostTriple.isWindows ? "-gdwarf" : "-g"]
         XCTAssertEqual(try exe.basicArguments(isCXX: false), args)
         XCTAssertEqual(try exe.objects, [buildPath.appending(components: "exe.build", "main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
@@ -1508,7 +1508,7 @@ final class BuildPlanTests: XCTestCase {
 #if !os(Windows)    // FIXME(5473) - modules flags on Windows dropped
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
 #endif
-        args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += [hostTriple.isWindows ? "-gdwarf" : "-g"]
         XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.c.o")])
         XCTAssertEqual(lib.moduleMap, buildPath.appending(components: "lib.build", "module.modulemap"))
@@ -2492,7 +2492,7 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").clangTarget()
         
-        var expectedExeBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
+        var expectedExeBasicArgs = triple.isDarwin ? ["-fobjc-arc"] : []
         expectedExeBasicArgs += ["-target", defaultTargetTriple]
         expectedExeBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
 #if !os(Windows)    // FIXME(5473) - modules flags on Windows dropped
@@ -2503,17 +2503,17 @@ final class BuildPlanTests: XCTestCase {
         expectedExeBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
 #endif
 
-        expectedExeBasicArgs += [triple.isWindows() ? "-gdwarf" : "-g"]
+        expectedExeBasicArgs += [triple.isWindows ? "-gdwarf" : "-g"]
         XCTAssertEqual(try exe.basicArguments(isCXX: false), expectedExeBasicArgs)
         XCTAssertEqual(try exe.objects, [buildPath.appending(components: "exe.build", "main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
         
-        var expectedLibBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
+        var expectedLibBasicArgs = triple.isDarwin ? ["-fobjc-arc"] : []
         expectedLibBasicArgs += ["-target", defaultTargetTriple]
         expectedLibBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
-        let shouldHaveModules = !(triple.isDarwin() || triple.isWindows() || triple.isAndroid())
+        let shouldHaveModules = !(triple.isDarwin || triple.isWindows || triple.isAndroid)
         if shouldHaveModules {
             expectedLibBasicArgs += ["-fmodules", "-fmodule-name=lib"]
         }
@@ -2522,8 +2522,8 @@ final class BuildPlanTests: XCTestCase {
             expectedLibBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
         }
         expectedLibBasicArgs += [
-            triple.isWindows() ? "-gdwarf" : "-g",
-            triple.isWindows() ? "-gdwarf" : "-g",
+            triple.isWindows ? "-gdwarf" : "-g",
+            triple.isWindows ? "-gdwarf" : "-g",
         ]
         XCTAssertEqual(try lib.basicArguments(isCXX: true), expectedLibBasicArgs)
 
@@ -4263,7 +4263,7 @@ final class BuildPlanTests: XCTestCase {
 
             let contents: String = try fs.readFileContents(yaml)
 
-            if result.plan.buildParameters.targetTriple.isWindows() {
+            if result.plan.buildParameters.targetTriple.isWindows {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
@@ -4272,7 +4272,7 @@ final class BuildPlanTests: XCTestCase {
                     description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
                     args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
-            } else if result.plan.buildParameters.targetTriple.isDarwin() {
+            } else if result.plan.buildParameters.targetTriple.isDarwin {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell

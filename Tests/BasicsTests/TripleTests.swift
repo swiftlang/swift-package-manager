@@ -30,7 +30,7 @@ final class TripleTests: XCTestCase {
                 return
             }
             XCTAssert(
-                isApple == triple.isApple(),
+                isApple == triple.isApple,
                 """
                 Expected triple '\(triple.tripleString)' \
                 \(isApple ? "" : " not") to be an Apple triple.
@@ -38,7 +38,7 @@ final class TripleTests: XCTestCase {
                 file: file,
                 line: line)
             XCTAssert(
-                isDarwin == triple.isDarwin(),
+                isDarwin == triple.isDarwin,
                 """
                 Expected triple '\(triple.tripleString)' \
                 \(isDarwin ? "" : " not") to be a Darwin triple.

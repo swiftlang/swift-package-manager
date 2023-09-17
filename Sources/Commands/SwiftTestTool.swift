@@ -191,7 +191,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // validate XCTest available on darwin based systems
             let toolchain = try swiftTool.getTargetToolchain()
-            if toolchain.targetTriple.isDarwin() && toolchain.xctestPath == nil {
+            if toolchain.targetTriple.isDarwin && toolchain.xctestPath == nil {
                 throw TestError.xctestNotAvailable
             }
         } catch {
@@ -203,7 +203,7 @@ public struct SwiftTestTool: SwiftCommand {
 
         // Remove test output from prior runs and validate priors.
         if self.options.enableExperimentalTestOutput {
-            if !buildParameters.targetTriple.isDarwin() {
+            if !buildParameters.targetTriple.isDarwin {
                 swiftTool.observabilityScope.emit(error: "The experimental test output feature is only available on Darwin.")
                 throw ExitCode.failure
             }
@@ -1092,7 +1092,7 @@ final class XUnitGenerator {
 
         // Get the failure count.
         let failures = results.filter({ !$0.success }).count
-        let duration = results.compactMap({ $0.duration.timeInterval() }).reduce(0.0, +)
+        let duration = results.compactMap({ $0.duration.timeInterval }).reduce(0.0, +)
 
         // We need better output reporting from XCTest.
         content +=
@@ -1106,7 +1106,7 @@ final class XUnitGenerator {
         // FIXME: This is very minimal right now. We should allow including test output etc.
         for result in results {
             let test = result.unitTest
-            let duration = result.duration.timeInterval() ?? 0.0
+            let duration = result.duration.timeInterval ?? 0.0
             content +=
                 """
                 <testcase classname="\(test.testCase)" name="\(test.name)" time="\(duration)">

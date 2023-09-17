@@ -14,7 +14,7 @@ import Dispatch
 import struct Foundation.TimeInterval
 
 extension DispatchTimeInterval {
-    public func timeInterval() -> TimeInterval? {
+    public var timeInterval: TimeInterval? {
         switch self {
         case .seconds(let value):
             return Double(value)
@@ -29,7 +29,7 @@ extension DispatchTimeInterval {
         }
     }
 
-    public func nanoseconds() -> Int? {
+    public var nanoseconds: Int? {
         switch self {
         case .seconds(let value):
             return value.multipliedReportingOverflow(by: 1_000_000_000).partialValue
@@ -44,7 +44,7 @@ extension DispatchTimeInterval {
         }
     }
 
-    public func milliseconds() -> Int? {
+    public var milliseconds: Int? {
         switch self {
         case .seconds(let value):
             return value.multipliedReportingOverflow(by: 1000).partialValue
@@ -59,7 +59,7 @@ extension DispatchTimeInterval {
         }
     }
 
-    public func seconds() -> Int? {
+    public var seconds: Int? {
         switch self {
         case .seconds(let value):
             return value

@@ -24,15 +24,15 @@ extension Triple {
 }
 
 extension Triple {
-    public func isApple() -> Bool {
+    public var isApple: Bool {
         vendor == .apple
     }
 
-    public func isAndroid() -> Bool {
+    public var isAndroid: Bool {
         os == .linux && environment == .android
     }
 
-    public func isDarwin() -> Bool {
+    public var isDarwin: Bool {
         switch (vendor, os) {
         case (.apple, .noneOS):
             return false
@@ -43,19 +43,19 @@ extension Triple {
         }
     }
 
-    public func isLinux() -> Bool {
+    public var isLinux: Bool {
         os == .linux
     }
 
-    public func isWindows() -> Bool {
+    public var isWindows: Bool {
         os == .win32
     }
 
-    public func isWASI() -> Bool {
+    public var isWASI: Bool {
         os == .wasi
     }
 
-    public func isOpenBSD() -> Bool {
+    public var isOpenBSD: Bool {
         os == .openbsd
     }
 
@@ -63,7 +63,7 @@ extension Triple {
     ///
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
-        precondition(isDarwin())
+        precondition(isDarwin)
         return """
             \(self.archName)-\
             \(self.vendorName)-\
@@ -134,7 +134,7 @@ extension Triple {
         }
 
         switch os {
-        case _ where isDarwin():
+        case _ where isDarwin:
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
@@ -153,7 +153,7 @@ extension Triple {
         }
 
         switch os {
-        case _ where isDarwin():
+        case _ where isDarwin:
             return ""
         case .linux, .openbsd:
             return ""
@@ -176,7 +176,7 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case _ where isDarwin():
+        case _ where isDarwin:
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md

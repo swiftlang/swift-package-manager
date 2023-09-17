@@ -115,9 +115,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .debug:
             return []
         case .release:
-            if self.buildParameters.targetTriple.isApple() {
+            if self.buildParameters.targetTriple.isApple {
                 return ["-Xlinker", "-dead_strip"]
-            } else if self.buildParameters.targetTriple.isWindows() {
+            } else if self.buildParameters.targetTriple.isWindows {
                 return ["-Xlinker", "/OPT:REF"]
             } else if self.buildParameters.targetTriple.arch == .wasm32 {
                 // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
@@ -138,10 +138,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     public func archiveArguments() throws -> [String] {
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
         let triple = self.buildParameters.targetTriple
-        if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
+        if triple.isWindows, librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
             return try [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
         }
-        if triple.isApple(), librarian.hasSuffix("libtool") {
+        if triple.isApple, librarian.hasSuffix("libtool") {
             return try [librarian, "-static", "-o", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
         }
         return try [librarian, "crs", binaryPath.pathString, "@\(self.linkFileListPath.pathString)"]
@@ -207,7 +207,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += self.deadStripArguments
         case .library(.dynamic):
             args += ["-emit-library"]
-            if self.buildParameters.targetTriple.isDarwin() {
+            if self.buildParameters.targetTriple.isDarwin {
                 let relativePath = try "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
@@ -216,7 +216,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Link the Swift stdlib statically, if requested.
             // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
             if self.buildParameters.shouldLinkStaticSwiftStdlib {
-                if self.buildParameters.targetTriple.isDarwin() {
+                if self.buildParameters.targetTriple.isDarwin {
                     self.observabilityScope.emit(.swiftBackDeployError)
                 } else if self.buildParameters.targetTriple.isSupportingStaticStdlib {
                     args += ["-static-stdlib"]
@@ -258,9 +258,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product.
-        if self.buildParameters.targetTriple.isLinux() {
+        if self.buildParameters.targetTriple.isLinux {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
-        } else if self.buildParameters.targetTriple.isDarwin() {
+        } else if self.buildParameters.targetTriple.isDarwin {
             let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
             args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
         }
@@ -373,6 +373,6 @@ extension SortedArray where Element == AbsolutePath {
 
 extension Triple {
     var supportsFrameworks: Bool {
-        return self.isDarwin()
+        self.isDarwin
     }
 }

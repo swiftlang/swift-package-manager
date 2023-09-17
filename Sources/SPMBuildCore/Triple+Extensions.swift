@@ -14,11 +14,7 @@ import struct Basics.Triple
 
 extension Triple {
     public var platformBuildPathComponent: String {
-        if isDarwin() {
-            return self.tripleString(forPlatformVersion: "")
-        }
-
-        return self.tripleString
+        return isDarwin ? self.tripleString(forPlatformVersion: "") : self.tripleString
     }
 }
 

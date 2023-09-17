@@ -151,7 +151,7 @@ public final class Cancellator: Cancellable {
 
         let deadline = deadline ?? .now() + .seconds(30)
         // deadline for individual handlers set slightly before overall deadline
-        let delta: DispatchTimeInterval = .nanoseconds(abs(deadline.distance(to: .now()).nanoseconds() ?? 0) / 5)
+        let delta: DispatchTimeInterval = .nanoseconds(abs(deadline.distance(to: .now()).nanoseconds ?? 0) / 5)
         let handlersDeadline = deadline - delta
 
         let cancellationHandlers = self.registry.get()

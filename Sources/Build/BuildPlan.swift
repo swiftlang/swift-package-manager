@@ -127,7 +127,7 @@ extension BuildParameters {
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
-        if targetTriple.isDarwin() {
+        if targetTriple.isDarwin {
             let platform = buildEnvironment.platform
             let supportedPlatform = target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
             args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
@@ -140,10 +140,10 @@ extension BuildParameters {
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
-        if self.targetTriple.isApple() {
+        if self.targetTriple.isApple {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         }
-        else if self.targetTriple.isLinux() {
+        else if self.targetTriple.isLinux {
             args = ["--defsym", "main=\(target.c99name)_main"]
         }
         else {
@@ -458,7 +458,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 switch dependency {
                 case .target: break
                 case .product(let product, _):
-                    if buildParameters.targetTriple.isDarwin() {
+                    if buildParameters.targetTriple.isDarwin {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
                             product: product,
                             forTarget: target,
@@ -635,9 +635,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                if buildParameters.targetTriple.isDarwin() {
+                if buildParameters.targetTriple.isDarwin {
                     buildProduct.additionalFlags += ["-lc++"]
-                } else if buildParameters.targetTriple.isWindows() {
+                } else if buildParameters.targetTriple.isWindows {
                     // Don't link any C++ library.
                 } else {
                     buildProduct.additionalFlags += ["-lstdc++"]
@@ -1132,7 +1132,7 @@ func generateResourceInfoPlist(
 
 extension Basics.Triple {
     var isSupportingStaticStdlib: Bool {
-        isLinux() || arch == .wasm32
+        isLinux || arch == .wasm32
     }
 }
 

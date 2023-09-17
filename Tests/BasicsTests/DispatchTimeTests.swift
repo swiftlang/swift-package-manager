@@ -19,10 +19,10 @@ final class DispatchTimeTests: XCTestCase {
         let future: DispatchTime = point + .seconds(10)
 
         let diff1: DispatchTimeInterval = point.distance(to: future)
-        XCTAssertEqual(diff1.seconds(), 10)
+        XCTAssertEqual(diff1.seconds, 10)
 
         let diff2: DispatchTimeInterval = future.distance(to: point)
-        XCTAssertEqual(diff2.seconds(), -10)
+        XCTAssertEqual(diff2.seconds, -10)
     }
 
     func testDifferenceNegative() {
@@ -30,9 +30,9 @@ final class DispatchTimeTests: XCTestCase {
         let past: DispatchTime = point - .seconds(10)
 
         let diff1: DispatchTimeInterval = point.distance(to: past)
-        XCTAssertEqual(diff1.seconds(), -10)
+        XCTAssertEqual(diff1.seconds, -10)
 
         let diff2: DispatchTimeInterval = past.distance(to: point)
-        XCTAssertEqual(diff2.seconds(), 10)
+        XCTAssertEqual(diff2.seconds, 10)
     }
 }
