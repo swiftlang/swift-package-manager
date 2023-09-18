@@ -305,10 +305,13 @@ public struct BuildParameters: Encodable {
             testEntryPointPath = nil
         }
 
+        var hostDestination = try Destination.hostDestination()
+        hostDestination.targetTriple = destinationTriple
+
         return try .init(
             dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
             configuration: self.configuration,
-            toolchain: try UserToolchain(destination: Destination.hostDestination()),
+            toolchain: try UserToolchain(destination: hostDestination),
             hostTriple: self.hostTriple,
             destinationTriple: destinationTriple,
             flags: BuildFlags(),
