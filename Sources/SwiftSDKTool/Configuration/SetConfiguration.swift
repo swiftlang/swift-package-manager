@@ -71,7 +71,7 @@ struct SetConfiguration: ConfigurationSubcommand {
     )
     var sdkID: String
 
-    @Argument(help: "The run-time triple of the Swift SDK to configure.")
+    @Argument(help: "The target triple of the Swift SDK to configure.")
     var targetTriple: String
 
     func run(
