@@ -786,6 +786,74 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testProductDependencyWithSimilarName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Barx"]),
+                    ]),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    targets: [
+                        TargetDescription(name: "Bar")
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Barx' required by package 'foo' target 'Foo' not found. Did you mean 'Bar'?",
+                severity: .error
+            )
+        }
+    }
+    
+    func testProductDependencyWithNonSimilarName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Qux"]),
+                    ]),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    targets: [
+                        TargetDescription(name: "Bar")
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Qux' required by package 'foo' target 'Foo' not found.",
+                severity: .error
+            )
+        }
+    }
+
     func testProductDependencyDeclaredInSamePackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTarget/src.swift",
