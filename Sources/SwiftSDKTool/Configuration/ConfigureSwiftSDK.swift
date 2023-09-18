@@ -16,7 +16,7 @@ public struct ConfigureSwiftSDK: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "configuration",
         abstract: """
-        Manages configuration options for installed cross-compilation destinations.
+        Manages configuration options for installed Swift SDKs.
         """,
         subcommands: [
             ResetConfiguration.self,
