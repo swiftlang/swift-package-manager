@@ -23,7 +23,7 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
         commandName: "list",
         abstract:
         """
-        Print a list of IDs of available cross-compilation destinations available on the filesystem.
+        Print a list of IDs of available Swift SDKs available on the filesystem.
         """
     )
 
@@ -44,7 +44,7 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
         )
 
         guard !validBundles.isEmpty else {
-            print("No cross-compilation destinations are currently installed.")
+            print("No Swift SDKs are currently installed.")
             return
         }
 
