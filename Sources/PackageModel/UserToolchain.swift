@@ -42,12 +42,12 @@ public final class UserToolchain: Toolchain {
 
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
-        destination.pathsConfiguration.swiftResourcesPath
+        swiftSDK.pathsConfiguration.swiftResourcesPath
     }
 
     /// Path containing Swift resources for static linking.
     public var swiftStaticResourcesPath: AbsolutePath? {
-        destination.pathsConfiguration.swiftStaticResourcesPath
+        swiftSDK.pathsConfiguration.swiftStaticResourcesPath
     }
 
     /// Additional flags to be passed to the build tools.
