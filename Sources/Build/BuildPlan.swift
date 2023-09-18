@@ -1153,7 +1153,8 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        return self.targets.filter({ !($0.underlyingTarget is BinaryTarget) }).isEmpty
+        return self.targets.allSatisfy{ $0.underlyingTarget is BinaryTarget }
+        //return self.targets.filter({ !($0.underlyingTarget is BinaryTarget) }).isEmpty
     }
 
     private var isPlugin: Bool {

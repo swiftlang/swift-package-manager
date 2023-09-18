@@ -62,11 +62,13 @@ public final class SwiftTargetBuildDescription {
     }
 
     private var needsResourceBundle: Bool {
-        return resources.filter { $0.rule != .embedInCode }.isEmpty == false
+        return self.resources.contains(where: { $0.rule != .embedInCode })
+        //return resources.filter { $0.rule != .embedInCode }.isEmpty == false
     }
 
     private var needsResourceEmbedding: Bool {
-        return resources.filter { $0.rule == .embedInCode }.isEmpty == false
+        return self.resources.contains(where: { $0.rule == .embedInCode })
+        //return resources.filter { $0.rule == .embedInCode }.isEmpty == false
     }
 
     /// The list of all source files in the target, including the derived ones.

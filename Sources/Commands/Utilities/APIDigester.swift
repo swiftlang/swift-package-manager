@@ -292,7 +292,8 @@ extension SwiftAPIDigester {
 
         /// `true` if the comparison succeeded and no breaking changes were found, otherwise `false`.
         var hasNoAPIBreakingChanges: Bool {
-            apiBreakingChanges.isEmpty && otherDiagnostics.filter { [.fatal, .error].contains($0.level) }.isEmpty
+            //apiBreakingChanges.isEmpty && otherDiagnostics.filter { [.fatal, .error].contains($0.level) }.isEmpty
+            self.apiBreakingChanges.isEmpty && self.otherDiagnostics.allSatisfy { ![.fatal, .error].contains($0.level) }
         }
     }
 }
@@ -300,7 +301,7 @@ extension SwiftAPIDigester {
 extension BuildParameters {
     /// The directory containing artifacts for API diffing operations.
     var apiDiff: AbsolutePath {
-        dataPath.appending("apidiff")
+        self.dataPath.appending("apidiff")
     }
 }
 
