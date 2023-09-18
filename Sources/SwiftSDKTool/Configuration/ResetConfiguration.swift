@@ -53,7 +53,7 @@ struct ResetConfiguration: ConfigurationSubcommand {
     )
     var sdkID: String
 
-    @Argument(help: "A run-time triple of the Swift SDK specified by `sdk-id` identifier string.")
+    @Argument(help: "A target triple of the Swift SDK specified by `sdk-id` identifier string.")
     var targetTriple: String
 
     func run(
@@ -112,7 +112,7 @@ struct ResetConfiguration: ConfigurationSubcommand {
             } else {
                 observabilityScope.emit(
                     info: """
-                    All configuration properties of Swift SDK `\(sdkID)` for run-time triple \
+                    All configuration properties of Swift SDK `\(sdkID)` for target triple \
                     `\(targetTriple)` were successfully reset.
                     """
                 )
