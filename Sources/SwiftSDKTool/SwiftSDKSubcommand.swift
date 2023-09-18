@@ -48,7 +48,7 @@ extension SwiftSDKSubcommand {
         ) else {
             let expectedPath = try fileSystem.swiftSDKsDirectory
             throw StringError(
-                "Couldn't find or create a directory where cross-compilation destinations are stored: `\(expectedPath)`"
+                "Couldn't find or create a directory where Swift SDKs are stored: `\(expectedPath)`"
             )
         }
 
