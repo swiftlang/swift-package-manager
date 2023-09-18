@@ -16,6 +16,7 @@ import PackageLoading
 import PackageModel
 
 import func TSCBasic.topologicalSort
+import func TSCBasic.bestMatch
 
 extension PackageGraph {
 
@@ -495,13 +496,16 @@ private func createResolvedPackages(
                         }.map {$0.targets}.flatMap{$0}.filter { t in
                             t.name != productRef.name
                         }
-
+                        
+                        // Find a product name from the available product dependencies that is most similar to the required product name.
+                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             targetName: targetBuilder.target.name,
                             dependencyProductName: productRef.name,
                             dependencyPackageName: productRef.package,
-                            dependencyProductInDecl: !declProductsAsDependency.isEmpty
+                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
+                            similarProductName: bestMatchedProductName
                         )
                         packageObservabilityScope.emit(error)
                     }
