@@ -184,7 +184,8 @@ extension Triple {
         }
     }
 
-    public func isRuntimeCompatible(with triple: Triple) -> Bool {                        
+    /// Returns `true` if code compiled for `triple` can run on `self` value of ``Triple``.
+    public func isRuntimeCompatible(with triple: Triple) -> Bool {
         if
             self.arch == triple.arch &&
             self.vendor == triple.vendor &&
