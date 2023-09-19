@@ -61,14 +61,14 @@ class PackageModelTests: XCTestCase {
         let sdkDir = AbsolutePath("/some/path/to/an/SDK.sdk")
         let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
 
-        let destination = SwiftSDK(
+        let swiftSDK = SwiftSDK(
             targetTriple: triple,
             toolset: .init(toolchainBinDir: toolchainPath.appending(components: "usr", "bin"), buildFlags: .init()),
             pathsConfiguration: .init(sdkRootPath: sdkDir)
         )
 
         XCTAssertEqual(
-            try UserToolchain.deriveSwiftCFlags(triple: triple, swiftSDK: destination, environment: .process()),
+            try UserToolchain.deriveSwiftCFlags(triple: triple, swiftSDK: swiftSDK, environment: .process()),
             [
                 // Needed when cross‐compiling for Android. 2020‐03‐01
                 "-sdk", sdkDir.pathString,
