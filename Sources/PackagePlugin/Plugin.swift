@@ -303,7 +303,7 @@ internal struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
         }
         
         // Decode the count.
-        let count = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
+        let count = header.withUnsafeBytes{ $0.loadUnaligned(as: UInt64.self).littleEndian }
         guard count >= 2 else {
             throw PluginMessageError.invalidPayloadSize
         }

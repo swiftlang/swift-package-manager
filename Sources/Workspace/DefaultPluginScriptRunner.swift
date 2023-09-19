@@ -664,7 +664,7 @@ fileprivate extension FileHandle {
         guard header.count == 8 else {
             throw PluginMessageError.truncatedHeader
         }
-        let length = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
+        let length = header.withUnsafeBytes{ $0.loadUnaligned(as: UInt64.self).littleEndian }
         guard length >= 2 else {
             throw PluginMessageError.invalidPayloadSize
         }
