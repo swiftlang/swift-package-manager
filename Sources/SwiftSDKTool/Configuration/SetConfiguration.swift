@@ -19,7 +19,7 @@ struct SetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
         abstract: """
-        Sets configuration options for installed cross-compilation destinations.
+        Sets configuration options for installed Swift SDKs.
         """
     )
 
@@ -63,13 +63,13 @@ struct SetConfiguration: ConfigurationSubcommand {
 
     @Argument(
         help: """
-        An identifier of an already installed destination. Use the `list` subcommand to see all available \
+        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
         identifiers.
         """
     )
     var sdkID: String
 
-    @Argument(help: "The run-time triple of the destination to configure.")
+    @Argument(help: "The target triple of the Swift SDK to configure.")
     var targetTriple: String
 
     func run(
@@ -123,7 +123,7 @@ struct SetConfiguration: ConfigurationSubcommand {
         guard !updatedProperties.isEmpty else {
             observabilityScope.emit(
                 error: """
-                No properties of destination `\(sdkID) for run-time triple `\(targetTriple)` were updated \
+                No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
                 since none were specified. Pass `--help` flag to see the list of all available properties.
                 """
             )
@@ -136,7 +136,7 @@ struct SetConfiguration: ConfigurationSubcommand {
 
         observabilityScope.emit(
             info: """
-            These properties of destination `\(sdkID) for run-time triple \
+            These properties of Swift SDK `\(sdkID)` for target triple \
             `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
             """
         )
