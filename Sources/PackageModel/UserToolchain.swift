@@ -42,12 +42,12 @@ public final class UserToolchain: Toolchain {
 
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
-        destination.pathsConfiguration.swiftResourcesPath
+        swiftSDK.pathsConfiguration.swiftResourcesPath
     }
 
     /// Path containing Swift resources for static linking.
     public var swiftStaticResourcesPath: AbsolutePath? {
-        destination.pathsConfiguration.swiftStaticResourcesPath
+        swiftSDK.pathsConfiguration.swiftStaticResourcesPath
     }
 
     /// Additional flags to be passed to the build tools.
@@ -518,7 +518,7 @@ public final class UserToolchain: Toolchain {
         self.isSwiftDevelopmentToolchain = false
         #endif
 
-        // Use the triple from destination or compute the host triple using swiftc.
+        // Use the triple from Swift SDK or compute the host triple using swiftc.
         var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
         // Change the triple to the specified arch if there's exactly one of them.

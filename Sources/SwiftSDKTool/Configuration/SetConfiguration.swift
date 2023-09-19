@@ -75,12 +75,12 @@ struct SetConfiguration: ConfigurationSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: SwiftSDK,
+        _ swiftSDK: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        var configuration = destination.pathsConfiguration
+        var configuration = swiftSDK.pathsConfiguration
         var updatedProperties = [String]()
 
         let currentWorkingDirectory: AbsolutePath? = fileSystem.currentWorkingDirectory
@@ -130,9 +130,9 @@ struct SetConfiguration: ConfigurationSubcommand {
             return
         }
 
-        var destination = destination
-        destination.pathsConfiguration = configuration
-        try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: destination)
+        var swiftSDK = swiftSDK
+        swiftSDK.pathsConfiguration = configuration
+        try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: swiftSDK)
 
         observabilityScope.emit(
             info: """

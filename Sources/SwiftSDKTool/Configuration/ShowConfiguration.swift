@@ -40,12 +40,12 @@ struct ShowConfiguration: ConfigurationSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: SwiftSDK,
+        _ swiftSDK: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        print(destination.pathsConfiguration)
+        print(swiftSDK.pathsConfiguration)
     }
 }
 

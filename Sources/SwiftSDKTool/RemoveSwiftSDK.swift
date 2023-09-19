@@ -33,11 +33,10 @@ public struct RemoveSwiftSDK: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws {
-        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
-        let artifactBundleDirectory = destinationsDirectory.appending(component: self.sdkIDOrBundleName)
+        let artifactBundleDirectory = swiftSDKsDirectory.appending(component: self.sdkIDOrBundleName)
 
         let removedBundleDirectory: AbsolutePath
         if fileSystem.exists(artifactBundleDirectory) {
@@ -46,7 +45,7 @@ public struct RemoveSwiftSDK: SwiftSDKSubcommand {
             removedBundleDirectory = artifactBundleDirectory
         } else {
             let bundles = try SwiftSDKBundle.getAllValidBundles(
-                swiftSDKsDirectory: destinationsDirectory,
+                swiftSDKsDirectory: swiftSDKsDirectory,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )
