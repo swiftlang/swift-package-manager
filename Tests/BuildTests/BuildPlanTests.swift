@@ -3700,7 +3700,7 @@ final class BuildPlanTests: XCTestCase {
                 .cxxCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cxxCompiler)]),
                 .swiftCompiler: .init(extraCLIOptions: [jsonFlag(tool: .swiftCompiler)]),
                 .librarian: .init(path: "/fake/toolchain/usr/bin/librarian"),
-                .linker: .init(extraCLIOptions: [jsonFlag(tool: .linker)]),
+                .linker: .init(path: "/fake/toolchain/usr/bin/linker", extraCLIOptions: [jsonFlag(tool: .linker)]),
             ],
             rootPaths: try UserToolchain.default.swiftSDK.toolset.rootPaths)
         let targetTriple = try Triple("armv7em-unknown-none-macho")
@@ -3781,7 +3781,9 @@ final class BuildPlanTests: XCTestCase {
         // Compile Swift Target
         let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
         let exeCompileArgumentsPattern: [StringPattern] = [
-            jsonFlag(tool: .swiftCompiler), "-g", cliFlag(tool: .swiftCompiler),
+            jsonFlag(tool: .swiftCompiler),
+            "-ld-path=/fake/toolchain/usr/bin/linker",
+            "-g", cliFlag(tool: .swiftCompiler),
             .anySequence,
             "-Xcc", jsonFlag(tool: .cCompiler), "-Xcc", "-g", "-Xcc", cliFlag(tool: .cCompiler),
             // TODO: Pass -Xcxx flags to swiftc (#6491)
@@ -3804,7 +3806,9 @@ final class BuildPlanTests: XCTestCase {
         // Link Product
         let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
         let exeLinkArgumentsPattern: [StringPattern] = [
-            jsonFlag(tool: .swiftCompiler), "-g", cliFlag(tool: .swiftCompiler),
+            jsonFlag(tool: .swiftCompiler),
+            "-ld-path=/fake/toolchain/usr/bin/linker",
+            "-g", cliFlag(tool: .swiftCompiler),
             .anySequence,
             "-Xlinker", jsonFlag(tool: .linker), "-Xlinker", cliFlag(tool: .linker),
         ]
