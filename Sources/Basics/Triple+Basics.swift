@@ -183,6 +183,19 @@ extension Triple {
             return ".resources"
         }
     }
+
+    public func isRuntimeCompatible(with triple: Triple) -> Bool {                        
+        if
+            self.arch == triple.arch &&
+            self.vendor == triple.vendor &&
+            self.os == triple.os &&
+            self.environment == triple.environment
+        {
+            return self.osVersion >= triple.osVersion
+        } else {
+            return false
+        }
+    }
 }
 
 extension Triple: CustomStringConvertible {
