@@ -59,12 +59,12 @@ struct ResetConfiguration: ConfigurationSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: SwiftSDK,
+        _ swiftSDK: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        var configuration = destination.pathsConfiguration
+        var configuration = swiftSDK.pathsConfiguration
         var shouldResetAll = true
         var resetProperties = [String]()
 
@@ -118,9 +118,9 @@ struct ResetConfiguration: ConfigurationSubcommand {
                 )
             }
         } else {
-            var destination = destination
-            destination.pathsConfiguration = configuration
-            try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: destination)
+            var swiftSDK = swiftSDK
+            swiftSDK.pathsConfiguration = configuration
+            try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: swiftSDK)
 
             observabilityScope.emit(
                 info: """

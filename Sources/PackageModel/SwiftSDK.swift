@@ -244,29 +244,29 @@ public struct SwiftSDK: Equatable {
 
         /// Initialize paths configuration from values deserialized using v3 schema.
         /// - Parameters:
-        ///   - properties: properties of the destination for the given triple.
-        ///   - destinationDirectory: directory used for converting relative paths in `properties` to absolute paths.
+        ///   - properties: properties of the Swift SDK for the given triple.
+        ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
         fileprivate init(
             _ properties: SerializedDestinationV3.TripleProperties,
-            destinationDirectory: AbsolutePath? = nil
+            swiftSDKDirectory: AbsolutePath? = nil
         ) throws {
-            if let destinationDirectory {
+            if let swiftSDKDirectory {
                 self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
                     swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
                     },
                     swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
                     },
                     includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
                     },
                     librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
                     },
                     toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
                     }
                 )
             } else {
@@ -364,10 +364,10 @@ public struct SwiftSDK: Equatable {
         }
     }
 
-    /// Configuration of file system paths used by this destination when building.
+    /// Configuration of file system paths used by this Swift SDK when building.
     public var pathsConfiguration: PathsConfiguration
 
-    /// Creates a compilation destination with the specified properties.
+    /// Creates a Swift SDK with the specified properties.
     @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolset:)` instead")
     public init(
         target: Triple? = nil,
@@ -389,7 +389,7 @@ public struct SwiftSDK: Equatable {
         )
     }
 
-    /// Creates a compilation destination with the specified properties.
+    /// Creates a Swift SDK with the specified properties.
     @available(*, deprecated, message: "use `init(hostTriple:targetTriple:toolset:pathsConfiguration:)` instead")
     public init(
         hostTriple: Triple? = nil,
@@ -406,7 +406,7 @@ public struct SwiftSDK: Equatable {
         )
     }
 
-    /// Creates a compilation destination with the specified properties.
+    /// Creates a Swift SDK with the specified properties.
     public init(
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
@@ -433,8 +433,7 @@ public struct SwiftSDK: Equatable {
         return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd).parentDirectory
     }
 
-    /// The destination describing the host OS.
-
+    /// The Swift SDK describing the host platform.
     @available(*, deprecated, renamed: "hostSwiftSDK")
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
@@ -444,7 +443,7 @@ public struct SwiftSDK: Equatable {
         try self.hostSwiftSDK(binDir, originalWorkingDirectory: originalWorkingDirectory, environment: environment)
     }
 
-    /// The Swift SDK for the host OS.
+    /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
@@ -544,7 +543,7 @@ public struct SwiftSDK: Equatable {
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
 
-    /// Returns a default destination of a given target environment
+    /// Returns a default Swift SDK for a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")
     public static func defaultDestination(for triple: Triple, host: SwiftSDK) -> SwiftSDK? {
         if triple.isWASI() {
@@ -575,7 +574,7 @@ public struct SwiftSDK: Equatable {
         return nil
     }
 
-    /// Propagates toolchain and SDK paths known to the destination to `swiftc` CLI options.
+    /// Propagates toolchain and SDK paths known to the Swift SDK to `swiftc` CLI options.
     public mutating func applyPathCLIOptions() {
         var properties = self.toolset.knownTools[.swiftCompiler] ?? .init(extraCLIOptions: [])
         properties.extraCLIOptions.append(contentsOf: self.toolset.rootPaths.flatMap { ["-tools-directory", $0.pathString] })
@@ -588,7 +587,7 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Appends a path to the array of toolset root paths.
-    /// - Parameter toolsetRootPath: new path to add to the destination's toolset.
+    /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
     public mutating func add(toolsetRootPath: AbsolutePath) {
         self.toolset.rootPaths.append(toolsetRootPath)
     }
@@ -627,17 +626,17 @@ extension SwiftSDK {
     ) throws -> [SwiftSDK] {
         switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):
-            let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV3.self)
-            let destinationDirectory = path.parentDirectory
+            let swiftSDKs = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV3.self)
+            let swiftSDKDirectory = path.parentDirectory
 
-            return try destinations.runTimeTriples.map { triple, properties in
+            return try swiftSDKs.runTimeTriples.map { triple, properties in
                 let triple = try Triple(triple)
 
                 let pathStrings = properties.toolsetPaths ?? []
                 let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
                     try $0.merge(
                         with: Toolset(
-                            from: .init(validating: $1, relativeTo: destinationDirectory),
+                            from: .init(validating: $1, relativeTo: swiftSDKDirectory),
                             at: fileSystem,
                             observabilityScope
                         )
@@ -645,10 +644,10 @@ extension SwiftSDK {
                 }
 
                 return try SwiftSDK(
-                    runTimeTriple: triple,
+                    targetTriple: triple,
                     properties: properties,
                     toolset: toolset,
-                    destinationDirectory: destinationDirectory
+                    swiftSDKDirectory: swiftSDKDirectory
                 )
             }
 
@@ -701,22 +700,22 @@ extension SwiftSDK {
         )
     }
 
-    /// Initialize new Swift SDK from values deserialized using v3 schema.
+    /// Initialize new Swift SDK from values deserialized using the v3 schema.
     /// - Parameters:
-    ///   - runTimeTriple: triple of the machine running code built with this destination.
+    ///   - targetTriple: triple of the machine running code built with this Swift SDK.
     ///   - properties: properties of the destination for the given triple.
     ///   - toolset: combined toolset used by this destination.
-    ///   - destinationDirectory: directory used for converting relative paths in `properties` to absolute paths.
+    ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
     private init(
-        runTimeTriple: Triple,
+        targetTriple: Triple,
         properties: SerializedDestinationV3.TripleProperties,
         toolset: Toolset = .init(),
-        destinationDirectory: AbsolutePath? = nil
+        swiftSDKDirectory: AbsolutePath? = nil
     ) throws {
         self.init(
-            targetTriple: runTimeTriple,
+            targetTriple: targetTriple,
             toolset: toolset,
-            pathsConfiguration: try .init(properties, destinationDirectory: destinationDirectory)
+            pathsConfiguration: try .init(properties, swiftSDKDirectory: swiftSDKDirectory)
         )
     }
 
@@ -730,40 +729,44 @@ extension SwiftSDK {
         // Check schema version.
         switch version.version {
         case 1:
-            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV1.self)
+            let serializedMetadata = try decoder.decode(
+                path: path, 
+                fileSystem: fileSystem,
+                as: SerializedDestinationV1.self
+            )
             try self.init(
-                targetTriple: destination.target.map { try Triple($0) },
+                targetTriple: serializedMetadata.target.map { try Triple($0) },
                 toolset: .init(
-                    toolchainBinDir: destination.binDir,
+                    toolchainBinDir: serializedMetadata.binDir,
                     buildFlags: .init(
-                        cCompilerFlags: destination.extraCCFlags,
-                        cxxCompilerFlags: destination.extraCPPFlags,
-                        swiftCompilerFlags: destination.extraSwiftCFlags
+                        cCompilerFlags: serializedMetadata.extraCCFlags,
+                        cxxCompilerFlags: serializedMetadata.extraCPPFlags,
+                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags
                     )
                 ),
-                pathsConfiguration: .init(sdkRootPath: destination.sdk)
+                pathsConfiguration: .init(sdkRootPath: serializedMetadata.sdk)
             )
         case 2:
-            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV2.self)
-            let destinationDirectory = path.parentDirectory
+            let serializedMetadata = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV2.self)
+            let swiftSDKDirectory = path.parentDirectory
 
             try self.init(
-                hostTriple: destination.hostTriples.map(Triple.init).first,
-                targetTriple: destination.targetTriples.map(Triple.init).first,
+                hostTriple: serializedMetadata.hostTriples.map(Triple.init).first,
+                targetTriple: serializedMetadata.targetTriples.map(Triple.init).first,
                 toolset: .init(
                     toolchainBinDir: AbsolutePath(
-                        validating: destination.toolchainBinDir,
-                        relativeTo: destinationDirectory
+                        validating: serializedMetadata.toolchainBinDir,
+                        relativeTo: swiftSDKDirectory
                     ),
                     buildFlags: .init(
-                        cCompilerFlags: destination.extraCCFlags,
-                        cxxCompilerFlags: destination.extraCXXFlags,
-                        swiftCompilerFlags: destination.extraSwiftCFlags,
-                        linkerFlags: destination.extraLinkerFlags
+                        cCompilerFlags: serializedMetadata.extraCCFlags,
+                        cxxCompilerFlags: serializedMetadata.extraCXXFlags,
+                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags,
+                        linkerFlags: serializedMetadata.extraLinkerFlags
                     )
                 ),
                 pathsConfiguration: .init(
-                    sdkRootPath: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory)
+                    sdkRootPath: AbsolutePath(validating: serializedMetadata.sdkRootDir, relativeTo: swiftSDKDirectory)
                 )
             )
         default:
@@ -771,9 +774,9 @@ extension SwiftSDK {
         }
     }
 
-    /// Encodes a destination into its serialized form, which is a pair of its run time triple and paths configuration.
+    /// Encodes a Swift SDK into its serialized form, which is a pair of its run time triple and paths configuration.
     /// Returns a pair that can be used to reconstruct a `SerializedDestinationV3` value for storage. `nil` if
-    /// required configuration properties aren't available on `self`, which can happen if `Destination` was decoded
+    /// required configuration properties aren't available on `self`, which can happen if `Swift SDK` was decoded
     /// from different schema versions or constructed manually without providing valid values for such properties.
     var serialized: (Triple, SerializedDestinationV3.TripleProperties) {
         get throws {

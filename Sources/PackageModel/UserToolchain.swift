@@ -518,7 +518,7 @@ public final class UserToolchain: Toolchain {
         self.isSwiftDevelopmentToolchain = false
         #endif
 
-        // Use the triple from destination or compute the host triple using swiftc.
+        // Use the triple from Swift SDK or compute the host triple using swiftc.
         var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
         // Change the triple to the specified arch if there's exactly one of them.
