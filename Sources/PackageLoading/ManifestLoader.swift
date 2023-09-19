@@ -751,7 +751,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
-                                cmd = try Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                                cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
                             } catch {
                                 return completion(.failure(error))
                             }
