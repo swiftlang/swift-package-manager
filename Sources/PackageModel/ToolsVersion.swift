@@ -30,6 +30,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     public static let v5_7 = ToolsVersion(version: "5.7.0")
     public static let v5_8 = ToolsVersion(version: "5.8.0")
     public static let v5_9 = ToolsVersion(version: "5.9.0")
+    public static let v5_10 = ToolsVersion(version: "5.10.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
