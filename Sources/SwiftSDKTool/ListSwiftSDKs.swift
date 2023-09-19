@@ -32,11 +32,11 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
         let validBundles = try SwiftSDKBundle.getAllValidBundles(
-            swiftSDKsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

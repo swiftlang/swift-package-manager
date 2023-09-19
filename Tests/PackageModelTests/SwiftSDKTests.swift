@@ -527,7 +527,7 @@ final class DestinationTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
 
         XCTAssertEqual(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id1",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
@@ -538,7 +538,7 @@ final class DestinationTests: XCTestCase {
         // Expecting `nil` because no host triple is specified for this destination
         // in the fake destination bundle.
         XCTAssertNil(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id2",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
@@ -546,7 +546,7 @@ final class DestinationTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id3",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
