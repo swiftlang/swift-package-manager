@@ -165,4 +165,11 @@ final class TripleTests: XCTestCase {
         XCTAssertTriple("x86_64-unknown-windows-msvc", matches: (.x86_64, nil, nil, .win32, .msvc, .coff))
         XCTAssertTriple("wasm32-unknown-wasi", matches: (.wasm32, nil, nil, .wasi, nil, .wasm))
     }
+
+    func testIsRuntimeCompatibleWith() throws {
+        try XCTAssertTrue(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-macosx")))
+        try XCTAssertTrue(Triple("x86_64-unknown-linux").isRuntimeCompatible(with: Triple("x86_64-unknown-linux")))
+        try XCTAssertFalse(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-linux")))
+        try XCTAssertTrue(Triple("x86_64-apple-macosx14.0").isRuntimeCompatible(with: Triple("x86_64-apple-macosx13.0")))
+    }
 }
