@@ -21,8 +21,8 @@ struct ResetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "reset",
         abstract: """
-        Resets configuration properties currently applied to a given destination and run-time triple. If no specific \
-        property is specified, all of them are reset for the destination.
+        Resets configuration properties currently applied to a given Swift SDK and target triple. If no specific \
+        property is specified, all of them are reset for the Swift SDK.
         """
     )
 
@@ -49,13 +49,13 @@ struct ResetConfiguration: ConfigurationSubcommand {
 
     @Argument(
         help: """
-        An identifier of an already installed destination. Use the `list` subcommand to see all available \
+        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
         identifiers.
         """
     )
     var sdkID: String
 
-    @Argument(help: "A run-time triple of the destination specified by `destination-id` identifier string.")
+    @Argument(help: "A target triple of the Swift SDK specified by `sdk-id` identifier string.")
     var targetTriple: String
 
     func run(
@@ -109,12 +109,12 @@ struct ResetConfiguration: ConfigurationSubcommand {
         if shouldResetAll {
             if try !configurationStore.resetConfiguration(sdkID: sdkID, targetTriple: targetTriple) {
                 observabilityScope.emit(
-                    warning: "No configuration for destination \(sdkID)"
+                    warning: "No configuration for Swift SDK `\(sdkID)`"
                 )
             } else {
                 observabilityScope.emit(
                     info: """
-                    All configuration properties of destination `\(sdkID) for run-time triple \
+                    All configuration properties of Swift SDK `\(sdkID)` for target triple \
                     `\(targetTriple)` were successfully reset.
                     """
                 )
@@ -126,7 +126,7 @@ struct ResetConfiguration: ConfigurationSubcommand {
 
             observabilityScope.emit(
                 info: """
-                These properties of destination `\(sdkID) for run-time triple \
+                These properties of Swift SDK `\(sdkID)` for target triple \
                 `\(targetTriple)` were successfully reset: \(resetProperties.joined(separator: ", ")).
                 """
             )
