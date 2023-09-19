@@ -4534,7 +4534,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testXCFrameworkBinaryTargets(platform: String, arch: String, destinationTriple: Basics.Triple) throws {
+    func testXCFrameworkBinaryTargets(platform: String, arch: String, targetTriple: Basics.Triple) throws {
         let Pkg: AbsolutePath = "/Pkg"
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -4643,7 +4643,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(targetTriple: destinationTriple),
+            buildParameters: mockBuildParameters(targetTriple: targetTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4689,16 +4689,19 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testXCFrameworkBinaryTargets() throws {
-        try testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .x86_64MacOS)
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", targetTriple: .x86_64MacOS)
 
         let arm64Triple = try Basics.Triple("arm64-apple-macosx")
-        try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", targetTriple: arm64Triple)
 
         let arm64eTriple = try Basics.Triple("arm64e-apple-macosx")
-        try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", targetTriple: arm64eTriple)
     }
 
-    func testArtifactsArchiveBinaryTargets(artifactTriples:[Basics.Triple], destinationTriple: Basics.Triple) throws -> Bool {
+    func testArtifactsArchiveBinaryTargets(
+        artifactTriples: [Basics.Triple],
+        targetTriple: Basics.Triple
+    ) throws -> Bool {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
         let artifactName = "my-tool"
@@ -4752,7 +4755,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(targetTriple: destinationTriple),
+            buildParameters: mockBuildParameters(targetTriple: targetTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4767,16 +4770,16 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testArtifactsArchiveBinaryTargets() throws {
-        XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.x86_64MacOS], destinationTriple: .x86_64MacOS))
+        XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.x86_64MacOS], targetTriple: .x86_64MacOS))
 
         do {
             let triples = try ["arm64-apple-macosx",  "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
-            XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: triples.first!))
+            XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, targetTriple: triples.first!))
         }
 
         do {
             let triples = try ["x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
-            XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: .x86_64MacOS))
+            XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, targetTriple: .x86_64MacOS))
         }
     }
 
