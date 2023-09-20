@@ -347,11 +347,7 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: EnvironmentVariables
     ) throws -> [String] {
-        var swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
-
-        if let linker = swiftSDK.toolset.knownTools[.linker]?.path {
-            swiftCompilerFlags += ["-ld-path=\(linker)"]
-        }
+        let swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
 
         guard let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath else {
             if triple.isWindows() {
