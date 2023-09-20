@@ -184,22 +184,18 @@ extension Triple {
         }
     }
 
-    public func isRuntimeCompatible(with triple: Triple) -> Bool {    
+    /// Returns `true` if code compiled for `triple` can run on `self` value of ``Triple``.
+    public func isRuntimeCompatible(with triple: Triple) -> Bool {
         guard self != triple else {
             return true
         }
-
         if
             self.arch == triple.arch &&
             self.vendor == triple.vendor &&
             self.os == triple.os &&
-            self.environment == triple.environment,
-            // If either of the triples have no `osVersion` specified, we can't determine compatibility and will
-            // have to return `false`.
-            let selfOSVersion = self.osVersion,
-            let osVersion = triple.osVersion
+            self.environment == triple.environment
         {
-            return selfOSVersion >= osVersion
+            return self.osVersion >= triple.osVersion
         } else {
             return false
         }
