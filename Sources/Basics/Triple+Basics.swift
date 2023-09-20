@@ -184,7 +184,11 @@ extension Triple {
         }
     }
 
-    public func isRuntimeCompatible(with triple: Triple) -> Bool {                        
+    public func isRuntimeCompatible(with triple: Triple) -> Bool {    
+        guard self != triple else {
+            return true
+        }
+
         if
             self.arch == triple.arch &&
             self.vendor == triple.vendor &&
