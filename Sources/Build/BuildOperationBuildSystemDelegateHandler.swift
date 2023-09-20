@@ -215,11 +215,20 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
         }
 
+        let testObservabilitySetup: String
+        if self.context.buildParameters.experimentalTestOutput, self.context.buildParameters.triple.supportsTestSummary {
+            testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
+        } else {
+            testObservabilitySetup = ""
+        }
+
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
         stream.send(
             #"""
+            \#(generateTestObservationCode(buildParameters: self.context.buildParameters))
+
             import XCTest
             \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
 
@@ -227,6 +236,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 static func main() {
+                    \#(testObservabilitySetup)
                     XCTMain(__allDiscoveredTests())
                 }
             }

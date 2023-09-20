@@ -645,3 +645,9 @@ extension BuildParameters {
         }
     }
 }
+
+extension Triple {
+    public var supportsTestSummary: Bool {
+        return !self.isWindows()
+    }
+}
