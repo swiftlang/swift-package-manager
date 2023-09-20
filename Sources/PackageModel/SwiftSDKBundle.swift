@@ -85,7 +85,7 @@ public struct SwiftSDKBundle {
         guard let swiftSDKsDirectory else {
             throw StringError(
                 """
-                No directory found for installed Swift SDKs, specify one
+                No directory found for installed Swift SDKs, specify one \
                 with `--experimental-swift-sdks-path` option.
                 """
             )
@@ -110,8 +110,8 @@ public struct SwiftSDKBundle {
         ) else {
             throw StringError(
                 """
-                No Swift SDK found matching query `\(selector)` and host triple
-                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see
+                No Swift SDK found matching query `\(selector)` and host triple \
+                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
                 available Swift SDKs.
                 """
             )
@@ -429,7 +429,9 @@ extension [SwiftSDKBundle] {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
+                    guard variant.metadata.supportedTriples.contains(where: { variantTriple in
+                        hostTriple.isRuntimeCompatible(with: variantTriple)
+                    }) else {
                         continue
                     }
 

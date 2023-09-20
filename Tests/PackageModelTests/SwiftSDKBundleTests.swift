@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageModel
+@testable import PackageModel
 import SPMTestSupport
 import XCTest
 
@@ -21,27 +21,58 @@ import class TSCBasic.InMemoryFileSystem
 
 private let testArtifactID = "test-artifact"
 
-private func generateInfoJSON(artifacts: [MockArtifact]) -> SerializedJSON {
-    """
-    {
-        "artifacts" : {
-            \(artifacts.map {
-                    """
-                    "\($0.id)" : {
-                        "type" : "swiftSDK",
-                        "version" : "0.0.1",
-                        "variants" : [
-                            {
-                                "path" : "\($0.id)/aarch64-unknown-linux",
-                                "supportedTriples" : \($0.supportedTriples.map(\.tripleString))
+private let targetTriple = try! Triple("aarch64-unknown-linux")
+
+private let jsonEncoder = JSONEncoder()
+
+private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteString)] {
+    try [
+        (
+            "\(bundle.path)/info.json",
+            ByteString(json: """
+            {
+                "artifacts" : {
+                    \(bundle.artifacts.map {
+                            """
+                            "\($0.id)" : {
+                                "type" : "swiftSDK",
+                                "version" : "0.0.1",
+                                "variants" : [
+                                    {
+                                        "path" : "\($0.id)/\(targetTriple.triple)",
+                                        "supportedTriples" : \($0.supportedTriples.map(\.tripleString))
+                                    }
+                                ]
                             }
-                        ]
-                    }
-                    """
-                }.joined(separator: ",\n")
-            )
-        },
-        "schemaVersion" : "1.0"
+                            """
+                        }.joined(separator: ",\n")
+                    )
+                },
+                "schemaVersion" : "1.0"
+            }
+            """)
+        ),
+
+    ] + bundle.artifacts.map {
+        (
+            "\(bundle.path)/\($0.id)/\(targetTriple.tripleString)/swift-sdk.json",
+            ByteString(json: try generateSwiftSDKMetadata(jsonEncoder))
+        )
+    }
+}
+
+private func generateSwiftSDKMetadata(_ encoder: JSONEncoder) throws -> SerializedJSON {
+    try """
+    {
+        "schemaVersion": "4.0",
+        "targetTriples": \(
+            String(
+                bytes: encoder.encode([
+                    targetTriple.tripleString: SwiftSDKMetadataV4.TripleProperties(sdkRootPath: "sdk")
+                ]),
+                encoding: .utf8
+            )!
+        )
     }
     """
 }
@@ -63,15 +94,13 @@ private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (
         return MockBundle(name: "test\(i).artifactbundle", path: "/\(bundleName)", artifacts: [artifacts])
     }
 
-    let fileSystem = InMemoryFileSystem(
-        files: Dictionary(uniqueKeysWithValues: bundles.map {
-            (
-                "\($0.path)/info.json",
-                ByteString(
-                    json: generateInfoJSON(artifacts: $0.artifacts)
-                )
-            )
-        })
+
+    let fileSystem = try InMemoryFileSystem(
+        files: Dictionary(
+            uniqueKeysWithValues: bundles.flatMap {
+                try generateBundleFiles(bundle: $0)
+            }
+        )
     )
 
     let swiftSDKsDirectory = try AbsolutePath(validating: "/sdks")
@@ -207,5 +236,35 @@ final class SwiftSDKBundleTests: XCTestCase {
         )
 
         XCTAssertEqual(validBundles.count, bundles.count)
+    }
+
+    func testBundleSelection() async throws {
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
+                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple])
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+
+        for bundle in bundles {
+            try await SwiftSDKBundle.install(
+                bundlePathOrURL: bundle.path,
+                swiftSDKsDirectory: swiftSDKsDirectory,
+                fileSystem,
+                MockArchiver(),
+                system.topScope
+            )
+        }
+
+        let sdk = try SwiftSDKBundle.selectBundle(
+            fromBundlesAt: swiftSDKsDirectory,
+            fileSystem: fileSystem,
+            matching: "\(testArtifactID)1",
+            hostTriple: Triple("arm64-apple-macosx14.0"),
+            observabilityScope: system.topScope
+        )
+
+        XCTAssertEqual(sdk.targetTriple, targetTriple)
     }
 }
