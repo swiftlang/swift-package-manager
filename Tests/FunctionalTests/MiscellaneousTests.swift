@@ -606,6 +606,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependencies() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSuppressWarnings(), "skipping because test environment doesn't support suppressing warnings")
+
         try fixture(name: "Miscellaneous/DependenciesWarnings") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
@@ -623,6 +625,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependenciesWithWarningsAsErrors() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSuppressWarnings(), "skipping because test environment doesn't support suppressing warnings")
+
         try fixture(name: "Miscellaneous/DependenciesWarnings2") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
