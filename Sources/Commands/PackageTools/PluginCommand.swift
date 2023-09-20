@@ -396,7 +396,7 @@ extension SandboxNetworkPermission {
 extension ResolvedPackage {
     fileprivate func matching(identity: String?) -> Bool {
         if let identity {
-            return self.identity.description == identity.lowercased()
+            return self.identity == .plain(identity)
         } else {
             return true
         }
