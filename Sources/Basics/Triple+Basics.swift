@@ -189,9 +189,13 @@ extension Triple {
             self.arch == triple.arch &&
             self.vendor == triple.vendor &&
             self.os == triple.os &&
-            self.environment == triple.environment
+            self.environment == triple.environment,
+            // If either of the triples have no `osVersion` specified, we can't determine compatibility and will
+            // have to return `false`.
+            let selfOSVersion = self.osVersion,
+            let osVersion = triple.osVersion
         {
-            return self.osVersion >= triple.osVersion
+            return selfOSVersion >= osVersion
         } else {
             return false
         }
