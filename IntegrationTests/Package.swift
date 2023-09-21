@@ -4,9 +4,6 @@ import PackageDescription
 
 let package = Package(
     name: "IntegrationTests",
-    platforms: [
-        .macOS(.v10_15),
-    ],
     targets: [
         .testTarget(name: "IntegrationTests", dependencies: [
             .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
