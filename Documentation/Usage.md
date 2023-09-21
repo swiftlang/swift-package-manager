@@ -84,7 +84,7 @@ This creates a package with a `.macro` type target with its required dependencie
 on [swift-syntax](https://github.com/apple/swift-syntax), a `.library` target 
 containing the macro's code, and an `.executableTarget` and `.testTarget` for 
 running the macro. The sample macro, StringifyMacro, is documented in the Swift 
-Evolution proposal for [Freestanding Declaration Macros]](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md)
+Evolution proposal for [Expression Macros](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md)
 and the WWDC [Write Swift macros](https://developer.apple.com/videos/play/wwdc2023/10166) 
 video.
 
