@@ -35,31 +35,22 @@ public enum Command {
 
 public extension Command {
     
-    /// Creates a command to run during the build. The executable should be a
-    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
-    /// arguments list as well as in the input and output lists should be
-    /// based on the paths provided in the target build context structure.
+    /// Returns a command that runs when its ouputs are needed but out-of-date.  
     ///
-    /// The build command will run whenever its outputs are missing or if its
-    /// inputs have changed since the command was last run. In other words,
-    /// it is incorporated into the build command graph.
-    ///
-    /// This is the preferred kind of command to create when the outputs that
-    /// will be generated are known ahead of time.
+    /// The command will run whenever its outputs are missing or if its
+    /// inputs have changed since its outputs were created.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The executable to be invoked; should be a tool looked
-    ///     up using `tool(named:)`, which may reference either a tool provided
-    ///     by a binary target or build from source.
-    ///   - arguments: Arguments to be passed to the tool. Any paths should be
-    ///     based on the paths provided in the target build context.
-    ///   - environment: Any custom environment assignments for the subprocess.
-    ///   - inputFiles: Input files to the build command. Any changes to the
-    ///     input files cause the command to be rerun.
-    ///   - outputFiles: Output files that should be processed further according
-    ///     to the rules defined by the build system.
+    ///   - executable: The absolute path to the executable to be invoked.
+    ///   - arguments: Command-line arguments to be passed to the executable.
+    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - inputFiles: Files on which the contents of output files may depend.  
+    ///     Any paths passed as `arguments` should typically be passed here as well.
+    ///   - outputFiles: Files to be generated or updated by the executable.  Any
+    ///     swift files are compiled into the target for which this command was 
+    ///     generated; other files are treated as its resources as if by `.process(...)`.
     static func buildCommand(
         displayName: String?,
         executable: Path,
@@ -78,32 +69,24 @@ public extension Command {
             outputFiles: outputFiles)
     }
 
-    /// Creates a command to run during the build. The executable should be a
-    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
-    /// arguments list as well as in the input and output lists should be
-    /// based on the paths provided in the target build context structure.
+    /// Returns a command that runs when its ouputs are needed but out-of-date.  
     ///
-    /// The build command will run whenever its outputs are missing or if its
-    /// inputs have changed since the command was last run. In other words,
-    /// it is incorporated into the build command graph.
-    ///
-    /// This is the preferred kind of command to create when the outputs that
-    /// will be generated are known ahead of time.
+    /// The command will run whenever its outputs are missing or if its
+    /// inputs have changed since its outputs were created.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The executable to be invoked; should be a tool looked
-    ///     up using `tool(named:)`, which may reference either a tool provided
-    ///     by a binary target or build from source.
-    ///   - arguments: Arguments to be passed to the tool. Any paths should be
-    ///     based on the paths provided in the target build context.
-    ///   - environment: Any custom environment assignments for the subprocess.
-    ///   - workingDirectory: Optional initial working directory of the command.
-    ///   - inputFiles: Input files to the build command. Any changes to the
-    ///     input files cause the command to be rerun.
-    ///   - outputFiles: Output files that should be processed further according
-    ///     to the rules defined by the build system.
+    ///   - executable: The absolute path to the executable to be invoked.
+    ///   - arguments: Command-line arguments to be passed to the executable.
+    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - workingDirectory: Optional initial working directory when the executable
+    ///     runs.
+    ///   - inputFiles: Files on which the contents of output files may depend.  
+    ///     Any paths passed as `arguments` should typically be passed here as well.
+    ///   - outputFiles: Files to be generated or updated by the executable.  Any
+    ///     swift files are compiled into the target for which this command was 
+    ///     generated; other files are treated as its resources as if by `.process(...)`.
     @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
     static func buildCommand(
         displayName: String?,
