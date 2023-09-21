@@ -721,7 +721,6 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     }
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [
         .product(name: "llbuildSwift", package: "swift-llbuild"),
-        .product(name: "llbuild", package: "swift-llbuild"),
     ]
 }
 
