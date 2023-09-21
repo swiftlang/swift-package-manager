@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 /// A command to run during the build, including executable, command lines,
-/// environment variables, initial working directory, etc. All paths should
-/// be based on the ones passed to the plugin in the target build context.
+/// environment variables, initial working directory, etc. All paths should be
+/// based on the ones passed to the plugin in the target build context.
 public enum Command {
-    
+
     case _buildCommand(
         displayName: String?,
         executable: Path,
@@ -23,7 +23,7 @@ public enum Command {
         workingDirectory: Path? = nil,
         inputFiles: [Path] = [],
         outputFiles: [Path] = [])
-    
+
     case _prebuildCommand(
         displayName: String?,
         executable: Path,
@@ -34,23 +34,33 @@ public enum Command {
 }
 
 public extension Command {
-    
-    /// Returns a command that runs when its ouputs are needed but out-of-date.  
+
+    /// Returns a command that runs when any of its ouput files are needed by
+    /// the build, but out-of-date.
     ///
-    /// The command will run whenever its outputs are missing or if its
-    /// inputs have changed since its outputs were created.
+    /// An output file is out-of-date if it doesn't exist, or if any input files
+    /// have changed since the command was last run.
+    ///
+    /// - Note: the paths in the list of output files may depend on the list of
+    ///   input file paths, but **must not** depend on reading the contents of
+    ///   any input files. Such cases must be handled using a `prebuildCommand`.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
     ///   - executable: The absolute path to the executable to be invoked.
     ///   - arguments: Command-line arguments to be passed to the executable.
-    ///   - environment: Environment variable assignments visible to the executable.
-    ///   - inputFiles: Files on which the contents of output files may depend.  
-    ///     Any paths passed as `arguments` should typically be passed here as well.
-    ///   - outputFiles: Files to be generated or updated by the executable.  Any
-    ///     swift files are compiled into the target for which this command was 
-    ///     generated; other files are treated as its resources as if by `.process(...)`.
+    ///   - environment: Environment variable assignments visible to the
+    ///     executable.
+    ///   - inputFiles: Files on which the contents of output files may depend.
+    ///     Any paths passed as `arguments` should typically be passed here as
+    ///     well.
+    ///   - outputFiles: Files to be generated or updated by the executable.
+    ///     Any files recognizable by their extension as source files
+    ///     (e.g. `.swift`) are compiled into the target for which this command
+    ///     was generated as if in its source directory; other files are treated
+    ///     as resources as if explicitly listed in `Package.swift` using
+    ///     `.process(...)`.
     static func buildCommand(
         displayName: String?,
         executable: Path,
@@ -69,10 +79,15 @@ public extension Command {
             outputFiles: outputFiles)
     }
 
-    /// Returns a command that runs when its ouputs are needed but out-of-date.  
+    /// Returns a command that runs when any of its ouput files are needed
+    /// by the build, but out-of-date.
     ///
-    /// The command will run whenever its outputs are missing or if its
-    /// inputs have changed since its outputs were created.
+    /// An output file is out-of-date if it doesn't exist, or if any input
+    /// files have changed since the command was last run.
+    ///
+    /// - Note: the paths in the list of output files may depend on the list
+    ///   of input file paths, but **must not** depend on reading the contents
+    ///   of any input files. Such cases must be handled using a `prebuildCommand`.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
@@ -82,11 +97,14 @@ public extension Command {
     ///   - environment: Environment variable assignments visible to the executable.
     ///   - workingDirectory: Optional initial working directory when the executable
     ///     runs.
-    ///   - inputFiles: Files on which the contents of output files may depend.  
+    ///   - inputFiles: Files on which the contents of output files may depend.
     ///     Any paths passed as `arguments` should typically be passed here as well.
-    ///   - outputFiles: Files to be generated or updated by the executable.  Any
-    ///     swift files are compiled into the target for which this command was 
-    ///     generated; other files are treated as its resources as if by `.process(...)`.
+    ///   - outputFiles: Files to be generated or updated by the executable.
+    ///     Any files recognizable by their extension as source files
+    ///     (e.g. `.swift`) are compiled into the target for which this command
+    ///     was generated as if in its source directory; other files are treated
+    ///     as resources as if explicitly listed in `Package.swift` using
+    ///     `.process(...)`.
     @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
     static func buildCommand(
         displayName: String?,
@@ -107,35 +125,31 @@ public extension Command {
             outputFiles: outputFiles)
     }
 
-    /// Creates a command to run before the build. The executable should be a
-    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
-    /// arguments list and in the output files directory should be based on
-    /// the paths provided in the target build context structure.
+    /// Returns a command that runs unconditionally before every build.
     ///
-    /// The build command will run before the build starts, and is allowed to
-    /// create an arbitrary set of output files based on the contents of the
-    /// inputs.
-    ///
-    /// Because prebuild commands are run on every build, they can have a
-    /// significant performance impact and should only be used when there is
-    /// no way to know the names of the outputs before the command is run.
-    ///
-    /// The `outputFilesDirectory` parameter is the path of a directory into
-    /// which the command will write its output files. Any files that are in
-    /// that directory after the prebuild command finishes will be interpreted
-    /// according to the same build rules as for sources.
+    /// Prebuild commands can have a significant performance impact
+    /// and should only be used when there would be no way to know the
+    /// list of output file paths without first reading the contents
+    /// of one or more input files. Typically there is no way to
+    /// determine this list without first running the command, so
+    /// instead of encoding that list, the caller supplies an
+    /// `outputFilesDirectory` parameter, and all files in that
+    /// directory after the command runs are treated as output files.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The executable to be invoked; should be a tool looked
-    ///     up using `tool(named:)`, which may reference either a tool provided
-    ///     by a binary target or build from source.
-    ///   - arguments: Arguments to be passed to the tool. Any paths should be
-    ///     based on the paths provided in the target build context.
-    ///   - environment: Any custom environment assignments for the subprocess.
-    ///   - outputFilesDirectory: A directory into which the command can write
-    ///     output files that should be processed further.
+    ///   - executable: The absolute path to the executable to be invoked.
+    ///   - arguments: Command-line arguments to be passed to the executable.
+    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - workingDirectory: Optional initial working directory when the executable
+    ///     runs.
+    ///   - outputFilesDirectory: A directory into which the command writes its
+    ///     output files.  Any files there recognizable by their extension as
+    ///     source files (e.g. `.swift`) are compiled into the target for which
+    ///     this command was generated as if in its source directory; other
+    ///     files are treated as resources as if explicitly listed in
+    ///     `Package.swift` using `.process(...)`.
     static func prebuildCommand(
         displayName: String?,
         executable: Path,
@@ -152,36 +166,31 @@ public extension Command {
            outputFilesDirectory: outputFilesDirectory)
     }
 
-    /// Creates a command to run before the build. The executable should be a
-    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
-    /// arguments list and in the output files directory should be based on
-    /// the paths provided in the target build context structure.
-    ///
-    /// The build command will run before the build starts, and is allowed to
-    /// create an arbitrary set of output files based on the contents of the
-    /// inputs.
+    /// Returns a command that runs unconditionally before every build.
     ///
     /// Because prebuild commands are run on every build, they can have a
-    /// significant performance impact and should only be used when there is
-    /// no way to know the names of the outputs before the command is run.
-    ///
-    /// The `outputFilesDirectory` parameter is the path of a directory into
-    /// which the command will write its output files. Any files that are in
-    /// that directory after the prebuild command finishes will be interpreted
-    /// according to the same build rules as for sources.
+    /// significant performance impact and should only be used when there
+    /// would be no way to know the list of output file paths without first
+    /// reading the contents of one or more input files. Typically there is
+    /// no way to determine this list without first running the command, so
+    /// instead of encoding that list, the caller supplies an
+    /// `outputFilesDirectory` parameter, and all files in that directory
+    /// after the command runs are treated as output files.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The executable to be invoked; should be a tool looked
-    ///     up using `tool(named:)`, which may reference either a tool provided
-    ///     by a binary target or build from source.
-    ///   - arguments: Arguments to be passed to the tool. Any paths should be
-    ///     based on the paths provided in the target build context.
-    ///   - environment: Any custom environment assignments for the subprocess.
-    ///   - workingDirectory: Optional initial working directory of the command.
-    ///   - outputFilesDirectory: A directory into which the command can write
-    ///     output files that should be processed further.
+    ///   - executable: The absolute path to the executable to be invoked.
+    ///   - arguments: Command-line arguments to be passed to the executable.
+    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - workingDirectory: Optional initial working directory when the executable
+    ///     runs.
+    ///   - outputFilesDirectory: A directory into which the command writes its
+    ///     output files.  Any files there recognizable by their extension as
+    ///     source files (e.g. `.swift`) are compiled into the target for which
+    ///     this command was generated as if in its source directory; other
+    ///     files are treated as resources as if explicitly listed in
+    ///     `Package.swift` using `.process(...)`.
     @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
     static func prebuildCommand(
         displayName: String?,
