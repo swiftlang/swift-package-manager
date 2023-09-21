@@ -10,18 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import TSCBasic
 
 public struct MinimumDeploymentTarget {
-    public let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+    public let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform,PlatformVersion>()
 
     public static let `default`: MinimumDeploymentTarget = .init()
 
-    public init() {
-        xcTestMinimumDeploymentTargets = PlatformRegistry.default.knownPlatforms.reduce([PackageModel.Platform:PlatformVersion]()) {
-            var dict = $0
-            dict[$1] = Self.computeXCTestMinimumDeploymentTarget(for: $1)
-            return dict
+    private init() {
+    }
+
+    public func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
+        self.xcTestMinimumDeploymentTargets.memoize(platform) {
+            return Self.computeXCTestMinimumDeploymentTarget(for: platform)
         }
     }
 
