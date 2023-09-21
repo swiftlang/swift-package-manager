@@ -1842,6 +1842,16 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testAmbiguousCommandPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/AmbiguousCommands") { fixturePath in
+            let (stdout, _) = try SwiftPM.Package.execute(["plugin", "--package", "A", "A"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, .contains("Hello A!"))
+        }
+    }
+
     func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
