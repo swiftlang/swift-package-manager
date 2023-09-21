@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.8
 
 //===----------------------------------------------------------------------===//
 //
@@ -67,6 +67,14 @@ let systemSQLitePkgConfig: String? = nil
 let systemSQLitePkgConfig: String? = "sqlite3"
 #endif
 
+#if swift(>=5.10)
+let enabledFeatures: [SwiftSetting] = [
+    .enableExperimentalFeature("AccessLevelOnImport")
+]
+#else
+let enabledFeatures: [SwiftSetting] = []
+#endif
+
 /** An array of products which have two versions listed: one dynamically linked, the other with the
 automatic linking type with `-auto` suffix appended to product's name.
 */
@@ -130,7 +138,7 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
-            ],
+            ] + enabledFeatures,
             linkerSettings: packageLibraryLinkSettings
         ),
 
@@ -143,7 +151,7 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
-            ],
+            ] + enabledFeatures,
             linkerSettings: packageLibraryLinkSettings
         ),
 
@@ -160,14 +168,16 @@ let package = Package(
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: ["CMakeLists.txt", "Vendor/README.md"]
+            exclude: ["CMakeLists.txt", "Vendor/README.md"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -180,7 +190,8 @@ let package = Package(
                 "PackageModel",
                 "PackageSigning",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -190,14 +201,16 @@ let package = Package(
                 "Basics",
                 "PackageModel"
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
 
         // MARK: Project Model
@@ -206,7 +219,8 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -216,7 +230,8 @@ let package = Package(
                 "Basics",
                 "PackageModel"
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: enabledFeatures
         ),
 
         // MARK: Package Dependency Resolution
@@ -229,7 +244,8 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel"
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: enabledFeatures
         ),
 
         // MARK: Package Collections
@@ -240,7 +256,8 @@ let package = Package(
             dependencies: [],
             exclude: [
                 "Formats/v1.md"
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -252,7 +269,8 @@ let package = Package(
                 "PackageCollectionsSigning",
                 "PackageModel",
                 "SourceControl",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -262,7 +280,8 @@ let package = Package(
                 .product(name: "X509", package: "swift-certificates"),
                 "Basics",
                 "PackageCollectionsModel",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -271,7 +290,8 @@ let package = Package(
                 "Basics",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         
         .target(
@@ -282,7 +302,8 @@ let package = Package(
                 "Basics",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
 
         // MARK: Package Manager Functionality
@@ -294,7 +315,8 @@ let package = Package(
                 "Basics",
                 "PackageGraph"
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .target(
             /** Builds Modules and Products */
@@ -308,7 +330,8 @@ let package = Package(
                 .product(name: "SwiftDriver", package: "swift-driver"),
                 "DriverSupport",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .target(
             name: "DriverSupport",
@@ -317,13 +340,15 @@ let package = Package(
                 "PackageModel",
                 .product(name: "SwiftDriver", package: "swift-driver"),
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
             dependencies: ["SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt", "CODEOWNERS"]
+            exclude: ["CMakeLists.txt", "CODEOWNERS"],
+            swiftSettings: enabledFeatures
         ),
         .target(
             /** High level functionality */
@@ -338,7 +363,8 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .target(
             // ** High level interface for package discovery */
@@ -349,7 +375,8 @@ let package = Package(
                 "PackageModel",
                 "PackageRegistry",
                 "PackageSigning",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         // MARK: Commands
@@ -367,7 +394,8 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -383,7 +411,8 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -396,7 +425,8 @@ let package = Package(
                 "SPMBuildCore",
                 "PackageModel",
             ],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -409,7 +439,8 @@ let package = Package(
                 "CoreCommands",
                 "PackageCollections",
                 "PackageModel",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
@@ -428,20 +459,23 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 "Workspace",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .executableTarget(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
             dependencies: ["Basics", "Commands"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Builds packages */
             name: "swift-build",
             dependencies: ["Commands"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
@@ -455,30 +489,35 @@ let package = Package(
                 "PackageModel",
                 "XCBuildSupport",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
             name: "swift-experimental-sdk",
             dependencies: ["Commands", "SwiftSDKTool"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Commands"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Runs an executable product */
             name: "swift-run",
             dependencies: ["Commands"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands", "PackageCollectionsTool"]
+            dependencies: ["Commands", "PackageCollectionsTool"],
+            swiftSettings: enabledFeatures
         ),
         .executableTarget(
             /** Multi-tool entry point for SwiftPM. */
@@ -490,12 +529,14 @@ let package = Package(
                 "PackageCollectionsTool",
                 "PackageRegistryTool"
             ],
+            swiftSettings: enabledFeatures,
             linkerSettings: swiftpmLinkSettings
         ),
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands", "PackageRegistryTool"]
+            dependencies: ["Commands", "PackageRegistryTool"],
+            swiftSettings: enabledFeatures
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
@@ -507,7 +548,7 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
-            ]
+            ] + enabledFeatures
         ),
 
         // MARK: Additional Test Dependencies
@@ -526,13 +567,16 @@ let package = Package(
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",
                 "XCBuildSupport",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .target(
             /** Test for thread-santizer. */
             name: "tsan_utils",
-            dependencies: []),
+            dependencies: [],
+            swiftSettings: enabledFeatures
+        ),
 
         // MARK: SwiftPM tests
 
@@ -544,11 +588,13 @@ let package = Package(
                 "Archiver/Inputs/archive.zip",
                 "Archiver/Inputs/invalid_archive.tar.gz",
                 "Archiver/Inputs/invalid_archive.zip",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "SPMTestSupport"]
+            dependencies: ["Build", "PackageModel", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "LLBuildManifestTests",
@@ -556,32 +602,39 @@ let package = Package(
         ),
         .testTarget(
             name: "WorkspaceTests",
-            dependencies: ["Workspace", "SPMTestSupport"]
+            dependencies: ["Workspace", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageDescriptionTests",
-            dependencies: ["PackageDescription"]
+            dependencies: ["PackageDescription"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "SPMBuildCoreTests",
-            dependencies: ["SPMBuildCore", "SPMTestSupport"]
+            dependencies: ["SPMBuildCore", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "SPMTestSupport"],
-            exclude: ["Inputs", "pkgconfigInputs"]
+            exclude: ["Inputs", "pkgconfigInputs"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageLoadingPerformanceTests",
-            dependencies: ["PackageLoading", "SPMTestSupport"]
+            dependencies: ["PackageLoading", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageModelTests",
-            dependencies: ["PackageModel", "SPMTestSupport"]
+            dependencies: ["PackageModel", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageGraphTests",
-            dependencies: ["PackageGraph", "SPMTestSupport"]
+            dependencies: ["PackageGraph", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
@@ -591,51 +644,62 @@ let package = Package(
                 "Inputs/ZewoHTTPServer.json",
                 "Inputs/SourceKitten.json",
                 "Inputs/kitura.json",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageCollectionsModelTests",
-            dependencies: ["PackageCollectionsModel", "SPMTestSupport"]
+            dependencies: ["PackageCollectionsModel", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageCollectionsSigningTests",
-            dependencies: ["PackageCollectionsSigning", "SPMTestSupport"]
+            dependencies: ["PackageCollectionsSigning", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageCollectionsTests",
-            dependencies: ["PackageCollections", "SPMTestSupport", "tsan_utils"]
+            dependencies: ["PackageCollections", "SPMTestSupport", "tsan_utils"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageFingerprintTests",
-            dependencies: ["PackageFingerprint", "SPMTestSupport"]
+            dependencies: ["PackageFingerprint", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackagePluginAPITests",
-            dependencies: ["PackagePlugin", "SPMTestSupport"]
+            dependencies: ["PackagePlugin", "SPMTestSupport"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageRegistryTests",
-            dependencies: ["SPMTestSupport", "PackageRegistry"]
+            dependencies: ["SPMTestSupport", "PackageRegistry"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "PackageSigningTests",
-            dependencies: ["SPMTestSupport", "PackageSigning"]
+            dependencies: ["SPMTestSupport", "PackageSigning"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
-            exclude: ["Inputs/TestRepo.tgz"]
+            exclude: ["Inputs/TestRepo.tgz"],
+            swiftSettings: enabledFeatures
         ),
         .testTarget(
             name: "XCBuildSupportTests",
             dependencies: ["XCBuildSupport", "SPMTestSupport"],
-            exclude: ["Inputs/Foo.pc"]
+            exclude: ["Inputs/Foo.pc"],
+            swiftSettings: enabledFeatures
         ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",
             dependencies: ["Workspace"],
-            path: "Examples/package-info/Sources/package-info"
+            path: "Examples/package-info/Sources/package-info",
+            swiftSettings: enabledFeatures
         )
     ],
     swiftLanguageVersions: [.v5]
@@ -652,7 +716,8 @@ package.targets.append(contentsOf: [
             "swift-package",
             "swift-test",
             "SPMTestSupport"
-        ]
+        ],
+        swiftSettings: enabledFeatures
     ),
 ])
 
@@ -667,14 +732,16 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "swift-test",
                 "PackageModel",
                 "SPMTestSupport"
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .executableTarget(
             name: "dummy-swiftc",
             dependencies: [
                 "Basics",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
 
         .testTarget(
@@ -693,7 +760,8 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "SPMTestSupport",
                 "Workspace",
                 "dummy-swiftc",
-            ]
+            ],
+            swiftSettings: enabledFeatures
         ),
     ])
 }
