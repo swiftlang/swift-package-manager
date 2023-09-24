@@ -257,12 +257,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         // Set rpath such that dynamic libraries are looked up
-        // adjacent to the product.
-        if self.buildParameters.targetTriple.isLinux() {
-            args += ["-Xlinker", "-rpath=$ORIGIN"]
-        } else if self.buildParameters.targetTriple.isDarwin() {
-            let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
-            args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+        // adjacent to the product, unless overridden.
+        if !self.buildParameters.shouldDisableLocalRpath {
+            if self.buildParameters.targetTriple.isLinux() {
+                args += ["-Xlinker", "-rpath=$ORIGIN"]
+            } else if self.buildParameters.targetTriple.isDarwin() {
+                let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
+                args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+            }
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
