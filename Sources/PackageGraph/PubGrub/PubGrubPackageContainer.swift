@@ -76,16 +76,12 @@ internal final class PubGrubPackageContainer {
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
-        let versionSet = term.requirement
+        var versionSet = term.requirement
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
         if let pinnedVersion {
             if versionSet.contains(pinnedVersion) {
-                // Make sure the pinned version is still available
-                let version = try self.underlying.versionsDescending().first { pinnedVersion == $0 }
-                if version != nil {
-                    return version
-                }
+                versionSet = .exact(pinnedVersion)
             }
         }
 
