@@ -213,8 +213,8 @@ final class SwiftSDKBundleTests: XCTestCase {
     func testList() async throws {
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
             bundleArtifacts: [
+                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple]),
                 .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
-                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple])
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
@@ -236,6 +236,8 @@ final class SwiftSDKBundleTests: XCTestCase {
         )
 
         XCTAssertEqual(validBundles.count, bundles.count)
+
+        XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
     }
 
     func testBundleSelection() async throws {
