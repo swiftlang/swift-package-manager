@@ -487,4 +487,8 @@ extension [SwiftSDKBundle] {
 
         return matchedByID?.swiftSDK ?? matchedByTriple?.swiftSDK
     }
+
+    public var sortedArtifactIDs: [String] {
+        self.flatMap(\.artifacts.keys).sorted()
+    }
 }

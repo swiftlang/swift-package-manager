@@ -46,8 +46,8 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
             return
         }
 
-        for bundle in validBundles {
-            bundle.artifacts.keys.forEach { print($0) }
+        for artifactID in validBundles.sortedArtifactIDs {
+            print(artifactID)
         }
     }
 }
