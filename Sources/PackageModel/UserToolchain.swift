@@ -525,7 +525,7 @@ public final class UserToolchain: Toolchain {
         self.isSwiftDevelopmentToolchain = false
         #endif
 
-        if let customInstalledSwiftPMConfiguration = customInstalledSwiftPMConfiguration {
+        if let customInstalledSwiftPMConfiguration {
             self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
         } else {
             let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "config.json"])
