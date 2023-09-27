@@ -90,10 +90,10 @@ final class RegistryClientTests: XCTestCase {
         let metadata = try registryClient.getPackageMetadata(package: identity)
         XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
         XCTAssertEqual(metadata.alternateLocations!, [
-            URL("https://github.com/mona/LinkedList"),
-            URL("ssh://git@github.com:mona/LinkedList.git"),
-            URL("git@github.com:mona/LinkedList.git"),
-            URL("https://gitlab.com/mona/LinkedList"),
+            SourceControlURL("https://github.com/mona/LinkedList"),
+            SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+            SourceControlURL("git@github.com:mona/LinkedList.git"),
+            SourceControlURL("https://gitlab.com/mona/LinkedList"),
         ])
     }
 
@@ -258,9 +258,9 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(metadata.licenseURL, URL("https://github.com/mona/LinkedList/license"))
         XCTAssertEqual(metadata.readmeURL, URL("https://github.com/mona/LinkedList/readme"))
         XCTAssertEqual(metadata.repositoryURLs!, [
-            URL("https://github.com/mona/LinkedList"),
-            URL("ssh://git@github.com:mona/LinkedList.git"),
-            URL("git@github.com:mona/LinkedList.git"),
+            SourceControlURL("https://github.com/mona/LinkedList"),
+            SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+            SourceControlURL("git@github.com:mona/LinkedList.git"),
         ])
     }
 
@@ -1895,9 +1895,9 @@ final class RegistryClientTests: XCTestCase {
         let licenseURL = URL("https://github.com/\(identity.scope)/\(identity.name)/license")
         let readmeURL = URL("https://github.com/\(identity.scope)/\(identity.name)/readme")
         let repositoryURLs = [
-            URL("https://github.com/\(identity.scope)/\(identity.name)"),
-            URL("ssh://git@github.com:\(identity.scope)/\(identity.name).git"),
-            URL("git@github.com:\(identity.scope)/\(identity.name).git"),
+            SourceControlURL("https://github.com/\(identity.scope)/\(identity.name)"),
+            SourceControlURL("ssh://git@github.com:\(identity.scope)/\(identity.name).git"),
+            SourceControlURL("git@github.com:\(identity.scope)/\(identity.name).git"),
         ]
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -2550,7 +2550,7 @@ final class RegistryClientTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(registryURL, fingerprint.origin.url)
+        XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }
 
@@ -2877,7 +2877,7 @@ final class RegistryClientTests: XCTestCase {
 
     func testLookupIdentities() throws {
         let registryURL = URL("https://packages.example.com")
-        let packageURL = URL("https://example.com/mona/LinkedList")
+        let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -2921,7 +2921,7 @@ final class RegistryClientTests: XCTestCase {
 
     func testLookupIdentities404() throws {
         let registryURL = URL("https://packages.example.com")
-        let packageURL = URL("https://example.com/mona/LinkedList")
+        let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -2948,7 +2948,7 @@ final class RegistryClientTests: XCTestCase {
 
     func testLookupIdentities_ServerError() throws {
         let registryURL = URL("https://packages.example.com")
-        let packageURL = URL("https://example.com/mona/LinkedList")
+        let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let serverErrorHandler = ServerErrorHandler(
@@ -2982,7 +2982,7 @@ final class RegistryClientTests: XCTestCase {
 
     func testRequestAuthorization_token() throws {
         let registryURL = URL("https://packages.example.com")
-        let packageURL = URL("https://example.com/mona/LinkedList")
+        let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let token = "top-sekret"
@@ -3036,7 +3036,7 @@ final class RegistryClientTests: XCTestCase {
 
     func testRequestAuthorization_basic() throws {
         let registryURL = URL("https://packages.example.com")
-        let packageURL = URL("https://example.com/mona/LinkedList")
+        let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
         let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let user = "jappleseed"
@@ -3912,7 +3912,7 @@ extension RegistryClient {
         }
     }
 
-    fileprivate func lookupIdentities(scmURL: URL) throws -> Set<PackageIdentity> {
+    fileprivate func lookupIdentities(scmURL: SourceControlURL) throws -> Set<PackageIdentity> {
         try temp_await {
             self.lookupIdentities(
                 scmURL: scmURL,

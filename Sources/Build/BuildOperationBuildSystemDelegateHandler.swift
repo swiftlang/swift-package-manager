@@ -215,11 +215,20 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
         }
 
+        let testObservabilitySetup: String
+        if self.context.buildParameters.experimentalTestOutput, self.context.buildParameters.triple.supportsTestSummary {
+            testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
+        } else {
+            testObservabilitySetup = ""
+        }
+
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
         stream.send(
             #"""
+            \#(generateTestObservationCode(buildParameters: self.context.buildParameters))
+
             import XCTest
             \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
 
@@ -227,6 +236,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 static func main() {
+                    \#(testObservabilitySetup)
                     XCTMain(__allDiscoveredTests())
                 }
             }
@@ -369,9 +379,10 @@ public struct BuildDescription: Codable {
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)
         self.builtTestProducts = try plan.buildProducts.filter { $0.product.type == .test }.map { desc in
-            try BuiltTestProduct(
+            return try BuiltTestProduct(
                 productName: desc.product.name,
-                binaryPath: desc.binaryPath
+                binaryPath: desc.binaryPath,
+                packagePath: desc.package.path
             )
         }
         self.pluginDescriptions = pluginDescriptions
@@ -473,9 +484,11 @@ public final class BuildExecutionContext {
 final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
     override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
         guard let buildDescription = self.context.buildDescription else {
+            self.context.observabilityScope.emit(error: "unknown build description")
             return []
         }
-        guard let tool = buildDescription.copyCommands[command.name] else {
+        guard let tool = buildDescription.writeCommands[command.name] else {
+            self.context.observabilityScope.emit(error: "command \(command.name) not registered")
             return []
         }
 
@@ -1082,7 +1095,7 @@ extension Basics.Diagnostic {
 
     fileprivate static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Self {
         let producers = commands.map(\.description).joined(separator: ", ")
-        return .error("couldn't build \(output.key) because of missing producers: \(producers)")
+        return .error("couldn't build \(output.key) because of multiple producers: \(producers)")
     }
 
     fileprivate static func commandError(command: SPMLLBuild.Command, message: String) -> Self {

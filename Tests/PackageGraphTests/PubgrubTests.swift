@@ -306,7 +306,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() throws {
-        let fooURL = URL("https://example.com/foo")
+        let fooURL = SourceControlURL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
@@ -1457,34 +1457,6 @@ final class PubgrubTests: XCTestCase {
             ("a", .version(v1)),
             ("b", .version(v1_1)),
             ("c", .version(v1))
-        ])
-    }
-
-    func testMissingPin() throws {
-        // This checks that we can drop pins that are no longer available but still keep the ones
-        // which fit the constraints.
-        try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
-        try builder.serve("a", at: v1_1)
-        try builder.serve("b", at: v1)
-        try builder.serve("b", at: v1_1)
-
-        let dependencies = try builder.create(dependencies: [
-            "a": (.versionSet(v1Range), .specific(["a"])),
-        ])
-
-        // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
-        // to v1.
-        let pinsStore = try builder.create(pinsStore: [
-            "a": (.version(v1), .specific(["a"])),
-            "b": (.version("1.2.0"), .specific(["b"])),
-        ])
-
-        let resolver = builder.create(pins: pinsStore.pins)
-        let result = resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("a", .version(v1)),
-            ("b", .version(v1_1)),
         ])
     }
 
@@ -3253,7 +3225,7 @@ class DependencyGraphBuilder {
             store.pin(packageRef: try reference(for: package), state: pin.0)
         }
 
-        try! store.saveState(toolsVersion: ToolsVersion.current)
+        try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         return store
     }
 

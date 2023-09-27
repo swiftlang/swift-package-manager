@@ -451,10 +451,10 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        guard let repo = fetchedMap[path] else {
-            throw InternalError("unknown repo at \(path)")
+        guard let repository = self.fetchedMap[path] else {
+            throw InternalError("unknown repository at \(path)")
         }
-        return repo
+        return repository
     }
 
     public func createWorkingCopy(

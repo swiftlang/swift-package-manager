@@ -62,7 +62,14 @@ enum TestingSupport {
         throw InternalError("XCTestHelper binary not found, tried \(triedPaths.map { $0.pathString }.joined(separator: ", "))")
     }
 
-    static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [AbsolutePath: [TestSuite]] {
+    static func getTestSuites(
+        in testProducts: [BuiltTestProduct],
+        swiftTool: SwiftTool,
+        enableCodeCoverage: Bool,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
             .map {(
                 $0.bundlePath,
@@ -70,6 +77,8 @@ enum TestingSupport {
                     fromTestAt: $0.bundlePath,
                     swiftTool: swiftTool,
                     enableCodeCoverage: enableCodeCoverage,
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
                     sanitizers: sanitizers
                 )
             )}
@@ -86,21 +95,31 @@ enum TestingSupport {
     /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of TestSuite
-    static func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [TestSuite] {
+    static func getTestSuites(
+        fromTestAt path: AbsolutePath,
+        swiftTool: SwiftTool,
+        enableCodeCoverage: Bool,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [TestSuite] {
         // Run the correct tool.
+        var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try Self.constructTestEnvironment(
-                toolchain: try swiftTool.getDestinationToolchain(),
+                toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
-                    enableCodeCoverage: enableCodeCoverage
+                    enableCodeCoverage: enableCodeCoverage,
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput
                 ),
                 sanitizers: sanitizers
             )
 
             // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-            let sdkPlatformFrameworksPath = try Destination.sdkPlatformFrameworkPaths()
+            let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths()
             // appending since we prefer the user setting (if set) to the one we inject
             env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
             env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
@@ -111,17 +130,18 @@ enum TestingSupport {
         }
         #else
         let env = try Self.constructTestEnvironment(
-            toolchain: try swiftTool.getDestinationToolchain(),
+            toolchain: try swiftTool.getTargetToolchain(),
             buildParameters: swiftTool.buildParametersForTest(
-                enableCodeCoverage: enableCodeCoverage
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding
             ),
             sanitizers: sanitizers
         )
-        let args = [path.description, "--dump-tests-json"]
+        args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+        return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
     }
 
     /// Creates the environment needed to test related tools.
@@ -184,13 +204,17 @@ enum TestingSupport {
 extension SwiftTool {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
-        enableTestability: Bool? = nil
+        enableTestability: Bool? = nil,
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
         parameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
         parameters.enableTestability = enableTestability ?? true
+        parameters.shouldSkipBuilding = shouldSkipBuilding
+        parameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

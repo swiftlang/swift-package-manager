@@ -55,7 +55,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                     builtProducts.append(
                         BuiltTestProduct(
                             productName: product.name,
-                            binaryPath: binaryPath
+                            binaryPath: binaryPath,
+                            packagePath: package.path
                         )
                     )
                 }
@@ -103,6 +104,10 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func build(subset: BuildSubset) throws {
+        guard !buildParameters.shouldSkipBuilding else {
+            return
+        }
+
         let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
@@ -184,7 +189,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             platform: "macosx",
             sdk: "macosx",
             sdkVariant: nil,
-            targetArchitecture: buildParameters.triple.archName,
+            targetArchitecture: buildParameters.targetTriple.archName,
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )

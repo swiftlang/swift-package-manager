@@ -193,7 +193,7 @@ public struct ManifestValidator {
                         diagnostics.append(.unknownTargetPackageDependency(
                             packageName: packageName ?? "unknown package name",
                             targetName: target.name,
-                            validPackages: self.manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
+                            validPackages: self.manifest.dependencies
                         ))
                     }
                 case .byName(let name, _):
@@ -205,7 +205,7 @@ public struct ManifestValidator {
                         diagnostics.append(.unknownTargetDependency(
                             dependency: name,
                             targetName: target.name,
-                            validDependencies: self.manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
+                            validDependencies: self.manifest.dependencies
                         ))
                     }
                 }
@@ -268,20 +268,13 @@ extension Basics.Diagnostic {
         .error("invalid type for binary product '\(productName)'; products referencing only binary targets must be executable or automatic library products")
     }
 
-    /*static func duplicateDependency(dependencyIdentity: PackageIdentity) -> Self {
-        .error("duplicate dependency '\(dependencyIdentity)'")    
+    static func unknownTargetDependency(dependency: String, targetName: String, validDependencies: [PackageDependency]) -> Self {
+
+        .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: \(validDependencies.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
-    static func duplicateDependencyName(dependencyName: String) -> Self {
-        .error("duplicate dependency named '\(dependencyName)'; consider differentiating them using the 'name' argument")
-    }*/
-
-    static func unknownTargetDependency(dependency: String, targetName: String, validDependencies: [String]) -> Self {
-        .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: '\(validDependencies.joined(separator: "', '"))'")
-    }
-
-    static func unknownTargetPackageDependency(packageName: String, targetName: String, validPackages: [String]) -> Self {
-        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: '\(validPackages.joined(separator: "', '"))'")
+    static func unknownTargetPackageDependency(packageName: String, targetName: String, validPackages: [PackageDependency]) -> Self {
+        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: \(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {
@@ -327,4 +320,30 @@ extension Basics.Diagnostic {
 extension TargetDescription {
     fileprivate var isRemote: Bool { url != nil }
     fileprivate var isLocal: Bool { path != nil }
+}
+
+extension PackageDependency {
+    fileprivate var descriptionForValidation: String {
+        var description = "'\(self.nameForTargetDependencyResolutionOnly)'"
+
+        if let locationsString = {
+            switch self {
+            case .fileSystem(let settings):
+                return "at '\(settings.path.pathString)'"
+            case .sourceControl(let settings):
+                switch settings.location {
+                case .local(let path):
+                    return "at '\(path.pathString)'"
+                case .remote(let url):
+                    return "from '\(url.absoluteString)'"
+                }
+            case .registry:
+                return .none
+            }
+        }() {
+            description += " (\(locationsString))"
+        }
+
+        return description
+    }
 }

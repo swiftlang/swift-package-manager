@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageModel
 import SPMTestSupport
 import XCTest
 
@@ -36,6 +37,7 @@ import XCTest
 final class IncrementalBuildTests: XCTestCase {
 
     func testIncrementalSingleModuleCLibraryInSources() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try fixture(name: "CFamilyTargets/CLibrarySources") { fixturePath in
             // Build it once and capture the log (this will be a full build).
             let (fullLog, _) = try executeSwiftBuild(fixturePath)
@@ -93,6 +95,7 @@ final class IncrementalBuildTests: XCTestCase {
     }
 
     func testBuildManifestCaching() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() throws -> String {
@@ -126,6 +129,7 @@ final class IncrementalBuildTests: XCTestCase {
     }
 
     func testDisableBuildManifestCaching() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() throws -> String {

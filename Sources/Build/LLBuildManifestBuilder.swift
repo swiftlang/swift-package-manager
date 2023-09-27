@@ -53,6 +53,9 @@ public class LLBuildManifestBuilder {
     var buildParameters: BuildParameters { self.plan.buildParameters }
     var buildEnvironment: BuildEnvironment { self.buildParameters.buildEnvironment }
 
+    /// Mapping from Swift compiler path to Swift get version files.
+    var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
+
     /// Create a new builder with a build plan.
     public init(
         _ plan: BuildPlan,
@@ -71,6 +74,8 @@ public class LLBuildManifestBuilder {
     /// Generate manifest at the given path.
     @discardableResult
     public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
+        self.swiftGetVersionFiles.removeAll()
+
         self.manifest.createTarget(TargetKind.main.targetName)
         self.manifest.createTarget(TargetKind.test.targetName)
         self.manifest.defaultTarget = TargetKind.main.targetName
@@ -224,6 +229,7 @@ extension LLBuildManifestBuilder {
                 if !self.disableSandboxForPluginCommands {
                     commandLine = try Sandbox.apply(
                         command: commandLine,
+                        fileSystem: self.fileSystem,
                         strictness: .writableTemporaryDirectory,
                         writableDirectories: [result.pluginOutputDirectory]
                     )
@@ -261,14 +267,6 @@ extension LLBuildManifestBuilder {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
-                objectNodes: objectNodes,
-                moduleNode: moduleNode
-            )
-        } else if self.buildParameters.emitSwiftModuleSeparately {
-            try self.addSwiftCmdsEmitSwiftModuleSeparately(
-                target,
-                inputs: inputs,
-                objectNodes: objectNodes,
                 moduleNode: moduleNode
             )
         } else {
@@ -282,7 +280,6 @@ extension LLBuildManifestBuilder {
     private func addSwiftCmdsViaIntegratedDriver(
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
-        objectNodes: [Node],
         moduleNode: Node
     ) throws {
         // Use the integrated Swift driver to compute the set of frontend
@@ -580,32 +577,6 @@ extension LLBuildManifestBuilder {
         )
     }
 
-    private func addSwiftCmdsEmitSwiftModuleSeparately(
-        _ target: SwiftTargetBuildDescription,
-        inputs: [Node],
-        objectNodes: [Node],
-        moduleNode: Node
-    ) throws {
-        // FIXME: We need to ingest the emitted dependencies.
-
-        self.manifest.addShellCmd(
-            name: target.moduleOutputPath.pathString,
-            description: "Emitting module for \(target.target.name)",
-            inputs: inputs,
-            outputs: [moduleNode],
-            arguments: try target.emitModuleCommandLine()
-        )
-
-        let cmdName = target.target.getCommandName(config: self.buildConfig)
-        self.manifest.addShellCmd(
-            name: cmdName,
-            description: "Compiling module \(target.target.name)",
-            inputs: inputs,
-            outputs: objectNodes,
-            arguments: try target.emitObjectsCommandLine()
-        )
-    }
-
     private func addCmdWithBuiltinSwiftTool(
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
@@ -639,6 +610,9 @@ extension LLBuildManifestBuilder {
         _ target: SwiftTargetBuildDescription
     ) throws -> [Node] {
         var inputs = target.sources.map(Node.file)
+
+        let swiftVersionFilePath = addSwiftGetVersionCommand(buildParameters: target.buildParameters)
+        inputs.append(.file(swiftVersionFilePath))
 
         // Add resources node as the input to the target. This isn't great because we
         // don't need to block building of a module until its resources are assembled but
@@ -764,6 +738,22 @@ extension LLBuildManifestBuilder {
             outputs: [.file(target.wrappedModuleOutputPath)],
             arguments: moduleWrapArgs
         )
+    }
+
+    private func addSwiftGetVersionCommand(buildParameters: BuildParameters) -> AbsolutePath {
+        let swiftCompilerPath = buildParameters.toolchain.swiftCompilerPath
+
+        // If we are already tracking this compiler, we can re-use the existing command by just returning the tracking file.
+        if let swiftVersionFilePath = swiftGetVersionFiles[swiftCompilerPath] {
+            return swiftVersionFilePath
+        }
+
+        // Otherwise, come up with a path for the new file and generate a command to populate it.
+        let swiftCompilerPathHash = String(swiftCompilerPath.pathString.hash, radix: 16, uppercase: true)
+        let swiftVersionFilePath = buildParameters.buildPath.appending(component: "swift-version-\(swiftCompilerPathHash).txt")
+        self.manifest.addSwiftGetVersionCommand(swiftCompilerPath: swiftCompilerPath, swiftVersionFilePath: swiftVersionFilePath)
+        swiftGetVersionFiles[swiftCompilerPath] = swiftVersionFilePath
+        return swiftVersionFilePath
     }
 }
 
@@ -986,6 +976,17 @@ extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
         let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
 
+        // Add dependency on Info.plist generation on Darwin platforms.
+        let testInputs: [AbsolutePath]
+        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin(), buildProduct.buildParameters.experimentalTestOutput {
+            let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
+            testInputs = [testBundleInfoPlistPath]
+
+            self.manifest.addWriteInfoPlistCommand(principalClass: "\(buildProduct.product.targets[0].c99name).SwiftPMXCTestObserver", outputPath: testBundleInfoPlistPath)
+        } else {
+            testInputs = []
+        }
+
         switch buildProduct.product.type {
         case .library(.static):
             try self.manifest.addShellCmd(
@@ -997,7 +998,7 @@ extension LLBuildManifestBuilder {
             )
 
         default:
-            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath } + [buildProduct.linkFileListPath]
+            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath } + [buildProduct.linkFileListPath] + testInputs
 
             try self.manifest.addShellCmd(
                 name: cmdName,

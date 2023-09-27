@@ -28,7 +28,7 @@ public protocol PackageConditionProtocol: Codable {
 }
 
 /// Wrapper for package condition so it can be conformed to Codable.
-struct PackageConditionWrapper: Codable {
+struct PackageConditionWrapper: Codable, Equatable, Hashable {
     var platform: PlatformsCondition?
     var config: ConfigurationCondition?
 
@@ -55,7 +55,7 @@ struct PackageConditionWrapper: Codable {
 }
 
 /// Platforms condition implies that an assignment is valid on these platforms.
-public struct PlatformsCondition: PackageConditionProtocol {
+public struct PlatformsCondition: PackageConditionProtocol, Equatable, Hashable {
     public let platforms: [Platform]
 
     public init(platforms: [Platform]) {
@@ -70,7 +70,7 @@ public struct PlatformsCondition: PackageConditionProtocol {
 
 /// A configuration condition implies that an assignment is valid on
 /// a particular build configuration.
-public struct ConfigurationCondition: PackageConditionProtocol {
+public struct ConfigurationCondition: PackageConditionProtocol, Equatable, Hashable {
     public let configuration: BuildConfiguration
 
     public init(configuration: BuildConfiguration) {

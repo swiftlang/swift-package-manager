@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@testable import Basics
 @testable import PackageModel
 @testable import SPMBuildCore
 import XCTest
@@ -31,7 +31,7 @@ private let extraFlags = BuildFlags(
 )
 
 private let destinationV1 = (
-    path: "\(bundleRootPath)/destinationV1.json",
+    path: bundleRootPath.appending(component: "destinationV1.json"),
     json: #"""
     {
         "version": 1,
@@ -42,11 +42,11 @@ private let destinationV1 = (
         "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
         "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let destinationV2 = (
-    path: "\(bundleRootPath)/destinationV2.json",
+    path: bundleRootPath.appending(component: "destinationV2.json"),
     json: #"""
     {
         "version": 2,
@@ -59,11 +59,11 @@ private let destinationV2 = (
         "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
         "extraLinkerFlags": \#(extraFlags.linkerFlags)
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let toolsetNoRootDestinationV3 = (
-    path: "\(bundleRootPath)/toolsetNoRootDestinationV3.json",
+    path: bundleRootPath.appending(component: "toolsetNoRootDestinationV3.json"),
     json: #"""
     {
         "runTimeTriples": {
@@ -74,11 +74,11 @@ private let toolsetNoRootDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let toolsetRootDestinationV3 = (
-    path: "\(bundleRootPath)/toolsetRootDestinationV3.json",
+    path: bundleRootPath.appending(component: "toolsetRootDestinationV3.json"),
     json: #"""
     {
         "runTimeTriples": {
@@ -89,11 +89,11 @@ private let toolsetRootDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let missingToolsetDestinationV3 = (
-    path: "\(bundleRootPath)/missingToolsetDestinationV3.json",
+    path: bundleRootPath.appending(component: "missingToolsetDestinationV3.json"),
     json: #"""
     {
         "runTimeTriples": {
@@ -104,11 +104,11 @@ private let missingToolsetDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let invalidVersionDestinationV3 = (
-    path: "\(bundleRootPath)/invalidVersionDestinationV3.json",
+    path: bundleRootPath.appending(component: "invalidVersionDestinationV3.json"),
     json: #"""
     {
         "runTimeTriples": {
@@ -119,11 +119,11 @@ private let invalidVersionDestinationV3 = (
         },
         "schemaVersion": "2.9"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let invalidToolsetDestinationV3 = (
-    path: "\(bundleRootPath)/invalidToolsetDestinationV3.json",
+    path: bundleRootPath.appending(component: "invalidToolsetDestinationV3.json"),
     json: #"""
     {
         "runTimeTriples": {
@@ -134,11 +134,11 @@ private let invalidToolsetDestinationV3 = (
         },
         "schemaVersion": "3.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let toolsetNoRootSwiftSDKv4 = (
-    path: "\(bundleRootPath)/toolsetNoRootSwiftSDKv4.json",
+    path: bundleRootPath.appending(component: "toolsetNoRootSwiftSDKv4.json"),
     json: #"""
     {
         "targetTriples": {
@@ -149,11 +149,11 @@ private let toolsetNoRootSwiftSDKv4 = (
         },
         "schemaVersion": "4.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let toolsetRootSwiftSDKv4 = (
-    path: "\(bundleRootPath)/toolsetRootSwiftSDKv4.json",
+    path: bundleRootPath.appending(component: "toolsetRootSwiftSDKv4.json"),
     json: #"""
     {
         "targetTriples": {
@@ -164,11 +164,11 @@ private let toolsetRootSwiftSDKv4 = (
         },
         "schemaVersion": "4.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let missingToolsetSwiftSDKv4 = (
-    path: "\(bundleRootPath)/missingToolsetSwiftSDKv4.json",
+    path: bundleRootPath.appending(component: "missingToolsetSwiftSDKv4.json"),
     json: #"""
     {
         "targetTriples": {
@@ -179,11 +179,11 @@ private let missingToolsetSwiftSDKv4 = (
         },
         "schemaVersion": "4.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let invalidVersionSwiftSDKv4 = (
-    path: "\(bundleRootPath)/invalidVersionSwiftSDKv4.json",
+    path: bundleRootPath.appending(component: "invalidVersionSwiftSDKv4.json"),
     json: #"""
     {
         "targetTriples": {
@@ -194,11 +194,11 @@ private let invalidVersionSwiftSDKv4 = (
         },
         "schemaVersion": "42.9"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let invalidToolsetSwiftSDKv4 = (
-    path: "\(bundleRootPath)/invalidToolsetSwiftSDKv4.json",
+    path: bundleRootPath.appending(component: "invalidToolsetSwiftSDKv4.json"),
     json: #"""
     {
         "targetTriples": {
@@ -209,7 +209,7 @@ private let invalidToolsetSwiftSDKv4 = (
         },
         "schemaVersion": "4.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
@@ -217,7 +217,7 @@ private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.all
 })
 
 private let otherToolsNoRoot = (
-    path: "/tools/otherToolsNoRoot.json",
+    path: try! AbsolutePath(validating: "/tools/otherToolsNoRoot.json"),
     json: #"""
     {
         "schemaVersion": "1.0",
@@ -225,13 +225,13 @@ private let otherToolsNoRoot = (
         "linker": { "path": "\#(usrBinTools[.linker]!)" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let cCompilerOptions = ["-fopenmp"]
 
 private let someToolsWithRoot = (
-    path: "/tools/someToolsWithRoot.json",
+    path: try! AbsolutePath(validating: "/tools/someToolsWithRoot.json"),
     json: #"""
     {
         "schemaVersion": "1.0",
@@ -241,11 +241,11 @@ private let someToolsWithRoot = (
         "librarian": { "path": "llvm-ar" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let invalidToolset = (
-    path: "/tools/invalidToolset.json",
+    path: try! AbsolutePath(validating: "/tools/invalidToolset.json"),
     json: #"""
     {
       "rootPath" : "swift.xctoolchain\/usr\/bin",
@@ -271,27 +271,27 @@ private let invalidToolset = (
       ],
       "schemaVersion" : "1.0"
     }
-    """#
+    """# as SerializedJSON
 )
 
 private let sdkRootAbsolutePath = bundleRootPath.appending(sdkRootDir)
 private let toolchainBinAbsolutePath = bundleRootPath.appending(toolchainBinDir)
 
-private let parsedDestinationV2GNU = Destination(
+private let parsedDestinationV2GNU = SwiftSDK(
     hostTriple: hostTriple,
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
     pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
-private let parsedDestinationV2Musl = Destination(
+private let parsedDestinationV2Musl = SwiftSDK(
     hostTriple: hostTriple,
     targetTriple: linuxMuslTargetTriple,
     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
     pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
-private let parsedToolsetNoRootDestination = Destination(
+private let parsedToolsetNoRootDestination = SwiftSDK(
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(
         knownTools: [
@@ -308,7 +308,7 @@ private let parsedToolsetNoRootDestination = Destination(
     )
 )
 
-private let parsedToolsetRootDestination = Destination(
+private let parsedToolsetRootDestination = SwiftSDK(
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(
         knownTools: [
@@ -326,37 +326,39 @@ private let parsedToolsetRootDestination = Destination(
     )
 )
 
+private let testFiles: [(path: AbsolutePath, json: SerializedJSON)] = [
+    destinationV1,
+    destinationV2,
+    toolsetNoRootDestinationV3,
+    toolsetRootDestinationV3,
+    missingToolsetDestinationV3,
+    invalidVersionDestinationV3,
+    invalidToolsetDestinationV3,
+    toolsetNoRootSwiftSDKv4,
+    toolsetRootSwiftSDKv4,
+    missingToolsetSwiftSDKv4,
+    invalidVersionSwiftSDKv4,
+    invalidToolsetSwiftSDKv4,
+    otherToolsNoRoot,
+    someToolsWithRoot,
+    invalidToolset,
+]
+
 final class DestinationTests: XCTestCase {
     func testDestinationCodable() throws {
         let fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath(validating: "/tools"))
         try fs.createDirectory(AbsolutePath(validating: "/tmp"))
         try fs.createDirectory(AbsolutePath(validating: "\(bundleRootPath)"))
-        for testFile in [
-            destinationV1,
-            destinationV2,
-            toolsetNoRootDestinationV3,
-            toolsetRootDestinationV3,
-            missingToolsetDestinationV3,
-            invalidVersionDestinationV3,
-            invalidToolsetDestinationV3,
-            toolsetNoRootSwiftSDKv4,
-            toolsetRootSwiftSDKv4,
-            missingToolsetSwiftSDKv4,
-            invalidVersionSwiftSDKv4,
-            invalidToolsetSwiftSDKv4,
-            otherToolsNoRoot,
-            someToolsWithRoot,
-            invalidToolset,
-        ] {
-            try fs.writeFileContents(AbsolutePath(validating: testFile.path), string: testFile.json)
+        for testFile in testFiles {
+            try fs.writeFileContents(testFile.path, string: testFile.json.underlying)
         }
 
         let system = ObservabilitySystem.makeForTesting()
         let observability = system.topScope
 
-        let destinationV1Decoded = try Destination.decode(
-            fromFile: AbsolutePath(validating: destinationV1.path),
+        let destinationV1Decoded = try SwiftSDK.decode(
+            fromFile: destinationV1.path,
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -367,7 +369,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(
             destinationV1Decoded,
             [
-                Destination(
+                SwiftSDK(
                     targetTriple: linuxGNUTargetTriple,
                     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: flagsWithoutLinkerFlags),
                     pathsConfiguration: .init(
@@ -377,107 +379,111 @@ final class DestinationTests: XCTestCase {
             ]
         )
 
-        let destinationV2Decoded = try Destination.decode(
-            fromFile: AbsolutePath(validating: destinationV2.path),
+        let destinationV2Decoded = try SwiftSDK.decode(
+            fromFile: destinationV2.path,
             fileSystem: fs,
             observabilityScope: observability
         )
 
         XCTAssertEqual(destinationV2Decoded, [parsedDestinationV2GNU])
 
-        let toolsetNoRootDestinationV3Decoded = try Destination.decode(
-            fromFile: AbsolutePath(validating: toolsetNoRootDestinationV3.path),
+        let toolsetNoRootDestinationV3Decoded = try SwiftSDK.decode(
+            fromFile: toolsetNoRootDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
         )
 
         XCTAssertEqual(toolsetNoRootDestinationV3Decoded, [parsedToolsetNoRootDestination])
 
-        let toolsetRootDestinationV3Decoded = try Destination.decode(
-            fromFile: AbsolutePath(validating: toolsetRootDestinationV3.path),
+        let toolsetRootDestinationV3Decoded = try SwiftSDK.decode(
+            fromFile: toolsetRootDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
         )
 
         XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestination])
 
-        XCTAssertThrowsError(try Destination.decode(
-            fromFile: AbsolutePath(validating: missingToolsetDestinationV3.path),
+        XCTAssertThrowsError(try SwiftSDK.decode(
+            fromFile: missingToolsetDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/asdf.json"
             XCTAssertEqual(
                 $0 as? StringError,
                 StringError(
                     """
-                    Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
-                    system
+                    Couldn't parse toolset configuration at `\(toolsetDefinition)`: \
+                    \(toolsetDefinition) doesn't exist in file system
                     """
                 )
             )
         }
-        XCTAssertThrowsError(try Destination.decode(
-            fromFile: AbsolutePath(validating: invalidVersionDestinationV3.path),
+        XCTAssertThrowsError(try SwiftSDK.decode(
+            fromFile: invalidVersionDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
         ))
 
-        XCTAssertThrowsError(try Destination.decode(
-            fromFile: AbsolutePath(validating: invalidToolsetDestinationV3.path),
+        XCTAssertThrowsError(try SwiftSDK.decode(
+            fromFile: invalidToolsetDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/invalidToolset.json"
             XCTAssertTrue(
                 ($0 as? StringError)?.description
-                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: ") ?? false
+                    .hasPrefix("Couldn't parse toolset configuration at `\(toolsetDefinition)`: ") ?? false
             )
         }
 
-        let toolsetNoRootSwiftSDKv4Decoded = try Destination.decode(
-            fromFile: AbsolutePath(validating: toolsetNoRootSwiftSDKv4.path),
+        let toolsetNoRootSwiftSDKv4Decoded = try SwiftSDK.decode(
+            fromFile: toolsetNoRootSwiftSDKv4.path,
             fileSystem: fs,
             observabilityScope: observability
         )
 
         XCTAssertEqual(toolsetNoRootSwiftSDKv4Decoded, [parsedToolsetNoRootDestination])
 
-        let toolsetRootSwiftSDKv4Decoded = try Destination.decode(
-            fromFile: AbsolutePath(validating: toolsetRootSwiftSDKv4.path),
+        let toolsetRootSwiftSDKv4Decoded = try SwiftSDK.decode(
+            fromFile: toolsetRootSwiftSDKv4.path,
             fileSystem: fs,
             observabilityScope: observability
         )
 
         XCTAssertEqual(toolsetRootSwiftSDKv4Decoded, [parsedToolsetRootDestination])
 
-        XCTAssertThrowsError(try Destination.decode(
-            fromFile: AbsolutePath(validating: missingToolsetSwiftSDKv4.path),
+        XCTAssertThrowsError(try SwiftSDK.decode(
+            fromFile: missingToolsetSwiftSDKv4.path,
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/asdf.json"
             XCTAssertEqual(
                 $0 as? StringError,
                 StringError(
                     """
-                    Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
-                    system
+                    Couldn't parse toolset configuration at `\(toolsetDefinition)`: \
+                    \(toolsetDefinition) doesn't exist in file system
                     """
                 )
             )
         }
-        XCTAssertThrowsError(try Destination.decode(
-            fromFile: AbsolutePath(validating: invalidVersionSwiftSDKv4.path),
+        XCTAssertThrowsError(try SwiftSDK.decode(
+            fromFile: invalidVersionSwiftSDKv4.path,
             fileSystem: fs,
             observabilityScope: observability
         ))
 
-        XCTAssertThrowsError(try Destination.decode(
-            fromFile: AbsolutePath(validating: invalidToolsetSwiftSDKv4.path),
+        XCTAssertThrowsError(try SwiftSDK.decode(
+            fromFile: invalidToolsetSwiftSDKv4.path,
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/invalidToolset.json"
             XCTAssertTrue(
                 ($0 as? StringError)?.description
-                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: ") ?? false
+                    .hasPrefix("Couldn't parse toolset configuration at `\(toolsetDefinition)`: ") ?? false
             )
         }
     }
@@ -521,7 +527,7 @@ final class DestinationTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
 
         XCTAssertEqual(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id1",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
@@ -532,7 +538,7 @@ final class DestinationTests: XCTestCase {
         // Expecting `nil` because no host triple is specified for this destination
         // in the fake destination bundle.
         XCTAssertNil(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id2",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
@@ -540,7 +546,7 @@ final class DestinationTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id3",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope

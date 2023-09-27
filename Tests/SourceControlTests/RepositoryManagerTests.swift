@@ -126,14 +126,6 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testCache() throws {
-        if #available(macOS 11, *) {
-            // No need to skip the test.
-        }
-        else {
-            // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
-            try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
-        }
-
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -332,6 +324,19 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testCanonicalLocation() throws {
+        let variants: [RepositorySpecifier] = [
+            .init(url: "https://scm.com/org/foo"),
+            .init(url: "https://scm.com/org/foo.git"),
+            .init(url: "http://scm.com/org/foo"),
+            .init(url: "http://scm.com/org/foo.git")
+        ]
+
+        for variant in variants {
+            XCTAssertEqual(try variant.storagePath(), try variants[0].storagePath())
+        }
+    }
+
     func testConcurrency() throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
@@ -354,7 +359,7 @@ class RepositoryManagerTests: XCTestCase {
                 group.enter()
                 delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
                 manager.lookup(
-                    package: .init(url: dummyRepo.url),
+                    package: .init(url: SourceControlURL(dummyRepo.url)),
                     repository: dummyRepo,
                     updateStrategy: .always,
                     observabilityScope: observability.topScope,
@@ -459,7 +464,7 @@ class RepositoryManagerTests: XCTestCase {
             provider.startGroup.enter()
             finishGroup.enter()
             manager.lookup(
-                package: .init(url: repository.url),
+                package: .init(urlString: repository.url),
                 repository: repository,
                 updateStrategy: .never,
                 observabilityScope: observability.topScope,
@@ -598,7 +603,7 @@ extension RepositoryManager {
     ) throws -> RepositoryHandle {
         return try temp_await {
             self.lookup(
-                package: .init(url: repository.url),
+                package: .init(url: SourceControlURL(repository.url)),
                 repository: repository,
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
@@ -679,7 +684,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
 
         // We only support one dummy URL.
-        let basename = repository.url.pathComponents.last!
+        let basename = (repository.url as NSString).lastPathComponent
         if basename != "dummy" {
             throw DummyError.invalidRepository
         }

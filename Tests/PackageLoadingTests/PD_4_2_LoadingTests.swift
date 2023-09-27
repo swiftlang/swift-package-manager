@@ -23,6 +23,8 @@ import enum TSCBasic.PathValidationError
 
 import func TSCTestSupport.withCustomEnv
 
+import struct TSCUtility.Version
+
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2
@@ -38,7 +40,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
-                    .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                    .package(url: "\(AbsolutePath("/foo1").escapedPathString)", from: "1.0.0"),
                 ],
                 targets: [
                     .target(
@@ -253,15 +255,15 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
-                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath("/foo1").escapedPathString)", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath("/foo2").escapedPathString)", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
-                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString())"),
-                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .exact("1.2.3")),
-                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
-                   .package(url: "\(AbsolutePath("/foo7").escapedPathString())", .branch("master")),
-                   .package(url: "\(AbsolutePath("/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "\(AbsolutePath("/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString)"),
+                   .package(url: "\(AbsolutePath("/foo5").escapedPathString)", .exact("1.2.3")),
+                   .package(url: "\(AbsolutePath("/foo6").escapedPathString)", "1.2.3"..<"2.0.0"),
+                   .package(url: "\(AbsolutePath("/foo7").escapedPathString)", .branch("master")),
+                   .package(url: "\(AbsolutePath("/foo8").escapedPathString)", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "\(AbsolutePath("/foo9").escapedPathString)", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
                    .package(path: "~foo11"),
                    .package(path: "~/path/to/~/foo12"),
@@ -831,6 +833,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             // warm up caches
             delegate.prepare()
@@ -843,6 +846,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -867,6 +871,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -912,6 +917,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
@@ -945,6 +951,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -988,15 +995,40 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
         }
 
-        func willLoad(manifest: AbsolutePath) {
-            self.loaded.append(manifest)
+        func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+            // noop
+        }
+
+        func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+            self.loaded.append(manifestPath)
             self.loadingGroup.leave()
         }
 
-        func willParse(manifest: AbsolutePath) {
-            self.parsed.append(manifest)
+        func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+            // noop
+        }
+
+        func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+            // noop
+        }
+
+        func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+            // noop
+        }
+
+        func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+            // noop
+        }
+
+        func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+            // noop
+        }
+
+        func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+            self.parsed.append(manifestPath)
             self.parsingGroup.leave()
         }
+
 
         func clear() {
             self.loaded.clear()

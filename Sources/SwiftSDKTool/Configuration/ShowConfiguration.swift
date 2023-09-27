@@ -19,7 +19,7 @@ struct ShowConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "show",
         abstract: """
-        Prints all configuration properties currently applied to a given destination and run-time triple.
+        Prints all configuration properties currently applied to a given Swift SDK and target triple.
         """
     )
 
@@ -28,28 +28,28 @@ struct ShowConfiguration: ConfigurationSubcommand {
 
     @Argument(
         help: """
-        An identifier of an already installed destination. Use the `list` subcommand to see all available \
+        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
         identifiers.
         """
     )
     var sdkID: String
 
-    @Argument(help: "The run-time triple of the destination to configure.")
+    @Argument(help: "The target triple of the Swift SDK to configure.")
     var targetTriple: String
 
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: Destination,
+        _ swiftSDK: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        print(destination.pathsConfiguration)
+        print(swiftSDK.pathsConfiguration)
     }
 }
 
-extension Destination.PathsConfiguration: CustomStringConvertible {
+extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
     public var description: String {
         """
         sdkRootPath: \(sdkRootPath.configurationString)

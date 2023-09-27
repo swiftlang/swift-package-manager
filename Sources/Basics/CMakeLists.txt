@@ -27,10 +27,12 @@ add_library(Basics
   Errors.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
+  FileSystem/NativePathExtensions.swift
   FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
   FileSystem/TSCAdapters.swift
   FileSystem/VFSOverlay.swift
+  SourceControlURL.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift
   HTTPClient/HTTPClientError.swift
@@ -44,12 +46,13 @@ add_library(Basics
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
-  NativePathExtensions.swift
   Netrc.swift
   Observability.swift
+  OSSignpost.swift
   SQLite.swift
   Sandbox.swift
   SendableTimeInterval.swift
+  Serialization/SerializedJSON.swift
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift

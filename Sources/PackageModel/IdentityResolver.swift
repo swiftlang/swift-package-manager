@@ -16,7 +16,7 @@ import Foundation
 // TODO: refactor this when adding registry support
 public protocol IdentityResolver {
     func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PackageIdentity
-    func resolveIdentity(for url: URL) throws -> PackageIdentity
+    func resolveIdentity(for url: SourceControlURL) throws -> PackageIdentity
     func resolveIdentity(for path: AbsolutePath) throws -> PackageIdentity
     func mappedLocation(for location: String) -> String
     func mappedIdentity(for identity: PackageIdentity) throws -> PackageIdentity
@@ -49,14 +49,12 @@ public struct DefaultIdentityResolver: IdentityResolver {
         }
     }
 
-    public func resolveIdentity(for url: URL) throws -> PackageIdentity {
+    public func resolveIdentity(for url: SourceControlURL) throws -> PackageIdentity {
         let location = self.mappedLocation(for: url.absoluteString)
         if let path = try? AbsolutePath(validating: location) {
             return PackageIdentity(path: path)
-        } else if let url = URL(string: location) {
-            return PackageIdentity(url: url)
         } else {
-            throw StringError("invalid mapped location: \(location) for \(url)")
+            return PackageIdentity(url: SourceControlURL(location))
         }
     }
 
@@ -64,10 +62,8 @@ public struct DefaultIdentityResolver: IdentityResolver {
         let location = self.mappedLocation(for: path.pathString)
         if let path = try? AbsolutePath(validating: location) {
             return PackageIdentity(path: path)
-        } else if let url = URL(string: location) {
-            return PackageIdentity(url: url)
         } else {
-            throw StringError("invalid mapped location: \(location) for \(path)")
+            return PackageIdentity(url: SourceControlURL(location))
         }
     }
 

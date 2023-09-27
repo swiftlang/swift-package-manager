@@ -46,15 +46,39 @@ public struct PackageGraphRoot {
         return self.packages.values.map { $0.reference }
     }
 
+    private let _dependencies: [PackageDependency]
+
     /// The top level dependencies.
-    public let dependencies: [PackageDependency]
+    public var dependencies: [PackageDependency] {
+        guard let dependencyMapper else {
+            return self._dependencies
+        }
+
+        return self._dependencies.map { dependency in
+            do {
+                return try dependencyMapper.mappedDependency(for: dependency, fileSystem: localFileSystem)
+            } catch {
+                observabilityScope.emit(warning: "could not map dependency \(dependency.identity): \(error.interpolationDescription)")
+                return dependency
+            }
+        }
+    }
+
+    private let dependencyMapper: DependencyMapper?
+    private let observabilityScope: ObservabilityScope
 
     /// Create a package graph root.
     /// Note this quietly skip inputs for which manifests are not found. this could be because the manifest  failed to load or for some other reasons
     // FIXME: This API behavior wrt to non-found manifests is fragile, but required by IDEs
     // it may lead to incorrect assumption in downstream code which may expect an error if a manifest was not found
     // we should refactor this API to more clearly return errors for inputs that do not have a corresponding manifest
-    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest], explicitProduct: String? = nil) {
+    public init(
+        input: PackageGraphRootInput,
+        manifests: [AbsolutePath: Manifest],
+        explicitProduct: String? = nil,
+        dependencyMapper: DependencyMapper? = nil,
+        observabilityScope: ObservabilityScope
+    ) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
@@ -77,7 +101,9 @@ public struct PackageGraphRoot {
             }
         }
 
-        self.dependencies = adjustedDependencies
+        self._dependencies = adjustedDependencies
+        self.dependencyMapper = dependencyMapper
+        self.observabilityScope = observabilityScope
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
@@ -88,7 +114,7 @@ public struct PackageGraphRoot {
         
         let depend = try dependencies.map{
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter
             )

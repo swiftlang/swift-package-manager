@@ -39,7 +39,7 @@ public enum BuildSettings {
     }
 
     /// An individual build setting assignment.
-    public struct Assignment: Codable {
+    public struct Assignment: Codable, Equatable, Hashable {
         /// The assignment value.
         public var values: [String]
 

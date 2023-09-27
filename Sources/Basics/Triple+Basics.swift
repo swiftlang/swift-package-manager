@@ -64,13 +64,11 @@ extension Triple {
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
         precondition(isDarwin())
-        // This function did not handle triples with a specific environments and
-        // object formats previously to using SwiftDriver.Triple and still does
-        // not.
         return """
             \(self.archName)-\
             \(self.vendorName)-\
-            \(self.osNameUnversioned)\(version)
+            \(self.osNameUnversioned)\(version)\
+            \(self.environmentName.isEmpty ? "" : "-\(self.environmentName)")
             """
     }
 
@@ -136,7 +134,7 @@ extension Triple {
         }
 
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ".dylib"
         case .linux, .openbsd:
             return ".so"
@@ -155,7 +153,7 @@ extension Triple {
         }
 
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ""
         case .linux, .openbsd:
             return ""
@@ -178,11 +176,25 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case .darwin, .macosx:
+        case _ where isDarwin():
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
             return ".resources"
+        }
+    }
+
+    /// Returns `true` if code compiled for `triple` can run on `self` value of ``Triple``.
+    public func isRuntimeCompatible(with triple: Triple) -> Bool {
+        if
+            self.arch == triple.arch &&
+            self.vendor == triple.vendor &&
+            self.os == triple.os &&
+            self.environment == triple.environment
+        {
+            return self.osVersion >= triple.osVersion
+        } else {
+            return false
         }
     }
 }

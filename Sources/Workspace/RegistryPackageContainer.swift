@@ -26,6 +26,7 @@ public class RegistryPackageContainer: PackageContainer {
 
     private let registryClient: RegistryClient
     private let identityResolver: IdentityResolver
+    private let dependencyMapper: DependencyMapper
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
     private let observabilityScope: ObservabilityScope
@@ -39,6 +40,7 @@ public class RegistryPackageContainer: PackageContainer {
     public init(
         package: PackageReference,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         registryClient: RegistryClient,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
@@ -46,6 +48,7 @@ public class RegistryPackageContainer: PackageContainer {
     ) {
         self.package = package
         self.identityResolver = identityResolver
+        self.dependencyMapper = dependencyMapper
         self.registryClient = registryClient
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
@@ -154,6 +157,7 @@ public class RegistryPackageContainer: PackageContainer {
                             packageVersion: (version: version, revision: nil),
                             currentToolsVersion: self.currentToolsVersion,
                             identityResolver: self.identityResolver,
+                            dependencyMapper: self.dependencyMapper,
                             fileSystem: result.fileSystem,
                             observabilityScope: self.observabilityScope,
                             delegateQueue: .sharedConcurrent,

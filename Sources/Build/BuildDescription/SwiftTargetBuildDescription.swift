@@ -103,8 +103,8 @@ public final class SwiftTargetBuildDescription {
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
-        let allowLinkingAgainstExecutables = (buildParameters.triple.isDarwin() || self.buildParameters.triple
-            .isLinux() || self.buildParameters.triple.isWindows()) && self.toolsVersion >= .v5_5
+        let allowLinkingAgainstExecutables = (buildParameters.targetTriple.isDarwin() || self.buildParameters.targetTriple
+            .isLinux() || self.buildParameters.targetTriple.isWindows()) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self
             .buildParameters.buildPath
         return dirPath.appending(component: self.target.c99name + ".swiftmodule")
@@ -229,6 +229,9 @@ public final class SwiftTargetBuildDescription {
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
+    /// Whether or not to generate code for test observation.
+    private let shouldGenerateTestObservation: Bool
+
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -240,6 +243,7 @@ public final class SwiftTargetBuildDescription {
         prebuildCommandResults: [PrebuildCommandResult] = [],
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
+        shouldGenerateTestObservation: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -264,6 +268,7 @@ public final class SwiftTargetBuildDescription {
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
+        self.shouldGenerateTestObservation = shouldGenerateTestObservation
         self.observabilityScope = observabilityScope
 
         (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
@@ -291,6 +296,31 @@ public final class SwiftTargetBuildDescription {
         }
 
         try self.generateResourceEmbeddingCode()
+        try self.generateTestObservation()
+    }
+
+    private func generateTestObservation() throws {
+        guard target.type == .test else {
+            return
+        }
+
+        let subpath = try RelativePath(validating: "test_observation.swift")
+        let path = self.derivedSources.root.appending(subpath)
+
+        guard shouldGenerateTestObservation else {
+            _ = try? fileSystem.removeFileTree(path)
+            return
+        }
+
+        guard buildParameters.targetTriple.isDarwin(), buildParameters.experimentalTestOutput else {
+            return
+        }
+
+        let content = generateTestObservationCode(buildParameters: self.buildParameters)
+
+        // FIXME: We should generate this file during the actual build.
+        self.derivedSources.relativePaths.append(subpath)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
     // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array representation in memory and also `writeIfChanged()` will read the entire generated file again.
@@ -326,7 +356,7 @@ public final class SwiftTargetBuildDescription {
         guard let bundlePath else { return }
 
         let mainPathSubstitution: String
-        if self.buildParameters.triple.isWASI() {
+        if self.buildParameters.targetTriple.isWASI() {
             // We prefer compile-time evaluation of the bundle path here for WASI. There's no benefit in evaluating this
             // at runtime, especially as `Bundle` support in WASI Foundation is partial. We expect all resource paths to
             // evaluate to `/\(resourceBundleName)/\(resourcePath)`, which allows us to pass this path to JS APIs like
@@ -343,7 +373,7 @@ public final class SwiftTargetBuildDescription {
 
         let content =
             """
-            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
+            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") Foundation
 
             extension Foundation.Bundle {
                 static let module: Bundle = {
@@ -353,7 +383,8 @@ public final class SwiftTargetBuildDescription {
                     let preferredBundle = Bundle(path: mainPath)
 
                     guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
-                        fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
+                        // Users can write a function called fatalError themselves, we should be resilient against that.
+                        Swift.fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
                     }
 
                     return bundle
@@ -403,7 +434,7 @@ public final class SwiftTargetBuildDescription {
         #endif
 
         // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, driverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = self.buildParameters.toolchain.swiftPluginServerPath {
+        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, driverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
             let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
             let pluginPathComponents = ["lib", "swift", "host", "plugins"]
 
@@ -546,6 +577,11 @@ public final class SwiftTargetBuildDescription {
             }
         }
 
+        // Pass `-user-module-version` for versioned packages that aren't pre-releases.
+        if let version = package.manifest.version, version.prereleaseIdentifiers.isEmpty, version.buildMetadataIdentifiers.isEmpty, toolsVersion >= .vNext {
+            args += ["-user-module-version", version.description]
+        }
+
         args += self.packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess)
         args += try self.macroArguments()
 
@@ -592,146 +628,9 @@ public final class SwiftTargetBuildDescription {
         return result
     }
 
-    /// Command-line for emitting just the Swift module.
-    public func emitModuleCommandLine() throws -> [String] {
-        guard self.buildParameters.emitSwiftModuleSeparately else {
-            throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
-        }
-
-        var result: [String] = []
-        result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
-
-        result.append("-module-name")
-        result.append(self.target.c99name)
-        result.append("-emit-module")
-        result.append("-emit-module-path")
-        result.append(self.moduleOutputPath.pathString)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
-        result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-
-        result.append("-Xfrontend")
-        result.append("-experimental-skip-non-inlinable-function-bodies")
-        result.append("-force-single-frontend-invocation")
-
-        // FIXME: Handle WMO
-
-        for source in self.target.sources.paths {
-            result.append(source.pathString)
-        }
-
-        result.append("-I")
-        result.append(self.buildParameters.buildPath.pathString)
-
-        // FIXME: Maybe refactor these into "common args".
-        result += try self.buildParameters.targetTripleArgs(for: self.target)
-        result += ["-swift-version", self.swiftVersion.rawValue]
-        result += self.optimizationArguments
-        result += self.testingArguments
-
-        result += ["-j\(self.buildParameters.workers)"]
-        result += self.activeCompilationConditions
-        result += self.additionalFlags
-        result += try self.moduleCacheArgs
-        result += self.stdlibArguments
-        result += try self.buildSettingsFlags()
-        result += try self.macroArguments()
-
-        // Pass default include paths from the toolchain.
-        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
-            result += ["-I", includeSearchPath.pathString]
-        }
-
-        return result
-    }
-
-    /// Command-line for emitting the object files.
-    ///
-    /// Note: This doesn't emit the module.
-    public func emitObjectsCommandLine() throws -> [String] {
-        guard self.buildParameters.emitSwiftModuleSeparately else {
-            throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
-        }
-
-        var result: [String] = []
-        result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
-
-        // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
-            result += ["-v"]
-        }
-
-        result.append("-module-name")
-        result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
-        result.append("-incremental")
-        result.append("-emit-dependencies")
-
-        result.append("-output-file-map")
-        // FIXME: Eliminate side effect.
-        result.append(try self.writeOutputFileMap().pathString)
-
-        // FIXME: Handle WMO
-
-        result.append("-c")
-        for source in self.target.sources.paths {
-            result.append(source.pathString)
-        }
-
-        result.append("-I")
-        result.append(self.buildParameters.buildPath.pathString)
-
-        result += try self.buildParameters.targetTripleArgs(for: self.target)
-        result += ["-swift-version", self.swiftVersion.rawValue]
-
-        result += self.buildParameters.indexStoreArguments(for: self.target)
-        result += self.optimizationArguments
-        result += self.testingArguments
-
-        result += ["-j\(self.buildParameters.workers)"]
-        result += self.activeCompilationConditions
-        result += self.additionalFlags
-        result += try self.moduleCacheArgs
-        result += self.stdlibArguments
-        result += self.buildParameters.sanitizers.compileSwiftFlags()
-        result += ["-parseable-output"]
-        result += try self.buildSettingsFlags()
-
-        result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-        // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        result += self.buildParameters.flags.swiftCompilerFlags
-
-        result += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
-        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
-        result += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
-
-        // TODO: Pass -Xcxx flags to swiftc (#6491)
-        // Uncomment when downstream support arrives.
-        // result += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
-        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
-        // result += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
-
-        // Enable the correct lto mode if requested.
-        switch self.buildParameters.linkTimeOptimizationMode {
-        case nil:
-            break
-        case .full:
-            result += ["-lto=llvm-full"]
-        case .thin:
-            result += ["-lto=llvm-thin"]
-        }
-
-        // Pass default include paths from the toolchain.
-        for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
-            result += ["-I", includeSearchPath.pathString]
-        }
-
-        result += try self.macroArguments()
-        return result
-    }
-
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.triple.isDarwin() && self.target.type == .library
+        self.buildParameters.targetTriple.isDarwin() && self.target.type == .library
     }
 
     func writeOutputFileMap() throws -> AbsolutePath {
@@ -931,12 +830,18 @@ public final class SwiftTargetBuildDescription {
     }
 
     private var stdlibArguments: [String] {
-        if self.buildParameters.shouldLinkStaticSwiftStdlib,
-           self.buildParameters.triple.isSupportingStaticStdlib
-        {
-            return ["-static-stdlib"]
-        } else {
-            return []
+        var arguments: [String] = []
+
+        let isLinkingStaticStdlib = self.buildParameters.shouldLinkStaticSwiftStdlib
+            && self.buildParameters.targetTriple.isSupportingStaticStdlib
+        if isLinkingStaticStdlib {
+            arguments += ["-static-stdlib"]
         }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: isLinkingStaticStdlib) {
+            arguments += ["-resource-dir", "\(resourcesPath)"]
+        }
+
+        return arguments
     }
 }

@@ -43,7 +43,7 @@ private class MockRepository: Repository {
         self.versions = versions
     }
 
-    init(fs: FileSystem, url: URL, versions: [Version: Manifest]) {
+    init(fs: FileSystem, url: SourceControlURL, versions: [Version: Manifest]) {
         self.fs = fs
         self.location = .url(url)
         self.packageRef = .remoteSourceControl(identity: PackageIdentity(url: url), url: url)
@@ -132,7 +132,10 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        return self.repositories[repository.location]!
+        guard let repository = self.repositories[repository.location] else {
+            throw InternalError("unknown repository at \(repository.location)")
+        }
+        return repository
     }
 
     func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
@@ -446,7 +449,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5ProductMapping[$0.identity.description]!
             )
@@ -458,7 +461,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.identity.description]!
             )

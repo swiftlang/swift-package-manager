@@ -22,7 +22,7 @@ class ModuleAliasingFixtureTests: XCTestCase {
     func testModuleDirectDeps1() throws {
         try fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
             XCTAssertFileExists(buildPath.appending(components: "App"))
             XCTAssertFileExists(buildPath.appending(components: "GameUtils.swiftmodule"))
@@ -34,7 +34,7 @@ class ModuleAliasingFixtureTests: XCTestCase {
     func testModuleDirectDeps2() throws {
         try fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
             XCTAssertFileExists(buildPath.appending(components: "App"))
             XCTAssertFileExists(buildPath.appending(components: "AUtils.swiftmodule"))

@@ -57,6 +57,12 @@ struct PluginCommand: SwiftCommand {
 
         @Option(name: .customLong("allow-network-connections"))
         var allowNetworkConnections: NetworkPermission = .none
+
+        @Option(
+            name: .customLong("package"),
+            help: "Limit available plugins to a single package with the given identity"
+        )
+        var packageIdentity: String? = nil
     }
 
     @OptionGroup()
@@ -80,9 +86,9 @@ struct PluginCommand: SwiftCommand {
         // List the available plugins, if asked to.
         if self.listCommands {
             let packageGraph = try swiftTool.loadPackageGraph()
-            let allPlugins = PluginCommand.availableCommandPlugins(in: packageGraph)
+            let allPlugins = PluginCommand.availableCommandPlugins(in: packageGraph, limitedTo: self.pluginOptions.packageIdentity)
             for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
-                guard case .command(let intent, _) = plugin.capability else { return }
+                guard case .command(let intent, _) = plugin.capability else { continue }
                 var line = "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
                 if let package = packageGraph.packages
                     .first(where: { $0.targets.contains(where: { $0.name == plugin.name }) })
@@ -113,7 +119,7 @@ struct PluginCommand: SwiftCommand {
         let packageGraph = try swiftTool.loadPackageGraph()
 
         swiftTool.observabilityScope.emit(info: "Finding plugin for command ‘\(command)’")
-        let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph)
+        let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph, limitedTo: options.packageIdentity)
 
         // Complain if we didn't find exactly one.
         if matchingPlugins.isEmpty {
@@ -246,11 +252,15 @@ struct PluginCommand: SwiftCommand {
             .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
         // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-        let toolSearchDirs = [try swiftTool.getDestinationToolchain().swiftCompilerPath.parentDirectory]
+        let toolSearchDirs = [try swiftTool.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
 
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
-        let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try swiftTool.createBuildSystem(
+            explicitBuildSystem: .native,
+            cacheBuildManifest: false,
+            customBuildParameters: swiftTool.hostBuildParameters()
+        )
         let accessibleTools = try plugin.processAccessibleTools(
             packageGraph: packageGraph,
             fileSystem: swiftTool.fileSystem,
@@ -294,13 +304,23 @@ struct PluginCommand: SwiftCommand {
         // TODO: We should also emit a final line of output regarding the result.
     }
 
-    static func availableCommandPlugins(in graph: PackageGraph) -> [PluginTarget] {
-        graph.allTargets.compactMap { $0.underlyingTarget as? PluginTarget }
+    static func availableCommandPlugins(in graph: PackageGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
+        // All targets from plugin products of direct dependencies are "available".
+        let directDependencyPackages = graph.rootPackages.flatMap { $0.dependencies }.filter { $0.matching(identity: packageIdentity) }
+        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
+        // As well as any plugin targets in root packages.
+        let rootPackageTargets = graph.rootPackages.filter { $0.matching(identity: packageIdentity) }.flatMap { $0.targets }
+        return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlyingTarget as? PluginTarget }.filter {
+            switch $0.capability {
+            case .buildTool: return false
+            case .command: return true
+            }
+        }
     }
 
-    static func findPlugins(matching verb: String, in graph: PackageGraph) -> [PluginTarget] {
+    static func findPlugins(matching verb: String, in graph: PackageGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
         // Find and return the command plugins that match the command.
-        Self.availableCommandPlugins(in: graph).filter {
+        Self.availableCommandPlugins(in: graph, limitedTo: packageIdentity).filter {
             // Filter out any non-command plugins and any whose verb is different.
             guard case .command(let intent, _) = $0.capability else { return false }
             return verb == intent.invocationVerb
@@ -369,6 +389,16 @@ extension SandboxNetworkPermission {
         case .all: self = .all(ports: [])
         case .docker: self = .docker
         case .unixDomainSocket: self = .unixDomainSocket
+        }
+    }
+}
+
+extension ResolvedPackage {
+    fileprivate func matching(identity: String?) -> Bool {
+        if let identity {
+            return self.identity == .plain(identity)
+        } else {
+            return true
         }
     }
 }

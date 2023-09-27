@@ -85,8 +85,7 @@ extension Package {
 
         /// Module aliases for targets in this dependency. The key is an original target name and
         /// the value is a new unique name mapped to the name of the .swiftmodule binary.
-        @available(_PackageDescription, introduced: 5.7)
-        public var moduleAliases: [String: String]?
+        internal var moduleAliases: [String: String]?
 
         /// The dependency requirement of the package dependency.
         @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
@@ -424,14 +423,14 @@ extension Package.Dependency {
     /// versions between 1.0.0 and 2.0.0
     ///
     /// ```swift
-    /// .package(url: "https://example.com/example-package.git", .upToNextMajor("1.0.0"),
+    /// .package(url: "https://example.com/example-package.git", .upToNextMajor(from: "1.0.0"),
     /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 1.1.0
     ///
     /// ```swift
-    /// .package(url: "https://example.com/example-package.git", .upToNextMinor("1.0.0"),
+    /// .package(url: "https://example.com/example-package.git", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
     /// - Parameters:
@@ -623,14 +622,14 @@ extension Package.Dependency {
     /// versions between 1.0.0 and 2.0.0
     ///
     /// ```swift
-    /// .package(id: "scope.name", .upToNextMajor("1.0.0"),
+    /// .package(id: "scope.name", .upToNextMajor(from: "1.0.0"),
     /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 1.1.0
     ///
     /// ```swift
-    /// .package(id: "scope.name", .upToNextMinor("1.0.0"),
+    /// .package(id: "scope.name", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
     /// - Parameters:

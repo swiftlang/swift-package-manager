@@ -19,11 +19,17 @@ public protocol Toolchain {
     /// Path of the `swiftc` compiler.
     var swiftCompilerPath: AbsolutePath { get }
 
+    /// Path to `lib/swift`
+    var swiftResourcesPath: AbsolutePath? { get }
+
+    /// Path to `lib/swift_static`
+    var swiftStaticResourcesPath: AbsolutePath? { get }
+
     /// Whether the used compiler is from a open source development toolchain.
     var isSwiftDevelopmentToolchain: Bool { get }
 
     /// Path to the Swift plugin server utility.
-    var swiftPluginServerPath: AbsolutePath? { get }
+    var swiftPluginServerPath: AbsolutePath? { get throws }
 
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
@@ -81,7 +87,15 @@ extension Toolchain {
             return try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
         }
     }
-    
+
+    /// Returns the appropriate Swift resources directory path.
+    ///
+    /// - Parameter static: Controls whether to use the static or dynamic
+    /// resources directory.
+    public func swiftResourcesPath(isStatic: Bool) -> AbsolutePath? {
+        isStatic ? swiftStaticResourcesPath : swiftResourcesPath
+    }
+
     public var extraCCFlags: [String] {
         extraFlags.cCompilerFlags
     }

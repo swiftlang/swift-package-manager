@@ -548,7 +548,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "SPMTestSupport"]
+            dependencies: ["Build", "PackageModel", "SPMTestSupport"]
         ),
         .testTarget(
             name: "WorkspaceTests",
@@ -666,6 +666,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             ]
         ),
 
+        .executableTarget(
+            name: "dummy-swiftc",
+            dependencies: [
+                "Basics",
+            ]
+        ),
+
         .testTarget(
             name: "CommandsTests",
             dependencies: [
@@ -681,6 +688,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",
+                "dummy-swiftc",
             ]
         ),
     ])
@@ -711,7 +719,9 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
             .package(name: "swift-llbuild", path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [.product(name: "llbuildSwift", package: "swift-llbuild")]
+    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [
+        .product(name: "llbuildSwift", package: "swift-llbuild"),
+    ]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {

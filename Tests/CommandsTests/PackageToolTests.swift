@@ -475,7 +475,7 @@ final class PackageToolTests: CommandsTestCase {
     // Returns symbol graph with or without pretty printing.
     private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
         let tool = try SwiftTool.createSwiftToolForTest(options: GlobalOptions.parse(["--package-path", path.pathString]))
-        let symbolGraphExtractorPath = try tool.getDestinationToolchain().getSymbolGraphExtract()
+        let symbolGraphExtractorPath = try tool.getTargetToolchain().getSymbolGraphExtract()
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
@@ -768,7 +768,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPM.Package.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -842,7 +842,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -861,7 +861,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -931,7 +931,7 @@ final class PackageToolTests: CommandsTestCase {
             func build() throws -> String {
                 return try SwiftPM.Build.execute(packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // Build and check.
             _ = try build()
@@ -943,7 +943,7 @@ final class PackageToolTests: CommandsTestCase {
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
                 let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift"))
-                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), file: file, line: line)
+                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), "got \(contents)", file: file, line: line)
             }
 
             // We should see a pin file now.
@@ -953,7 +953,7 @@ final class PackageToolTests: CommandsTestCase {
             // Test pins file.
             do {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
+                XCTAssertEqual(pinsStore.pins.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pins[PackageIdentity(path: path)]!
@@ -1427,7 +1427,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string:
                 """
-                // swift-tools-version: 5.5
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1635,7 +1635,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string:
                 """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1687,7 +1687,7 @@ final class PackageToolTests: CommandsTestCase {
                 </dict>
                 """
             )
-            let hostTriple = try UserToolchain(destination: .hostDestination()).triple
+            let hostTriple = try UserToolchain(swiftSDK: .hostSwiftSDK()).targetTriple
             let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
             try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"), string:
                 """
@@ -1839,6 +1839,16 @@ final class PackageToolTests: CommandsTestCase {
                 let (stdout, _) = try SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Initial working directory: \(workingDirectory)"))
             }
+        }
+    }
+
+    func testAmbiguousCommandPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/AmbiguousCommands") { fixturePath in
+            let (stdout, _) = try SwiftPM.Package.execute(["plugin", "--package", "A", "A"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, .contains("Hello A!"))
         }
     }
 
@@ -2539,7 +2549,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",

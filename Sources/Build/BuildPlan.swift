@@ -127,13 +127,12 @@ extension BuildParameters {
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
-        if triple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
-            }
-            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+        if targetTriple.isDarwin() {
+            let platform = buildEnvironment.platform
+            let supportedPlatform = target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
+            args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
-            args += [triple.tripleString]
+            args += [targetTriple.tripleString]
         }
         return args
     }
@@ -141,10 +140,10 @@ extension BuildParameters {
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
-        if self.triple.isApple() {
+        if self.targetTriple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         }
-        else if self.triple.isLinux() {
+        else if self.targetTriple.isLinux() {
             args = ["--defsym", "main=\(target.c99name)_main"]
         }
         else {
@@ -293,7 +292,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
+                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -326,7 +325,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
                     defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
+                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -355,7 +354,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             target: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
                             defaultLocalization: .none, // safe since this is a derived target
-                            platforms: .init(declared: [], derived: []) // safe since this is a derived target
+                            platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,
@@ -448,6 +447,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // given to LLBuild.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
+        var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
@@ -458,7 +458,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 switch dependency {
                 case .target: break
                 case .product(let product, _):
-                    if buildParameters.triple.isDarwin() {
+                    if buildParameters.targetTriple.isDarwin() {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
                             product: product,
                             forTarget: target,
@@ -480,6 +480,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlyingTarget.type == .macro }.compactMap { macroProductsByTarget[$0] }
 
+                var generateTestObservation = false
+                if target.type == .test && shouldGenerateTestObservation {
+                    generateTestObservation = true
+                    shouldGenerateTestObservation = false // Only generate the code once.
+                }
+
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     package: package,
                     target: target,
@@ -489,6 +495,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     requiredMacroProducts: requiredMacroProducts,
+                    shouldGenerateTestObservation: generateTestObservation,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
@@ -562,12 +569,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     ) throws {
         // Supported platforms are defined at the package level.
         // This will need to become a bit complicated once we have target-level or product-level platform support.
-        guard let productPlatform = product.platforms.getDerived(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in product \(product)")
-        }
-        guard let targetPlatform = target.platforms.getDerived(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in target \(target)")
-        }
+        let productPlatform = product.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
+        let targetPlatform = target.platforms.getDerived(for: .macOS, usingXCTest: target.type == .test)
 
         // Check if the version requirement is satisfied.
         //
@@ -632,9 +635,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                if buildParameters.triple.isDarwin() {
+                if buildParameters.targetTriple.isDarwin() {
                     buildProduct.additionalFlags += ["-lc++"]
-                } else if buildParameters.triple.isWindows() {
+                } else if buildParameters.targetTriple.isWindows() {
                     // Don't link any C++ library.
                 } else {
                     buildProduct.additionalFlags += ["-lstdc++"]
@@ -695,6 +698,29 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         libraryBinaryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
+        /* Prior to tools-version 5.9, we used to errorneously recursively traverse executable/plugin dependencies and statically include their
+         targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
+        let shouldExcludeExecutablesAndPlugins: Bool
+        if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
+            shouldExcludeExecutablesAndPlugins = toolsVersion >= .v5_9
+        } else {
+            shouldExcludeExecutablesAndPlugins = false
+        }
+
+        // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
+        let topLevelDependencies: [PackageModel.Target]
+        if product.type == .test {
+            topLevelDependencies = product.targets.flatMap { $0.underlyingTarget.dependencies }.compactMap {
+                switch $0 {
+                case .product:
+                    return nil
+                case .target(let target, _):
+                    return target
+                }
+            }
+        } else {
+            topLevelDependencies = []
+        }
 
         // Sort the product targets in topological order.
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
@@ -702,18 +728,36 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
+                let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                let topLevelIsExecutable = isTopLevel && product.type == .executable
+                let topLevelIsMacro = isTopLevel && product.type == .macro
+                let topLevelIsPlugin = isTopLevel && product.type == .plugin
+                let topLevelIsTest = isTopLevel && product.type == .test
+
+                if !topLevelIsMacro && !topLevelIsTest && target.type == .macro {
+                    return []
+                }
+                if shouldExcludeExecutablesAndPlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
+                    return []
+                }
+                if shouldExcludeExecutablesAndPlugins, !topLevelIsExecutable && topLevelIsTest && target.type == .executable {
+                    return []
+                }
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
-            // need to statically link it or if it's a plugin.
+            // need to statically link it.
             case .product(let product, _):
                 guard dependency.satisfies(self.buildEnvironment) else {
                     return []
                 }
 
+                let productDependencies: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
                 switch product.type {
-                case .library(.automatic), .library(.static), .plugin:
-                    return product.targets.map { .target($0, conditions: []) }
+                case .library(.automatic), .library(.static):
+                    return productDependencies
+                case .plugin:
+                    return shouldExcludeExecutablesAndPlugins ? [] : productDependencies
                 case .library(.dynamic), .test, .executable, .snippet, .macro:
                     return []
                 }
@@ -740,7 +784,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     } else if product.type == .test && (target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
-                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5 {
+                        // Only "top-level" targets should really be considered here, not transitive ones.
+                        let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
                             staticTargets.append(target)
                         }
                     }
@@ -875,7 +921,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         let buildPath = buildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
-        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
+        // will silently error failing the operation.  Filter out this flag
+        // similar to how we filter out the library search path unless
+        // explicitly requested.
+        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags.filter { !$0.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
                 if extraSwiftCFlags[index] == "-L" {
@@ -984,14 +1034,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Extracts the library information from an XCFramework.
     private func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: target) {
-            return try target.parseXCFrameworks(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            return try target.parseXCFrameworks(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
         }
     }
 
     /// Extracts the artifacts  from an artifactsArchive
     private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: target) {
-            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
             return execInfos.filter{!$0.supportedTriples.isEmpty}
         }
     }
@@ -1050,7 +1100,7 @@ extension Basics.Diagnostic {
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> AbsolutePath {
-        return buildPath.appending(component: name + triple.nsbundleExtension)
+        return buildPath.appending(component: name + targetTriple.nsbundleExtension)
     }
 }
 

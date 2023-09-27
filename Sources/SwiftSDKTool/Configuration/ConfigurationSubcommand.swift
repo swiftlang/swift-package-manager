@@ -18,15 +18,15 @@ protocol ConfigurationSubcommand: SwiftSDKSubcommand {
     /// An identifier of an already installed Swift SDK.
     var sdkID: String { get }
 
-    /// A target triple of the destination.
+    /// A target triple of the Swift SDK.
     var targetTriple: String { get }
 
-    /// Run a command related to configuration of cross-compilation destinations, passing it required configuration
+    /// Run a command related to configuration of Swift SDKs, passing it required configuration
     /// values.
     /// - Parameters:
     ///   - hostTriple: triple of the machine this command is running on.
     ///   - targetTriple: triple of the machine on which cross-compiled code will run on.
-    ///   - destination: destination configuration fetched that matches currently set `destinationID` and
+    ///   - swiftSDK: Swift SDK configuration fetched that matches currently set `sdkID` and
     ///   `targetTriple`.
     ///   - configurationStore: storage for configuration properties that this command operates on.
     ///   - swiftSDKsDirectory: directory containing Swift SDK artifact bundles and their configuration.
@@ -34,7 +34,7 @@ protocol ConfigurationSubcommand: SwiftSDKSubcommand {
     func run(
         hostTriple: Triple,
         targetTriple: Triple,
-        _ destination: Destination,
+        _ swiftSDK: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
@@ -55,7 +55,7 @@ extension ConfigurationSubcommand {
         )
         let targetTriple = try Triple(self.targetTriple)
 
-        guard let destination = try configurationStore.readConfiguration(
+        guard let swiftSDK = try configurationStore.readConfiguration(
             sdkID: sdkID,
             targetTriple: targetTriple
         ) else {
@@ -69,7 +69,7 @@ extension ConfigurationSubcommand {
         try run(
             hostTriple: hostTriple,
             targetTriple: targetTriple,
-            destination,
+            swiftSDK,
             configurationStore,
             swiftSDKsDirectory,
             observabilityScope

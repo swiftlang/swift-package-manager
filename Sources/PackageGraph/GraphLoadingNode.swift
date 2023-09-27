@@ -41,8 +41,8 @@ public struct GraphLoadingNode: Equatable, Hashable {
     }
 
     /// Returns the dependencies required by this node.
-    internal func requiredDependencies() -> [PackageDependency] {
-        return manifest.dependenciesRequired(for: productFilter)
+    internal var requiredDependencies: [PackageDependency] {
+        return self.manifest.dependenciesRequired(for: self.productFilter)
     }
 
     public func hash(into hasher: inout Hasher) {

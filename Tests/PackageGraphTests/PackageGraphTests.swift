@@ -786,6 +786,74 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testProductDependencyWithSimilarName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Barx"]),
+                    ]),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    targets: [
+                        TargetDescription(name: "Bar")
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Barx' required by package 'foo' target 'Foo' not found. Did you mean 'Bar'?",
+                severity: .error
+            )
+        }
+    }
+    
+    func testProductDependencyWithNonSimilarName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Qux"]),
+                    ]),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    targets: [
+                        TargetDescription(name: "Bar")
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "product 'Qux' required by package 'foo' target 'Foo' not found.",
+                severity: .error
+            )
+        }
+    }
+
     func testProductDependencyDeclaredInSamePackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTarget/src.swift",
@@ -1197,6 +1265,9 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift",
             "/Baz/Sources/Baz/baz.swift"
         )
+        let fooPkg: AbsolutePath = "/Foo"
+        let barPkg: AbsolutePath = "/Bar"
+        let bazPkg: AbsolutePath = "/Baz"
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadPackageGraph(
@@ -1204,17 +1275,17 @@ class PackageGraphTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: "/Foo",
+                    path: fooPkg,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: barPkg, requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: bazPkg, requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
-                    path: "/Bar",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -1223,7 +1294,7 @@ class PackageGraphTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "Baz",
-                    path: "/Baz",
+                    path: bazPkg,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -1233,12 +1304,8 @@ class PackageGraphTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Bar' in: 'bar', 'baz'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+            XCTAssertEqual((error as? PackageGraphError)?.description,
+                           "multiple products named 'Bar' in: 'bar' (at '\(barPkg)'), 'baz' (at '\(bazPkg)')")
         }
     }
 
@@ -1507,10 +1574,12 @@ class PackageGraphTests: XCTestCase {
               }
         """
 
-        let fs = InMemoryFileSystem(files: ["/pins": ByteString(encodingAsUTF8: json)])
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pins")
+        try fs.writeFileContents(pinsFile, string: json)
 
-        XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
-            _ = try PinsStore(pinsFile: "/pins", workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertThrows(StringError("\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
+            _ = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }
 

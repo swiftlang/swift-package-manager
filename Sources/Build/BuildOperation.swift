@@ -237,6 +237,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
+        guard !buildParameters.shouldSkipBuilding else {
+            return
+        }
 
         let buildStartTime = DispatchTime.now()
 
@@ -422,8 +425,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        if let pluginConfiguration {
-            let buildOperationForPluginDependencies = try BuildOperation(buildParameters: self.buildParameters.withDestination(self.buildParameters.hostTriple), cacheBuildManifest: false, packageGraphLoader: { return graph }, additionalFileRules: self.additionalFileRules, pkgConfigDirectories: self.pkgConfigDirectories, outputStream: self.outputStream, logLevel: self.logLevel, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        if let pluginConfiguration, !self.buildParameters.shouldSkipBuilding {
+            let buildOperationForPluginDependencies = try BuildOperation(
+                buildParameters: self.buildParameters.forTriple(self.buildParameters.hostTriple),
+                cacheBuildManifest: false,
+                packageGraphLoader: { return graph },
+                additionalFileRules: self.additionalFileRules,
+                pkgConfigDirectories: self.pkgConfigDirectories,
+                outputStream: self.outputStream,
+                logLevel: self.logLevel,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope
+            )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 builtToolsDir: self.buildParameters.buildPath,
@@ -607,7 +620,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
                 if !pluginConfiguration.disableSandbox {
-                    commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
+                    commandLine = try Sandbox.apply(command: commandLine, fileSystem: self.fileSystem, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
                 let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
@@ -656,7 +669,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func packageStructureChanged() -> Bool {
         do {
-            _ = try plan()
+            _ = try self.plan()
         }
         catch Diagnostics.fatalError {
             return false

@@ -20,7 +20,7 @@ import struct TSCBasic.RegEx
 public struct SwiftSDKBundle {
     public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
-        let swiftSDKs: [Destination]
+        let swiftSDKs: [SwiftSDK]
     }
 
     // Path to the bundle root directory.
@@ -29,21 +29,21 @@ public struct SwiftSDKBundle {
     /// Mapping of artifact IDs to variants available for a corresponding artifact.
     public fileprivate(set) var artifacts = [String: [Variant]]()
 
-    /// Name of the destination bundle that can be used to distinguish it from other bundles.
+    /// Name of the Swift SDK bundle that can be used to distinguish it from other bundles.
     public var name: String { path.basename }
 
-    /// Lists all valid cross-compilation destination bundles in a given directory.
+    /// Lists all valid Swift SDK bundles in a given directory.
     /// - Parameters:
-    ///   - swiftSDKsDirectory: the directory to scan for destination bundles.
+    ///   - swiftSDKsDirectory: the directory to scan for Swift SDK bundles.
     ///   - fileSystem: the filesystem the directory is located on.
     ///   - observabilityScope: observability scope to report bundle validation errors.
-    /// - Returns: an array of valid destination bundles.
+    /// - Returns: an array of valid Swift SDK bundles.
     public static func getAllValidBundles(
         swiftSDKsDirectory: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> [Self] {
-        // Get absolute paths to available destination bundles.
+        // Get absolute paths to available Swift SDK bundles.
         try fileSystem.getDirectoryContents(swiftSDKsDirectory).filter {
             $0.hasSuffix(BinaryTarget.Kind.artifactsArchive.fileExtension)
         }.map {
@@ -51,7 +51,7 @@ public struct SwiftSDKBundle {
         }.compactMap {
             do {
                 // Enumerate available bundles and parse manifests for each of them, then validate supplied
-                // destinations.
+                // Swift SDKs.
                 return try Self.parseAndValidate(
                     bundlePath: $0,
                     fileSystem: fileSystem,
@@ -59,7 +59,7 @@ public struct SwiftSDKBundle {
                 )
             } catch {
                 observabilityScope.emit(
-                    warning: "Couldn't parse `info.json` manifest of a destination bundle at \($0)",
+                    warning: "Couldn't parse `info.json` manifest of a Swift SDK bundle at \($0)",
                     underlyingError: error
                 )
                 return nil
@@ -67,66 +67,66 @@ public struct SwiftSDKBundle {
         }
     }
 
-    /// Select destinations matching a given query and host triple from all destinations available in a directory.
+    /// Select a Swift SDK matching a given query and host triple from all Swift SDKs available in a directory.
     /// - Parameters:
-    ///   - destinationsDirectory: the directory to scan for destination bundles.
+    ///   - swiftSDKsDirectory: the directory to scan for Swift SDK bundles.
     ///   - fileSystem: the filesystem the directory is located on.
     ///   - query: either an artifact ID or target triple to filter with.
-    ///   - hostTriple: triple of the host building with these destinations.
+    ///   - hostTriple: triple of the host building with these Swift SDKs.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
-    /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
+    /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
     public static func selectBundle(
-        fromBundlesAt destinationsDirectory: AbsolutePath?,
+        fromBundlesAt swiftSDKsDirectory: AbsolutePath?,
         fileSystem: FileSystem,
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
-    ) throws -> Destination {
-        guard let destinationsDirectory else {
+    ) throws -> SwiftSDK {
+        guard let swiftSDKsDirectory else {
             throw StringError(
                 """
-                No directory found for installed Swift SDKs, specify one
+                No directory found for installed Swift SDKs, specify one \
                 with `--experimental-swift-sdks-path` option.
                 """
             )
         }
 
         let validBundles = try SwiftSDKBundle.getAllValidBundles(
-            swiftSDKsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
 
         guard !validBundles.isEmpty else {
             throw StringError(
-                "No valid Swift SDK bundles found at \(destinationsDirectory)."
+                "No valid Swift SDK bundles found at \(swiftSDKsDirectory)."
             )
         }
 
-        guard var selectedDestination = validBundles.selectDestination(
+        guard var selectedSwiftSDKs = validBundles.selectSwiftSDK(
             matching: selector,
             hostTriple: hostTriple,
             observabilityScope: observabilityScope
         ) else {
             throw StringError(
                 """
-                No Swift SDK found matching query `\(selector)` and host triple
-                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see
-                available destinations.
+                No Swift SDK found matching query `\(selector)` and host triple \
+                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
+                available Swift SDKs.
                 """
             )
         }
 
-        selectedDestination.applyPathCLIOptions()
+        selectedSwiftSDKs.applyPathCLIOptions()
 
-        return selectedDestination
+        return selectedSwiftSDKs
     }
 
-    /// Installs a destination bundle from a given path or URL to a destinations installation directory.
+    /// Installs a Swift SDK bundle from a given path or URL to a Swift SDK installation directory.
     /// - Parameters:
     ///   - bundlePathOrURL: A string passed on the command line, which is either an absolute or relative to a current
-    ///   working directory path, or a URL to a destination artifact bundle.
-    ///   - destinationsDirectory: A directory where the destination artifact bundle should be installed.
+    ///   working directory path, or a URL to a Swift SDK artifact bundle.
+    ///   - swiftSDKsDirectory: A directory where the Swift SDK artifact bundle should be installed.
     ///   - fileSystem: File system on which all of the file operations should run.
     ///   - observabilityScope: Observability scope for reporting warnings and errors.
     public static func install(
@@ -185,7 +185,7 @@ public struct SwiftSDKBundle {
 
             return try await installIfValid(
                 bundlePath: bundlePath,
-                destinationsDirectory: swiftSDKsDirectory,
+                swiftSDKsDirectory: swiftSDKsDirectory,
                 temporaryDirectory: temporaryDirectory,
                 fileSystem,
                 archiver,
@@ -196,21 +196,37 @@ public struct SwiftSDKBundle {
         print("Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName).")
     }
 
-    /// Unpacks a destination bundle if it has an archive extension in its filename.
+    /// Unpacks a Swift SDK bundle if it has an archive extension in its filename.
     /// - Parameters:
-    ///   - bundlePath: Absolute path to a destination bundle to unpack if needed.
+    ///   - bundlePath: Absolute path to a Swift SDK bundle to unpack if needed.
+    ///   - swiftSDKsDirectory: A directory where the Swift SDK artifact bundle should be installed.
     ///   - temporaryDirectory: Absolute path to a temporary directory in which the bundle can be unpacked if needed.
     ///   - fileSystem: A file system to operate on that contains the given paths.
     ///   - archiver: Archiver to use for unpacking.
-    /// - Returns: Path to an unpacked destination bundle if unpacking is needed, value of `bundlePath` is returned
+    /// - Returns: Path to an unpacked Swift SDK bundle if unpacking is needed, value of `bundlePath` is returned
     /// otherwise.
     private static func unpackIfNeeded(
         bundlePath: AbsolutePath,
-        destinationsDirectory: AbsolutePath,
+        swiftSDKsDirectory: AbsolutePath,
         temporaryDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver
     ) async throws -> AbsolutePath {
+        let regex = try RegEx(pattern: "(.+\\.artifactbundle).*")
+
+        guard let bundleName = bundlePath.components.last else {
+            throw SwiftSDKError.invalidPathOrURL(bundlePath.pathString)
+        }
+
+        guard let unpackedBundleName = regex.matchGroups(in: bundleName).first?.first else {
+            throw SwiftSDKError.invalidBundleName(bundleName)
+        }
+
+        let installedBundlePath = swiftSDKsDirectory.appending(component: unpackedBundleName)
+        guard !fileSystem.exists(installedBundlePath) else {
+            throw SwiftSDKError.swiftSDKBundleAlreadyInstalled(bundleName: unpackedBundleName)
+        }
+
         // If there's no archive extension on the bundle name, assuming it's not archived and returning the same path.
         guard !bundlePath.pathString.hasSuffix(".artifactbundle") else {
             return bundlePath
@@ -236,18 +252,18 @@ public struct SwiftSDKBundle {
         return extractionResultsDirectory.appending(component: bundleName)
     }
 
-    /// Installs an unpacked destination bundle to a destinations installation directory.
+    /// Installs an unpacked Swift SDK bundle to a Swift SDK installation directory.
     /// - Parameters:
-    ///   - bundlePath: Absolute path to an unpacked destination bundle directory.
-    ///   - destinationsDirectory: A directory where the destination artifact bundle should be installed.
+    ///   - bundlePath: absolute path to an unpacked Swift SDK bundle directory.
+    ///   - swiftSDKsDirectory: a directory where the Swift SDK bundle should be installed.
     ///   - temporaryDirectory: Temporary directory to use if the bundle is an archive that needs extracting.
-    ///   - fileSystem: File system on which all of the file operations should run.
-    ///   - observabilityScope: Observability scope for reporting warnings and errors.
+    ///   - fileSystem: file system on which all of the file operations should run.
     ///   - archiver: Archiver instance to use for extracting bundle archives.
+    ///   - observabilityScope: observability scope for reporting warnings and errors.
     /// - Returns: Name of the bundle installed.
     private static func installIfValid(
         bundlePath: AbsolutePath,
-        destinationsDirectory: AbsolutePath,
+        swiftSDKsDirectory: AbsolutePath,
         temporaryDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
@@ -262,7 +278,7 @@ public struct SwiftSDKBundle {
 
         let unpackedBundlePath = try await unpackIfNeeded(
             bundlePath: bundlePath,
-            destinationsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             temporaryDirectory: temporaryDirectory,
             fileSystem,
             archiver
@@ -275,7 +291,7 @@ public struct SwiftSDKBundle {
             throw SwiftSDKError.pathIsNotDirectory(bundlePath)
         }
 
-        let installedBundlePath = destinationsDirectory.appending(component: bundleName)
+        let installedBundlePath = swiftSDKsDirectory.appending(component: bundleName)
 
         let validatedBundle = try Self.parseAndValidate(
             bundlePath: unpackedBundlePath,
@@ -285,7 +301,7 @@ public struct SwiftSDKBundle {
         let newArtifactIDs = validatedBundle.artifacts.keys
 
         let installedBundles = try Self.getAllValidBundles(
-            swiftSDKsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -313,7 +329,7 @@ public struct SwiftSDKBundle {
     ///   - bundlePath: path to the bundle root directory.
     ///   - fileSystem: filesystem containing the bundle.
     ///   - observabilityScope: observability scope to log validation warnings.
-    /// - Returns: Validated `SwiftSDKBundle` containing validated `Destination` values for
+    /// - Returns: Validated ``SwiftSDKBundle`` containing validated ``SwiftSDK`` values for
     /// each artifact and its variants.
     private static func parseAndValidate(
         bundlePath: AbsolutePath,
@@ -375,12 +391,12 @@ extension ArtifactsArchiveMetadata {
                 }
 
                 do {
-                    let destinations = try Destination.decode(
+                    let swiftSDKs = try SwiftSDK.decode(
                         fromFile: variantConfigurationPath, fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
 
-                    variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
+                    variants.append(.init(metadata: variantMetadata, swiftSDKs: swiftSDKs))
                 } catch {
                     observabilityScope.emit(
                         warning: "Couldn't parse Swift SDK artifact metadata at \(variantConfigurationPath)",
@@ -397,13 +413,13 @@ extension ArtifactsArchiveMetadata {
 }
 
 extension [SwiftSDKBundle] {
-    /// Select a destination with a given artifact ID from a `self` array of available destinations.
+    /// Select a Swift SDK with a given artifact ID from a `self` array of available Swift SDKs.
     /// - Parameters:
-    ///   - id: artifact ID of the destination to look up.
-    ///   - hostTriple: triple of the machine on which the destination is building.
-    ///   - targetTriple: triple of the machine for which the destination is building.
-    /// - Returns: `Destination` value with a given artifact ID, `nil` if none found.
-    public func selectDestination(id: String, hostTriple: Triple, targetTriple: Triple) -> Destination? {
+    ///   - id: artifact ID of the Swift SDK to look up.
+    ///   - hostTriple: triple of the machine on which the Swift SDK is building.
+    ///   - targetTriple: triple of the machine for which the Swift SDK is building.
+    /// - Returns: ``SwiftSDK`` value with a given artifact ID, `nil` if none found.
+    public func selectSwiftSDK(id: String, hostTriple: Triple, targetTriple: Triple) -> SwiftSDK? {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 guard artifactID == id else {
@@ -423,34 +439,36 @@ extension [SwiftSDKBundle] {
         return nil
     }
 
-    /// Select destinations matching a given selector and host triple from a `self` array of available destinations.
+    /// Select Swift SDKs matching a given selector and host triple from a `self` array of available Swift SDKs.
     /// - Parameters:
     ///   - selector: either an artifact ID or target triple to filter with.
-    ///   - hostTriple: triple of the host building with these destinations.
+    ///   - hostTriple: triple of the host building with these Swift SDKs.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
-    /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
-    public func selectDestination(
+    /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
+    func selectSwiftSDK(
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
-    ) -> Destination? {
-        var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: Destination)?
-        var matchedByTriple: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: Destination)?
+    ) -> SwiftSDK? {
+        var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, swiftSDK: SwiftSDK)?
+        var matchedByTriple: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, swiftSDK: SwiftSDK)?
 
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
+                    guard variant.metadata.supportedTriples.contains(where: { variantTriple in
+                        hostTriple.isRuntimeCompatible(with: variantTriple)
+                    }) else {
                         continue
                     }
 
-                    for destination in variant.swiftSDKs {
+                    for swiftSDK in variant.swiftSDKs {
                         if artifactID == selector {
                             if let matchedByID {
                                 observabilityScope.emit(
                                     warning:
                                     """
-                                    multiple destinations match ID `\(artifactID)` and host triple \(
+                                    multiple Swift SDKs match ID `\(artifactID)` and host triple \(
                                         hostTriple.tripleString
                                     ), selected one at \(
                                         matchedByID.path.appending(matchedByID.variant.metadata.path)
@@ -458,11 +476,11 @@ extension [SwiftSDKBundle] {
                                     """
                                 )
                             } else {
-                                matchedByID = (bundle.path, variant, destination)
+                                matchedByID = (bundle.path, variant, swiftSDK)
                             }
                         }
 
-                        if destination.targetTriple?.tripleString == selector {
+                        if swiftSDK.targetTriple?.tripleString == selector {
                             if let matchedByTriple {
                                 observabilityScope.emit(
                                     warning:
@@ -475,7 +493,7 @@ extension [SwiftSDKBundle] {
                                     """
                                 )
                             } else {
-                                matchedByTriple = (bundle.path, variant, destination)
+                                matchedByTriple = (bundle.path, variant, swiftSDK)
                             }
                         }
                     }
@@ -494,6 +512,10 @@ extension [SwiftSDKBundle] {
             )
         }
 
-        return matchedByID?.destination ?? matchedByTriple?.destination
+        return matchedByID?.swiftSDK ?? matchedByTriple?.swiftSDK
+    }
+
+    public var sortedArtifactIDs: [String] {
+        self.flatMap(\.artifacts.keys).sorted()
     }
 }

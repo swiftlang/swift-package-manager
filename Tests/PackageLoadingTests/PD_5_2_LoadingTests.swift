@@ -109,8 +109,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     name: "Trivial",
                     products: [],
                     dependencies: [
-                        .package(name: "Foo", url: "/foo1", from: "1.0.0"),
-                        .package(name: "Bar", url: "/bar1", from: "2.0.0"),
+                        .package(url: "http://scm.com/org/foo", from: "1.0.0"),
+                        .package(url: "http://scm.com/org/bar", from: "2.0.0"),
                     ],
                     targets: [
                         .target(
@@ -127,8 +127,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
             }
         }
 
@@ -139,7 +139,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     name: "Trivial",
                     products: [],
                     dependencies: [
-                        .package(name: "Foo", url: "/foo1", from: "1.0.0"),
+                        .package(name: "Foo", url: "http://scm.com/org/foo", from: "1.0.0"),
+                        .package(name: "Bar", url: "http://scm.com/org/bar", from: "2.0.0"),
                     ],
                     targets: [
                         .target(
@@ -152,14 +153,16 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            // note: root has special rules in this case
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
             }
         }
+
+        // packageKind == root has special rules in this case
 
         do {
             let content = """
@@ -168,7 +171,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     name: "Trivial",
                     products: [],
                     dependencies: [
-                        .package(path: "/foo2"),
+                        .package(name: "Foo", url: "http://scm.com/org/foo1", from: "1.0.0"),
                     ],
                     targets: [
                         .target(
@@ -181,12 +184,44 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            // note: root has special rules in this case
             let observability = ObservabilitySystem.makeForTesting()
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", severity: .error)
+                result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo1')", severity: .error)
+            }
+        }
+
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(path: "/foo"),
+                        .package(path: "/bar"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target1",
+                            dependencies: [.product(name: "product", package: "foo1")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            testDiagnostics(validationDiagnostics) { result in
+                let fooPkg: AbsolutePath = "/foo"
+                let barPkg: AbsolutePath = "/bar"
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
             }
         }
 
@@ -197,13 +232,13 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     name: "Trivial",
                     products: [],
                     dependencies: [
-                        .package(url: "/foo1", from: "1.0.0"),
-                        .package(url: "/foo2", from: "1.0.0"),
+                        .package(name: "Foo", path: "/foo1"),
+                        .package(name: "Bar", path: "/bar1"),
                     ],
                     targets: [
                         .target(
                             name: "Target1",
-                            dependencies: [.product(name: "product", package: "foo3")]),
+                            dependencies: [.product(name: "product", package: "foo1")]),
                         .target(
                             name: "Target2",
                             dependencies: ["foos"]),
@@ -211,12 +246,14 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            // note: root has special rules in this case
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", severity: .error)
+                let foo1Pkg: AbsolutePath = "/foo1"
+                let bar1Pkg: AbsolutePath = "/bar1"
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
             }
         }
     }

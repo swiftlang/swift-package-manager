@@ -72,6 +72,10 @@ public struct ManifestWriter {
             manifestToolWriter["inputs"] = tool.inputs
             manifestToolWriter["outputs"] = tool.outputs
 
+            if tool.alwaysOutOfDate {
+                manifestToolWriter["always-out-of-date"] = "true"
+            }
+
             tool.write(to: manifestToolWriter)
 
             stream.send("\n")

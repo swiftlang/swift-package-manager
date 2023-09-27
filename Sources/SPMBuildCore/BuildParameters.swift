@@ -62,6 +62,8 @@ public struct BuildParameters: Encodable {
         case dwarf
         /// CodeView debug information format, used on Windows.
         case codeview
+        /// No debug information to be emitted.
+        case none
     }
 
     /// Represents the debugging strategy.
@@ -163,8 +165,15 @@ public struct BuildParameters: Encodable {
     /// Host triple.
     public var hostTriple: Triple
 
-    /// Destination triple.
-    public var triple: Triple
+    /// Target triple.
+    @available(*, deprecated, renamed: "targetTriple")
+    public var triple: Triple {
+        get { targetTriple }
+        set { targetTriple = newValue }
+    }
+
+    /// Target triple.
+    public var targetTriple: Triple
 
     /// Extra build flags.
     public var flags: BuildFlags
@@ -197,11 +206,6 @@ public struct BuildParameters: Encodable {
     /// `.swiftmodule`s.
     public var enableParseableModuleInterfaces: Bool
 
-    /// Emit Swift module separately from object files. This can enable more parallelism
-    /// since downstream targets can begin compiling without waiting for the entire
-    /// module to finish building.
-    public var emitSwiftModuleSeparately: Bool
-
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
@@ -219,6 +223,9 @@ public struct BuildParameters: Encodable {
     /// Whether to enable the entry-point-function-name feature.
     public var canRenameEntrypointFunctionName: Bool
 
+    /// Whether or not to enable the experimental test output mode.
+    public var experimentalTestOutput: Bool
+
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
@@ -226,15 +233,26 @@ public struct BuildParameters: Encodable {
 
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
-        if self.triple.isDarwin() {
-            return .macOS
-        } else if self.triple.isAndroid() {
+        if self.targetTriple.isDarwin() {
+            switch self.targetTriple.darwinPlatform {
+            case .iOS(.catalyst):
+                return .macCatalyst
+            case .iOS(.device), .iOS(.simulator):
+                return .iOS
+            case .tvOS:
+                return .tvOS
+            case .watchOS:
+                return .watchOS
+            case .macOS, nil:
+                return .macOS
+            }
+        } else if self.targetTriple.isAndroid() {
             return .android
-        } else if self.triple.isWASI() {
+        } else if self.targetTriple.isWASI() {
             return .wasi
-        } else if self.triple.isWindows() {
+        } else if self.targetTriple.isWindows() {
             return .windows
-        } else if self.triple.isOpenBSD() {
+        } else if self.targetTriple.isOpenBSD() {
             return .openbsd
         } else {
             return .linux
@@ -261,6 +279,10 @@ public struct BuildParameters: Encodable {
 
     public var debugInfoFormat: DebugInfoFormat
 
+    public var shouldSkipBuilding: Bool
+
+    @available(*, deprecated, message: "use `init` overload with `targetTriple` parameter name instead")
+    @_disfavoredOverload
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -279,7 +301,6 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
@@ -291,28 +312,98 @@ public struct BuildParameters: Encodable {
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false,
         linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
-        debugInfoFormat: DebugInfoFormat = .dwarf
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws {
-        let triple = try destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        try self.init(
+            dataPath: dataPath,
+            configuration: configuration,
+            toolchain: toolchain,
+            hostTriple: hostTriple,
+            targetTriple: destinationTriple,
+            flags: flags,
+            pkgConfigDirectories: pkgConfigDirectories,
+            architectures: architectures,
+            workers: workers,
+            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+            shouldEnableManifestCaching: shouldEnableManifestCaching,
+            canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
+            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+            sanitizers: sanitizers,
+            enableCodeCoverage: enableCodeCoverage,
+            indexStoreMode: indexStoreMode,
+            enableParseableModuleInterfaces: enableParseableModuleInterfaces,
+            useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+            useExplicitModuleBuild: useExplicitModuleBuild,
+            isXcodeBuildSystemEnabled: isXcodeBuildSystemEnabled,
+            enableTestability: enableTestability,
+            forceTestDiscovery: forceTestDiscovery,
+            testEntryPointPath: testEntryPointPath,
+            explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheckingMode,
+            linkerDeadStrip: linkerDeadStrip,
+            colorizedOutput: colorizedOutput,
+            verboseOutput: verboseOutput,
+            linkTimeOptimizationMode: linkTimeOptimizationMode,
+            debugInfoFormat: debugInfoFormat,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput
+        )
+    }
+
+    public init(
+        dataPath: AbsolutePath,
+        configuration: BuildConfiguration,
+        toolchain: Toolchain,
+        hostTriple: Triple? = nil,
+        targetTriple: Triple? = nil,
+        flags: BuildFlags,
+        pkgConfigDirectories: [AbsolutePath] = [],
+        architectures: [String]? = nil,
+        workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
+        shouldLinkStaticSwiftStdlib: Bool = false,
+        shouldEnableManifestCaching: Bool = false,
+        canRenameEntrypointFunctionName: Bool = false,
+        shouldCreateDylibForDynamicProducts: Bool = true,
+        sanitizers: EnabledSanitizers = EnabledSanitizers(),
+        enableCodeCoverage: Bool = false,
+        indexStoreMode: IndexStoreMode = .auto,
+        enableParseableModuleInterfaces: Bool = false,
+        useIntegratedSwiftDriver: Bool = false,
+        useExplicitModuleBuild: Bool = false,
+        isXcodeBuildSystemEnabled: Bool = false,
+        enableTestability: Bool? = nil,
+        forceTestDiscovery: Bool = false,
+        testEntryPointPath: AbsolutePath? = nil,
+        explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
+        linkerDeadStrip: Bool = true,
+        colorizedOutput: Bool = false,
+        verboseOutput: Bool = false,
+        linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
+    ) throws {
+        let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = try hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
-        self.triple = triple
+        self.targetTriple = targetTriple
         switch debugInfoFormat {
         case .dwarf:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
-            self.flags = flags.merging(triple.isWindows() ? BuildFlags(
+            self.flags = flags.merging(targetTriple.isWindows() ? BuildFlags(
                 cCompilerFlags: ["-gdwarf"],
                 cxxCompilerFlags: ["-gdwarf"],
                 swiftCompilerFlags: ["-g", "-use-ld=lld"],
                 linkerFlags: ["-debug:dwarf"]
             ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
         case .codeview:
-            if !triple.isWindows() {
-                throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
+            if !targetTriple.isWindows() {
+                throw StringError("CodeView debug information is currently not supported on \(targetTriple.osName)")
             }
             var flags = flags
             self.flags = flags.merging(BuildFlags(
@@ -320,6 +411,13 @@ public struct BuildParameters: Encodable {
                 cxxCompilerFlags: ["-g"],
                 swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
                 linkerFlags: ["-debug"]
+            ))
+        case .none:
+            var flags = flags
+            self.flags = flags.merging(BuildFlags(
+                cCompilerFlags: ["-g0"],
+                cxxCompilerFlags: ["-g0"],
+                swiftCompilerFlags: ["-gnone"]
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories
@@ -333,7 +431,6 @@ public struct BuildParameters: Encodable {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
@@ -345,7 +442,7 @@ public struct BuildParameters: Encodable {
         // when building and testing in release mode, one can use the '--disable-testable-imports' flag
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
-        self.testProductStyle = triple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+        self.testProductStyle = targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
             explicitlyEnabledDiscovery: forceTestDiscovery,
             explicitlySpecifiedPath: testEntryPointPath
         )
@@ -355,9 +452,16 @@ public struct BuildParameters: Encodable {
         self.verboseOutput = verboseOutput
         self.linkTimeOptimizationMode = linkTimeOptimizationMode
         self.debugInfoFormat = debugInfoFormat
+        self.shouldSkipBuilding = shouldSkipBuilding
+        self.experimentalTestOutput = experimentalTestOutput
     }
 
+    @available(*, deprecated, renamed: "forTriple()")
     public func withDestination(_ destinationTriple: Triple) throws -> BuildParameters {
+        try self.forTriple(destinationTriple)
+    }
+
+    public func forTriple(_ targetTriple: Triple) throws -> BuildParameters {
         let forceTestDiscovery: Bool
         let testEntryPointPath: AbsolutePath?
         switch self.testProductStyle {
@@ -369,12 +473,15 @@ public struct BuildParameters: Encodable {
             testEntryPointPath = nil
         }
 
+        var hostSDK = try SwiftSDK.hostSwiftSDK()
+        hostSDK.targetTriple = targetTriple
+
         return try .init(
             dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
             configuration: self.configuration,
-            toolchain: try UserToolchain(destination: Destination.hostDestination()),
+            toolchain: try UserToolchain(swiftSDK: hostSDK),
             hostTriple: self.hostTriple,
-            destinationTriple: destinationTriple,
+            targetTriple: targetTriple,
             flags: BuildFlags(),
             pkgConfigDirectories: self.pkgConfigDirectories,
             architectures: nil,
@@ -387,7 +494,6 @@ public struct BuildParameters: Encodable {
             enableCodeCoverage: self.enableCodeCoverage,
             indexStoreMode: self.indexStoreMode,
             enableParseableModuleInterfaces: self.enableParseableModuleInterfaces,
-            emitSwiftModuleSeparately: self.emitSwiftModuleSeparately,
             useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
             useExplicitModuleBuild: self.useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
@@ -398,7 +504,8 @@ public struct BuildParameters: Encodable {
             linkerDeadStrip: self.linkerDeadStrip,
             colorizedOutput: self.colorizedOutput,
             verboseOutput: self.verboseOutput,
-            linkTimeOptimizationMode: self.linkTimeOptimizationMode
+            linkTimeOptimizationMode: self.linkTimeOptimizationMode,
+            shouldSkipBuilding: self.shouldSkipBuilding
         )
     }
 
@@ -439,13 +546,17 @@ public struct BuildParameters: Encodable {
         return buildPath.appending(components: "description.json")
     }
 
+    public var testOutputPath: AbsolutePath {
+        return buildPath.appending(component: "testOutput.txt")
+    }
+
     /// The debugging strategy according to the current build parameters.
     public var debuggingStrategy: DebuggingStrategy? {
         guard configuration == .debug else {
             return nil
         }
 
-        if triple.isApple() {
+        if targetTriple.isApple() {
             return .swiftAST
         }
         return .modulewrap
@@ -458,29 +569,29 @@ public struct BuildParameters: Encodable {
 
     /// Returns the path to the dynamic library of a product for the current build parameters.
     func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
-        try RelativePath(validating: "\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+        try RelativePath(validating: "\(targetTriple.dynamicLibraryPrefix)\(product.name)\(targetTriple.dynamicLibraryExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
-        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(triple.executableExtension)")
+        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(targetTriple.executableExtension)")
 
         switch product.type {
         case .executable, .snippet:
             return potentialExecutablePath
         case .library(.static):
-            return try RelativePath(validating: "lib\(product.name)\(triple.staticLibraryExtension)")
+            return try RelativePath(validating: "lib\(product.name)\(targetTriple.staticLibraryExtension)")
         case .library(.dynamic):
             return try potentialDynamicLibraryPath(for: product)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !triple.isWASI() else {
+            guard !targetTriple.isWASI() else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
 
             let base = "\(product.name).xctest"
-            if triple.isDarwin() {
+            if targetTriple.isDarwin() {
                 return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
             } else {
                 return try RelativePath(validating: base)
@@ -532,5 +643,11 @@ extension BuildParameters {
         case .release:
             return true
         }
+    }
+}
+
+extension Triple {
+    public var supportsTestSummary: Bool {
+        return !self.isWindows()
     }
 }

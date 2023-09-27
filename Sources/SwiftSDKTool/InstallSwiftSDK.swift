@@ -37,14 +37,14 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws {
         let cancellator = Cancellator(observabilityScope: observabilityScope)
         cancellator.installSignalHandlers()
         try await SwiftSDKBundle.install(
             bundlePathOrURL: bundlePathOrURL,
-            swiftSDKsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: swiftSDKsDirectory,
             self.fileSystem,
             UniversalArchiver(self.fileSystem, cancellator),
             observabilityScope

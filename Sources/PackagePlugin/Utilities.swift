@@ -32,6 +32,18 @@ extension Package {
             return product
         }
     }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public var sourceModules: [SourceModuleTarget] {
+        return targets.compactMap { $0.sourceModule }
+    }
+}
+
+extension Product {
+    @available(_PackageDescription, introduced: 5.9)
+    public var sourceModules: [SourceModuleTarget] {
+        return targets.compactMap { $0.sourceModule }
+    }
 }
 
 extension Target {
@@ -54,6 +66,12 @@ extension Target {
             }
         }
         return self.dependencies.flatMap{ dependencyClosure(for: $0) }
+    }
+
+    /// Convenience accessor which casts the receiver to`SourceModuleTarget` if possible.
+    @available(_PackageDescription, introduced: 5.9)
+    public var sourceModule: SourceModuleTarget? {
+        return self as? SourceModuleTarget
     }
 }
 

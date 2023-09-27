@@ -203,6 +203,20 @@ final class WorkspaceTests: XCTestCase {
 
                 XCTAssertEqual(ws.interpreterFlags(for: foo), [])
             }
+
+            do {
+                let ws = try createWorkspace(
+                    """
+                    // swift-tools-version:999.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+                )
+
+                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("5")])
+            }
         }
     }
 
@@ -1868,7 +1882,7 @@ final class WorkspaceTests: XCTestCase {
         // Check that we can compute missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(
-                try! manifests.missingPackages().map(\.locationString).sorted(),
+                try! manifests.missingPackages.map(\.locationString).sorted(),
                 [
                     sandbox.appending(components: "pkgs", "Bar").pathString,
                     sandbox.appending(components: "pkgs", "Foo").pathString,
@@ -1888,7 +1902,7 @@ final class WorkspaceTests: XCTestCase {
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(
-                try! manifests.missingPackages().map(\.locationString).sorted(),
+                try! manifests.missingPackages.map(\.locationString).sorted(),
                 [sandbox.appending(components: "pkgs", "Bar").pathString]
             )
             XCTAssertNoDiagnostics(diagnostics)
@@ -1904,7 +1918,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(try! manifests.missingPackages().map(\.locationString).sorted(), [])
+            XCTAssertEqual(try! manifests.missingPackages.map(\.locationString).sorted(), [])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -1971,7 +1985,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
             XCTAssertEqual(
-                manifests.allDependencyManifests().map(\.value.manifest.displayName),
+                manifests.allDependencyManifests.map(\.value.manifest.displayName),
                 ["Foo", "Baz", "Bam", "Bar"]
             )
             XCTAssertNoDiagnostics(diagnostics)
@@ -2345,7 +2359,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(fooPath))
 
         try workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
-            let editedPackages = manifests.editedPackagesConstraints()
+            let editedPackages = manifests.editedPackagesConstraints
             XCTAssertEqual(editedPackages.map(\.package.locationString), [fooPath.pathString])
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -3794,7 +3808,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
-                    versions: ["1.0.0"],
+                    versions: ["1.0.0", "1.1.0"],
                     revisionProvider: { version in version } // stable revisions
                 ),
                 MockPackage(
@@ -3806,7 +3820,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
-                    versions: ["1.0.0"],
+                    versions: ["1.0.0", "1.1.0"],
                     revisionProvider: { version in version } // stable revisions
                 ),
                 MockPackage(
@@ -3884,7 +3898,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         // reset state, excluding the resolved file
-        try workspace.closeWorkspace()
+        try workspace.closeWorkspace(resetResolvedFile: false)
         XCTAssertTrue(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
@@ -3919,7 +3933,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.1.0")),
         ]
         // reset state, excluding the resolved file
-        try workspace.closeWorkspace()
+        try workspace.closeWorkspace(resetResolvedFile: false)
         XCTAssertTrue(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
@@ -3990,6 +4004,274 @@ final class WorkspaceTests: XCTestCase {
                 result.store.pins[.plain("bar")]?.packageRef.locationString,
                 "https://localhost/org/bar.git"
             )
+        }
+    }
+
+    func testPreferResolvedFileWhenExists() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo"),
+                                .product(name: "Bar", package: "bar")
+                            ]
+                        )
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0"))
+                    ],
+                    toolsVersion: .vNext // change to the one after 5.9
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://localhost/org/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
+                ),
+            ]
+        )
+
+        // initial resolution without resolved file
+
+        do {
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no errors
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            workspace.checkResolved { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.3.1")))
+                result.check(dependency: "bar", at: .checkout(.version("1.1.1")))
+            }
+
+            let pinsStore = try workspace.getOrCreateWorkspace().pinsStore.load()
+            checkPinnedVersion(pin: pinsStore.pins["foo"]!, version: "1.3.1")
+            checkPinnedVersion(pin: pinsStore.pins["bar"]!, version: "1.1.1")
+        }
+
+        do {
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, now it should rely on the resolved file
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        do {
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // change the manifest
+            let rootManifestPath = try workspace.pathToRoot(withName: "Root").appending(Manifest.filename)
+            let manifestContent: String = try fs.readFileContents(rootManifestPath)
+            try fs.writeFileContents(rootManifestPath, string: manifestContent.appending("\n"))
+
+            // run resolution again, but change requirements
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // restore original manifest
+            try fs.writeFileContents(rootManifestPath, string: manifestContent)
+            // run resolution again, now it should rely on the resolved file
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        do {
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // change the dependency requirements
+            let changedDeps: [PackageDependency] = [
+                .remoteSourceControl(url: "https://localhost/org/baz", requirement: .upToNextMinor(from: "1.0.0"))
+            ]
+            // run resolution again, but change requirements
+            try workspace.checkPackageGraph(roots: ["Root"], dependencies: changedDeps) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Baz", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, but change requirements back to original
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, now it should rely on the resolved file
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        do {
+            // reset including removing resolved file
+            try workspace.closeWorkspace(resetResolvedFile: true)
+            // run resolution again
+            try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+        }
+
+        // util
+        func checkPinnedVersion(pin: PinsStore.Pin, version: Version) {
+            switch pin.state {
+            case .version(let pinnedVersion, _):
+                XCTAssertEqual(pinnedVersion, version)
+            default:
+                XCTFail("non-version pin \(pin.state)")
+            }
         }
     }
 
@@ -4747,7 +5029,7 @@ final class WorkspaceTests: XCTestCase {
             let newState = PinsStore.PinState.version("1.0.0", revision: revision.identifier)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
-            try pinsStore.saveState(toolsVersion: ToolsVersion.current)
+            try pinsStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
@@ -4891,15 +5173,15 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
-            guard let diagnostic = diagnostics.first else { return XCTFail("unexpectedly got no diagnostics") }
             // rdar://82544922 (`WorkspaceResolveReason` is non-deterministic)
-            XCTAssertTrue(
-                diagnostic.message
-                    .hasPrefix(
-                        "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(sandbox.appending(components: "Package.resolved")). Running resolver because the following dependencies were added:"
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .prefix(
+                        "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: sandbox)). Running resolver because the following dependencies were added:"
                     ),
-                "unexpected diagnostic message"
-            )
+                    severity: .error
+                )
+            }
         }
     }
 
@@ -7496,7 +7778,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain(destination: .hostDestination()),
+            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK()),
             checksumAlgorithm: checksumAlgorithm,
             customHTTPClient: .none,
             customArchiver: .none,
@@ -8535,7 +8817,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ariFiles = [
             """
@@ -8545,7 +8827,7 @@ final class WorkspaceTests: XCTestCase {
                     {
                         "fileName": "a1.zip",
                         "checksum": "a1",
-                        "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                     }
                 ]
             }
@@ -8557,7 +8839,7 @@ final class WorkspaceTests: XCTestCase {
                     {
                         "fileName": "a2/a2.zip",
                         "checksum": "a2",
-                        "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                     }
                 ]
             }
@@ -8823,7 +9105,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ari = """
         {
@@ -8832,7 +9114,7 @@ final class WorkspaceTests: XCTestCase {
                 {
                     "fileName": "a1.zip",
                     "checksum": "a1",
-                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                 }
             ]
         }
@@ -8942,7 +9224,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ari = """
         {
@@ -8951,7 +9233,7 @@ final class WorkspaceTests: XCTestCase {
                 {
                     "fileName": "a.zip",
                     "checksum": "a",
-                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                 }
             ]
         }
@@ -9052,7 +9334,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileArchiveNotFound() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
 
         let ari = """
         {
@@ -9061,7 +9343,7 @@ final class WorkspaceTests: XCTestCase {
                 {
                     "fileName": "not-found.zip",
                     "checksum": "a",
-                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
                 }
             ]
         }
@@ -9128,10 +9410,10 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
         let androidTriple = try Triple("x86_64-unknown-linux-android")
         let macTriple = try Triple("arm64-apple-macosx")
-        let notHostTriple = hostToolchain.triple == androidTriple ? macTriple : androidTriple
+        let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
 
         let ari = """
         {
@@ -9189,7 +9471,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .contains(
-                        "failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.triple.tripleString)'"
+                        "failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.targetTriple.tripleString)'"
                     ),
                     severity: .error
                 )
@@ -10745,6 +11027,255 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDeterministicURLPreference() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                            .product(name: "BazProduct", package: "baz"),
+                        ]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "https://github.com/org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/bar.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/baz.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://github.com/org/bar.git",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://github.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://github.com/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz.git",
+                    targets: [
+                        MockTarget(name: "BazTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "git@github.com:org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "git@github.com:org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
+                
+            }
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'git@github.com:org/foo.git' and 'https://github.com/org/foo.git'. using preferred variant 'https://github.com/org/foo.git'",
+                    severity: .debug
+                )
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'http://github.com/org/foo' and 'https://github.com/org/foo.git'. using preferred variant 'https://github.com/org/foo.git'",
+                    severity: .debug
+                )
+            }
+        }
+    }
+
+    func testCycleRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root1",
+                    targets: [
+                        .init(name: "Root1Target", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "Root2Target", package: "Root2")
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "Root1Product", targets: ["Root1Target"])
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .fileSystem(path: "Root2")
+                    ]
+                ),
+                MockPackage(
+                    name: "Root2",
+                    targets: [
+                        .init(name: "Root2Target", dependencies: [
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "Root2Product", targets: ["Root2Target"])
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/bar",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://scm.com/org/foo",
+                    targets: [
+                        .init(name: "FooTarget", dependencies: [
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/bar",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "http://scm.com/org/bar",
+                    targets: [
+                        .init(name: "BarTarget", dependencies: [
+                            .product(name: "BazProduct", package: "baz"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/baz",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "http://scm.com/org/baz",
+                    targets: [
+                        .init(name: "BazTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        .init(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://scm.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .regex("cyclic dependency declaration found: root[1|2] -> *"),
+                    severity: .error
+                )
+                result.check(
+                    diagnostic: "exhausted attempts to resolve the dependencies graph, with 'bar remoteSourceControl http://scm.com/org/bar', 'foo remoteSourceControl http://scm.com/org/foo' unresolved.",
+                    severity: .error
+                )
+            }
+        }
+    }
+
     func testResolutionBranchAndVersion() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -10871,6 +11402,7 @@ final class WorkspaceTests: XCTestCase {
                 packageLocation: String,
                 packageVersion: (version: Version?, revision: String?)?,
                 identityResolver: IdentityResolver,
+                dependencyMapper: DependencyMapper,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 delegateQueue: DispatchQueue,
@@ -11645,13 +12177,7 @@ final class WorkspaceTests: XCTestCase {
                     )
                 }
             }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                   realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+                XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
             }
         }
 
@@ -11772,13 +12298,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -11956,13 +12476,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12115,13 +12629,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12261,13 +12769,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12428,13 +12930,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12590,13 +13086,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'BazProduct' in: 'baz' (from 'https://git/org/baz'), 'org.baz'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12781,13 +13271,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'BazProduct' in: 'baz' (from 'https://git/org/baz'), 'org.baz'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -12927,13 +13411,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }) { error in
-                    var diagnosed = false
-                    if let realError = error as? PackageGraphError,
-                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'"
-                    {
-                        diagnosed = true
-                    }
-                    XCTAssertTrue(diagnosed)
+                    XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'FooProduct' in: 'foo' (from 'https://git/org/foo'), 'org.foo'")
                 }
             } else {
                 XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
@@ -13032,7 +13510,7 @@ final class WorkspaceTests: XCTestCase {
         try customFS.createDirectory(targetDir, recursive: true)
         try customFS.writeFileContents(targetDir.appending("file.swift"), bytes: "")
 
-        let bazURL = URL("https://example.com/baz")
+        let bazURL = SourceControlURL("https://example.com/baz")
         let bazPackageReference = PackageReference(
             identity: PackageIdentity(url: bazURL),
             kind: .remoteSourceControl(bazURL)

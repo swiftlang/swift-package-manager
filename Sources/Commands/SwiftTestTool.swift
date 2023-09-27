@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import Dispatch
+import class Foundation.JSONDecoder
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
@@ -35,8 +36,10 @@ import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
-    case invalidListTestJSONData
-    case testsExecutableNotFound
+    case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
+    case testsNotFound
+    case testProductNotFound(productName: String)
+    case productIsNotTest(productName: String)
     case multipleTestProducts([String])
     case xctestNotAvailable
 }
@@ -44,10 +47,15 @@ private enum TestError: Swift.Error {
 extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
-        case .testsExecutableNotFound:
+        case .testsNotFound:
             return "no tests found; create a target in the 'Tests' directory"
-        case .invalidListTestJSONData:
-            return "invalid list test JSON structure"
+        case .testProductNotFound(let productName):
+            return "there is no test product named '\(productName)'"
+        case .productIsNotTest(let productName):
+            return "the product '\(productName)' is not a test"
+        case .invalidListTestJSONData(let context, let underlyingError):
+            let underlying = underlyingError != nil ? ", underlying error: \(underlyingError!)" : ""
+            return "invalid list test JSON structure, produced by \(context)\(underlying)"
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
         case .xctestNotAvailable:
@@ -63,7 +71,7 @@ struct SharedOptions: ParsableArguments {
 
     /// The test product to use. This is useful when there are multiple test products
     /// to choose from (usually in multiroot packages).
-    @Option(help: "Test the specified product.")
+    @Option(help: .hidden)
     var testProduct: String?
 }
 
@@ -123,6 +131,14 @@ struct TestToolOptions: ParsableArguments {
           inversion: .prefixedEnableDisable,
           help: "Enable code coverage")
     var enableCodeCoverage: Bool = false
+
+    /// Configure test output.
+    @Option(help: ArgumentHelp("", visibility: .hidden))
+    public var testOutput: TestOutput = .default
+
+    var enableExperimentalTestOutput: Bool {
+        return testOutput == .experimentalSummary
+    }
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -140,6 +156,18 @@ public enum TestCaseSpecifier {
     case skip([String])
 }
 
+/// Different styles of test output.
+public enum TestOutput: String, ExpressibleByArgument {
+    /// Whatever `xctest` emits to the console.
+    case `default`
+
+    /// Capture XCTest events and provide a summary.
+    case experimentalSummary
+
+    /// Let the test process emit parseable output to the console.
+    case experimentalParseable
+}
+
 /// swift-test tool namespace
 public struct SwiftTestTool: SwiftCommand {
     public static var configuration = CommandConfiguration(
@@ -149,7 +177,7 @@ public struct SwiftTestTool: SwiftCommand {
         discussion: "SEE ALSO: swift build, swift run, swift package",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
-            List.self,
+            List.self, Last.self
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
@@ -168,13 +196,20 @@ public struct SwiftTestTool: SwiftCommand {
             try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
 
             // validate XCTest available on darwin based systems
-            let toolchain = try swiftTool.getDestinationToolchain()
-            if toolchain.triple.isDarwin() && toolchain.xctestPath == nil {
+            let toolchain = try swiftTool.getTargetToolchain()
+            if toolchain.targetTriple.isDarwin() && toolchain.xctestPath == nil {
                 throw TestError.xctestNotAvailable
             }
         } catch {
             swiftTool.observabilityScope.emit(error)
             throw ExitCode.failure
+        }
+
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
+
+        // Remove test output from prior runs and validate priors.
+        if self.options.enableExperimentalTestOutput, buildParameters.triple.supportsTestSummary {
+            _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 
         if self.options.shouldPrintCodeCovPath {
@@ -185,9 +220,8 @@ public struct SwiftTestTool: SwiftCommand {
             let command = try List.parse()
             try command.run(swiftTool)
         } else if !self.options.shouldRunInParallel {
-            let toolchain = try swiftTool.getDestinationToolchain()
+            let toolchain = try swiftTool.getTargetToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
@@ -216,6 +250,8 @@ public struct SwiftTestTool: SwiftCommand {
                     in: testProducts,
                     swiftTool: swiftTool,
                     enableCodeCoverage: options.enableCodeCoverage,
+                    shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+                    experimentalTestOutput: options.enableExperimentalTestOutput,
                     sanitizers: globalOptions.build.sanitizers
                 )
                 let tests = try testSuites
@@ -256,23 +292,28 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool.executionStatus = .failure
             }
 
-            if self.options.enableCodeCoverage {
+            if self.options.enableCodeCoverage, ranSuccessfully {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
+            if self.options.enableExperimentalTestOutput, !ranSuccessfully {
+                try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
+            }
+
         } else {
-            let toolchain = try swiftTool.getDestinationToolchain()
+            let toolchain = try swiftTool.getTargetToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try TestingSupport.getTestSuites(
                 in: testProducts,
                 swiftTool: swiftTool,
                 enableCodeCoverage: options.enableCodeCoverage,
+                shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: options.enableExperimentalTestOutput,
                 sanitizers: globalOptions.build.sanitizers
             )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
-            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -310,14 +351,49 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             // process code Coverage if request
-            if self.options.enableCodeCoverage {
+            if self.options.enableCodeCoverage, runner.ranSuccessfully {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
             if !runner.ranSuccessfully {
                 swiftTool.executionStatus = .failure
             }
+
+            if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
+                try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
+            }
         }
+    }
+
+    private static func handleTestOutput(buildParameters: BuildParameters, packagePath: AbsolutePath) throws {
+        guard localFileSystem.exists(buildParameters.testOutputPath) else {
+            print("No existing test output found.")
+            return
+        }
+
+        let lines = try String(contentsOfFile: buildParameters.testOutputPath.pathString).components(separatedBy: "\n")
+        let events = try lines.map { try JSONDecoder().decode(TestEventRecord.self, from: $0) }
+
+        let caseEvents = events.compactMap { $0.caseEvent }
+        let failureRecords = events.compactMap { $0.caseFailure }
+        let expectedFailures = failureRecords.filter({ $0.failureKind.isExpected == true })
+        let unexpectedFailures = failureRecords.filter { $0.failureKind.isExpected == false }.sorted(by: { lhs, rhs in
+            guard let lhsLocation = lhs.issue.sourceCodeContext.location, let rhsLocation = rhs.issue.sourceCodeContext.location else {
+                return lhs.description < rhs.description
+            }
+
+            if lhsLocation.file == rhsLocation.file {
+                return lhsLocation.line < rhsLocation.line
+            } else {
+                return lhsLocation.file < rhsLocation.file
+            }
+        }).map { $0.description(with: packagePath.pathString) }
+
+        let startedTests = caseEvents.filter { $0.event == .start }.count
+        let finishedTests = caseEvents.filter { $0.event == .finish }.count
+        let totalFailures = expectedFailures.count + unexpectedFailures.count
+        print("\nRan \(finishedTests)/\(startedTests) tests, \(totalFailures) failures (\(unexpectedFailures.count) unexpected):\n")
+        print("\(unexpectedFailures.joined(separator: "\n"))")
     }
 
     /// Processes the code coverage data and emits a json.
@@ -338,7 +414,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
@@ -349,10 +425,10 @@ public struct SwiftTestTool: SwiftCommand {
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
     private func mergeCodeCovRawDataFiles(swiftTool: SwiftTool) throws {
         // Get the llvm-prof tool.
-        let llvmProf = try swiftTool.getDestinationToolchain().getLLVMProf()
+        let llvmProf = try swiftTool.getTargetToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         let codeCovFiles = try swiftTool.fileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
@@ -371,8 +447,8 @@ public struct SwiftTestTool: SwiftCommand {
     /// Exports profdata as a JSON file.
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
-        let llvmCov = try swiftTool.getDestinationToolchain().getLLVMCov()
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let llvmCov = try swiftTool.getTargetToolchain().getLLVMCov()
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
         let args = [
             llvmCov.pathString,
             "export",
@@ -392,29 +468,8 @@ public struct SwiftTestTool: SwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
-        let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
-
-        if !self.sharedOptions.shouldSkipBuilding {
-            let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-            try buildSystem.build(subset: subset)
-        }
-
-        // Find the test product.
-        let testProducts = buildSystem.builtTestProducts
-        guard !testProducts.isEmpty else {
-            throw TestError.testsExecutableNotFound
-        }
-
-        if let testProductName = self.sharedOptions.testProduct {
-            guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-                throw TestError.testsExecutableNotFound
-            }
-
-            return [selectedTestProduct]
-        } else {
-            return testProducts
-        }
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
+        return try Commands.buildTestsIfNeeded(swiftTool: swiftTool, buildParameters: buildParameters, testProduct: self.sharedOptions.testProduct)
     }
 
     /// Private function that validates the commands arguments
@@ -477,6 +532,18 @@ extension SwiftTestTool {
  }
 
 extension SwiftTestTool {
+    struct Last: SwiftCommand {
+        @OptionGroup(visibility: .hidden)
+        var globalOptions: GlobalOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
+            try SwiftTestTool.handleTestOutput(
+                buildParameters: try swiftTool.buildParameters(),
+                packagePath: localFileSystem.currentWorkingDirectory ?? .root // by definition runs in the current working directory
+            )
+        }
+    }
+
     struct List: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Lists test methods in specifier format"
@@ -498,6 +565,8 @@ extension SwiftTestTool {
                 in: testProducts,
                 swiftTool: swiftTool,
                 enableCodeCoverage: false,
+                shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: false,
                 sanitizers: globalOptions.build.sanitizers
             )
 
@@ -508,29 +577,8 @@ extension SwiftTestTool {
         }
 
         private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-            let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false)
-            let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
-
-            if !self.sharedOptions.shouldSkipBuilding {
-                let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-                try buildSystem.build(subset: subset)
-            }
-
-            // Find the test product.
-            let testProducts = buildSystem.builtTestProducts
-            guard !testProducts.isEmpty else {
-                throw TestError.testsExecutableNotFound
-            }
-
-            if let testProductName = self.sharedOptions.testProduct {
-                guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-                    throw TestError.testsExecutableNotFound
-                }
-
-                return [selectedTestProduct]
-            } else {
-                return testProducts
-            }
+            let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false, shouldSkipBuilding: sharedOptions.shouldSkipBuilding)
+            return try Commands.buildTestsIfNeeded(swiftTool: swiftTool, buildParameters: buildParameters, testProduct: self.sharedOptions.testProduct)
         }
     }
 }
@@ -832,7 +880,7 @@ final class ParallelTestRunner {
 
         // Print test results.
         for test in processedTests.get() {
-            if !test.success || shouldOutputSuccess {
+            if (!test.success || shouldOutputSuccess) && !buildParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print(test.output)
@@ -866,46 +914,53 @@ struct TestSuite {
     ///
     /// - Parameters:
     ///     - jsonString: JSON string to be parsed.
+    ///     - context: the commandline which produced the given JSON.
     ///
     /// - Throws: JSONDecodingError, TestError
     ///
     /// - Returns: Array of TestSuite.
-    static func parse(jsonString: String) throws -> [TestSuite] {
-        let json = try JSON(string: jsonString)
-        return try TestSuite.parse(json: json)
+    static func parse(jsonString: String, context: String) throws -> [TestSuite] {
+        let json: JSON
+        do {
+            json = try JSON(string: jsonString)
+        } catch {
+            throw TestError.invalidListTestJSONData(context: context, underlyingError: error)
+        }
+        return try TestSuite.parse(json: json, context: context)
     }
 
     /// Parses the JSON object into array of TestSuite.
     ///
     /// - Parameters:
     ///     - json: An object of JSON.
+    ///     - context: the commandline which produced the given JSON.
     ///
     /// - Throws: TestError
     ///
     /// - Returns: Array of TestSuite.
-    static func parse(json: JSON) throws -> [TestSuite] {
+    static func parse(json: JSON, context: String) throws -> [TestSuite] {
         guard case let .dictionary(contents) = json,
               case let .array(testSuites)? = contents["tests"] else {
-            throw TestError.invalidListTestJSONData
+            throw TestError.invalidListTestJSONData(context: context)
         }
 
         return try testSuites.map({ testSuite in
             guard case let .dictionary(testSuiteData) = testSuite,
                   case let .string(name)? = testSuiteData["name"],
                   case let .array(allTestsData)? = testSuiteData["tests"] else {
-                throw TestError.invalidListTestJSONData
+                throw TestError.invalidListTestJSONData(context: context)
             }
 
             let testCases: [TestSuite.TestCase] = try allTestsData.map({ testCase in
                 guard case let .dictionary(testCaseData) = testCase,
                       case let .string(name)? = testCaseData["name"],
                       case let .array(tests)? = testCaseData["tests"] else {
-                    throw TestError.invalidListTestJSONData
+                    throw TestError.invalidListTestJSONData(context: context)
                 }
                 let testMethods: [String] = try tests.map({ test in
                     guard case let .dictionary(testData) = test,
                           case let .string(testMethod)? = testData["name"] else {
-                        throw TestError.invalidListTestJSONData
+                        throw TestError.invalidListTestJSONData(context: context)
                     }
                     return testMethod
                 })
@@ -1041,10 +1096,12 @@ final class XUnitGenerator {
 }
 
 extension SwiftTool {
-    func buildParametersForTest(options: TestToolOptions) throws -> BuildParameters {
+    func buildParametersForTest(options: TestToolOptions, sharedOptions: SharedOptions) throws -> BuildParameters {
         try self.buildParametersForTest(
             enableCodeCoverage: options.enableCodeCoverage,
-            enableTestability: options.enableTestableImports
+            enableTestability: options.enableTestableImports,
+            shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
+            experimentalTestOutput: options.enableExperimentalTestOutput
         )
     }
 }
@@ -1095,5 +1152,35 @@ extension BuildParameters {
 private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
+    }
+}
+
+/// Builds the "test" target if enabled in options.
+///
+/// - Returns: The paths to the build test products.
+private func buildTestsIfNeeded(swiftTool: SwiftTool, buildParameters: BuildParameters, testProduct: String?) throws -> [BuiltTestProduct] {
+    let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
+
+    let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
+    try buildSystem.build(subset: subset)
+
+    // Find the test product.
+    let testProducts = buildSystem.builtTestProducts
+    guard !testProducts.isEmpty else {
+        if let testProduct {
+            throw TestError.productIsNotTest(productName: testProduct)
+        } else {
+            throw TestError.testsNotFound
+        }
+    }
+
+    if let testProductName = testProduct {
+        guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
+            throw TestError.testProductNotFound(productName: testProductName)
+        }
+
+        return [selectedTestProduct]
+    } else {
+        return testProducts
     }
 }

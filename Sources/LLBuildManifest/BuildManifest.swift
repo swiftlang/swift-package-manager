@@ -11,6 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
+
+import class TSCBasic.Process
 
 public protocol AuxiliaryFileType {
     static var name: String { get }
@@ -19,7 +22,7 @@ public protocol AuxiliaryFileType {
 }
 
 public enum WriteAuxiliary {
-    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self, SourcesFileList.self]
+    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self, SourcesFileList.self, SwiftGetVersion.self, XCTestInfoPlist.self]
 
     public struct LinkFileList: AuxiliaryFileType {
         public static let name = "link-file-list"
@@ -74,6 +77,59 @@ public enum WriteAuxiliary {
                 .joined(separator: "\n")
             contents.append("\n")
             return contents
+        }
+    }
+
+    public struct SwiftGetVersion: AuxiliaryFileType {
+        public static let name = "swift-get-version"
+
+        public static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
+            return [.virtual(Self.name), .file(swiftCompilerPath)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let swiftCompilerPathString = inputs.first(where: { $0.kind == .file })?.name else {
+                throw Error.unknownSwiftCompilerPath
+            }
+            let swiftCompilerPath = try AbsolutePath(validating: swiftCompilerPathString)
+            return try TSCBasic.Process.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
+        }
+
+        private enum Error: Swift.Error {
+            case unknownSwiftCompilerPath
+        }
+    }
+
+    public struct XCTestInfoPlist: AuxiliaryFileType {
+        public static let name = "xctest-info-plist"
+
+        public static func computeInputs(principalClass: String) -> [Node] {
+            return [.virtual(Self.name), .virtual(principalClass)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let principalClass = inputs.last?.name.dropFirst().dropLast() else {
+                throw Error.undefinedPrincipalClass
+            }
+
+            let plist = InfoPlist(NSPrincipalClass: String(principalClass))
+            let encoder = PropertyListEncoder()
+            encoder.outputFormat = .xml
+            let result = try encoder.encode(plist)
+
+            guard let contents = String(data: result, encoding: .utf8) else {
+                throw Error.invalidPropertyListData
+            }
+            return contents
+        }
+
+        private struct InfoPlist: Codable {
+            let NSPrincipalClass: String
+        }
+
+        private enum Error: Swift.Error {
+            case invalidPropertyListData
+            case undefinedPrincipalClass
         }
     }
 }
@@ -170,6 +226,23 @@ public struct BuildManifest {
         let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
         let name = sourcesFileListPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addSwiftGetVersionCommand(
+        swiftCompilerPath: AbsolutePath,
+        swiftVersionFilePath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.SwiftGetVersion.computeInputs(swiftCompilerPath: swiftCompilerPath)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: swiftVersionFilePath, alwaysOutOfDate: true)
+        let name = swiftVersionFilePath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
+        let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 
