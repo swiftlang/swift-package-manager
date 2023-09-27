@@ -170,19 +170,19 @@ final class TripleTests: XCTestCase {
         let linux = try? Triple("x86_64-unknown-linux-gnu")
         XCTAssertNotNil(linux)
         XCTAssertEqual(linux!.os, .linux)
-        XCTAssertNil(linux!.osVersion)
+        XCTAssertEqual(linux!.osVersion, Triple.Version.zero)
         XCTAssertEqual(linux!.environment, .gnu)
 
         let macos = try? Triple("x86_64-apple-macosx10.15")
         XCTAssertNotNil(macos!)
-        XCTAssertEqual(macos!.osVersion, .init(parse: "10.15")!)
+        XCTAssertEqual(macos!.osVersion, .init(parse: "10.15"))
         let newVersion = "10.12"
         let tripleString = macos!.tripleString(forPlatformVersion: newVersion)
         XCTAssertEqual(tripleString, "x86_64-apple-macosx10.12")
         let macosNoX = try? Triple("x86_64-apple-macos12.2")
         XCTAssertNotNil(macosNoX!)
         XCTAssertEqual(macosNoX!.os, .macosx)
-        XCTAssertEqual(macosNoX!.osVersion, .init(parse: "12.2")!)
+        XCTAssertEqual(macosNoX!.osVersion, .init(parse: "12.2"))
 
         let android = try? Triple("aarch64-unknown-linux-android24")
         XCTAssertNotNil(android)
@@ -212,13 +212,6 @@ final class TripleTests: XCTestCase {
         // WASI dynamic libraries are only experimental,
         // but SwiftPM requires this property not to crash.
         _ = wasi.dynamicLibraryExtension
-    }
-
-    func testIsRuntimeCompatibleWith() throws {
-        try XCTAssertTrue(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-macosx")))
-        try XCTAssertTrue(Triple("x86_64-unknown-linux").isRuntimeCompatible(with: Triple("x86_64-unknown-linux")))
-        try XCTAssertFalse(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-linux")))
-        try XCTAssertTrue(Triple("x86_64-apple-macosx14.0").isRuntimeCompatible(with: Triple("x86_64-apple-macosx13.0")))
     }
 
     func testIsRuntimeCompatibleWith() throws {
