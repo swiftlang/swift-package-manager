@@ -231,8 +231,8 @@ class PIFTests: XCTestCase {
         let originalPIF = try encoder.encode(workspace)
         let decodedPIF = try encoder.encode(decodedWorkspace)
 
-        let originalString = String(data: originalPIF, encoding: .utf8)!
-        let decodedString = String(data: decodedPIF, encoding: .utf8)!
+        let originalString = String(decoding: originalPIF, as: UTF8.self)
+        let decodedString = String(decoding: decodedPIF, as: UTF8.self)
 
         XCTAssertEqual(originalString, decodedString)
       #endif

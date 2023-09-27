@@ -86,9 +86,7 @@ public final class RegistryClient: Cancellable {
                 switch registryAuthentication.type {
                 case .basic:
                     let authorizationString = "\(user):\(password)"
-                    guard let authorizationData = authorizationString.data(using: .utf8) else {
-                        return nil
-                    }
+                    let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
@@ -592,9 +590,7 @@ public final class RegistryClient: Cancellable {
                                 guard let data = response.body else {
                                     throw RegistryError.invalidResponse
                                 }
-                                guard let manifestContent = String(data: data, encoding: .utf8) else {
-                                    throw RegistryError.invalidResponse
-                                }
+                                let manifestContent = String(decoding: data, as: UTF8.self)
 
                                 signatureValidation.validate(
                                     registry: registry,
@@ -830,9 +826,7 @@ public final class RegistryClient: Cancellable {
                                 guard let data = response.body else {
                                     throw RegistryError.invalidResponse
                                 }
-                                guard let manifestContent = String(data: data, encoding: .utf8) else {
-                                    throw RegistryError.invalidResponse
-                                }
+                                let manifestContent = String(decoding: data, as: UTF8.self)
 
                                 signatureValidation.validate(
                                     registry: registry,
@@ -1614,14 +1608,14 @@ public final class RegistryClient: Cancellable {
         case 400...499:
             return RegistryError.clientError(
                 code: response.statusCode,
-                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                details: response.body.map { String(decoding: $0, as: UTF8.self) } ?? ""
             )
         case 501:
             return RegistryError.authenticationMethodNotSupported
         case 500...599:
             return RegistryError.serverError(
                 code: response.statusCode,
-                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                details: response.body.map { String(decoding: $0, as: UTF8.self) } ?? ""
             )
         default:
             return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)

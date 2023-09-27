@@ -117,9 +117,7 @@ public enum WriteAuxiliary {
             encoder.outputFormat = .xml
             let result = try encoder.encode(plist)
 
-            guard let contents = String(data: result, encoding: .utf8) else {
-                throw Error.invalidPropertyListData
-            }
+            let contents = String(decoding: result, as: UTF8.self)
             return contents
         }
 
@@ -128,7 +126,6 @@ public enum WriteAuxiliary {
         }
 
         private enum Error: Swift.Error {
-            case invalidPropertyListData
             case undefinedPrincipalClass
         }
     }
