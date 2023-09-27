@@ -189,6 +189,7 @@ extension Triple {
         guard self != triple else {
             return true
         }
+
         if
             self.arch == triple.arch &&
             self.vendor == triple.vendor &&
