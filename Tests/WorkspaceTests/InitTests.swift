@@ -286,6 +286,7 @@ class InitTests: XCTestCase {
                 name: "Foo",
                 options: options,
                 destinationPath: packageRoot,
+                installedSwiftPMConfiguration: .default,
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
