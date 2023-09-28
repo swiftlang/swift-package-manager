@@ -15,6 +15,7 @@ add_library(PackageModel
   DependencyMapper.swift
   Diagnostics.swift
   IdentityResolver.swift
+  InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift

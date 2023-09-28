@@ -369,3 +369,20 @@ extension RelativePath: ExpressibleByStringInterpolation {
         try! self.init(validating: value)
     }
 }
+
+extension InitPackage {
+    public convenience init(
+        name: String,
+        packageType: PackageType,
+        destinationPath: AbsolutePath,
+        fileSystem: FileSystem
+    ) throws {
+        try self.init(
+            name: name,
+            options: InitPackageOptions(packageType: packageType),
+            destinationPath: destinationPath,
+            installedSwiftPMConfiguration: .default,
+            fileSystem: fileSystem
+        )
+    }
+}
