@@ -792,8 +792,8 @@ extension Workspace.BinaryArtifactsManager {
 
         if let infoJSON = files.first(where: { $0.basename.lowercased() == "info.json" }) {
             do {
-                _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: infoJSON.parentDirectory)
-                return .artifactsArchive
+                let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: infoJSON.parentDirectory)
+                return .artifactsArchive(types: metadata.artifacts.map { $0.value.type })
             } catch {
                 observabilityScope.emit(
                     debug: "info.json found in '\(path)' but failed to parse",

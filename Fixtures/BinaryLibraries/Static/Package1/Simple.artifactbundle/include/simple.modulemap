@@ -1,0 +1,4 @@
+module Simple {
+  header "simple.h"
+  export *
+}
