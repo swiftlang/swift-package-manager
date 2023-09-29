@@ -709,11 +709,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     ) {
         /* Prior to tools-version 5.9, we used to errorneously recursively traverse executable/plugin dependencies and statically include their
          targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
-        let shouldExcludeExecutablesAndPlugins: Bool
+        let shouldExcludePlugins: Bool
         if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
-            shouldExcludeExecutablesAndPlugins = toolsVersion >= .v5_9
+            shouldExcludePlugins = toolsVersion >= .v5_9
         } else {
-            shouldExcludeExecutablesAndPlugins = false
+            shouldExcludePlugins = false
         }
 
         // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
@@ -738,7 +738,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             // Include all the dependencies of a target.
             case .target(let target, _):
                 let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
-                let topLevelIsExecutable = isTopLevel && product.type == .executable
                 let topLevelIsMacro = isTopLevel && product.type == .macro
                 let topLevelIsPlugin = isTopLevel && product.type == .plugin
                 let topLevelIsTest = isTopLevel && product.type == .test
@@ -746,10 +745,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 if !topLevelIsMacro && !topLevelIsTest && target.type == .macro {
                     return []
                 }
-                if shouldExcludeExecutablesAndPlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
-                    return []
-                }
-                if shouldExcludeExecutablesAndPlugins, !topLevelIsExecutable && topLevelIsTest && target.type == .executable {
+                if shouldExcludePlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
                     return []
                 }
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
@@ -766,7 +762,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 case .library(.automatic), .library(.static):
                     return productDependencies
                 case .plugin:
-                    return shouldExcludeExecutablesAndPlugins ? [] : productDependencies
+                    return shouldExcludePlugins ? [] : productDependencies
                 case .library(.dynamic), .test, .executable, .snippet, .macro:
                     return []
                 }
