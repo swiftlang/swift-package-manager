@@ -502,7 +502,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
-            let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
+            let compactJSONText = String(decoding: compactGraphData, as: UTF8.self)
             XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
@@ -513,7 +513,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
-            let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
+            let prettyJSONText = String(decoding: prettyGraphData, as: UTF8.self)
             XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
         }
     }

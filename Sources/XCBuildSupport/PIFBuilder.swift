@@ -97,7 +97,7 @@ public final class PIFBuilder {
         try PIF.sign(topLevelObject.workspace)
 
         let pifData = try encoder.encode(topLevelObject)
-        return String(data: pifData, encoding: .utf8)!
+        return String(decoding: pifData, as: UTF8.self)
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.

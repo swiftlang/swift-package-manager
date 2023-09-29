@@ -80,7 +80,7 @@ class RegistryPackageContainerTests: XCTestCase {
                                 "Content-Version": "1",
                                 "Content-Type": "text/x-swift"
                             ],
-                            body: "// swift-tools-version:\(toolsVersion)".data(using: .utf8)
+                            body: Data("// swift-tools-version:\(toolsVersion)".utf8)
                         )
                     ))
                 }
@@ -145,7 +145,7 @@ class RegistryPackageContainerTests: XCTestCase {
                                 \(self.manifestLink(packageIdentity, .v5_5)),
                                 """
                             ],
-                            body: "// swift-tools-version:\(ToolsVersion.v5_3)".data(using: .utf8)
+                            body: Data("// swift-tools-version:\(ToolsVersion.v5_3)".utf8)
                         )
                     ))
                 }
@@ -238,7 +238,7 @@ class RegistryPackageContainerTests: XCTestCase {
                                     self.manifestLink(packageIdentity, $0)
                                 }.joined(separator: ",\n")
                             ],
-                            body: "// swift-tools-version:\(requestedVersion)".data(using: .utf8)
+                            body: Data("// swift-tools-version:\(requestedVersion)".utf8)
                         )
                     ))
                 }
@@ -400,7 +400,7 @@ class RegistryPackageContainerTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "text/x-swift"
                     ],
-                    body: "// swift-tools-version:\(ToolsVersion.current)".data(using: .utf8)
+                    body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
                 )
             ))
         }
@@ -420,7 +420,7 @@ class RegistryPackageContainerTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "application/zip"
                     ],
-                    body: "".data(using: .utf8)
+                    body: Data("".utf8)
                 )
             ))
         }

@@ -37,7 +37,7 @@ public struct HTTPClientResponse: Sendable {
 
 extension HTTPClientResponse {
     public static func okay(body: String? = nil) -> HTTPClientResponse {
-        .okay(body: body?.data(using: .utf8))
+        .okay(body: body.map { Data($0.utf8) })
     }
 
     public static func okay(body: Data?) -> HTTPClientResponse {
@@ -45,10 +45,10 @@ extension HTTPClientResponse {
     }
 
     public static func notFound(reason: String? = nil) -> HTTPClientResponse {
-        HTTPClientResponse(statusCode: 404, body: (reason ?? "Not Found").data(using: .utf8))
+        HTTPClientResponse(statusCode: 404, body: Data((reason ?? "Not Found").utf8))
     }
 
     public static func serverError(reason: String? = nil) -> HTTPClientResponse {
-        HTTPClientResponse(statusCode: 500, body: (reason ?? "Internal Server Error").data(using: .utf8))
+        HTTPClientResponse(statusCode: 500, body: Data((reason ?? "Internal Server Error").utf8))
     }
 }
