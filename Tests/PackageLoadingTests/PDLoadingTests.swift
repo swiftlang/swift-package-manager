@@ -67,7 +67,26 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
-        let packageKind = packageKind ?? .fileSystem(.root)
+        try Self.loadAndValidateManifest(
+            content,
+            toolsVersion: toolsVersion ?? self.toolsVersion,
+            packageKind: packageKind ?? .fileSystem(.root),
+            manifestLoader: customManifestLoader ?? self.manifestLoader,
+            observabilityScope: observabilityScope,
+            file: file,
+            line: line
+        )
+    }
+
+    static func loadAndValidateManifest(
+        _ content: String,
+        toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
+        manifestLoader: ManifestLoader,
+        observabilityScope: ObservabilityScope,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
         let packagePath: AbsolutePath
         switch packageKind {
         case .root(let path):
@@ -77,14 +96,14 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         case .localSourceControl(let path):
             packagePath = path
         case .remoteSourceControl, .registry:
-            throw InternalError("invalid package kind \(packageKind)")
+            packagePath = .root
         }
 
-        let toolsVersion = toolsVersion ?? self.toolsVersion
+        let toolsVersion = toolsVersion
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, string: content)
-        let manifest = try (customManifestLoader ?? manifestLoader).load(
+        let manifest = try manifestLoader.load(
             manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,
