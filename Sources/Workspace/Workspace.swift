@@ -3644,8 +3644,13 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
-        // first fetch the repository.
-        let checkoutPath = try self.fetchRepository(package: package, observabilityScope: observabilityScope)
+
+        // first fetch the repository
+        let checkoutPath = try self.fetchRepository(
+            package: package,
+            at: checkoutState.revision,
+            observabilityScope: observabilityScope
+        )
 
         // Check out the given revision.
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
@@ -3714,7 +3719,11 @@ extension Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetchRepository(package: PackageReference, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+    private func fetchRepository(
+        package: PackageReference,
+        at revision: Revision,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         // also compare the location as it may have changed
         if let dependency = self.state.dependencies[comparingLocation: package] {
@@ -3733,11 +3742,24 @@ extension Workspace {
                     break fetch
                 }
 
-                // The fetch operation may update contents of the checkout, so
-                // we need do mutable-immutable dance.
-                try self.fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-                try workingCopy.fetch()
-                try? self.fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
+                // only update if necessary
+                if !workingCopy.exists(revision: revision) {
+                    let start = DispatchTime.now()
+                    self.delegate?.willUpdateRepository(
+                        package: dependency.packageRef.identity,
+                        repository: dependency.packageRef.locationString
+                    )
+                    // The fetch operation may update contents of the checkout, so
+                    // we need do mutable-immutable dance.
+                    try self.fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
+                    try workingCopy.fetch()
+                    try? self.fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
+                    self.delegate?.didUpdateRepository(
+                        package: dependency.packageRef.identity,
+                        repository: dependency.packageRef.locationString,
+                        duration: start.distance(to: .now())
+                    )
+                }
 
                 return path
             }
