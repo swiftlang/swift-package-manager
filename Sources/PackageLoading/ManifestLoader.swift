@@ -257,7 +257,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let databaseCacheDir: AbsolutePath?
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    private let useInMemoryCache: Bool = true
+    private let useInMemoryCache: Bool
     private let memoryCache = ThreadSafeKeyValueStore<CacheKey, ManifestJSONParser.Result>()
 
     /// DispatchSemaphore to restrict concurrent manifest evaluations
@@ -269,6 +269,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolchain: UserToolchain,
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
+        useInMemoryCache: Bool = true,
         cacheDir: AbsolutePath? = .none,
         extraManifestFlags: [String]? = .none,
         importRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])? = .none,
@@ -282,6 +283,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         self.delegate = delegate
 
+        self.useInMemoryCache = useInMemoryCache
         self.databaseCacheDir = try? cacheDir.map(resolveSymlinks)
 
         // this queue and semaphore is used to limit the amount of concurrent manifest loading taking place
@@ -411,6 +413,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
+        emitCompilerOutput: Bool,
         observabilityScope: ObservabilityScope,
         delegate: Delegate?,
         delegateQueue: DispatchQueue?
@@ -428,7 +431,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
-        if let compilerOutput = result.compilerOutput {
+        if emitCompilerOutput, let compilerOutput = result.compilerOutput {
             let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                 var metadata = ObservabilityMetadata()
                 metadata.manifestLoadingDiagnosticFile = diagnosticFile
@@ -561,6 +564,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     identityResolver: identityResolver,
                     dependencyMapper: dependencyMapper,
                     fileSystem: fileSystem,
+                    emitCompilerOutput: false,
                     observabilityScope: observabilityScope,
                     delegate: delegate,
                     delegateQueue: delegateQueue
@@ -593,7 +597,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 do {
                     let evaluationResult = try result.get()
                     // only cache successfully parsed manifests
-                    let parseManifest = try self.parseManifest(
+                    let parsedManifest = try self.parseManifest(
                         evaluationResult,
                         packageIdentity: packageIdentity,
                         packageKind: packageKind,
@@ -602,13 +606,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         identityResolver: identityResolver,
                         dependencyMapper: dependencyMapper,
                         fileSystem: fileSystem,
+                        emitCompilerOutput: true,
                         observabilityScope: observabilityScope,
                         delegate: delegate,
                         delegateQueue: delegateQueue
                     )
 
                     do {
-                        self.memoryCache[key] = parseManifest
+                        self.memoryCache[key] = parsedManifest
                         try dbCache?.put(key: key.sha256Checksum, value: evaluationResult, observabilityScope: observabilityScope)
                     } catch {
                         observabilityScope.emit(
@@ -617,7 +622,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         )
                     }
 
-                    return completion(.success(parseManifest))
+                    return completion(.success(parsedManifest))
                 } catch {
                     return completion(.failure(error))
                 }
@@ -702,11 +707,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
-                    VFSOverlay.File(name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
-                                    externalContents: manifestTempFilePath._nativePathString(escaped: true))
+                    VFSOverlay.File(
+                        name: manifestPath._normalized.replacingOccurrences(of: #"\"#, with: #"\\"#),
+                        externalContents: manifestTempFilePath._nativePathString(escaped: true)
+                    )
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
 
-                validateImports(manifestPath: manifestTempFilePath, toolsVersion: toolsVersion, callbackQueue: callbackQueue) { result in
+                validateImports(
+                    manifestPath: manifestTempFilePath,
+                    toolsVersion: toolsVersion,
+                    callbackQueue: callbackQueue
+                ) { result in
                     dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                     do {
@@ -1087,7 +1098,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 extension ManifestLoader {
     struct CacheKey: Hashable {
         let packageIdentity: PackageIdentity
-        let packageLocation: String
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
@@ -1114,7 +1124,6 @@ extension ManifestLoader {
             )
 
             self.packageIdentity = packageIdentity
-            self.packageLocation = packageLocation
             self.manifestPath = manifestPath
             self.manifestContents = manifestContents
             self.toolsVersion = toolsVersion

@@ -121,6 +121,74 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     }
 }
 
+final class ManifestTestDelegate: ManifestLoaderDelegate {
+    private let loaded = ThreadSafeArrayStore<AbsolutePath>()
+    private let parsed = ThreadSafeArrayStore<AbsolutePath>()
+    private let loadingGroup = DispatchGroup()
+    private let parsingGroup = DispatchGroup()
+
+    func prepare(expectParsing: Bool = true) {
+        self.loadingGroup.enter()
+        if expectParsing {
+            self.parsingGroup.enter()
+        }
+    }
+
+    func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.loaded.append(manifestPath)
+        self.loadingGroup.leave()
+    }
+
+    func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.parsed.append(manifestPath)
+        self.parsingGroup.leave()
+    }
+
+
+    func clear() {
+        self.loaded.clear()
+        self.parsed.clear()
+    }
+
+    func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
+        guard case .success = self.loadingGroup.wait(timeout: timeout) else {
+            throw StringError("timeout waiting for loading")
+        }
+        return self.loaded.get()
+    }
+
+    func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
+        guard case .success = self.parsingGroup.wait(timeout: timeout) else {
+            throw StringError("timeout waiting for parsing")
+        }
+        return self.parsed.get()
+    }
+}
+
 fileprivate struct NOOPManifestSourceControlValidator: ManifestSourceControlValidator {
     func isValidRefFormat(_ revision: String) -> Bool {
         true
