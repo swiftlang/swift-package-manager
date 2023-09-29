@@ -94,7 +94,7 @@ public final class SwiftSDKBundleStore {
         get throws {
             // Get absolute paths to available Swift SDK bundles.
             try self.fileSystem.getDirectoryContents(swiftSDKsDirectory).filter {
-                $0.hasSuffix(BinaryModule.Kind.artifactsArchive.fileExtension)
+                $0.hasSuffix(BinaryModule.Kind.artifactsArchive(types: []).fileExtension)
             }.map {
                 self.swiftSDKsDirectory.appending(components: [$0])
             }.compactMap {

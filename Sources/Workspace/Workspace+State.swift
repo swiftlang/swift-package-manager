@@ -425,17 +425,17 @@ extension WorkspaceStateStorage {
                 }
             }
 
-            enum Kind: String, Codable {
+            enum Kind: Codable {
                 case xcframework
-                case artifactsArchive
+                case artifactsArchive([String])
                 case unknown
 
                 init(_ underlying: BinaryModule.Kind) {
                     switch underlying {
                     case .xcframework:
                         self = .xcframework
-                    case .artifactsArchive:
-                        self = .artifactsArchive
+                    case .artifactsArchive(let types):
+                        self = .artifactsArchive(types.map { $0.rawValue })
                     case .unknown:
                         self = .unknown
                     }
@@ -445,8 +445,8 @@ extension WorkspaceStateStorage {
                     switch self {
                     case .xcframework:
                         return .xcframework
-                    case .artifactsArchive:
-                        return .artifactsArchive
+                    case .artifactsArchive(let types):
+                        return .artifactsArchive(types: types.compactMap { ArtifactsArchiveMetadata.ArtifactType(rawValue: $0) })
                     case .unknown:
                         return .unknown
                     }
@@ -830,7 +830,7 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         return .xcframework
                     case .artifactsArchive:
-                        return .artifactsArchive
+                        return .artifactsArchive(types: [])
                     case .unknown:
                         return .unknown
                     }
