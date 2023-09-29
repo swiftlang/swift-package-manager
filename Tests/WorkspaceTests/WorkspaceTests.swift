@@ -11269,7 +11269,11 @@ final class WorkspaceTests: XCTestCase {
                     severity: .error
                 )
                 result.check(
-                    diagnostic: "exhausted attempts to resolve the dependencies graph, with 'bar remoteSourceControl http://scm.com/org/bar', 'foo remoteSourceControl http://scm.com/org/foo' unresolved.",
+                    diagnostic: """
+                    exhausted attempts to resolve the dependencies graph, with the following dependencies unresolved:
+                    * 'bar' from http://scm.com/org/bar
+                    * 'foo' from http://scm.com/org/foo
+                    """,
                     severity: .error
                 )
             }

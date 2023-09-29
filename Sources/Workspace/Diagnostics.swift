@@ -160,6 +160,22 @@ extension Basics.Diagnostic {
     static func localArtifactNotFound(artifactPath: AbsolutePath, targetName: String) -> Self {
         .error("local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
     }
+
+    static func exhaustedAttempts(missing: [PackageReference]) -> Self {
+        let missing = missing.sorted(by: { $0.identity < $1.identity }).map{
+            switch $0.kind {
+            case .registry(let identity):
+                return "'\(identity.description)'"
+            case .remoteSourceControl(let url):
+                return "'\($0.identity)' from \(url)"
+            case .localSourceControl(let path), .fileSystem(let path), .root(let path):
+                return "'\($0.identity)' at \(path)"
+            }
+        }
+        return .error(
+            "exhausted attempts to resolve the dependencies graph, with the following dependencies unresolved:\n* \(missing.joined(separator: "\n* "))"
+        )
+    }
 }
 
 
