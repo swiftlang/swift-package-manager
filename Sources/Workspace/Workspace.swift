@@ -1180,8 +1180,7 @@ extension Workspace {
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
-            let missing = stillMissingPackages.map{ $0.description }
-            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
+            observabilityScope.emit(.exhaustedAttempts(missing: stillMissingPackages))
             return nil
         }
 
@@ -2970,8 +2969,7 @@ extension Workspace {
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
-            let missing = stillMissingPackages.map{ $0.description }
-            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
+            observabilityScope.emit(.exhaustedAttempts(missing: stillMissingPackages))
             return updatedDependencyManifests
         }
 
