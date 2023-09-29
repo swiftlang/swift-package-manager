@@ -239,9 +239,7 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
         signedCollection: Model.SignedCollection,
         certPolicyKey: CertificatePolicyKey = .default
     ) async throws {
-        guard let signatureBytes = signedCollection.signature.signature.data(using: .utf8)?.copyBytes() else {
-            throw PackageCollectionSigningError.invalidSignature
-        }
+        let signatureBytes = Data(signedCollection.signature.signature.utf8).copyBytes()
 
         // Parse the signature
         let certChainValidate = { certChainData in

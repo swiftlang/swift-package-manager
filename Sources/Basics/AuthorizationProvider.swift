@@ -37,7 +37,6 @@ public protocol AuthorizationWriter {
 public enum AuthorizationProviderError: Error {
     case invalidURLHost
     case notFound
-    case cannotEncodePassword
     case other(String)
 }
 
@@ -48,9 +47,7 @@ extension AuthorizationProvider {
             return nil
         }
         let authString = "\(user):\(password)"
-        guard let authData = authString.data(using: .utf8) else {
-            return nil
-        }
+        let authData = Data(authString.utf8)
         return "Basic \(authData.base64EncodedString())"
     }
 }
@@ -207,9 +204,7 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             return callback(.success(()))
         }
 
-        guard let passwordData = password.data(using: .utf8) else {
-            return callback(.failure(AuthorizationProviderError.cannotEncodePassword))
-        }
+        let passwordData = Data(password.utf8)
 
         do {
             if !(try self.update(protocolHostPort: protocolHostPort, account: user, password: passwordData)) {
@@ -290,12 +285,13 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
                       modified: mostRecent[kSecAttrModificationDate as String] as? Date
                   ) as? [String: Any],
                   let passwordData = existingItem[kSecValueData as String] as? Data,
-                  let password = String(data: passwordData, encoding: String.Encoding.utf8),
                   let account = existingItem[kSecAttrAccount as String] as? String
             else {
                 throw AuthorizationProviderError
                     .other("Failed to extract credentials for '\(protocolHostPort)' from keychain")
             }
+          
+            let password = String(decoding: passwordData, as: UTF8.self)
 
             return (user: account, password: password)
         } catch {

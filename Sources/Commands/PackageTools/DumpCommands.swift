@@ -112,7 +112,7 @@ struct DumpPackage: SwiftCommand {
         encoder.userInfo[Manifest.dumpPackageKey] = true
 
         let jsonData = try encoder.encode(rootManifest)
-        let jsonString = String(data: jsonData, encoding: .utf8)!
+        let jsonString = String(decoding: jsonData, as: UTF8.self)
         print(jsonString)
     }
 }
