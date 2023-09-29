@@ -381,8 +381,16 @@ public class RepositoryManager: Cancellable {
         }
     }
 
+    /// Open a working copy checkout at a path
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         try self.provider.openWorkingCopy(at: path)
+    }
+
+    /// Validate a working copy check is aligned with its repository setup
+    public func isValidWorkingCopy(_ workingCopy: WorkingCheckout, for repository: RepositorySpecifier) throws -> Bool {
+        let relativePath = try repository.storagePath()
+        let repositoryPath = self.path.appending(relativePath)
+        return workingCopy.isAlternateObjectStoreValid(expected: repositoryPath)
     }
 
     /// Open a repository from a handle.

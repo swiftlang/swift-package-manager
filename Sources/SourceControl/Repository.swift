@@ -272,7 +272,7 @@ public protocol WorkingCheckout {
     func checkout(newBranch: String) throws
 
     /// Returns true if there is an alternative store in the checkout and it is valid.
-    func isAlternateObjectStoreValid() -> Bool
+    func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool
 
     /// Returns true if the file at `path` is ignored by `git`
     func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool]
