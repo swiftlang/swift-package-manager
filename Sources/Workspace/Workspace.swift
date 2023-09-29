@@ -1171,6 +1171,9 @@ extension Workspace {
 
         // Update the checkouts based on new dependency resolution.
         let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, observabilityScope: observabilityScope)
+        guard !observabilityScope.errorsReported else {
+            return nil
+        }
 
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
@@ -1199,7 +1202,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        return nil
+        return packageStateChanges
     }
 
     @discardableResult
