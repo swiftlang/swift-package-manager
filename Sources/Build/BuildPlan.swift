@@ -219,10 +219,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
 
-    /// Cache for  library information.
+    /// Cache for library information.
     private var externalLibrariesCache = [BinaryTarget: [LibraryInfo]]()
 
-    /// Cache for  tools information.
+    /// Cache for tools information.
     private var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
     /// The filesystem to operate on.
