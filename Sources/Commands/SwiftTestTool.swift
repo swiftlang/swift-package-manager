@@ -17,6 +17,7 @@ import Dispatch
 import class Foundation.JSONDecoder
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
 import SPMBuildCore
@@ -121,6 +122,10 @@ struct TestToolOptions: ParsableArguments {
     @Option(name: .customLong("xunit-output"),
             help: "Path where the xUnit xml file should be generated.")
     var xUnitOutput: AbsolutePath?
+
+    @Option(name: .customLong("json-output"),
+            help: "Path where the json output file should be generated.")
+    var jsonOutput: AbsolutePath?
 
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
@@ -348,6 +353,15 @@ public struct SwiftTestTool: SwiftCommand {
                     results: testResults
                 )
                 try generator.generate(at: xUnitOutput)
+            }
+
+            // Generate json file if requested
+            if let jsonOutput = options.jsonOutput {
+                let generator = JSONGenerator(
+                    fileSystem: swiftTool.fileSystem,
+                    results: testResults
+                )
+                try generator.generate(at: jsonOutput)
             }
 
             // process code Coverage if request
@@ -600,6 +614,8 @@ struct UnitTest {
     }
 }
 
+extension UnitTest: Encodable {}
+
 /// A class to run tests on a XCTest binary.
 ///
 /// Note: Executes the XCTest with inherited environment as it is convenient to pass senstive
@@ -711,6 +727,24 @@ final class TestRunner {
         }
     }
 }
+
+extension DispatchTimeInterval: Encodable {
+    /// Encodable conformance
+    /// - Note: `DispatchTimeInterval` will be encoded in nanoseconds if it does have a value or nil.
+    /// - Parameter encoder: An encoder instance
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        /// Encode the time interval in nanoseconds
+        guard let nanoseconds = nanoseconds() else {
+            return try container.encodeNil()
+        }
+
+        try container.encode(nanoseconds)
+    }
+}
+
+extension ParallelTestRunner.TestResult: Encodable {}
 
 /// A class to run tests in parallel.
 final class ParallelTestRunner {
@@ -1029,11 +1063,33 @@ fileprivate extension Array where Element == UnitTest {
     }
 }
 
+// JSON file generator for a swift-test run.
+final class JSONGenerator {
+    typealias TestResult = ParallelTestRunner.TestResult
+
+    /// The file system to use.
+    let fileSystem: FileSystem
+
+    /// The test results.
+    let results: [TestResult]
+
+    init(fileSystem: FileSystem, results: [TestResult]) {
+        self.fileSystem = fileSystem
+        self.results = results
+    }
+
+    /// Encode the test results in `.JSON` format and write them to the provided path
+    func generate(at path: AbsolutePath) throws {
+        let data = try JSONEncoder().encode(results)
+        try self.fileSystem.writeFileContents(path, data: data)
+    }
+}
+
 /// xUnit XML file generator for a swift-test run.
 final class XUnitGenerator {
     typealias TestResult = ParallelTestRunner.TestResult
 
-    /// The file system to use
+    /// The file system to use.
     let fileSystem: FileSystem
 
     /// The test results.
