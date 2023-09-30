@@ -24,6 +24,7 @@ class ModuleAliasTracker {
     var parentToChildProducts = [String: [String]]()
     var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
     var childToParentID = [PackageIdentity: PackageIdentity]()
+    var appliedAliases = [String]()
 
     init() {}
     func addTargetAliases(targets: [Target], package: PackageIdentity) throws {
@@ -63,7 +64,7 @@ class ModuleAliasTracker {
         }
 
         for (originalName, newName) in aliases {
-            let model = ModuleAliasModel(name: originalName, alias: newName, originPackage: originPackage, consumingPackage: consumingPackage)
+            let model = ModuleAliasModel(name: originalName, alias: newName, originPackage: originPackage, consumingPackage: consumingPackage, productName: productName)
             idToAliasMap[originPackage, default: [:]][productID, default: []].append(model)
             aliasMap[productID, default: []].append(model)
         }
@@ -163,13 +164,22 @@ class ModuleAliasTracker {
 
             for relTarget in relevantTargets {
                 if let val = lookupAlias(key: relTarget.name, in: aliasBuffer) {
+                    appliedAliases.append(relTarget.name)
                     relTarget.addModuleAlias(for: relTarget.name, as: val)
                     if let prechainVal = aliasBuffer[relTarget.name],
                        prechainVal.alias != val {
                         relTarget.addPrechainModuleAlias(for: relTarget.name, as: prechainVal.alias)
+                        appliedAliases.append(prechainVal.alias)
                         relTarget.addPrechainModuleAlias(for: prechainVal.alias, as: val)
                         observabilityScope.emit(info: "Module alias '\(prechainVal.alias)' defined in package '\(prechainVal.consumingPackage)' for target '\(relTarget.name)' in package/product '\(productID)' is overridden by alias '\(val)'; if this override is not intended, remove '\(val)' from 'moduleAliases' in its manifest")
                         aliasBuffer.removeValue(forKey: prechainVal.alias)
+
+                        // Since we're overriding an alias here, we have to pretend it was applied to avoid follow-on warnings.
+                        var currentAlias: String? = val
+                        while let _currentAlias = currentAlias, !appliedAliases.contains(_currentAlias) {
+                            appliedAliases.append(_currentAlias)
+                            currentAlias = aliasBuffer.values.first { $0.alias == _currentAlias }?.name
+                        }
                     }
                     aliasBuffer.removeValue(forKey: relTarget.name)
                 }
@@ -257,6 +267,7 @@ class ModuleAliasTracker {
                     for target in productTargets {
                         let depAliases = target.recursiveDependentTargets.compactMap{$0.moduleAliases}.flatMap{$0}
                         for (key, alias) in depAliases {
+                            appliedAliases.append(key)
                             target.addModuleAlias(for: key, as: alias)
                         }
                     }
@@ -266,6 +277,16 @@ class ModuleAliasTracker {
         guard let children = parentToChildIDs[package] else { return }
         for child in children {
             fillInRest(package: child)
+        }
+    }
+
+    func diagnoseUnappliedAliases(observabilityScope: ObservabilityScope) {
+        aliasMap.values.forEach {
+            $0.forEach { productAlias in
+                if !appliedAliases.contains(productAlias.name) {
+                    observabilityScope.emit(warning: "module alias for target '\(productAlias.name)', declared in '\(productAlias.consumingPackage)', does not match any recursive target dependency of '\(productAlias.productName)' from '\(productAlias.originPackage)'")
+                }
+            }
         }
     }
 
@@ -336,11 +357,13 @@ class ModuleAliasTracker {
 
         for target in targets {
             for (key, val) in aliasDict {
+                appliedAliases.append(key)
                 target.addModuleAlias(for: key, as: val)
             }
             for (key, valList) in prechainAliasDict {
                 if let val = valList.first,
                     valList.count <= 1 {
+                    appliedAliases.append(key)
                     target.addModuleAlias(for: key, as: val)
                     target.addPrechainModuleAlias(for: key, as: val)
                 }
@@ -401,12 +424,14 @@ class ModuleAliasModel {
     var alias: String
     let originPackage: PackageIdentity
     let consumingPackage: PackageIdentity
+    let productName: String
 
-    init(name: String, alias: String, originPackage: PackageIdentity, consumingPackage: PackageIdentity) {
+    init(name: String, alias: String, originPackage: PackageIdentity, consumingPackage: PackageIdentity, productName: String) {
         self.name = name
         self.alias = alias
         self.originPackage = originPackage
         self.consumingPackage = consumingPackage
+        self.productName = productName
     }
 }
 
