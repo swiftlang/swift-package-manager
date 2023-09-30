@@ -105,10 +105,13 @@ class InitTests: XCTestCase {
             let name = path.basename
             try fs.createDirectory(path)
 
+            let initPackageOptions = InitPackage.InitPackageOptions(packageType: .library,
+                                                                    withDocs: true)
+            
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
-                packageType: .library,
+                options: initPackageOptions,
                 destinationPath: path,
                 fileSystem: localFileSystem
             )

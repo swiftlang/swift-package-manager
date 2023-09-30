@@ -29,13 +29,18 @@ public final class InitPackage {
         ///
         /// Note: This should only contain Apple platforms right now.
         public var platforms: [SupportedPlatform]
+        
+        /// Value indicating if documentation should be included.
+        public var withDocs: Bool
 
         public init(
             packageType: PackageType,
-            platforms: [SupportedPlatform] = []
+            platforms: [SupportedPlatform] = [],
+            withDocs: Bool = false
         ) {
             self.packageType = packageType
             self.platforms = platforms
+            self.withDocs = withDocs
         }
     }
 
@@ -595,7 +600,8 @@ public final class InitPackage {
           try writeMacroPluginSources(sources.appending("\(pkgname)Macros"))
           try writeMacroClientSources(sources.appending("\(pkgname)Client"))
         }
-        if packageType == .library {
+        
+        if packageType == .library, options.withDocs {
             try writeLibraryDocumentation(moduleDir)
         }
     }
@@ -621,21 +627,7 @@ public final class InitPackage {
         }
         try makeDirectories(docc)
 
-        let content = ####"""
-        # ``\####(moduleName)``
-
-        <!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
-
-        ## Overview
-
-        <!--@START_MENU_TOKEN@-->Text<!--@END_MENU_TOKEN@-->
-
-        ## Topics
-
-        ### <!--@START_MENU_TOKEN@-->Group<!--@END_MENU_TOKEN@-->
-
-        - <!--@START_MENU_TOKEN@-->``Symbol``<!--@END_MENU_TOKEN@-->
-        """####
+        let content = "# ``\(moduleName)``\n\n"
 
         let mdFile = docc.appending("\(moduleName).md")
         try writePackageFile(mdFile) { stream in

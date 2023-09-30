@@ -40,6 +40,20 @@ extension SwiftPackageTool {
 
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
+        
+        @Flag(help: "Adds default documentation. Only available for library package type.")
+        var withDocs: Bool = false
+        
+        private var initPackageOptions: InitPackage.InitPackageOptions {
+            get throws {
+                guard withDocs == false || initMode == .library else {
+                    throw ValidationError("--with-docs flag is available only for library modules")
+                }
+                
+                return InitPackage.InitPackageOptions(packageType: initMode,
+                                                      withDocs: withDocs)
+            }
+        }
 
         func run(_ swiftTool: SwiftTool) throws {
             guard let cwd = swiftTool.fileSystem.currentWorkingDirectory else {
@@ -47,9 +61,10 @@ extension SwiftPackageTool {
             }
 
             let packageName = self.packageName ?? cwd.basename
+            let initPackageOptions = try initPackageOptions
             let initPackage = try InitPackage(
                 name: packageName,
-                packageType: initMode,
+                options: initPackageOptions,
                 destinationPath: cwd,
                 fileSystem: swiftTool.fileSystem
             )
