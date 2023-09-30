@@ -67,7 +67,26 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
-        let packageKind = packageKind ?? .fileSystem(.root)
+        try Self.loadAndValidateManifest(
+            content,
+            toolsVersion: toolsVersion ?? self.toolsVersion,
+            packageKind: packageKind ?? .fileSystem(.root),
+            manifestLoader: customManifestLoader ?? self.manifestLoader,
+            observabilityScope: observabilityScope,
+            file: file,
+            line: line
+        )
+    }
+
+    static func loadAndValidateManifest(
+        _ content: String,
+        toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
+        manifestLoader: ManifestLoader,
+        observabilityScope: ObservabilityScope,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
         let packagePath: AbsolutePath
         switch packageKind {
         case .root(let path):
@@ -77,14 +96,14 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         case .localSourceControl(let path):
             packagePath = path
         case .remoteSourceControl, .registry:
-            throw InternalError("invalid package kind \(packageKind)")
+            packagePath = .root
         }
 
-        let toolsVersion = toolsVersion ?? self.toolsVersion
+        let toolsVersion = toolsVersion
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, string: content)
-        let manifest = try (customManifestLoader ?? manifestLoader).load(
+        let manifest = try manifestLoader.load(
             manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,
@@ -99,6 +118,74 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let validator = ManifestValidator(manifest: manifest, sourceControlValidator: NOOPManifestSourceControlValidator(), fileSystem: fileSystem)
         let diagnostics = validator.validate()
         return (manifest: manifest, diagnostics: diagnostics)
+    }
+}
+
+final class ManifestTestDelegate: ManifestLoaderDelegate {
+    private let loaded = ThreadSafeArrayStore<AbsolutePath>()
+    private let parsed = ThreadSafeArrayStore<AbsolutePath>()
+    private let loadingGroup = DispatchGroup()
+    private let parsingGroup = DispatchGroup()
+
+    func prepare(expectParsing: Bool = true) {
+        self.loadingGroup.enter()
+        if expectParsing {
+            self.parsingGroup.enter()
+        }
+    }
+
+    func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.loaded.append(manifestPath)
+        self.loadingGroup.leave()
+    }
+
+    func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // noop
+    }
+
+    func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.parsed.append(manifestPath)
+        self.parsingGroup.leave()
+    }
+
+
+    func clear() {
+        self.loaded.clear()
+        self.parsed.clear()
+    }
+
+    func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
+        guard case .success = self.loadingGroup.wait(timeout: timeout) else {
+            throw StringError("timeout waiting for loading")
+        }
+        return self.loaded.get()
+    }
+
+    func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
+        guard case .success = self.parsingGroup.wait(timeout: timeout) else {
+            throw StringError("timeout waiting for parsing")
+        }
+        return self.parsed.get()
     }
 }
 

@@ -3010,7 +3010,12 @@ extension Workspace {
     ) -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
         guard let packageStateChanges = observabilityScope.trap({
-            try self.computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches, observabilityScope: observabilityScope)
+            try self.computePackageStateChanges(
+                root: root,
+                resolvedDependencies: updateResults,
+                updateBranches: updateBranches,
+                observabilityScope: observabilityScope
+            )
         }) else {
             return []
         }
@@ -3019,9 +3024,10 @@ extension Workspace {
         for (packageRef, state) in packageStateChanges {
             observabilityScope.makeChildScope(description: "removing unneeded checkouts", metadata: packageRef.diagnosticsMetadata).trap {
                 switch state {
-                case .added, .updated, .unchanged: break
+                case .added, .updated, .unchanged: 
+                    break
                 case .removed:
-                    try remove(package: packageRef)
+                    try self.remove(package: packageRef)
                 }
             }
         }
@@ -3034,7 +3040,8 @@ extension Workspace {
                     _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
                 case .updated(let state):
                     _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
-                case .removed, .unchanged: break
+                case .removed, .unchanged:
+                    break
                 }
             }
         }
