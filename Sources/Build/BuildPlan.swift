@@ -462,6 +462,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
                             product: product,
                             forTarget: target,
+                            buildEnvironment: buildParameters.buildEnvironment,
                             observabilityScope: self.observabilityScope
                         )
                     }
@@ -565,12 +566,19 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     static func validateDeploymentVersionOfProductDependency(
         product: ResolvedProduct,
         forTarget target: ResolvedTarget,
+        buildEnvironment: BuildEnvironment,
         observabilityScope: ObservabilityScope
     ) throws {
-        // Supported platforms are defined at the package level.
+        // Supported platforms are defined at the package (e.g., build environment) level.
         // This will need to become a bit complicated once we have target-level or product-level platform support.
-        let productPlatform = product.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
-        let targetPlatform = target.platforms.getDerived(for: .macOS, usingXCTest: target.type == .test)
+        let productPlatform = product.platforms.getDerived(
+            for: buildEnvironment.platform,
+            usingXCTest: product.isLinkingXCTest
+        )
+        let targetPlatform = target.platforms.getDerived(
+            for: buildEnvironment.platform,
+            usingXCTest: target.type == .test
+        )
 
         // Check if the version requirement is satisfied.
         //
