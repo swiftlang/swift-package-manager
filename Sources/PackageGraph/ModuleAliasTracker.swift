@@ -24,7 +24,7 @@ class ModuleAliasTracker {
     var parentToChildProducts = [String: [String]]()
     var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
     var childToParentID = [PackageIdentity: PackageIdentity]()
-    var appliedAliases = [String]()
+    var appliedAliases = Set<String>()
 
     init() {}
     func addTargetAliases(targets: [Target], package: PackageIdentity) throws {
@@ -164,12 +164,12 @@ class ModuleAliasTracker {
 
             for relTarget in relevantTargets {
                 if let val = lookupAlias(key: relTarget.name, in: aliasBuffer) {
-                    appliedAliases.append(relTarget.name)
+                    appliedAliases.insert(relTarget.name)
                     relTarget.addModuleAlias(for: relTarget.name, as: val)
                     if let prechainVal = aliasBuffer[relTarget.name],
                        prechainVal.alias != val {
                         relTarget.addPrechainModuleAlias(for: relTarget.name, as: prechainVal.alias)
-                        appliedAliases.append(prechainVal.alias)
+                        appliedAliases.insert(prechainVal.alias)
                         relTarget.addPrechainModuleAlias(for: prechainVal.alias, as: val)
                         observabilityScope.emit(info: "Module alias '\(prechainVal.alias)' defined in package '\(prechainVal.consumingPackage)' for target '\(relTarget.name)' in package/product '\(productID)' is overridden by alias '\(val)'; if this override is not intended, remove '\(val)' from 'moduleAliases' in its manifest")
                         aliasBuffer.removeValue(forKey: prechainVal.alias)
@@ -177,7 +177,7 @@ class ModuleAliasTracker {
                         // Since we're overriding an alias here, we have to pretend it was applied to avoid follow-on warnings.
                         var currentAlias: String? = val
                         while let _currentAlias = currentAlias, !appliedAliases.contains(_currentAlias) {
-                            appliedAliases.append(_currentAlias)
+                            appliedAliases.insert(_currentAlias)
                             currentAlias = aliasBuffer.values.first { $0.alias == _currentAlias }?.name
                         }
                     }
@@ -267,7 +267,7 @@ class ModuleAliasTracker {
                     for target in productTargets {
                         let depAliases = target.recursiveDependentTargets.compactMap{$0.moduleAliases}.flatMap{$0}
                         for (key, alias) in depAliases {
-                            appliedAliases.append(key)
+                            appliedAliases.insert(key)
                             target.addModuleAlias(for: key, as: alias)
                         }
                     }
@@ -281,8 +281,8 @@ class ModuleAliasTracker {
     }
 
     func diagnoseUnappliedAliases(observabilityScope: ObservabilityScope) {
-        aliasMap.values.forEach {
-            $0.forEach { productAlias in
+        for aliasList in aliasMap.values {
+            for productAlias in aliasList {
                 if !appliedAliases.contains(productAlias.name) {
                     observabilityScope.emit(warning: "module alias for target '\(productAlias.name)', declared in '\(productAlias.consumingPackage)', does not match any recursive target dependency of '\(productAlias.productName)' from '\(productAlias.originPackage)'")
                 }
@@ -357,13 +357,13 @@ class ModuleAliasTracker {
 
         for target in targets {
             for (key, val) in aliasDict {
-                appliedAliases.append(key)
+                appliedAliases.insert(key)
                 target.addModuleAlias(for: key, as: val)
             }
             for (key, valList) in prechainAliasDict {
                 if let val = valList.first,
                     valList.count <= 1 {
-                    appliedAliases.append(key)
+                    appliedAliases.insert(key)
                     target.addModuleAlias(for: key, as: val)
                     target.addPrechainModuleAlias(for: key, as: val)
                 }
