@@ -682,11 +682,14 @@ class GitRepositoryTests: XCTestCase {
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
 
             // The object store should be valid.
-            XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid())
+            XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath))
+
+            // Wrong path
+            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath.appending(UUID().uuidString)))
 
             // Delete the clone (alternative object store).
             try localFileSystem.removeFileTree(testClonePath)
-            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid())
+            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath))
         }
     }
 
