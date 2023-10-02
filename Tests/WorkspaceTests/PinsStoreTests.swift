@@ -348,9 +348,9 @@ final class PinsStoreTests: XCTestCase {
         let bazURL = SourceControlURL("https://github.com/cool/baz.git")
         let bazIdentity = PackageIdentity(url: bazURL)
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL.absoluteString)
-        mirrors.set(mirror: barMirroredURL.absoluteString, for: barURL.absoluteString)
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL.absoluteString)
+        try mirrors.set(mirror: barMirroredURL.absoluteString, for: barURL.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pins.txt")
@@ -398,11 +398,11 @@ final class PinsStoreTests: XCTestCase {
         let fooURL4 = SourceControlURL("https://github.com/old-corporate/foo.git")
         let fooMirroredURL = SourceControlURL("https://github.corporate.com/team/foo")
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL1.absoluteString)
-        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL2.absoluteString)
-        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL3.absoluteString)
-        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL4.absoluteString)
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL1.absoluteString)
+        try mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL2.absoluteString)
+        try mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL3.absoluteString)
+        try mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL4.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pins.txt")
@@ -445,7 +445,7 @@ final class PinsStoreTests: XCTestCase {
         let mirroredURL = URL("https://github.corporate.com/team/foo")
 
         do {
-            let mirrors = DependencyMirrors([
+            let mirrors = try DependencyMirrors([
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
@@ -458,7 +458,7 @@ final class PinsStoreTests: XCTestCase {
         }
 
         do {
-            let mirrors = DependencyMirrors([
+            let mirrors = try DependencyMirrors([
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
@@ -471,7 +471,7 @@ final class PinsStoreTests: XCTestCase {
         }
 
         do {
-            let mirrors = DependencyMirrors([
+            let mirrors = try DependencyMirrors([
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
@@ -485,7 +485,7 @@ final class PinsStoreTests: XCTestCase {
         }
 
         do {
-            let mirrors = DependencyMirrors([
+            let mirrors = try DependencyMirrors([
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
@@ -499,7 +499,7 @@ final class PinsStoreTests: XCTestCase {
         }
 
         do {
-            let mirrors = DependencyMirrors([
+            let mirrors = try DependencyMirrors([
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,

@@ -462,7 +462,7 @@ extension Workspace.Configuration {
                 .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
             // computes the initial mirrors
-            self._mirrors = DependencyMirrors()
+            self._mirrors = try DependencyMirrors()
             try self.computeMirrors()
         }
 
@@ -492,13 +492,13 @@ extension Workspace.Configuration {
                 // prefer local mirrors to shared ones
                 let local = try self.localMirrors.get()
                 if !local.isEmpty {
-                    self._mirrors.append(contentsOf: local)
+                    try self._mirrors.append(contentsOf: local)
                     return
                 }
 
                 // use shared if local was not found or empty
                 if let shared = try self.sharedMirrors?.get(), !shared.isEmpty {
-                    self._mirrors.append(contentsOf: shared)
+                    try self._mirrors.append(contentsOf: shared)
                 }
             }
         }
@@ -520,10 +520,10 @@ extension Workspace.Configuration {
         /// The mirrors in this configuration
         public func get() throws -> DependencyMirrors {
             guard self.fileSystem.exists(self.path) else {
-                return DependencyMirrors()
+                return try DependencyMirrors()
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
-                return DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                return try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
             }
         }
 
@@ -534,8 +534,8 @@ extension Workspace.Configuration {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
-                let mirrors = DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
-                var updatedMirrors = DependencyMirrors(mirrors.mapping)
+                let mirrors = try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                var updatedMirrors = try DependencyMirrors(mirrors.mapping)
                 try handler(&updatedMirrors)
                 if updatedMirrors != mirrors {
                     try Self.save(
