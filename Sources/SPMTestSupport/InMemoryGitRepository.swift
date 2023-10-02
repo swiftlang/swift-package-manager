@@ -383,7 +383,7 @@ extension InMemoryGitRepository: WorkingCheckout {
         }
     }
 
-    public func isAlternateObjectStoreValid() -> Bool {
+    public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
         return true
     }
 
