@@ -68,7 +68,7 @@ public final class MockWorkspace {
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
         self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
-        self.mirrors = customMirrors ?? DependencyMirrors()
+        self.mirrors = try customMirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(
             locationMapper: self.mirrors.effective(for:),
             identityMapper: self.mirrors.effectiveIdentity(for:)

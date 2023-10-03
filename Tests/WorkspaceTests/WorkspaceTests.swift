@@ -4279,12 +4279,12 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Bar").pathString
         )
-        mirrors.set(
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BazMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
@@ -4371,12 +4371,12 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Bar").pathString
         )
-        mirrors.set(
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
@@ -4474,9 +4474,9 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
-        mirrors.set(mirror: "https://scm.com/org/baz-mirror", for: "https://scm.com/org/baz")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
+        try mirrors.set(mirror: "https://scm.com/org/baz-mirror", for: "https://scm.com/org/baz")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4563,9 +4563,9 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/baz")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/baz")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4668,8 +4668,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "org.bar-mirror", for: "https://scm.com/org/bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "org.bar-mirror", for: "https://scm.com/org/bar")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4738,8 +4738,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -14366,8 +14366,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredSignedCorrectly() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "ecorp.bar", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
             type: "adp",
@@ -14390,8 +14390,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirrorSignedIncorrectly() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "ecorp.bar", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
             type: "adp",
@@ -14422,8 +14422,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredUnsigned() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "ecorp.bar", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
@@ -14447,8 +14447,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredToSCM() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
