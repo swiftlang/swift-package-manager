@@ -3754,7 +3754,7 @@ extension Workspace {
                 // only update if necessary
                 if !workingCopy.exists(revision: revision) {
                     // The fetch operation may update contents of the checkout, 
-                    // so we need do mutable-immutable dance.
+                    // so we need to do mutable-immutable dance.
                     try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
                     try workingCopy.fetch()
                     try? self.fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
