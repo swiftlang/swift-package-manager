@@ -553,7 +553,7 @@ public struct FileRuleDescription {
         /// Indicates that the file should be treated as ignored, without causing an unhandled-file warning.
         case ignored
 
-        /// Sentinal to indicate that no rule was chosen for a given file.
+        /// Sentinel to indicate that no rule was chosen for a given file.
         case none
     }
 
