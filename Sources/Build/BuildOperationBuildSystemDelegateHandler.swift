@@ -903,11 +903,9 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 if output.utf8.count < 1024 * 10 {
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
-                        self
-                            .errorMessagesByTarget[parser.targetName] = (
-                                self
-                                    .errorMessagesByTarget[parser.targetName] ?? []
-                            ) + [match[0]]
+                        self.errorMessagesByTarget[parser.targetName] = (
+                                self.errorMessagesByTarget[parser.targetName] ?? []
+                        ) + [match[0]]
                     }
                 }
             }
