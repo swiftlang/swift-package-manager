@@ -597,7 +597,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Returns true if there is an alternative object store in the repository and it is valid.
-    public func isAlternateObjectStoreValid() -> Bool {
+    public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
         let objectStoreFile = self.path.appending(components: ".git", "objects", "info", "alternates")
         guard let bytes = try? localFileSystem.readFileContents(objectStoreFile) else {
             return false
@@ -606,7 +606,11 @@ public final class GitRepository: Repository, WorkingCheckout {
         guard let firstLine = ByteString(split[0]).validDescription else {
             return false
         }
-        return (try? localFileSystem.isDirectory(AbsolutePath(validating: firstLine))) == true
+        guard let objectsPath = try? AbsolutePath(validating: firstLine), localFileSystem.isDirectory(objectsPath) else {
+            return false
+        }
+        let repositoryPath = objectsPath.parentDirectory
+        return expected == repositoryPath
     }
 
     /// Returns true if the file at `path` is ignored by `git`
