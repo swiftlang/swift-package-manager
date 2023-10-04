@@ -14,11 +14,13 @@
 @_implementationOnly import SwiftDriver
 import struct Basics.InternalError
 import struct Basics.AbsolutePath
+import struct Basics.RelativePath
 import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
 import struct LLBuildManifest.BuildManifest
 import struct SPMBuildCore.BuildParameters
 import class PackageGraph.ResolvedTarget
+import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
@@ -554,5 +556,24 @@ private class UniqueExplicitDependencyJobTracker {
         let jobUniqueID = soleOutput.file.basename.hashValue
         let (new, _) = self.uniqueDependencyModuleIDSet.insert(jobUniqueID)
         return new
+    }
+}
+
+extension TypedVirtualPath {
+    /// Resolve a typed virtual path provided by the Swift driver to
+    /// a node in the build graph.
+    fileprivate func resolveToNode(fileSystem: some FileSystem) throws -> Node {
+        if let absolutePath = (file.absolutePath.flatMap { AbsolutePath($0) }) {
+            return Node.file(absolutePath)
+        } else if let relativePath = (file.relativePath.flatMap { RelativePath($0) }) {
+            guard let workingDirectory: AbsolutePath = fileSystem.currentWorkingDirectory else {
+                throw InternalError("unknown working directory")
+            }
+            return Node.file(workingDirectory.appending(relativePath))
+        } else if let temporaryFileName = file.temporaryFileName {
+            return Node.virtual(temporaryFileName.pathString)
+        } else {
+            throw InternalError("Cannot resolve VirtualPath: \(file)")
+        }
     }
 }
