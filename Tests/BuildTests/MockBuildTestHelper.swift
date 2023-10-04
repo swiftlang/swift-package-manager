@@ -31,6 +31,7 @@ struct MockToolchain: PackageModel.Toolchain {
     let swiftResourcesPath: AbsolutePath? = nil
     let swiftStaticResourcesPath: AbsolutePath? = nil
     let isSwiftDevelopmentToolchain = false
+    let sdkRootPath: AbsolutePath? = nil
     let swiftPluginServerPath: AbsolutePath? = nil
     let extraFlags = PackageModel.BuildFlags()
     let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
