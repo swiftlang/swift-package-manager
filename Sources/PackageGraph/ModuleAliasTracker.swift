@@ -284,7 +284,7 @@ class ModuleAliasTracker {
         for aliasList in aliasMap.values {
             for productAlias in aliasList {
                 if !appliedAliases.contains(productAlias.name) {
-                    observabilityScope.emit(warning: "module alias for target '\(productAlias.name)', declared in '\(productAlias.consumingPackage)', does not match any recursive target dependency of '\(productAlias.productName)' from '\(productAlias.originPackage)'")
+                    observabilityScope.emit(warning: "module alias for target '\(productAlias.name)', declared in package '\(productAlias.consumingPackage)', does not match any recursive target dependency of product '\(productAlias.productName)' from package '\(productAlias.originPackage)'")
                 }
             }
         }
