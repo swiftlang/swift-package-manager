@@ -553,7 +553,7 @@ public final class SwiftTargetBuildDescription {
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
-        // Enable the correct lto mode if requested.
+        // Enable the correct LTO mode if requested.
         switch self.buildParameters.linkTimeOptimizationMode {
         case nil:
             break
