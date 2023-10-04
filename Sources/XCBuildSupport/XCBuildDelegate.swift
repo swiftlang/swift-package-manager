@@ -81,7 +81,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
             }
         case .taskComplete(let info):
             queue.async {
-                self.buildSystem.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.result.rawValue))
+                self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.result.rawValue))
             }
         case .buildDiagnostic(let info):
             queue.async {
