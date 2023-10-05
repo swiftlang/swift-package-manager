@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,6 +16,12 @@ import PackageModel
 import PackageGraph
 
 public struct BuildParameters: Encodable {
+    @available(*, deprecated, renamed: "LinkingParameters.LinkTimeOptimizationMode")
+    public typealias LinkTimeOptimizationMode = LinkingParameters.LinkTimeOptimizationMode
+    
+    @available(*, deprecated, renamed: "TestingParameters.TestProductStyle")
+    public typealias TestProductStyle = TestingParameters.TestProductStyle
+
     /// Mode for the indexing-while-building feature.
     public enum IndexStoreMode: String, Encodable {
         /// Index store should be enabled.
@@ -24,32 +30,6 @@ public struct BuildParameters: Encodable {
         case off
         /// Index store should be enabled in debug configuration.
         case auto
-    }
-
-    /// An optional intermodule optimization to run at link time.
-    ///
-    /// When using Link Time Optimization (LTO for short) the swift and clang
-    /// compilers produce objects containing containing a higher level
-    /// representation of the program bitcode instead of machine code. The
-    /// linker combines these objects together performing additional
-    /// optimizations with visibility into each module/object, resulting in a
-    /// further optimized version of the executable.
-    ///
-    /// Using LTO can have significant impact on compile times, however can be
-    /// used to dramatically reduce code-size in some cases.
-    ///
-    /// Note: Bitcode objects and machine code objects can be linked together.
-    public enum LinkTimeOptimizationMode: String, Encodable {
-        /// The "standard" LTO mode designed to produce minimal code sign.
-        ///
-        /// Full LTO can lead to large link times. Consider using thin LTO if
-        /// build time is more important than minimizing binary size.
-        case full
-        /// An LTO mode designed to scale better with input size.
-        ///
-        /// Thin LTO typically results in faster link times than traditional LTO.
-        /// However, thin LTO may not result in binary as small as full LTO.
-        case thin
     }
 
     /// Represents the debug information format.
@@ -75,74 +55,6 @@ public struct BuildParameters: Encodable {
     public enum DebuggingStrategy {
         case swiftAST
         case modulewrap
-    }
-
-    /// Represents the test product style.
-    public enum TestProductStyle: Encodable {
-        /// Test product is a loadable bundle. This style is used on Darwin platforms and, for XCTest tests, relies on the Objective-C
-        /// runtime to automatically discover all tests.
-        case loadableBundle
-
-        /// Test product is an executable which serves as the testing entry point. This style is used on non-Darwin platforms and,
-        /// for XCTests, relies on the testing entry point file to indicate which tests to run. By default, the test entry point file is
-        /// synthesized automatically, and uses indexer data to locate all tests and run them. But the entry point may be customized
-        /// in one of two ways: if a path to a test entry point file was explicitly passed via the
-        /// `--experimental-test-entry-point-path <file>` option, that file is used, otherwise if an `XCTMain.swift`
-        /// (formerly `LinuxMain.swift`) file is located in the package, it is used.
-        ///
-        /// - Parameter explicitlyEnabledDiscovery: Whether test discovery generation was forced by passing
-        ///   `--enable-test-discovery`, overriding any custom test entry point file specified via other CLI options or located in
-        ///   the package.
-        /// - Parameter explicitlySpecifiedPath: The path to the test entry point file, if one was specified explicitly via
-        ///   `--experimental-test-entry-point-path <file>`.
-        case entryPointExecutable(
-            explicitlyEnabledDiscovery: Bool,
-            explicitlySpecifiedPath: AbsolutePath?
-        )
-
-        /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
-        /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
-        public var requiresAdditionalDerivedTestTargets: Bool {
-            switch self {
-            case .loadableBundle:
-                return false
-            case .entryPointExecutable:
-                return true
-            }
-        }
-
-        /// The explicitly-specified entry point file path, if this style of test product supports it and a path was specified.
-        public var explicitlySpecifiedEntryPointPath: AbsolutePath? {
-            switch self {
-            case .loadableBundle:
-                return nil
-            case .entryPointExecutable(explicitlyEnabledDiscovery: _, explicitlySpecifiedPath: let entryPointPath):
-                return entryPointPath
-            }
-        }
-
-        public enum DiscriminatorKeys: String, Codable {
-            case loadableBundle
-            case entryPointExecutable
-        }
-
-        public enum CodingKeys: CodingKey {
-            case _case
-            case explicitlyEnabledDiscovery
-            case explicitlySpecifiedPath
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            switch self {
-            case .loadableBundle:
-                try container.encode(DiscriminatorKeys.loadableBundle, forKey: ._case)
-            case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath):
-                try container.encode(DiscriminatorKeys.entryPointExecutable, forKey: ._case)
-                try container.encode(explicitlyEnabledDiscovery, forKey: .explicitlyEnabledDiscovery)
-                try container.encode(explicitlySpecifiedPath, forKey: .explicitlySpecifiedPath)
-            }
-        }
     }
 
     /// A mode for explicit import checking
@@ -182,13 +94,22 @@ public struct BuildParameters: Encodable {
     public var pkgConfigDirectories: [AbsolutePath]
 
     /// The architectures to build for.
+    // FIXME: this may be inconsistent with `targetTriple`.
     public var architectures: [String]?
 
     /// How many jobs should llbuild and the Swift compiler spawn
     public var workers: UInt32
 
     /// If should link the Swift stdlib statically.
-    public var shouldLinkStaticSwiftStdlib: Bool
+    @available(*, deprecated, renamed: "linkingParameters.shouldLinkStaticSwiftStdlib")
+    public var shouldLinkStaticSwiftStdlib: Bool {
+        get {
+            linkingParameters.shouldLinkStaticSwiftStdlib
+        }
+        set {
+            linkingParameters.shouldLinkStaticSwiftStdlib = newValue
+        }
+    }
 
     /// Which compiler sanitizers should be enabled
     public var sanitizers: EnabledSanitizers
@@ -200,7 +121,15 @@ public struct BuildParameters: Encodable {
     public var indexStoreMode: IndexStoreMode
 
     /// Whether to enable code coverage.
-    public var enableCodeCoverage: Bool
+    @available(*, deprecated, renamed: "testingParameters.enableCodeCoverage")
+    public var enableCodeCoverage: Bool {
+        get {
+            testingParameters.enableCodeCoverage
+        }
+        set {
+            testingParameters.enableCodeCoverage = newValue
+        }
+    }
 
     /// Whether to enable generation of `.swiftinterface` files alongside.
     /// `.swiftmodule`s.
@@ -208,10 +137,26 @@ public struct BuildParameters: Encodable {
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
-    public var useIntegratedSwiftDriver: Bool
+    @available(*, deprecated, renamed: "driverParameters.useIntegratedSwiftDriver")
+    public var useIntegratedSwiftDriver: Bool {
+        get {
+            driverParameters.useIntegratedSwiftDriver
+        }
+        set {
+            driverParameters.useIntegratedSwiftDriver = newValue
+        }
+    }
 
     /// Whether to use the explicit module build flow (with the integrated driver).
-    public var useExplicitModuleBuild: Bool
+    @available(*, deprecated, renamed: "driverParameters.useExplicitModuleBuild")
+    public var useExplicitModuleBuild: Bool {
+        get {
+            driverParameters.useExplicitModuleBuild
+        }
+        set {
+            driverParameters.useExplicitModuleBuild = newValue
+        }
+    }
 
     /// A flag that indicates this build should check whether targets only import.
     /// their explicitly-declared dependencies
@@ -224,7 +169,16 @@ public struct BuildParameters: Encodable {
     public var canRenameEntrypointFunctionName: Bool
 
     /// Whether or not to enable the experimental test output mode.
-    public var experimentalTestOutput: Bool
+    @available(*, deprecated, renamed: "testingParameters.experimentalTestOutput")
+    public var experimentalTestOutput: Bool {
+        get {
+            testingParameters.experimentalTestOutput
+        }
+        set {
+            testingParameters.experimentalTestOutput = newValue
+        }
+    }
+
 
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
@@ -263,23 +217,56 @@ public struct BuildParameters: Encodable {
     public var isXcodeBuildSystemEnabled: Bool
 
     // Whether building for testability is enabled.
-    public var enableTestability: Bool
+    @available(*, deprecated, renamed: "testingParameters.enableTestability")
+    public var enableTestability: Bool {
+        get {
+            testingParameters.enableTestability
+        }
+        set {
+            testingParameters.enableTestability = newValue
+        }
+    }
 
     /// The style of test product to produce.
-    public var testProductStyle: TestProductStyle
+    @available(*, deprecated, renamed: "testingParameters.testProductStyle")
+    public var testProductStyle: TestProductStyle {
+        get {
+            testingParameters.testProductStyle
+        }
+        set {
+            testingParameters.testProductStyle = newValue
+        }
+    }
+
 
     /// Whether to disable dead code stripping by the linker
-    public var linkerDeadStrip: Bool
+    @available(*, deprecated, renamed: "linkingParameters.linkerDeadStrip")
+    public var linkerDeadStrip: Bool {
+        get {
+            linkingParameters.linkerDeadStrip
+        }
+        set {
+            linkingParameters.linkerDeadStrip = newValue
+        }
+    }
+
 
     public var colorizedOutput: Bool
 
     public var verboseOutput: Bool
 
-    public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
-
     public var debugInfoFormat: DebugInfoFormat
 
     public var shouldSkipBuilding: Bool
+
+    /// Build parameters related to Swift Driver.
+    public var driverParameters: DriverParameters
+
+    /// Build parameters related to linking.
+    public var testingParameters: TestingParameters
+
+    /// Build parameters related to linking.
+    public var linkingParameters: LinkingParameters
 
     @available(*, deprecated, message: "use `init` overload with `targetTriple` parameter name instead")
     @_disfavoredOverload
@@ -351,6 +338,8 @@ public struct BuildParameters: Encodable {
         )
     }
 
+    @available(*, deprecated, message: "use `init` overload with `linkingParameters` and `testingParameters` parameter names instead")
+    @_disfavoredOverload
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -383,6 +372,38 @@ public struct BuildParameters: Encodable {
         debugInfoFormat: DebugInfoFormat = .dwarf,
         shouldSkipBuilding: Bool = false,
         experimentalTestOutput: Bool = false
+    ) throws {
+    }
+
+    public init(
+        dataPath: AbsolutePath,
+        configuration: BuildConfiguration,
+        toolchain: Toolchain,
+        hostTriple: Triple? = nil,
+        targetTriple: Triple? = nil,
+        flags: BuildFlags,
+        pkgConfigDirectories: [AbsolutePath] = [],
+        architectures: [String]? = nil,
+        workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
+        shouldEnableManifestCaching: Bool = false,
+        canRenameEntrypointFunctionName: Bool = false,
+        shouldCreateDylibForDynamicProducts: Bool = true,
+        sanitizers: EnabledSanitizers = EnabledSanitizers(),
+        indexStoreMode: IndexStoreMode = .auto,
+        enableParseableModuleInterfaces: Bool = false,
+        useIntegratedSwiftDriver: Bool = false,
+        useExplicitModuleBuild: Bool = false,
+        isXcodeBuildSystemEnabled: Bool = false,
+        enableTestability: Bool? = nil,
+        forceTestDiscovery: Bool = false,
+        testEntryPointPath: AbsolutePath? = nil,
+        explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
+        colorizedOutput: Bool = false,
+        verboseOutput: Bool = false,
+        debugInfoFormat: DebugInfoFormat = .dwarf,
+        shouldSkipBuilding: Bool = false,
+        testingParameters: TestingParameters? = nil,
+        linkingParameters: LinkingParameters = .init()
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
@@ -423,12 +444,10 @@ public struct BuildParameters: Encodable {
         self.pkgConfigDirectories = pkgConfigDirectories
         self.architectures = architectures
         self.workers = workers
-        self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
         self.sanitizers = sanitizers
-        self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
@@ -441,19 +460,23 @@ public struct BuildParameters: Encodable {
         // and that `swift test` normally requires building with testable enabled.
         // when building and testing in release mode, one can use the '--disable-testable-imports' flag
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
-        self.enableTestability = enableTestability ?? (.debug == configuration)
-        self.testProductStyle = targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
-            explicitlyEnabledDiscovery: forceTestDiscovery,
-            explicitlySpecifiedPath: testEntryPointPath
-        )
         self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
-        self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput
         self.verboseOutput = verboseOutput
-        self.linkTimeOptimizationMode = linkTimeOptimizationMode
         self.debugInfoFormat = debugInfoFormat
         self.shouldSkipBuilding = shouldSkipBuilding
-        self.experimentalTestOutput = experimentalTestOutput
+        if let testingParameters {
+            self.testingParameters = testingParameters
+        } else {
+            self.testingParameters = .init(
+                testProductStyle: targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+                    explicitlyEnabledDiscovery: forceTestDiscovery,
+                    explicitlySpecifiedPath: testEntryPointPath
+                ),
+                enableTestability: enableTestability ?? (.debug == configuration)
+            )
+        }
+        self.linkingParameters = linkingParameters
     }
 
     @available(*, deprecated, renamed: "forTriple()")
@@ -464,7 +487,7 @@ public struct BuildParameters: Encodable {
     public func forTriple(_ targetTriple: Triple) throws -> BuildParameters {
         let forceTestDiscovery: Bool
         let testEntryPointPath: AbsolutePath?
-        switch self.testProductStyle {
+        switch self.testingParameters.testProductStyle {
         case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath):
             forceTestDiscovery = explicitlyEnabledDiscovery
             testEntryPointPath = explicitlySpecifiedPath
@@ -486,26 +509,23 @@ public struct BuildParameters: Encodable {
             pkgConfigDirectories: self.pkgConfigDirectories,
             architectures: nil,
             workers: self.workers,
-            shouldLinkStaticSwiftStdlib: self.shouldLinkStaticSwiftStdlib,
             shouldEnableManifestCaching: self.shouldEnableManifestCaching,
             canRenameEntrypointFunctionName: self.canRenameEntrypointFunctionName,
             shouldCreateDylibForDynamicProducts: self.shouldCreateDylibForDynamicProducts,
             sanitizers: self.sanitizers,
-            enableCodeCoverage: self.enableCodeCoverage,
             indexStoreMode: self.indexStoreMode,
             enableParseableModuleInterfaces: self.enableParseableModuleInterfaces,
             useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
             useExplicitModuleBuild: self.useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
-            enableTestability: self.enableTestability,
             forceTestDiscovery: forceTestDiscovery,
             testEntryPointPath: testEntryPointPath,
             explicitTargetDependencyImportCheckingMode: self.explicitTargetDependencyImportCheckingMode,
-            linkerDeadStrip: self.linkerDeadStrip,
             colorizedOutput: self.colorizedOutput,
             verboseOutput: self.verboseOutput,
-            linkTimeOptimizationMode: self.linkTimeOptimizationMode,
-            shouldSkipBuilding: self.shouldSkipBuilding
+            shouldSkipBuilding: self.shouldSkipBuilding,
+            testingParameters: self.testingParameters,
+            linkingParameters: self.linkingParameters
         )
     }
 
