@@ -551,6 +551,10 @@ let package = Package(
             dependencies: ["Build", "PackageModel", "SPMTestSupport"]
         ),
         .testTarget(
+            name: "LLBuildManifestTests",
+            dependencies: ["Basics", "LLBuildManifest", "SPMTestSupport"]
+        ),
+        .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]
         ),
