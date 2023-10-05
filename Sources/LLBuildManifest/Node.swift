@@ -30,6 +30,12 @@ public struct Node: Hashable, Codable {
         self.name = name
         self.kind = kind
     }
+    
+    /// Extracts `name` property if this node was constructed as `Node//virtual`.
+    public var extractedVirtualNodeName: String {
+        precondition(kind == .virtual)
+        return String(self.name.dropFirst().dropLast())
+    }
 
     public static func virtual(_ name: String) -> Node {
         precondition(name.first != "<" && name.last != ">", "<> will be inserted automatically")

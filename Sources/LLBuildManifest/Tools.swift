@@ -155,7 +155,7 @@ public struct ShellTool: ToolProtocol {
     }
 }
 
-public struct WriteAuxiliaryFile: ToolProtocol {
+public struct WriteAuxiliaryFile: Equatable, ToolProtocol {
     public static let name: String = "write-auxiliary-file"
 
     public let inputs: [Node]
