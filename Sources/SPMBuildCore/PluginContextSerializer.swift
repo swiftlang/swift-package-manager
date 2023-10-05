@@ -24,6 +24,7 @@ internal struct PluginContextSerializer {
     let fileSystem: FileSystem
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
+    let sdkRootPath: AbsolutePath?
     var paths: [WireInput.Path] = []
     var pathsToIds: [AbsolutePath: WireInput.Path.Id] = [:]
     var targets: [WireInput.Target] = []
@@ -108,6 +109,7 @@ internal struct PluginContextSerializer {
             for result in try pkgConfigArgs(
                 for: target,
                 pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             ) {

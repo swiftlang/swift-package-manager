@@ -34,6 +34,9 @@ struct PIFBuilderParameters {
 
     /// An array of paths to search for pkg-config `.pc` files.
     let pkgConfigDirectories: [AbsolutePath]
+
+    /// The toolchain's SDK root path.
+    let sdkRootPath: AbsolutePath?
 }
 
 /// PIF object builder for a package graph.
@@ -711,6 +714,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         for result in try pkgConfigArgs(
             for: systemTarget,
             pkgConfigDirectories: parameters.pkgConfigDirectories,
+            sdkRootPath: parameters.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) {

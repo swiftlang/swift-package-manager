@@ -281,7 +281,8 @@ struct PluginCommand: SwiftCommand {
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.
-        let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
+        let buildParameters = try swiftTool.buildParameters()
+        let buildEnvironment = buildParameters.buildEnvironment
         let _ = try temp_await { plugin.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
@@ -294,6 +295,7 @@ struct PluginCommand: SwiftCommand {
             readOnlyDirectories: readOnlyDirectories,
             allowNetworkConnections: allowNetworkConnections,
             pkgConfigDirectories: swiftTool.options.locations.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope,
             callbackQueue: delegateQueue,

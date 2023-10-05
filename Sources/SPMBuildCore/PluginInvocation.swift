@@ -59,6 +59,7 @@ extension PluginTarget {
         readOnlyDirectories: [AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
         pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -79,7 +80,8 @@ extension PluginTarget {
             var serializer = PluginContextSerializer(
                 fileSystem: fileSystem,
                 buildEnvironment: buildEnvironment,
-                pkgConfigDirectories: pkgConfigDirectories
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath
             )
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
@@ -332,6 +334,7 @@ extension PackageGraph {
         buildEnvironment: BuildEnvironment,
         toolSearchDirectories: [AbsolutePath],
         pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
@@ -479,6 +482,7 @@ extension PackageGraph {
                     readOnlyDirectories: readOnlyDirectories,
                     allowNetworkConnections: [],
                     pkgConfigDirectories: pkgConfigDirectories,
+                    sdkRootPath: sdkRootPath,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,

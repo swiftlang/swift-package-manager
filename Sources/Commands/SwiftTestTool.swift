@@ -206,7 +206,7 @@ public struct SwiftTestTool: SwiftCommand {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
         // Remove test output from prior runs and validate priors.
-        if self.options.enableExperimentalTestOutput, buildParameters.triple.supportsTestSummary {
+        if self.options.enableExperimentalTestOutput && buildParameters.targetTriple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 

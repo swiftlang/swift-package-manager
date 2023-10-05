@@ -216,7 +216,8 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         }
 
         let testObservabilitySetup: String
-        if self.context.buildParameters.experimentalTestOutput, self.context.buildParameters.triple.supportsTestSummary {
+        if self.context.buildParameters.experimentalTestOutput
+            && self.context.buildParameters.targetTriple.supportsTestSummary {
             testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
         } else {
             testObservabilitySetup = ""
