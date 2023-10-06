@@ -19,6 +19,8 @@ if(CMAKE_VERSION VERSION_LESS 3.16)
     set(CMAKE_LINK_LIBRARY_FLAG "-l")
 endif()
 
+add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-enable-experimental-feature$<SEMICOLON>AccessLevelOnImport>)
+
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
 
 if(CMAKE_VERSION VERSION_LESS 3.16 AND CMAKE_SYSTEM_NAME STREQUAL Windows)
