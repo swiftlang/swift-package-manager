@@ -11,12 +11,18 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import DriverSupport
 import LLBuildManifest
 import PackageGraph
 import PackageModel
 import SPMBuildCore
+
+#if swift(>=5.10)
+private import DriverSupport
+private import SwiftDriver
+#else
+@_implementationOnly import DriverSupport
 @_implementationOnly import SwiftDriver
+#endif
 
 import struct TSCBasic.ByteString
 import enum TSCBasic.ProcessEnv

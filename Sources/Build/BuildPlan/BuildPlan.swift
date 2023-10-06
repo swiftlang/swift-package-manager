@@ -18,7 +18,12 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+#if swift(>=5.10)
+private import SwiftDriver
+#else
 @_implementationOnly import SwiftDriver
+#endif
 
 import enum TSCBasic.ProcessEnv
 
