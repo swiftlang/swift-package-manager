@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-private import DriverSupport
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
@@ -31,7 +30,13 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
+#if swift(>=5.10)
+private import DriverSupport
 private import SwiftDriver
+#else
+@_implementationOnly import DriverSupport
+@_implementationOnly import SwiftDriver
+#endif
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
     /// The delegate used by the build system.

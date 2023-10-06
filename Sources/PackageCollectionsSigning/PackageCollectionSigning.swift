@@ -10,13 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 private import _CryptoExtras
-import Basics
 private import Crypto
+internal import X509
+#else
+@_implementationOnly import _CryptoExtras
+@_implementationOnly import Crypto
+@_implementationOnly import X509
+#endif
+
+import Basics
 import Dispatch
 import Foundation
 import PackageCollectionsModel
-internal import X509
 
 public protocol PackageCollectionSigner {
     /// Signs package collection using the given certificate and key.

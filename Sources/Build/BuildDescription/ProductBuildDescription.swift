@@ -11,7 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+#if swift(>=5.10)
 private import DriverSupport
+#else
+@_implementationOnly import DriverSupport
+#endif
 import PackageGraph
 import PackageModel
 import OrderedCollections

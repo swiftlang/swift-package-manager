@@ -11,7 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+#if swift(>=5.10)
 private import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
 import PackageModel
 
 /// Name of the module map file recognized by the Clang and Swift compilers.

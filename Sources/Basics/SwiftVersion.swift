@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 private import TSCclibc
+#else
+@_implementationOnly import TSCclibc
+#endif
 
 public struct SwiftVersion {
     /// The version number.

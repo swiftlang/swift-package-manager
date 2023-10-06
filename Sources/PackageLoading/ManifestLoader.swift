@@ -13,7 +13,11 @@
 import _Concurrency
 import Basics
 import Dispatch
+#if swift(>=5.10)
 private import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
 import PackageModel
 
 import class TSCBasic.BufferedOutputByteStream

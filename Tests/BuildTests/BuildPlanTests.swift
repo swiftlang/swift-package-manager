@@ -12,7 +12,11 @@
 
 @testable import Basics
 @testable import Build
+#if swift(>=5.10)
 private import DriverSupport
+#else
+@_implementationOnly import DriverSupport
+#endif
 import PackageLoading
 @testable import PackageGraph
 @testable import PackageModel

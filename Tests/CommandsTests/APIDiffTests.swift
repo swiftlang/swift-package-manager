@@ -13,7 +13,11 @@
 import Basics
 import Build
 import Commands
+#if swift(>=5.10)
 private import DriverSupport
+#else
+@_implementationOnly import DriverSupport
+#endif
 import Foundation
 import PackageModel
 import SourceControl

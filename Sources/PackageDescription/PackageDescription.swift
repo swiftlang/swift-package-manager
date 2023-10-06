@@ -11,16 +11,37 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Glibc)
+#if swift(>=5.10)
 private import Glibc
+#else
+@_implementationOnly import Glibc
+#endif
 #elseif canImport(Musl)
+#if swift(>=5.10)
 private import Musl
+#else
+@_implementationOnly import Musl
+#endif
 #elseif canImport(Darwin)
+#if swift(>=5.10)
 private import Darwin.C
+#else
+@_implementationOnly import Darwin.C
+#endif
 #elseif canImport(ucrt) && canImport(WinSDK)
+#if swift(>=5.10)
 private import ucrt
 private import struct WinSDK.HANDLE
+#else
+@_implementationOnly import ucrt
+@_implementationOnly import struct WinSDK.HANDLE
 #endif
+#endif
+#if swift(>=5.10)
 private import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
 
 /// The configuration of a Swift package.
 ///

@@ -11,7 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+#if swift(>=5.10)
 private import struct Foundation.Data
+#else
+@_implementationOnly import struct Foundation.Data
+#endif
 
 public enum ManifestSignatureParser {
     public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ManifestSignature? {

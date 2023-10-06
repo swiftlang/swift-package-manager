@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 private import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
 
 enum Serialization {
     // MARK: - build settings serialization

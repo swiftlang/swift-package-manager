@@ -13,7 +13,11 @@
 import ArgumentParser
 import Basics
 import Dispatch
+#if swift(>=5.10)
 private import DriverSupport
+#else
+@_implementationOnly import DriverSupport
+#endif
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph

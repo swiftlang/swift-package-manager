@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 @_spi(DisableValidityCheck) @_spi(CMS) internal import X509
+#else
+@_spi(DisableValidityCheck) @_spi(CMS) @_implementationOnly import X509
+#endif
 
 enum Certificates {
     static let appleRootsRaw = [

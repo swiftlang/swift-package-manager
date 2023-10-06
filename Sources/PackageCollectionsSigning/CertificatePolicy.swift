@@ -14,8 +14,14 @@ import Dispatch
 import Foundation
 
 import Basics
+
+#if swift(>=5.10)
 internal import SwiftASN1
 internal import X509
+#else
+@_implementationOnly import SwiftASN1
+@_implementationOnly import X509
+#endif
 
 public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
     case `default`(subjectUserID: String? = nil, subjectOrganizationalUnit: String? = nil)

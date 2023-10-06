@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 private import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
 
 /// Provides information about the package for which the plugin is invoked,
 /// as well as contextual information based on the plugin's stated intent

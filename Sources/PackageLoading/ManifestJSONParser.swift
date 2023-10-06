@@ -10,7 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 private import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
+
 import PackageModel
 
 import struct Basics.AbsolutePath

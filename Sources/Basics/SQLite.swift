@@ -12,7 +12,11 @@
 
 import Foundation
 
+#if swift(>=5.10)
 private import SPMSQLite3
+#else
+@_implementationOnly import SPMSQLite3
+#endif
 
 /// A minimal SQLite wrapper.
 public final class SQLite {

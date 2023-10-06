@@ -25,9 +25,15 @@
 
 import Foundation
 
+#if swift(>=5.10)
 internal import _CryptoExtras
 internal import Crypto
 internal import X509
+#else
+@_implementationOnly import _CryptoExtras
+@_implementationOnly import Crypto
+@_implementationOnly import X509
+#endif
 
 // The logic in this source file loosely follows https://www.rfc-editor.org/rfc/rfc7515.html
 // for JSON Web Signature (JWS).

@@ -11,12 +11,21 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Security)
+#if swift(>=5.10)
 private import Security
+#else
+@_implementationOnly import Security
+#endif
 #endif
 
 import Basics
+#if swift(>=5.10)
 private import Crypto
 @_spi(DisableValidityCheck) @_spi(CMS) internal import X509
+#else
+@_implementationOnly import Crypto
+@_spi(DisableValidityCheck) @_spi(CMS) @_implementationOnly import X509
+#endif
 
 public protocol SigningIdentity {}
 

@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 internal import SwiftASN1
 @_spi(DisableValidityCheck) @_spi(CMS) internal import X509
+#else
+@_implementationOnly import SwiftASN1
+@_spi(DisableValidityCheck) @_spi(CMS) @_implementationOnly import X509
+#endif
 
 // MARK: - SigningEntity is the entity that generated the signature
 

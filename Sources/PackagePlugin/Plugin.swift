@@ -10,9 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 internal import Foundation
+#else
+@_implementationOnly import Foundation
+#endif
 #if os(Windows)
+#if swift(>=5.10)
 private import ucrt
+#else
+@_implementationOnly import ucrt
+#endif
 
 internal func dup(_ fd: CInt) -> CInt {
     return _dup(fd)

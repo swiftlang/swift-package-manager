@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 internal import SwiftASN1
 private import X509
+#else
+@_implementationOnly import SwiftASN1
+@_implementationOnly import X509
+#endif
 
 extension Certificate {
     func hasExtension(oid: ASN1ObjectIdentifier) -> Bool {

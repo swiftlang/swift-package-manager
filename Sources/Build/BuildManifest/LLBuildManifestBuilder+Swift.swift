@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.10)
 private import class DriverSupport.SPMSwiftDriverExecutor
 private import SwiftDriver
+#else
+@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
+@_implementationOnly import SwiftDriver
+#endif
 import struct Basics.InternalError
 import struct Basics.AbsolutePath
 import struct Basics.RelativePath
