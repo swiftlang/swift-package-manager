@@ -46,8 +46,8 @@ final class PkgConfigAllowlistTests: XCTestCase {
 
     func testPathSDKPaths() throws {
         let flags = ["-I/opt/homebrew/Cellar/cairo/1.16.0_5/include/cairo", "-I/Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk/usr/include/ffi"]
-        let sdk = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk"
-        let result = try patchSDKPaths(in: flags, to: AbsolutePath(sdk))
+        let sdk = AbsolutePath("/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk")
+        let result = try patchSDKPaths(in: flags, to: sdk)
 
         XCTAssertEqual(result, ["-I/opt/homebrew/Cellar/cairo/1.16.0_5/include/cairo", "-I\(sdk)/usr/include/ffi"])
     }
