@@ -155,17 +155,9 @@ public final class ClangTargetBuildDescription {
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
             }
-            // If a generated module map is needed, generate one now in our temporary directory.
-            else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
-                let path = tempsPath.appending(component: moduleMapFilename)
-                let moduleMapGenerator = ModuleMapGenerator(
-                    targetName: clangTarget.name,
-                    moduleName: clangTarget.c99name,
-                    publicHeadersDir: clangTarget.includeDir,
-                    fileSystem: fileSystem
-                )
-                try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: path)
-                self.moduleMap = path
+            // If a generated module map is needed, set the path accordingly.
+            else if clangTarget.moduleMapType.generatedModuleMapType != nil {
+                self.moduleMap = tempsPath.appending(component: moduleMapFilename)
             }
             // Otherwise there is no module map, and we leave `moduleMap` unset.
         }

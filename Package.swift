@@ -167,7 +167,10 @@ let package = Package(
         .target(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
-            dependencies: ["Basics"],
+            dependencies: [
+                "Basics",
+                "PackageLoading",
+            ],
             exclude: ["CMakeLists.txt"]
         ),
 
