@@ -87,6 +87,18 @@ public protocol BuildPlan {
     func createREPLArguments() throws -> [String]
 }
 
+public protocol BuildSystemFactory {
+    func makeBuildSystem(
+        explicitProduct: String?,
+        cacheBuildManifest: Bool,
+        customBuildParameters: BuildParameters?,
+        customPackageGraphLoader: (() throws -> PackageGraph)?,
+        customOutputStream: OutputByteStream?,
+        customLogLevel: Diagnostic.Severity?,
+        customObservabilityScope: ObservabilityScope?
+    ) throws -> any BuildSystem
+}
+
 public struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
     public enum Kind: String, CaseIterable {
@@ -94,19 +106,9 @@ public struct BuildSystemProvider {
         case xcode
     }
 
-    public typealias Provider = (
-        _ explicitProduct: String?,
-        _ cacheBuildManifest: Bool,
-        _ customBuildParameters: BuildParameters?,
-        _ customPackageGraphLoader: (() throws -> PackageGraph)?,
-        _ customOutputStream: OutputByteStream?,
-        _ customLogLevel: Diagnostic.Severity?,
-        _ customObservabilityScope: ObservabilityScope?
-    ) throws -> BuildSystem
+    public let providers: [Kind: any BuildSystemFactory]
 
-    public let providers: [Kind:Provider]
-
-    public init(providers: [Kind:Provider]) {
+    public init(providers: [Kind: any BuildSystemFactory]) {
         self.providers = providers
     }
 
@@ -119,11 +121,19 @@ public struct BuildSystemProvider {
         customOutputStream: OutputByteStream? = .none,
         customLogLevel: Diagnostic.Severity? = .none,
         customObservabilityScope: ObservabilityScope? = .none
-    ) throws -> BuildSystem {
-        guard let provider = self.providers[kind] else {
+    ) throws -> any BuildSystem {
+        guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
         }
-        return try provider(explicitProduct, cacheBuildManifest, customBuildParameters, customPackageGraphLoader, customOutputStream, customLogLevel, customObservabilityScope)
+        return try buildSystemFactory.makeBuildSystem(
+            explicitProduct: explicitProduct,
+            cacheBuildManifest: cacheBuildManifest,
+            customBuildParameters: customBuildParameters,
+            customPackageGraphLoader: customPackageGraphLoader,
+            customOutputStream: customOutputStream,
+            customLogLevel: customLogLevel,
+            customObservabilityScope: customObservabilityScope
+        )
     }
 }
 
