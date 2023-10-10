@@ -40,6 +40,12 @@ public protocol Toolchain {
     /// An array of paths to search for libraries at link time.
     var librarySearchPaths: [AbsolutePath] { get }
 
+    /// Configuration from the used toolchain.
+    var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
+
+    /// The root path to the Swift SDK used by this toolchain.
+    var sdkRootPath: AbsolutePath? { get }
+
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
 

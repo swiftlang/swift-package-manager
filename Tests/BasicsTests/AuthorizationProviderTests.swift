@@ -274,7 +274,7 @@ final class AuthorizationProviderTests: XCTestCase {
         XCTAssertEqual(authentication?.password, expected.password)
         XCTAssertEqual(
             provider.httpAuthorizationHeader(for: url),
-            "Basic " + "\(expected.user):\(expected.password)".data(using: .utf8)!.base64EncodedString()
+            "Basic " + Data("\(expected.user):\(expected.password)".utf8).base64EncodedString()
         )
     }
 }

@@ -345,7 +345,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
     func testBadJSON() throws {
         let url = URL("https://www.test.com/collection.json")
-        let data = "blah".data(using: .utf8)!
+        let data = Data("blah".utf8)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")

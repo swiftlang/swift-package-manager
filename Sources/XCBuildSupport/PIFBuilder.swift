@@ -34,6 +34,9 @@ struct PIFBuilderParameters {
 
     /// An array of paths to search for pkg-config `.pc` files.
     let pkgConfigDirectories: [AbsolutePath]
+
+    /// The toolchain's SDK root path.
+    let sdkRootPath: AbsolutePath?
 }
 
 /// PIF object builder for a package graph.
@@ -97,7 +100,7 @@ public final class PIFBuilder {
         try PIF.sign(topLevelObject.workspace)
 
         let pifData = try encoder.encode(topLevelObject)
-        return String(data: pifData, encoding: .utf8)!
+        return String(decoding: pifData, as: UTF8.self)
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
@@ -711,6 +714,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         for result in try pkgConfigArgs(
             for: systemTarget,
             pkgConfigDirectories: parameters.pkgConfigDirectories,
+            sdkRootPath: parameters.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) {

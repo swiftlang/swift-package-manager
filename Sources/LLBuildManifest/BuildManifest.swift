@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -22,7 +22,37 @@ public protocol AuxiliaryFileType {
 }
 
 public enum WriteAuxiliary {
-    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self, SourcesFileList.self, SwiftGetVersion.self, XCTestInfoPlist.self]
+    public static let fileTypes: [AuxiliaryFileType.Type] = [
+        EntitlementPlist.self,
+        LinkFileList.self,
+        SourcesFileList.self,
+        SwiftGetVersion.self,
+        XCTestInfoPlist.self
+    ]
+
+    public struct EntitlementPlist: AuxiliaryFileType {
+        public static let name = "entitlement-plist"
+
+        public static func computeInputs(entitlement: String) -> [Node] {
+            [.virtual(Self.name), .virtual(entitlement)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let entitlementName = inputs.last?.extractedVirtualNodeName else {
+                throw Error.undefinedEntitlementName
+            }
+            let encoder = PropertyListEncoder()
+            encoder.outputFormat = .xml
+            let result = try encoder.encode([entitlementName: true])
+
+            let contents = String(decoding: result, as: UTF8.self)
+            return contents
+        }
+
+        private enum Error: Swift.Error {
+            case undefinedEntitlementName
+        }
+    }
 
     public struct LinkFileList: AuxiliaryFileType {
         public static let name = "link-file-list"
@@ -108,7 +138,7 @@ public enum WriteAuxiliary {
         }
 
         public static func getFileContents(inputs: [Node]) throws -> String {
-            guard let principalClass = inputs.last?.name.dropFirst().dropLast() else {
+            guard let principalClass = inputs.last?.extractedVirtualNodeName else {
                 throw Error.undefinedPrincipalClass
             }
 
@@ -117,9 +147,7 @@ public enum WriteAuxiliary {
             encoder.outputFormat = .xml
             let result = try encoder.encode(plist)
 
-            guard let contents = String(data: result, encoding: .utf8) else {
-                throw Error.invalidPropertyListData
-            }
+            let contents = String(decoding: result, as: UTF8.self)
             return contents
         }
 
@@ -128,7 +156,6 @@ public enum WriteAuxiliary {
         }
 
         private enum Error: Swift.Error {
-            case invalidPropertyListData
             case undefinedPrincipalClass
         }
     }
@@ -206,6 +233,13 @@ public struct BuildManifest {
     ) {
         assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = CopyTool(inputs: inputs, outputs: outputs)
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: AbsolutePath) {
+        let inputs = WriteAuxiliary.EntitlementPlist.computeInputs(entitlement: entitlement)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 

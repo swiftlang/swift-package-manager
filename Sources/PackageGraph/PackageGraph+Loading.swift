@@ -799,6 +799,10 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
                                                      observabilityScope: observabilityScope)
         }
     }
+
+    // Emit diagnostics for any module aliases that did not end up being applied.
+    aliasTracker.diagnoseUnappliedAliases(observabilityScope: observabilityScope)
+
     return true
 }
 

@@ -14,9 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import Dispatch
-import class Foundation.JSONDecoder
-import class Foundation.NSLock
-import class Foundation.ProcessInfo
+import Foundation
 import PackageGraph
 import PackageModel
 import SPMBuildCore
@@ -208,7 +206,7 @@ public struct SwiftTestTool: SwiftCommand {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, sharedOptions: self.sharedOptions)
 
         // Remove test output from prior runs and validate priors.
-        if self.options.enableExperimentalTestOutput, buildParameters.triple.supportsTestSummary {
+        if self.options.enableExperimentalTestOutput && buildParameters.targetTriple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 
@@ -698,8 +696,8 @@ final class TestRunner {
             case .terminated(code: 0):
                 return true
             #if !os(Windows)
-            case .signalled(let signal):
-                testObservabilityScope.emit(error: "Exited with signal code \(signal)")
+            case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
+                testObservabilityScope.emit(error: "Exited with unexpected signal code \(signal)")
                 return false
             #endif
             default:

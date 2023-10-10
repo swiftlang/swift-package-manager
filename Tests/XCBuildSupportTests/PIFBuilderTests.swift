@@ -2626,7 +2626,8 @@ extension PIFBuilderParameters {
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
             toolchainLibDir: "/toolchain/lib",
-            pkgConfigDirectories: ["/pkg-config"]
+            pkgConfigDirectories: ["/pkg-config"],
+            sdkRootPath: "/some.sdk"
         )
     }
 }

@@ -13,10 +13,13 @@ add_library(Build
   BuildDescription/SharedTargetBuildDescription.swift
   BuildDescription/SwiftTargetBuildDescription.swift
   BuildDescription/TargetBuildDescription.swift
+  BuildManifest/LLBuildManifestBuilder.swift
+  BuildManifest/LLBuildManifestBuilder+Clang.swift
+  BuildManifest/LLBuildManifestBuilder+Resources.swift
+  BuildManifest/LLBuildManifestBuilder+Swift.swift
   BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan.swift
-  LLBuildManifestBuilder.swift
   SwiftCompilerOutputParser.swift
   TestObservation.swift)
 target_link_libraries(Build PUBLIC

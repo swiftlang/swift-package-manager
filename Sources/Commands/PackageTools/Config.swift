@@ -80,7 +80,7 @@ extension SwiftPackageTool.Config {
             }
 
             try config.applyLocal { mirrors in
-                mirrors.set(mirror: mirror, for: original)
+                try mirrors.set(mirror: mirror, for: original)
             }
         }
     }

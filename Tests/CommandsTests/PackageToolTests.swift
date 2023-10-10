@@ -264,17 +264,35 @@ final class PackageToolTests: CommandsTestCase {
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
-            var path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
-            // Retag the dependency, and update.
-            let repo = GitRepository(path: fixturePath.appending("Foo"))
+            do {
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
+                _ = try checkoutRepo.revision(forTag: "1.2.3")
+            }
+
+
+            // update and retag the dependency, and update.
+            let repoPath = fixturePath.appending("Foo")
+            let repo = GitRepository(path: repoPath)
+            try localFileSystem.writeFileContents(repoPath.appending("test"), string: "test")
+            try repo.stageEverything()
+            try repo.commit()
             try repo.tag(name: "1.2.4")
+
+            // we will validate it is there
+            let revision = try repo.revision(forTag: "1.2.4")
+
             _ = try execute(["update"], packagePath: packageRoot)
 
-            // We shouldn't assume package path will be same after an update so ask again for it.
-            path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3", "1.2.4"])
+            do {
+                // We shouldn't assume package path will be same after an update so ask again for it.
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                // tag may not be there, but revision should be after update
+                XCTAssertTrue(checkoutRepo.exists(revision: .init(identifier: revision)))
+            }
         }
     }
 
@@ -502,7 +520,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
-            let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
+            let compactJSONText = String(decoding: compactGraphData, as: UTF8.self)
             XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
@@ -513,7 +531,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
-            let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
+            let prettyJSONText = String(decoding: prettyGraphData, as: UTF8.self)
             XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
         }
     }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,14 +10,39 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import LLBuildManifest
+import struct Basics.AbsolutePath
+import class Foundation.PropertyListDecoder
+@testable import LLBuildManifest
+import SPMTestSupport
+import class TSCBasic.InMemoryFileSystem
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
 
-// FIXME: This should be in its own test target.
+private let testEntitlement = "test-entitlement"
+
 final class LLBuildManifestTests: XCTestCase {
+    func testEntitlementsPlist() throws {
+        let FileType = WriteAuxiliary.EntitlementPlist.self
+        let inputs = FileType.computeInputs(entitlement: testEntitlement)
+        XCTAssertEqual(inputs, [.virtual(FileType.name), .virtual(testEntitlement)])
+
+        let contents = try FileType.getFileContents(inputs: inputs)
+        let decoder = PropertyListDecoder()
+        let decodedEntitlements = try decoder.decode([String: Bool].self, from: .init(contents.utf8))
+        XCTAssertEqual(decodedEntitlements, [testEntitlement: true])
+
+        var manifest = BuildManifest()
+        let outputPath = AbsolutePath("/test.plist")
+        manifest.addEntitlementPlistCommand(entitlement: testEntitlement, outputPath: outputPath)
+
+        let commandName = outputPath.pathString
+        XCTAssertEqual(manifest.commands.count, 1)
+        
+        let command = try XCTUnwrap(manifest.commands[commandName]?.tool as? WriteAuxiliaryFile)
+
+        XCTAssertEqual(command, .init(inputs: inputs, outputFilePath: outputPath))
+    }
+
     func testBasics() throws {
         var manifest = BuildManifest()
 
