@@ -16,10 +16,10 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystemCommand.swift
   BuildSystem/BuildSystemDelegate.swift
   BuiltTestProduct.swift
-  Plugin/PluginContextSerializer.swift
-  Plugin/PluginInvocation.swift
-  Plugin/PluginMessages.swift
-  Plugin/PluginScriptRunner.swift
+  Plugins/PluginContextSerializer.swift
+  Plugins/PluginInvocation.swift
+  Plugins/PluginMessages.swift
+  Plugins/PluginScriptRunner.swift
   PrebuildCommandResult.swift
   Triple+Extensions.swift
   XCFrameworkMetadata.swift)
