@@ -199,16 +199,16 @@ public final class SwiftTool {
     public let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
-    public let sharedSecurityDirectory: AbsolutePath?
+    public let sharedSecurityDirectory: AbsolutePath
 
     /// Path to the shared cache directory
-    public let sharedCacheDirectory: AbsolutePath?
+    public let sharedCacheDirectory: AbsolutePath
 
     /// Path to the shared configuration directory
-    public let sharedConfigurationDirectory: AbsolutePath?
+    public let sharedConfigurationDirectory: AbsolutePath
 
     /// Path to the cross-compilation Swift SDKs directory.
-    public let sharedSwiftSDKsDirectory: AbsolutePath?
+    public let sharedSwiftSDKsDirectory: AbsolutePath
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
@@ -737,11 +737,11 @@ public final class SwiftTool {
             let hostTriple = hostToolchain.targetTriple
 
             // Create custom toolchain if present.
-            if let customDestination = options.locations.customCompileDestination {
+            if let customDestination = self.options.locations.customCompileDestination {
                 let swiftSDKs = try SwiftSDK.decode(
                     fromFile: customDestination,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope
                 )
                 if swiftSDKs.count == 1 {
                     swiftSDK = swiftSDKs[0]
@@ -758,13 +758,13 @@ public final class SwiftTool {
             {
                 swiftSDK = targetSwiftSDK
             } else if let swiftSDKSelector = options.build.swiftSDKSelector {
-                swiftSDK = try SwiftSDKBundle.selectBundle(
-                    fromBundlesAt: sharedSwiftSDKsDirectory,
-                    fileSystem: fileSystem,
-                    matching: swiftSDKSelector,
-                    hostTriple: hostTriple,
-                    observabilityScope: observabilityScope
+                let store = SwiftSDKBundleStore(
+                    swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope,
+                    outputHandler: { print($0.description) }
                 )
+                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
             } else {
                 // Otherwise use the host toolchain.
                 swiftSDK = hostSwiftSDK
@@ -812,7 +812,7 @@ public final class SwiftTool {
             case (false, .local):
                 cachePath = self.scratchDirectory
             case (false, .shared):
-                cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
+                cachePath = Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
             }
 
             var extraManifestFlags = self.options.build.manifestFlags
@@ -864,7 +864,7 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
     return root
 }
 
-private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
+private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath {
     if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
         if !fileSystem.exists(explicitSecurityDirectory) {
@@ -877,7 +877,7 @@ private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: File
     }
 }
 
-private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
+private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath {
     if let explicitConfigurationDirectory = options.locations.configurationDirectory {
         // Create the explicit config path if necessary
         if !fileSystem.exists(explicitConfigurationDirectory) {
@@ -890,7 +890,7 @@ private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem:
     }
 }
 
-private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
+private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath {
     if let explicitCacheDirectory = options.locations.cacheDirectory {
         // Create the explicit cache path if necessary
         if !fileSystem.exists(explicitCacheDirectory) {

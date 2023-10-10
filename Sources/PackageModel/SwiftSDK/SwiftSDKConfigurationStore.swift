@@ -32,7 +32,7 @@ public final class SwiftSDKConfigurationStore {
     private let fileSystem: FileSystem
 
     // An observability scope on which warnings can be reported if any appear.
-    private let observabilityScope: ObservabilityScope
+    private let swiftSDKBundleStore: SwiftSDKBundleStore
 
     /// Encoder used for encoding updated configuration to be written to ``SwiftSDKConfigurationStore//fileSystem``.
     private let encoder: JSONEncoder
@@ -50,12 +50,11 @@ public final class SwiftSDKConfigurationStore {
     ///   - observabilityScope: an observability scope on which warnings can be reported if any appear.
     public init(
         hostTimeTriple: Triple,
-        swiftSDKsDirectoryPath: AbsolutePath,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        swiftSDKBundleStore: SwiftSDKBundleStore
     ) throws {
-        let configurationDirectoryPath = swiftSDKsDirectoryPath.appending(component: "configuration")
+        let configurationDirectoryPath = swiftSDKBundleStore.swiftSDKsDirectory.appending(component: "configuration")
 
+        let fileSystem = swiftSDKBundleStore.fileSystem
         if fileSystem.exists(configurationDirectoryPath) {
             guard fileSystem.isDirectory(configurationDirectoryPath) else {
                 throw SwiftSDKError.pathIsNotDirectory(configurationDirectoryPath)
@@ -65,10 +64,10 @@ public final class SwiftSDKConfigurationStore {
         }
 
         self.hostTriple = hostTimeTriple
-        self.swiftSDKsDirectoryPath = swiftSDKsDirectoryPath
+        self.swiftSDKsDirectoryPath = swiftSDKBundleStore.swiftSDKsDirectory
         self.configurationDirectoryPath = configurationDirectoryPath
         self.fileSystem = fileSystem
-        self.observabilityScope = observabilityScope
+        self.swiftSDKBundleStore = swiftSDKBundleStore
         self.encoder = JSONEncoder.makeWithDefaults(prettified: true)
         self.decoder = JSONDecoder.makeWithDefaults()
     }
@@ -94,11 +93,7 @@ public final class SwiftSDKConfigurationStore {
             component: "\(sdkID)_\(targetTriple.tripleString).json"
         )
 
-        let swiftSDKs = try SwiftSDKBundle.getAllValidBundles(
-            swiftSDKsDirectory: swiftSDKsDirectoryPath,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
+        let swiftSDKs = try self.swiftSDKBundleStore.allValidBundles
 
         guard var swiftSDK = swiftSDKs.selectSwiftSDK(
             id: sdkID,

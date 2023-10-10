@@ -90,8 +90,8 @@ private struct MockArtifact {
 
 private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
     let bundles = bundleArtifacts.enumerated().map { (i, artifacts) in
-        let bundleName = "test\(i).artifactbundle"
-        return MockBundle(name: "test\(i).artifactbundle", path: "/\(bundleName)", artifacts: [artifacts])
+        let bundleName = "test\(i).\(artifactBundleExtension)"
+        return MockBundle(name: "test\(i).\(artifactBundleExtension)", path: "/\(bundleName)", artifacts: [artifacts])
     }
 
 
@@ -126,23 +126,21 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         let archiver = MockArchiver()
 
-        try await SwiftSDKBundle.install(
-            bundlePathOrURL: bundles[0].path,
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
-            fileSystem,
-            archiver,
-            system.topScope
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
         )
+
+        try await store.install(bundlePathOrURL: bundles[0].path, archiver)
 
         let invalidPath = "foobar"
         do {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: "foobar",
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                archiver,
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: invalidPath, archiver)
 
             XCTFail("Function expected to throw")
         } catch {
@@ -152,21 +150,15 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
 
             switch error {
-            case .invalidBundleName(let bundleName):
-                XCTAssertEqual(bundleName, invalidPath)
+            case let .invalidBundleArchive(archivePath):
+                XCTAssertEqual(archivePath, AbsolutePath.root.appending(invalidPath))
             default:
                 XCTFail("Unexpected error value")
             }
         }
 
         do {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundles[0].path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                archiver,
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: bundles[0].path, archiver)
 
             XCTFail("Function expected to throw")
         } catch {
@@ -176,21 +168,17 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
 
             switch error {
-            case .swiftSDKBundleAlreadyInstalled(let installedBundleName):
+            case let .swiftSDKArtifactAlreadyInstalled(installedBundleName, newBundleName, artifactID):
                 XCTAssertEqual(bundles[0].name, installedBundleName)
+                XCTAssertEqual(newBundleName, "test0.\(artifactBundleExtension)")
+                XCTAssertEqual(artifactID, testArtifactID)
             default:
                 XCTFail("Unexpected error value")
             }
         }
 
         do {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundles[1].path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                archiver,
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: bundles[1].path, archiver)
 
              XCTFail("Function expected to throw")
          } catch {
@@ -208,6 +196,8 @@ final class SwiftSDKBundleTests: XCTestCase {
                 XCTFail("Unexpected error value")
             }
         }
+
+        XCTAssertEqual(output, [])
     }
 
     func testList() async throws {
@@ -218,26 +208,28 @@ final class SwiftSDKBundleTests: XCTestCase {
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
+        let archiver = MockArchiver()
 
-        for bundle in bundles {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundle.path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                MockArchiver(),
-                system.topScope
-            )
-        }
-
-        let validBundles = try SwiftSDKBundle.getAllValidBundles(
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
-            observabilityScope: system.topScope
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
         )
+
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        let validBundles = try store.allValidBundles
 
         XCTAssertEqual(validBundles.count, bundles.count)
 
         XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
+        XCTAssertEqual(output, [])
     }
 
     func testBundleSelection() async throws {
@@ -249,24 +241,26 @@ final class SwiftSDKBundleTests: XCTestCase {
         )
         let system = ObservabilitySystem.makeForTesting()
 
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
+        )
+
         for bundle in bundles {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundle.path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                MockArchiver(),
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: bundle.path, MockArchiver())
         }
 
-        let sdk = try SwiftSDKBundle.selectBundle(
-            fromBundlesAt: swiftSDKsDirectory,
-            fileSystem: fileSystem,
+        let sdk = try store.selectBundle(
             matching: "\(testArtifactID)1",
-            hostTriple: Triple("arm64-apple-macosx14.0"),
-            observabilityScope: system.topScope
+            hostTriple: Triple("arm64-apple-macosx14.0")
         )
 
         XCTAssertEqual(sdk.targetTriple, targetTriple)
+        XCTAssertEqual(output, [])
     }
 }

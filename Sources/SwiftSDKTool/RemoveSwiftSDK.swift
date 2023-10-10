@@ -44,11 +44,14 @@ public struct RemoveSwiftSDK: SwiftSDKSubcommand {
 
             removedBundleDirectory = artifactBundleDirectory
         } else {
-            let bundles = try SwiftSDKBundle.getAllValidBundles(
+            let bundleStore = SwiftSDKBundleStore(
                 swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
+                fileSystem: self.fileSystem,
+                observabilityScope: observabilityScope,
+                outputHandler: { print($0) }
             )
+
+            let bundles = try bundleStore.allValidBundles
 
             let matchingBundles = bundles.compactMap { bundle in
                 bundle.artifacts[sdkIDOrBundleName] != nil ? bundle : nil

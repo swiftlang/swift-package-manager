@@ -42,12 +42,16 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
     ) async throws {
         let cancellator = Cancellator(observabilityScope: observabilityScope)
         cancellator.installSignalHandlers()
-        try await SwiftSDKBundle.install(
-            bundlePathOrURL: bundlePathOrURL,
+
+        let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
-            self.fileSystem,
-            UniversalArchiver(self.fileSystem, cancellator),
-            observabilityScope
+            fileSystem: self.fileSystem,
+            observabilityScope: observabilityScope,
+            outputHandler: { print($0.description) }
+        )
+        try await store.install(
+            bundlePathOrURL: bundlePathOrURL,
+            UniversalArchiver(self.fileSystem, cancellator)
         )
     }
 }
