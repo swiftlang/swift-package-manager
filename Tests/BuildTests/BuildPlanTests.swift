@@ -4850,10 +4850,10 @@ final class BuildPlanTests: XCTestCase {
         let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
 
         let yamlContents: String = try fs.readFileContents(yaml)
-        let inputs: SerializedJSON = """
+        let inputs = """
             inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath.escapedPathString)","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
         """
-        XCTAssertMatch(yamlContents, .contains(inputs.underlying))
+        XCTAssertMatch(yamlContents, .contains(inputs))
     }
 
     private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
