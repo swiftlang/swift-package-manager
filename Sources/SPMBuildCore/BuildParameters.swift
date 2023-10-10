@@ -190,6 +190,9 @@ public struct BuildParameters: Encodable {
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib: Bool
 
+    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    public var shouldDisableLocalRpath: Bool
+
     /// Which compiler sanitizers should be enabled
     public var sanitizers: EnabledSanitizers
 
@@ -362,6 +365,7 @@ public struct BuildParameters: Encodable {
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
+        shouldDisableLocalRpath: Bool = false,
         shouldEnableManifestCaching: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
         shouldCreateDylibForDynamicProducts: Bool = true,
@@ -424,6 +428,7 @@ public struct BuildParameters: Encodable {
         self.architectures = architectures
         self.workers = workers
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+        self.shouldDisableLocalRpath = shouldDisableLocalRpath
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
@@ -487,6 +492,7 @@ public struct BuildParameters: Encodable {
             architectures: nil,
             workers: self.workers,
             shouldLinkStaticSwiftStdlib: self.shouldLinkStaticSwiftStdlib,
+            shouldDisableLocalRpath: self.shouldDisableLocalRpath,
             shouldEnableManifestCaching: self.shouldEnableManifestCaching,
             canRenameEntrypointFunctionName: self.canRenameEntrypointFunctionName,
             shouldCreateDylibForDynamicProducts: self.shouldCreateDylibForDynamicProducts,

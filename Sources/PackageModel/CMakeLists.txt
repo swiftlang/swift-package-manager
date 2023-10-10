@@ -47,7 +47,12 @@ add_library(PackageModel
   SwiftSDKs/SwiftSDKConfigurationStore.swift
   SwiftSDKs/SwiftSDKBundle.swift
   SwiftSDKs/SwiftSDKBundleStore.swift
-  Target.swift
+  Target/BinaryTarget.swift
+  Target/ClangTarget.swift
+  Target/PluginTarget.swift
+  Target/SwiftTarget.swift
+  Target/SystemLibraryTarget.swift
+  Target/Target.swift
   Toolchain.swift
   ToolchainConfiguration.swift
   Toolset.swift
