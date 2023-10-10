@@ -193,7 +193,7 @@ public final class SwiftSDKBundleStore {
             )
         }.value
 
-        print("Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName).")
+        self.outputHandler(.installationSuccessful(bundlePathOrURL: bundlePathOrURL, bundleName: bundleName))
     }
 
     /// Unpacks a Swift SDK bundle if it has an archive extension in its filename.
@@ -213,7 +213,7 @@ public final class SwiftSDKBundleStore {
             return bundlePath
         }
 
-        print("`\(bundlePath)` is assumed to be an archive, unpacking...")
+        self.outputHandler(.unpackingArchive(bundlePath))
         let extractionResultsDirectory = temporaryDirectory.appending("extraction-results")
         try self.fileSystem.createDirectory(extractionResultsDirectory)
 

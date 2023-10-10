@@ -197,7 +197,13 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(output, [])
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .unpackingArchive(AbsolutePath.root.appending(invalidPath)),
+        ])
     }
 
     func testList() async throws {
@@ -229,7 +235,16 @@ final class SwiftSDKBundleTests: XCTestCase {
         XCTAssertEqual(validBundles.count, bundles.count)
 
         XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
-        XCTAssertEqual(output, [])
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .installationSuccessful(
+                bundlePathOrURL: bundles[1].path,
+                bundleName: AbsolutePath(bundles[1].path).components.last!
+            ),
+        ])
     }
 
     func testBundleSelection() async throws {
@@ -251,8 +266,9 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
         )
 
+        let archiver = MockArchiver()
         for bundle in bundles {
-            try await store.install(bundlePathOrURL: bundle.path, MockArchiver())
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
         }
 
         let sdk = try store.selectBundle(
@@ -261,6 +277,15 @@ final class SwiftSDKBundleTests: XCTestCase {
         )
 
         XCTAssertEqual(sdk.targetTriple, targetTriple)
-        XCTAssertEqual(output, [])
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .installationSuccessful(
+                bundlePathOrURL: bundles[1].path,
+                bundleName: AbsolutePath(bundles[1].path).components.last!
+            ),
+        ])
     }
 }
