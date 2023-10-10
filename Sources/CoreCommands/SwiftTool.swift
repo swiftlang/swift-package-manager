@@ -683,6 +683,7 @@ public final class SwiftTool {
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
             shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
+            shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
             canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
                 flags: ["entry-point-function-name"],
                 toolchain: toolchain,
