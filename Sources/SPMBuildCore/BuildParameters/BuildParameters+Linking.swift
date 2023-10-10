@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-
-/// Build parameters related to linking grouped in a single type to aggregate those in one place.
-public struct LinkingParameters: Encodable {
+extension BuildParameters {
     /// An optional intermodule optimization to run at link time.
     ///
     /// When using Link Time Optimization (LTO for short) the swift and clang
@@ -39,21 +37,24 @@ public struct LinkingParameters: Encodable {
         case thin
     }
 
-    /// If should link the Swift stdlib statically.
-    public var shouldLinkStaticSwiftStdlib: Bool
+    /// Build parameters related to linking grouped in a single type to aggregate those in one place.
+    public struct Linking: Encodable {
+        /// Whether to disable dead code stripping by the linker
+        public var linkerDeadStrip: Bool
+        
+        public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
-    /// Whether to disable dead code stripping by the linker
-    public var linkerDeadStrip: Bool
+        /// If should link the Swift stdlib statically.
+        public var shouldLinkStaticSwiftStdlib: Bool
 
-    public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
-
-    public init(
-        shouldLinkStaticSwiftStdlib: Bool = false,
-        linkerDeadStrip: Bool = true,
-        linkTimeOptimizationMode: LinkingParameters.LinkTimeOptimizationMode? = nil
-    ) {
-        self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
-        self.linkerDeadStrip = linkerDeadStrip
-        self.linkTimeOptimizationMode = linkTimeOptimizationMode
+        public init(
+            linkerDeadStrip: Bool = true,
+            linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
+            shouldLinkStaticSwiftStdlib: Bool = false
+        ) {
+            self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+            self.linkerDeadStrip = linkerDeadStrip
+            self.linkTimeOptimizationMode = linkTimeOptimizationMode
+        }
     }
 }

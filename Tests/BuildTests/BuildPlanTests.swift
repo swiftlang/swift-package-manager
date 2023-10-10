@@ -3035,7 +3035,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         var parameters = mockBuildParameters(targetTriple: .wasi)
-        parameters.shouldLinkStaticSwiftStdlib = true
+        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
             graph: graph,
@@ -3644,7 +3644,7 @@ final class BuildPlanTests: XCTestCase {
 
         let staticBuildParameters = {
             var copy = extraBuildParameters
-            copy.shouldLinkStaticSwiftStdlib = true
+            copy.linkingParameters.shouldLinkStaticSwiftStdlib = true
             // pick a triple with support for static linking
             copy.targetTriple = .x86_64Linux
             return copy

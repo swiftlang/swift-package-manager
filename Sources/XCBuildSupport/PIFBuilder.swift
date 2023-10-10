@@ -1572,7 +1572,7 @@ extension Array where Element == PackageConditionProtocol {
                 result += PIF.PlatformFilter.driverKitFilters
 
             case .wasi:
-                result += PIF.PlatformFilter.webAsssemblyFilters
+                result += PIF.PlatformFilter.webAssemblyFilters
 
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
@@ -1644,7 +1644,7 @@ extension PIF.PlatformFilter {
     ]
 
     /// Web Assembly platform filters.
-    public static let webAsssemblyFilters: [PIF.PlatformFilter] = [
+    public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
     ]
 }

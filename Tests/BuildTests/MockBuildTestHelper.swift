@@ -88,12 +88,16 @@ func mockBuildParameters(
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
-        shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
-        canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
         indexStoreMode: indexStoreMode,
-        useExplicitModuleBuild: useExplicitModuleBuild,
-        linkerDeadStrip: linkerDeadStrip,
-        linkTimeOptimizationMode: linkTimeOptimizationMode
+        driverParameters: .init(
+            canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
+            useExplicitModuleBuild: useExplicitModuleBuild
+        ),
+        linkingParameters: .init(
+            linkerDeadStrip: linkerDeadStrip,
+            linkTimeOptimizationMode: linkTimeOptimizationMode,
+            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
+        )
     )
 }
 

@@ -11,8 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import struct Basics.Triple
+import enum PackageModel.BuildConfiguration
 
-public struct TestingParameters: Encodable {
+extension BuildParameters {
     /// Represents the test product style.
     public enum TestProductStyle: Encodable {
         /// Test product is a loadable bundle. This style is used on Darwin platforms and, for XCTest tests, relies on the Objective-C
@@ -81,27 +83,44 @@ public struct TestingParameters: Encodable {
         }
     }
 
-    /// The style of test product to produce.
-    public var testProductStyle: TestProductStyle
+    /// Build parameters related to testing grouped in a single type to aggregate those in one place.
+    public struct Testing: Encodable {
 
-    /// Whether to enable code coverage.
-    public var enableCodeCoverage: Bool
+        /// Whether to enable code coverage.
+        public var enableCodeCoverage: Bool
 
-    /// Whether or not to enable the experimental test output mode.
-    public var experimentalTestOutput: Bool
+        /// Whether building for testability is enabled.
+        public var enableTestability: Bool
 
-    /// Whether building for testability is enabled.
-    public var enableTestability: Bool
+        /// Whether or not to enable the experimental test output mode.
+        public var experimentalTestOutput: Bool
 
-    public init(
-        testProductStyle: TestingParameters.TestProductStyle,
-        enableCodeCoverage: Bool = false,
-        experimentalTestOutput: Bool = false,
-        enableTestability: Bool
-    ) {
-        self.testProductStyle = testProductStyle
-        self.enableCodeCoverage = enableCodeCoverage
-        self.experimentalTestOutput = experimentalTestOutput
-        self.enableTestability = enableTestability
+        /// The style of test product to produce.
+        public var testProductStyle: TestProductStyle
+
+        public init(
+            configuration: BuildConfiguration,
+            targetTriple: Triple,
+            enableCodeCoverage: Bool = false,
+            enableTestability: Bool? = nil,
+            experimentalTestOutput: Bool = false,
+            forceTestDiscovery: Bool = false,
+            testEntryPointPath: AbsolutePath? = nil
+        ) {
+            self.enableCodeCoverage = enableCodeCoverage
+            self.experimentalTestOutput = experimentalTestOutput
+            // decide on testability based on debug/release config
+            // the goals of this being based on the build configuration is
+            // that `swift build` followed by a `swift test` will need to do minimal rebuilding
+            // given that the default configuration for `swift build` is debug
+            // and that `swift test` normally requires building with testable enabled.
+            // when building and testing in release mode, one can use the '--disable-testable-imports' flag
+            // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
+            self.enableTestability =  enableTestability ?? (.debug == configuration)
+            self.testProductStyle = targetTriple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+                explicitlyEnabledDiscovery: forceTestDiscovery,
+                explicitlySpecifiedPath: testEntryPointPath
+            )
+        }
     }
 }

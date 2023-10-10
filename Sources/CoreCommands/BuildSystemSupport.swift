@@ -31,7 +31,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         customLogLevel: Diagnostic.Severity?,
         customObservabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem {
-        let testEntryPointPath = customBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
+        let testEntryPointPath = customBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
         let graphLoader = { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
         return try BuildOperation(
             buildParameters: customBuildParameters ?? self.swiftTool.buildParameters(),

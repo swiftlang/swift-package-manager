@@ -82,7 +82,7 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.buildParameters.useExplicitModuleBuild {
+        if self.buildParameters.driverParameters.useExplicitModuleBuild {
             // Explicit module builds use the integrated driver directly and
             // require that every target's build jobs specify its dependencies explicitly to plan
             // its build.
@@ -281,7 +281,7 @@ extension LLBuildManifestBuilder {
 
         // Add dependency on Info.plist generation on Darwin platforms.
         let testInputs: [AbsolutePath]
-        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin(), buildProduct.buildParameters.experimentalTestOutput {
+        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin(), buildProduct.buildParameters.testingParameters.experimentalTestOutput {
             let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
             testInputs = [testBundleInfoPlistPath]
 

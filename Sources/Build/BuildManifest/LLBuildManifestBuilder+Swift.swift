@@ -37,7 +37,7 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
-        if self.buildParameters.useIntegratedSwiftDriver {
+        if self.buildParameters.driverParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
@@ -122,7 +122,7 @@ extension LLBuildManifestBuilder {
             // common intermediate dependency modules, such dependencies can lead
             // to cycles in the resulting manifest.
             var manifestNodeInputs: [Node] = []
-            if self.buildParameters.useExplicitModuleBuild && !isMainModule(job) {
+            if self.buildParameters.driverParameters.useExplicitModuleBuild && !isMainModule(job) {
                 manifestNodeInputs = jobInputs
             } else {
                 manifestNodeInputs = (inputs + jobInputs).uniqued()
