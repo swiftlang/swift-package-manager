@@ -11,6 +11,7 @@ add_library(SPMBuildCore
   BuildParameters/BuildParameters.swift
   BuildParameters/BuildParameters+Driver.swift
   BuildParameters/BuildParameters+Linking.swift
+  BuildParameters/BuildParameters+Output.swift
   BuildParameters/BuildParameters+Testing.swift
   BuildSystem/BuildSystem.swift
   BuildSystem/BuildSystemCommand.swift
