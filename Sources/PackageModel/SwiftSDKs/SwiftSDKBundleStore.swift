@@ -20,7 +20,7 @@ public final class SwiftSDKBundleStore {
     public enum Output: Equatable, CustomStringConvertible {
         case downloadStarted(URL)
         case downloadFinishedSuccessfully(URL)
-        case unpackingArchive(AbsolutePath)
+        case unpackingArchive(bundlePathOrURL: String)
         case installationSuccessful(bundlePathOrURL: String, bundleName: String)
 
         public var description: String {
@@ -31,8 +31,8 @@ public final class SwiftSDKBundleStore {
                 "Swift SDK bundle archive successfully downloaded from `\(url)`."
             case let .installationSuccessful(bundlePathOrURL, bundleName):
                 "Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName)."
-            case let .unpackingArchive(path):
-                "`\(path)` is assumed to be an archive, unpacking..."
+            case let .unpackingArchive(bundlePathOrURL):
+                "Swift SDK bundle at `\(bundlePathOrURL)` is assumed to be an archive, unpacking..."
             }
         }
     }
@@ -139,7 +139,7 @@ public final class SwiftSDKBundleStore {
     public func install(
         bundlePathOrURL: String,
         _ archiver: any Archiver,
-        _ httpClient: HTTPClient
+        _ httpClient: HTTPClient = .init()
     ) async throws {
         let bundleName = try await withTemporaryDirectory(fileSystem: self.fileSystem, removeTreeOnDeinit: true) { temporaryDirectory in
             let bundlePath: AbsolutePath
@@ -186,7 +186,8 @@ public final class SwiftSDKBundleStore {
             }
 
             return try await self.installIfValid(
-                bundlePath: bundlePath,
+                bundlePathOrURL: bundlePathOrURL,
+                validatedBundlePath: bundlePath,
                 temporaryDirectory: temporaryDirectory,
                 archiver: archiver
             )
@@ -203,7 +204,8 @@ public final class SwiftSDKBundleStore {
     /// - Returns: Path to an unpacked Swift SDK bundle if unpacking is needed, value of `bundlePath` is returned
     /// otherwise.
     private func unpackIfNeeded(
-        bundlePath: AbsolutePath,
+        bundlePathOrURL: String,
+        validatedBundlePath bundlePath: AbsolutePath,
         temporaryDirectory: AbsolutePath,
         _ archiver: any Archiver
     ) async throws -> AbsolutePath {
@@ -212,7 +214,7 @@ public final class SwiftSDKBundleStore {
             return bundlePath
         }
 
-        self.outputHandler(.unpackingArchive(bundlePath))
+        self.outputHandler(.unpackingArchive(bundlePathOrURL: bundlePathOrURL))
         let extractionResultsDirectory = temporaryDirectory.appending("extraction-results")
         try self.fileSystem.createDirectory(extractionResultsDirectory)
 
@@ -239,19 +241,21 @@ public final class SwiftSDKBundleStore {
     ///   - archiver: Archiver instance to use for extracting bundle archives.
     /// - Returns: Name of the bundle installed.
     private func installIfValid(
-        bundlePath: AbsolutePath,
+        bundlePathOrURL: String,
+        validatedBundlePath: AbsolutePath,
         temporaryDirectory: AbsolutePath,
         archiver: any Archiver
     ) async throws -> String {
         #if os(macOS)
         // Check the quarantine attribute on bundles downloaded manually in the browser.
-        guard !self.fileSystem.hasAttribute(.quarantine, bundlePath) else {
-            throw SwiftSDKError.quarantineAttributePresent(bundlePath: bundlePath)
+        guard !self.fileSystem.hasAttribute(.quarantine, validatedBundlePath) else {
+            throw SwiftSDKError.quarantineAttributePresent(bundlePath: validatedBundlePath)
         }
         #endif
 
         let unpackedBundlePath = try await self.unpackIfNeeded(
-            bundlePath: bundlePath,
+            bundlePathOrURL: bundlePathOrURL,
+            validatedBundlePath: validatedBundlePath,
             temporaryDirectory: temporaryDirectory,
             archiver
         )
@@ -260,7 +264,7 @@ public final class SwiftSDKBundleStore {
             self.fileSystem.isDirectory(unpackedBundlePath),
             let bundleName = unpackedBundlePath.components.last
         else {
-            throw SwiftSDKError.pathIsNotDirectory(bundlePath)
+            throw SwiftSDKError.pathIsNotDirectory(validatedBundlePath)
         }
 
         let installedBundlePath = self.swiftSDKsDirectory.appending(component: bundleName)

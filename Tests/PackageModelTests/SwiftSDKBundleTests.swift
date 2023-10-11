@@ -111,9 +111,56 @@ private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (
 }
 
 private let arm64Triple = try! Triple("arm64-apple-macosx13.0")
-let i686Triple = try! Triple("i686-apple-macosx13.0")
+private let i686Triple = try! Triple("i686-apple-macosx13.0")
+
+private let fixtureArchivePath = try! AbsolutePath(validating: #file)
+    .parentDirectory
+    .parentDirectory
+    .parentDirectory
+    .appending(components: ["Fixtures", "SwiftSDKs", "test-sdk.artifactbundle.tar.gz"])
 
 final class SwiftSDKBundleTests: XCTestCase {
+    func testInstallRemote() async throws {
+        let system = ObservabilitySystem.makeForTesting()
+        var output = [SwiftSDKBundleStore.Output]()
+        let observabilityScope = system.topScope
+        let cancellator = Cancellator(observabilityScope: observabilityScope)
+        let archiver = UniversalArchiver(localFileSystem, cancellator)
+
+        let httpClient = HTTPClient { request, _ in
+            guard case let .download(_, downloadPath) = request.kind else {
+                XCTFail("Unexpected HTTPClient.Request.Kind")
+                return .init(statusCode: 400)
+            }
+            try localFileSystem.copy(from: fixtureArchivePath, to: downloadPath)
+            return .init(statusCode: 200)
+        }
+
+        try await withTemporaryDirectory(fileSystem: localFileSystem, removeTreeOnDeinit: true) { tmpDir in
+            let store = SwiftSDKBundleStore(
+                swiftSDKsDirectory: tmpDir,
+                fileSystem: localFileSystem,
+                observabilityScope: observabilityScope,
+                outputHandler: {
+                    output.append($0)
+                }
+            )
+            let bundleURLString = "https://localhost/archive?test=foo"
+            try await store.install(bundlePathOrURL: bundleURLString, archiver, httpClient)
+            
+            let bundleURL = URL(string: bundleURLString)!
+            XCTAssertEqual(output, [
+                .downloadStarted(bundleURL),
+                .downloadFinishedSuccessfully(bundleURL),
+                .unpackingArchive(bundlePathOrURL: bundleURLString),
+                .installationSuccessful(
+                    bundlePathOrURL: bundleURLString,
+                    bundleName: "test-sdk.artifactbundle"
+                ),
+            ])
+        }.value
+    }
+
     func testInstall() async throws {
         let system = ObservabilitySystem.makeForTesting()
 
@@ -136,8 +183,10 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
         )
 
+        // Expected to be successful:
         try await store.install(bundlePathOrURL: bundles[0].path, archiver)
 
+        // Expected to fail:
         let invalidPath = "foobar"
         do {
             try await store.install(bundlePathOrURL: invalidPath, archiver)
@@ -202,7 +251,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 bundlePathOrURL: bundles[0].path,
                 bundleName: AbsolutePath(bundles[0].path).components.last!
             ),
-            .unpackingArchive(AbsolutePath.root.appending(invalidPath)),
+            .unpackingArchive(bundlePathOrURL: invalidPath),
         ])
     }
 
