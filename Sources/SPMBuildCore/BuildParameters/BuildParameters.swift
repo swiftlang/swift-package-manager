@@ -125,10 +125,6 @@ public struct BuildParameters: Encodable {
     /// Whether the Xcode build system is used.
     public var isXcodeBuildSystemEnabled: Bool
 
-    public var colorizedOutput: Bool
-
-    public var verboseOutput: Bool
-
     public var debugInfoFormat: DebugInfoFormat
 
     public var shouldSkipBuilding: Bool
@@ -138,6 +134,9 @@ public struct BuildParameters: Encodable {
 
     /// Build parameters related to linking.
     public var linkingParameters: Linking
+
+    /// Build parameters related to output and logging.
+    public var outputParameters: Output
 
     /// Build parameters related to testing.
     public var testingParameters: Testing
@@ -156,12 +155,11 @@ public struct BuildParameters: Encodable {
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
-        colorizedOutput: Bool = false,
-        verboseOutput: Bool = false,
         debugInfoFormat: DebugInfoFormat = .dwarf,
         shouldSkipBuilding: Bool = false,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
+        outputParameters: Output = .init(),
         testingParameters: Testing? = nil
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
@@ -207,19 +205,13 @@ public struct BuildParameters: Encodable {
         self.sanitizers = sanitizers
         self.indexStoreMode = indexStoreMode
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
-        self.colorizedOutput = colorizedOutput
-        self.verboseOutput = verboseOutput
         self.debugInfoFormat = debugInfoFormat
         self.shouldSkipBuilding = shouldSkipBuilding
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
+        self.outputParameters = outputParameters
         self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: targetTriple)
 
-    }
-
-    @available(*, deprecated, renamed: "forTriple()")
-    public func withDestination(_ destinationTriple: Triple) throws -> BuildParameters {
-        try self.forTriple(destinationTriple)
     }
 
     public func forTriple(_ targetTriple: Triple) throws -> BuildParameters {
@@ -240,11 +232,10 @@ public struct BuildParameters: Encodable {
             sanitizers: self.sanitizers,
             indexStoreMode: self.indexStoreMode,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
-            colorizedOutput: self.colorizedOutput,
-            verboseOutput: self.verboseOutput,
             shouldSkipBuilding: self.shouldSkipBuilding,
             driverParameters: self.driverParameters,
             linkingParameters: self.linkingParameters,
+            outputParameters: self.outputParameters,
             testingParameters: self.testingParameters
         )
     }

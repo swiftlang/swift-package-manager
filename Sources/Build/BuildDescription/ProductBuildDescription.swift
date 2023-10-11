@@ -154,7 +154,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.additionalFlags
 
         // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -236,9 +236,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
             if let target = executableTarget.underlyingTarget as? SwiftTarget, 
-                self.toolsVersion >= .v5_5
-                && self.buildParameters.driverParameters.canRenameEntrypointFunctionName
-                && target.supportsTestableExecutablesFeature
+                self.toolsVersion >= .v5_5,
+                self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
+                target.supportsTestableExecutablesFeature
             {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
                     args += flags
@@ -260,7 +260,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product, unless overridden.
-        if !self.buildParameters.shouldDisableLocalRpath {
+        if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
             if self.buildParameters.targetTriple.isLinux() {
                 args += ["-Xlinker", "-rpath=$ORIGIN"]
             } else if self.buildParameters.targetTriple.isDarwin() {

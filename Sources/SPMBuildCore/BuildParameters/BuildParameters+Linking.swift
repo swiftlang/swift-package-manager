@@ -44,17 +44,22 @@ extension BuildParameters {
         
         public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
+        /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+        public var shouldDisableLocalRpath: Bool
+
         /// If should link the Swift stdlib statically.
         public var shouldLinkStaticSwiftStdlib: Bool
 
         public init(
             linkerDeadStrip: Bool = true,
             linkTimeOptimizationMode: LinkTimeOptimizationMode? = nil,
+            shouldDisableLocalRpath: Bool = false,
             shouldLinkStaticSwiftStdlib: Bool = false
         ) {
-            self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
             self.linkerDeadStrip = linkerDeadStrip
             self.linkTimeOptimizationMode = linkTimeOptimizationMode
+            self.shouldDisableLocalRpath = shouldDisableLocalRpath
+            self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         }
     }
 }

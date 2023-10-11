@@ -682,17 +682,9 @@ public final class SwiftTool {
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-            shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-            shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
-            canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
-                flags: ["entry-point-function-name"],
-                toolchain: toolchain,
-                fileSystem: self.fileSystem
-            ),
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            verboseOutput: self.logLevel <= .info,
             debugInfoFormat: options.build.debugInfoFormat.buildParameter,
             driverParameters: .init(
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
@@ -708,7 +700,11 @@ public final class SwiftTool {
             linkingParameters: .init(
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
+                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib
+            ),
+            outputParameters: .init(
+                isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
                 configuration: options.build.configuration,

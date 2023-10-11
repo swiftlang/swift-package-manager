@@ -455,7 +455,7 @@ public final class SwiftTargetBuildDescription {
         args += ["-swift-version", self.swiftVersion.rawValue]
 
         // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -526,7 +526,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments to colorize output if stdout is tty
-        if self.buildParameters.colorizedOutput {
+        if self.buildParameters.outputParameters.isColorized {
             args += ["-color-diagnostics"]
         }
 

@@ -285,11 +285,17 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 targetTriple: self.targetToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                shouldDisableLocalRpath: shouldDisableLocalRpath,
-                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
-                explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
-                verboseOutput: logLevel <= .info
+                driverParameters: .init(
+                    explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
+                    useIntegratedSwiftDriver: useIntegratedSwiftDriver
+                ),
+                linkingParameters: .init(
+                    shouldDisableLocalRpath: shouldDisableLocalRpath
+                ),
+                outputParameters: .init(
+                    isVerbose: logLevel <= .info
+                )
             )
 
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
