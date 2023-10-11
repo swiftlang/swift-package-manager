@@ -59,9 +59,29 @@ extension DistinguishedName {
     private func stringAttribute(oid: ASN1ObjectIdentifier) -> String? {
         for relativeDistinguishedName in self {
             for attribute in relativeDistinguishedName where attribute.type == oid {
-                return attribute.value.description
+                if let stringValue = attribute.stringValue {
+                    return stringValue
+                }
             }
         }
         return nil
+    }
+}
+
+extension RelativeDistinguishedName.Attribute {
+    fileprivate var stringValue: String? {
+        let asn1StringBytes: ArraySlice<UInt8>?
+        do {
+            asn1StringBytes = try ASN1PrintableString(asn1Any: self.value).bytes
+        } catch {
+            asn1StringBytes = try? ASN1UTF8String(asn1Any: self.value).bytes
+        }
+
+        guard let asn1StringBytes,
+              let stringValue = String(bytes: asn1StringBytes, encoding: .utf8)
+        else {
+            return nil
+        }
+        return stringValue
     }
 }

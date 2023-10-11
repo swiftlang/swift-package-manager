@@ -402,31 +402,27 @@ struct _OCSPVerifierPolicy: VerifierPolicy {
 private struct _OCSPRequester: OCSPRequester {
     let httpClient: HTTPClient
 
-    func query(request: [UInt8], uri: String) async -> OCSPRequesterQueryResult {
+    func query(request: [UInt8], uri: String) async throws -> [UInt8] {
         guard let url = URL(string: uri), let host = url.host else {
-            return .terminalError(SwiftOCSPRequesterError.invalidURL(uri))
+            throw SwiftOCSPRequesterError.invalidURL(uri)
         }
 
-        do {
-            let response = try await self.httpClient.post(
-                url,
-                body: Data(request),
-                headers: [
-                    "Content-Type": "application/ocsp-request",
-                    "Host": host,
-                ]
-            )
+        let response = try await self.httpClient.post(
+            url,
+            body: Data(request),
+            headers: [
+                "Content-Type": "application/ocsp-request",
+                "Host": host,
+            ]
+        )
 
-            guard response.statusCode == 200 else {
-                throw SwiftOCSPRequesterError.invalidResponse(statusCode: response.statusCode)
-            }
-            guard let responseBody = response.body else {
-                throw SwiftOCSPRequesterError.emptyResponse
-            }
-            return .response(Array(responseBody))
-        } catch {
-            return .nonTerminalError(error)
+        guard response.statusCode == 200 else {
+            throw SwiftOCSPRequesterError.invalidResponse(statusCode: response.statusCode)
         }
+        guard let responseBody = response.body else {
+            throw SwiftOCSPRequesterError.emptyResponse
+        }
+        return Array(responseBody)
     }
 }
 

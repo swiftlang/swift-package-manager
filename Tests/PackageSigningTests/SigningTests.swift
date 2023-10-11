@@ -517,8 +517,8 @@ final class SigningTests: XCTestCase {
                     responses: [OCSPSingleResponse(
                         certID: singleRequest.certID,
                         certStatus: .unknown,
-                        thisUpdate: try GeneralizedTime(validationTime - .days(1)),
-                        nextUpdate: try GeneralizedTime(validationTime + .days(1))
+                        thisUpdate: try .init(validationTime - .days(1)),
+                        nextUpdate: try .init(validationTime + .days(1))
                     )],
                     privateKey: intermediatePrivateKey,
                     responseExtensions: { nonce }
@@ -1150,7 +1150,7 @@ enum OCSPTestHelper {
                 }
                 if isCodeSigning {
                     Critical(
-                        try ExtendedKeyUsage([ExtendedKeyUsage.Usage.codeSigning])
+                        ExtendedKeyUsage([ExtendedKeyUsage.Usage.codeSigning])
                     )
                 }
                 if let ocspServer {
