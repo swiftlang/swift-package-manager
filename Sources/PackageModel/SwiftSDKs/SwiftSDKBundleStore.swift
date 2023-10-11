@@ -138,7 +138,8 @@ public final class SwiftSDKBundleStore {
     ///   - archiver: Archiver instance to use for extracting bundle archives.
     public func install(
         bundlePathOrURL: String,
-        _ archiver: any Archiver
+        _ archiver: any Archiver,
+        _ httpClient: HTTPClient
     ) async throws {
         let bundleName = try await withTemporaryDirectory(fileSystem: self.fileSystem, removeTreeOnDeinit: true) { temporaryDirectory in
             let bundlePath: AbsolutePath
@@ -157,8 +158,6 @@ public final class SwiftSDKBundleStore {
                 }
                 let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
 
-                let client = HTTPClient()
-
                 var request = HTTPClientRequest.download(
                     url: bundleURL,
                     fileSystem: self.fileSystem,
@@ -168,7 +167,7 @@ public final class SwiftSDKBundleStore {
 
                 self.outputHandler(.downloadStarted(bundleURL))
 
-                _ = try await client.execute(
+                _ = try await httpClient.execute(
                     request,
                     observabilityScope: self.observabilityScope,
                     progress: nil
