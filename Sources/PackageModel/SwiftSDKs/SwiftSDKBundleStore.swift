@@ -43,7 +43,7 @@ public final class SwiftSDKBundleStore {
         var description: String {
             switch self {
             case let .noMatchingSwiftSDK(selector, hostTriple):
-                """
+                return """
                 No Swift SDK found matching query `\(selector)` and host triple \
                 `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
                 available Swift SDKs.
