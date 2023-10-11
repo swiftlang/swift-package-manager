@@ -146,6 +146,9 @@ public struct SwiftSDK: Equatable {
     /// The architectures to build for. We build for host architecture if this is empty.
     public var architectures: [String]? = nil
 
+    /// Whether or not the receiver supports testing.
+    public let supportsTesting: Bool
+
     /// Root directory path of the SDK used to compile for the target triple.
     @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
     public var sdk: AbsolutePath? {
@@ -419,12 +422,14 @@ public struct SwiftSDK: Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
-        pathsConfiguration: PathsConfiguration
+        pathsConfiguration: PathsConfiguration,
+        supportsTesting: Bool = true
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
         self.toolset = toolset
         self.pathsConfiguration = pathsConfiguration
+        self.supportsTesting = supportsTesting
     }
 
     /// Returns the bin directory for the host.
@@ -455,7 +460,8 @@ public struct SwiftSDK: Equatable {
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String] = ProcessEnv.vars
+        environment: [String: String] = ProcessEnv.vars,
+        observabilityScope: ObservabilityScope? = nil
     ) throws -> SwiftSDK {
         let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
@@ -490,14 +496,23 @@ public struct SwiftSDK: Equatable {
         #endif
 
         // Compute common arguments for clang and swift.
+        let supportsTesting: Bool
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
-        let sdkPaths = try SwiftSDK.sdkPlatformFrameworkPaths(environment: environment)
-        extraCCFlags += ["-F", sdkPaths.fwk.pathString]
-        extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
-        extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
-        extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
+        do {
+            let sdkPaths = try SwiftSDK.sdkPlatformFrameworkPaths(environment: environment)
+            extraCCFlags += ["-F", sdkPaths.fwk.pathString]
+            extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
+            extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
+            extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
+            supportsTesting = true
+        } catch {
+            supportsTesting = false
+            observabilityScope?.emit(warning: "could not determine XCTest paths: \(error)")
+        }
+        #else
+        supportsTesting = true
         #endif
 
         #if !os(Windows)
@@ -512,7 +527,8 @@ public struct SwiftSDK: Equatable {
                 ],
                 rootPaths: [binDir]
             ),
-            pathsConfiguration: .init(sdkRootPath: sdkPath)
+            pathsConfiguration: .init(sdkRootPath: sdkPath),
+            supportsTesting: supportsTesting
         )
     }
 
