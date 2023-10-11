@@ -26,13 +26,13 @@ public final class SwiftSDKBundleStore {
         public var description: String {
             switch self {
             case let .downloadStarted(url):
-                "Downloading a Swift SDK bundle archive from `\(url)`..."
+                return "Downloading a Swift SDK bundle archive from `\(url)`..."
             case let .downloadFinishedSuccessfully(url):
-                "Swift SDK bundle archive successfully downloaded from `\(url)`."
+                return "Swift SDK bundle archive successfully downloaded from `\(url)`."
             case let .installationSuccessful(bundlePathOrURL, bundleName):
-                "Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName)."
+                return "Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName)."
             case let .unpackingArchive(bundlePathOrURL):
-                "Swift SDK bundle at `\(bundlePathOrURL)` is assumed to be an archive, unpacking..."
+                return "Swift SDK bundle at `\(bundlePathOrURL)` is assumed to be an archive, unpacking..."
             }
         }
     }
