@@ -19,41 +19,67 @@ import struct PackageGraph.PackageGraph
 import struct PackageLoading.FileRuleDescription
 import protocol TSCBasic.OutputByteStream
 
+private struct NativeBuildSystemFactory: BuildSystemFactory {
+    let swiftTool: SwiftTool
+
+    func makeBuildSystem(
+        explicitProduct: String?,
+        cacheBuildManifest: Bool,
+        customBuildParameters: BuildParameters?,
+        customPackageGraphLoader: (() throws -> PackageGraph)?,
+        customOutputStream: OutputByteStream?,
+        customLogLevel: Diagnostic.Severity?,
+        customObservabilityScope: ObservabilityScope?
+    ) throws -> any BuildSystem {
+        let testEntryPointPath = customBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
+        let graphLoader = { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
+        return try BuildOperation(
+            buildParameters: customBuildParameters ?? self.swiftTool.buildParameters(),
+            cacheBuildManifest: cacheBuildManifest && self.swiftTool.canUseCachedBuildManifest(),
+            packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+            pluginConfiguration: .init(
+                scriptRunner: self.swiftTool.getPluginScriptRunner(),
+                workDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
+                disableSandbox: self.swiftTool.shouldDisableSandbox
+            ),
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            pkgConfigDirectories: self.swiftTool.options.locations.pkgConfigDirectories,
+            outputStream: customOutputStream ?? self.swiftTool.outputStream,
+            logLevel: customLogLevel ?? self.swiftTool.logLevel,
+            fileSystem: self.swiftTool.fileSystem,
+            observabilityScope: customObservabilityScope ?? self.swiftTool.observabilityScope)
+    }
+}
+
+private struct XcodeBuildSystemFactory: BuildSystemFactory {
+    let swiftTool: SwiftTool
+
+    func makeBuildSystem(
+        explicitProduct: String?,
+        cacheBuildManifest: Bool,
+        customBuildParameters: BuildParameters?,
+        customPackageGraphLoader: (() throws -> PackageGraph)?,
+        customOutputStream: OutputByteStream?,
+        customLogLevel: Diagnostic.Severity?,
+        customObservabilityScope: ObservabilityScope?
+    ) throws -> any BuildSystem {
+        let graphLoader = { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct) }
+        return try XcodeBuildSystem(
+            buildParameters: customBuildParameters ?? self.swiftTool.buildParameters(),
+            packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+            outputStream: customOutputStream ?? self.swiftTool.outputStream,
+            logLevel: customLogLevel ?? self.swiftTool.logLevel,
+            fileSystem: self.swiftTool.fileSystem,
+            observabilityScope: customObservabilityScope ?? self.swiftTool.observabilityScope
+        )
+    }
+}
+
 extension SwiftTool {
     public var defaultBuildSystemProvider: BuildSystemProvider {
-        get throws {
-            return .init(providers: [
-                .native: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                    let testEntryPointPath = customBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
-                    let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
-                    return try BuildOperation(
-                        buildParameters: customBuildParameters ?? self.buildParameters(),
-                        cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
-                        packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                        pluginConfiguration: .init(
-                            scriptRunner: self.getPluginScriptRunner(),
-                            workDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                            disableSandbox: self.shouldDisableSandbox
-                        ),
-                        additionalFileRules: FileRuleDescription.swiftpmFileTypes,
-                        pkgConfigDirectories: self.options.locations.pkgConfigDirectories,
-                        outputStream: customOutputStream ?? self.outputStream,
-                        logLevel: customLogLevel ?? self.logLevel,
-                        fileSystem: self.fileSystem,
-                        observabilityScope: customObservabilityScope ?? self.observabilityScope)
-                },
-                .xcode: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                    let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-                    return try XcodeBuildSystem(
-                        buildParameters: customBuildParameters ?? self.buildParameters(),
-                        packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                        outputStream: customOutputStream ?? self.outputStream,
-                        logLevel: customLogLevel ?? self.logLevel,
-                        fileSystem: self.fileSystem,
-                        observabilityScope: customObservabilityScope ?? self.observabilityScope
-                    )
-                },
-            ])
-        }
+        .init(providers: [
+            .native: NativeBuildSystemFactory(swiftTool: self),
+            .xcode: XcodeBuildSystemFactory(swiftTool: self)
+        ])
     }
 }
