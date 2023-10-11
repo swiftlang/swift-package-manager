@@ -31,8 +31,9 @@ extension BuildPlan {
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, entryPointTargetBuildDescription: SwiftTargetBuildDescription)] {
-        guard buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
-              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) = buildParameters.testProductStyle
+        guard buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
+              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) = 
+                buildParameters.testingParameters.testProductStyle
         else {
             throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
         }

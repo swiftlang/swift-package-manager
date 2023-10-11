@@ -682,27 +682,36 @@ public final class SwiftTool {
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-            shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-            shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
-            canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
-                flags: ["entry-point-function-name"],
-                toolchain: toolchain,
-                fileSystem: self.fileSystem
-            ),
             sanitizers: options.build.enabledSanitizers,
-            enableCodeCoverage: false, // set by test commands when appropriate
             indexStoreMode: options.build.indexStoreMode.buildParameter,
-            enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-            useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-            useExplicitModuleBuild: options.build.useExplicitModuleBuild,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-            testEntryPointPath: options.build.testEntryPointPath,
-            explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
-            linkerDeadStrip: options.linker.linkerDeadStrip,
-            verboseOutput: self.logLevel <= .info,
-            linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
-            debugInfoFormat: options.build.debugInfoFormat.buildParameter
+            debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+            driverParameters: .init(
+                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                    flags: ["entry-point-function-name"],
+                    toolchain: toolchain,
+                    fileSystem: self.fileSystem
+                ),
+                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
+                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
+                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: options.build.useExplicitModuleBuild
+            ),
+            linkingParameters: .init(
+                linkerDeadStrip: options.linker.linkerDeadStrip,
+                linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
+                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
+                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib
+            ),
+            outputParameters: .init(
+                isVerbose: self.logLevel <= .info
+            ),
+            testingParameters: .init(
+                configuration: options.build.configuration,
+                targetTriple: targetTriple,
+                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                testEntryPointPath: options.build.testEntryPointPath
+            )
         )
     }
 

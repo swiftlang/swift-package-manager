@@ -368,7 +368,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan the derived test targets, if necessary.
-        if buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
+        if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
             let derivedTestTargets = try Self.makeDerivedTestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]

@@ -90,7 +90,7 @@ public final class SwiftTargetBuildDescription {
             let relativeSources = self.target.sources.relativePaths
                 + self.derivedSources.relativePaths
                 + self.pluginDerivedSources.relativePaths
-            let ltoEnabled = self.buildParameters.linkTimeOptimizationMode != nil
+            let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
             let objectFileExtension = ltoEnabled ? "bc" : "o"
             return try relativeSources.map {
                 try AbsolutePath(
@@ -312,7 +312,7 @@ public final class SwiftTargetBuildDescription {
             return
         }
 
-        guard buildParameters.targetTriple.isDarwin(), buildParameters.experimentalTestOutput else {
+        guard buildParameters.targetTriple.isDarwin(), buildParameters.testingParameters.experimentalTestOutput else {
             return
         }
 
@@ -455,7 +455,7 @@ public final class SwiftTargetBuildDescription {
         args += ["-swift-version", self.swiftVersion.rawValue]
 
         // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -498,7 +498,7 @@ public final class SwiftTargetBuildDescription {
             // we can rename the symbol unconditionally.
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
-            if self.buildParameters.canRenameEntrypointFunctionName,
+            if self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
                self.buildParameters.linkerFlagsForRenamingMainFunction(of: self.target) != nil
             {
                 args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(self.target.c99name)_main"]
@@ -521,12 +521,12 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments needed for code coverage if it is enabled.
-        if self.buildParameters.enableCodeCoverage {
+        if self.buildParameters.testingParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
 
         // Add arguments to colorize output if stdout is tty
-        if self.buildParameters.colorizedOutput {
+        if self.buildParameters.outputParameters.isColorized {
             args += ["-color-diagnostics"]
         }
 
@@ -535,7 +535,7 @@ public final class SwiftTargetBuildDescription {
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
         // way.
-        if self.buildParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
+        if self.buildParameters.driverParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
             args += ["-emit-module-interface-path", self.parseableModuleInterfaceOutputPath.pathString]
         }
 
@@ -554,7 +554,7 @@ public final class SwiftTargetBuildDescription {
         // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
         // Enable the correct LTO mode if requested.
-        switch self.buildParameters.linkTimeOptimizationMode {
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
         case nil:
             break
         case .full:
@@ -675,7 +675,7 @@ public final class SwiftTargetBuildDescription {
         // Write out the entries for each source file.
         let sources = self.sources
         let objects = try self.objects
-        let ltoEnabled = self.buildParameters.linkTimeOptimizationMode != nil
+        let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
         let objectKey = ltoEnabled ? "llvm-bc" : "object"
 
         for idx in 0..<sources.count {
@@ -815,7 +815,7 @@ public final class SwiftTargetBuildDescription {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
             return ["-enable-testing"]
-        } else if self.buildParameters.enableTestability {
+        } else if self.buildParameters.testingParameters.enableTestability {
             return ["-enable-testing"]
         } else {
             return []
@@ -832,7 +832,7 @@ public final class SwiftTargetBuildDescription {
     private var stdlibArguments: [String] {
         var arguments: [String] = []
 
-        let isLinkingStaticStdlib = self.buildParameters.shouldLinkStaticSwiftStdlib
+        let isLinkingStaticStdlib = self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib
             && self.buildParameters.targetTriple.isSupportingStaticStdlib
         if isLinkingStaticStdlib {
             arguments += ["-static-stdlib"]

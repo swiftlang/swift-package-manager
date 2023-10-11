@@ -318,7 +318,7 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
-            enableTestability: buildParameters.enableTestability,
+            enableTestability: buildParameters.testingParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,

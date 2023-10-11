@@ -21,7 +21,7 @@ extension LLBuildManifestBuilder {
         let testInputs: [AbsolutePath]
         if buildProduct.product.type == .test
             && buildProduct.buildParameters.targetTriple.isDarwin()
-            && buildProduct.buildParameters.experimentalTestOutput {
+            && buildProduct.buildParameters.testingParameters.experimentalTestOutput {
             let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
             testInputs = [testBundleInfoPlistPath]
 
