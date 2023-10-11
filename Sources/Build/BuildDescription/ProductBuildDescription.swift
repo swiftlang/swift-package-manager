@@ -107,7 +107,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     private var deadStripArguments: [String] {
-        if !self.buildParameters.linkerDeadStrip {
+        if !self.buildParameters.linkingParameters.linkerDeadStrip {
             return []
         }
 
@@ -154,7 +154,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.additionalFlags
 
         // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -169,7 +169,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.dylibs.map { "-l" + $0.product.name }
 
         // Add arguments needed for code coverage if it is enabled.
-        if self.buildParameters.enableCodeCoverage {
+        if self.buildParameters.testingParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
 
@@ -198,7 +198,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return []
         case .test:
             // Test products are bundle when using objectiveC, executable when using test entry point.
-            switch self.buildParameters.testProductStyle {
+            switch self.buildParameters.testingParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
             case .entryPointExecutable:
@@ -215,7 +215,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
-            if self.buildParameters.shouldLinkStaticSwiftStdlib {
+            if self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib {
                 if self.buildParameters.targetTriple.isDarwin() {
                     self.observabilityScope.emit(.swiftBackDeployError)
                 } else if self.buildParameters.targetTriple.isSupportingStaticStdlib {
@@ -235,8 +235,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
-            if let target = executableTarget.underlyingTarget as? SwiftTarget, self.toolsVersion >= .v5_5,
-               self.buildParameters.canRenameEntrypointFunctionName, target.supportsTestableExecutablesFeature
+            if let target = executableTarget.underlyingTarget as? SwiftTarget, 
+                self.toolsVersion >= .v5_5,
+                self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
+                target.supportsTestableExecutablesFeature
             {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
                     args += flags
@@ -258,7 +260,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product, unless overridden.
-        if !self.buildParameters.shouldDisableLocalRpath {
+        if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
             if self.buildParameters.targetTriple.isLinux() {
                 args += ["-Xlinker", "-rpath=$ORIGIN"]
             } else if self.buildParameters.targetTriple.isDarwin() {

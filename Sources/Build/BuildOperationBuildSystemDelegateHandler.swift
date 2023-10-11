@@ -216,7 +216,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         }
 
         let testObservabilitySetup: String
-        if self.context.buildParameters.experimentalTestOutput
+        if self.context.buildParameters.testingParameters.experimentalTestOutput
             && self.context.buildParameters.targetTriple.supportsTestSummary {
             testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
         } else {
@@ -352,7 +352,7 @@ public struct BuildDescription: Codable {
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.writeCommands = writeCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters
+        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
             let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment)

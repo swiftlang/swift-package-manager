@@ -82,7 +82,7 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.buildParameters.useExplicitModuleBuild {
+        if self.buildParameters.driverParameters.useExplicitModuleBuild {
             // Explicit module builds use the integrated driver directly and
             // require that every target's build jobs specify its dependencies explicitly to plan
             // its build.

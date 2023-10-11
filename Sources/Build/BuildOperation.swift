@@ -112,7 +112,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) {
         /// Checks if stdout stream is tty.
         var buildParameters = buildParameters
-        buildParameters.colorizedOutput = outputStream.isTTY
+        buildParameters.outputParameters.isColorized = outputStream.isTTY
 
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest

@@ -161,7 +161,7 @@ enum TestingSupport {
         }
 
         // Add the code coverage related variables.
-        if buildParameters.enableCodeCoverage {
+        if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
             // `%m` will create a pool of profraw files and append the data from
@@ -209,12 +209,12 @@ extension SwiftTool {
         experimentalTestOutput: Bool = false
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
-        parameters.enableCodeCoverage = enableCodeCoverage
+        parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.enableTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
-        parameters.experimentalTestOutput = experimentalTestOutput
+        parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

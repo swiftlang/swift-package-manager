@@ -292,7 +292,7 @@ public final class ClangTargetBuildDescription {
         }
 
         // Enable the correct lto mode if requested.
-        switch self.buildParameters.linkTimeOptimizationMode {
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
         case nil:
             break
         case .full:

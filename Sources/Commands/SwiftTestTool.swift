@@ -879,7 +879,7 @@ final class ParallelTestRunner {
 
         // Print test results.
         for test in processedTests.get() {
-            if (!test.success || shouldOutputSuccess) && !buildParameters.experimentalTestOutput {
+            if (!test.success || shouldOutputSuccess) && !buildParameters.testingParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print(test.output)
