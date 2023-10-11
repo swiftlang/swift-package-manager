@@ -401,20 +401,12 @@ class MiscellaneousTestCase: XCTestCase {
                 // in "swift test" build output goes to stderr
                 XCTAssertMatch(stderr, .contains("Linking TestableExe1"))
                 XCTAssertMatch(stderr, .contains("Linking TestableExe2"))
-                XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe1"))
-                XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe2"))
-                XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe3"))
-                XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe4"))
                 XCTAssertMatch(stderr, .contains("Linking TestableExePackageTests"))
                 XCTAssertMatch(stderr, .contains("Build complete!"))
                 // in "swift test" test output goes to stdout
-                XCTAssertMatch(stdout, .contains("Executed 2 test"))
+                XCTAssertMatch(stdout, .contains("Executed 1 test"))
                 XCTAssertMatch(stdout, .contains("Hello, world"))
                 XCTAssertMatch(stdout, .contains("Hello, planet"))
-                XCTAssertMatch(stdout, .contains("Hello, async world"))
-                XCTAssertMatch(stdout, .contains("Hello, async planet"))
-                XCTAssertMatch(stdout, .contains("Hello, async galaxy"))
-                XCTAssertMatch(stdout, .contains("Hello, async universe"))
             } catch {
                 #if os(macOS) && arch(arm64)
                 // Add some logging but ignore the failure for an environment being investigated.
@@ -430,6 +422,28 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTFail("\(error)")
                 #endif
             }
+        }
+    }
+
+    func testTestsCanLinkAgainstAsyncExecutable() throws {
+        #if compiler(<5.10)
+        try XCTSkipIf(true, "skipping because host compiler doesn't have a fix for symbol conflicts yet")
+        #endif
+        try fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe1"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe2"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe3"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe4"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExePackageTests"))
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("Executed 1 test"))
+            XCTAssertMatch(stdout, .contains("Hello, async world"))
+            XCTAssertMatch(stdout, .contains("Hello, async planet"))
+            XCTAssertMatch(stdout, .contains("Hello, async galaxy"))
+            XCTAssertMatch(stdout, .contains("Hello, async universe"))
         }
     }
 

@@ -1,10 +1,10 @@
 @main
 struct AsyncMain4 {
   static func main() async {
-    print(getGreeting4())
+    print(await getGreeting4())
   }
 
-  static func getGreeting4() -> String {
+  static func getGreeting4() async -> String {
       return "Hello, async universe"
   }
 }
