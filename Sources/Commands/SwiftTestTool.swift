@@ -166,7 +166,8 @@ public struct SwiftTestTool: SwiftCommand {
 
             // validate XCTest available on darwin based systems
             let toolchain = try swiftTool.getDestinationToolchain()
-            if toolchain.triple.isDarwin() && toolchain.xctestPath == nil {
+            let isHostTestingAvailable = try swiftTool.getHostToolchain().destination.supportsTesting
+            if toolchain.triple.isDarwin() && toolchain.xctestPath == nil || !isHostTestingAvailable {
                 throw TestError.xctestNotAvailable
             }
         } catch {

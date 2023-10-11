@@ -792,7 +792,7 @@ public final class SwiftTool {
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
             try UserToolchain(destination: Destination.hostDestination(
-                originalWorkingDirectory: self.originalWorkingDirectory))
+                originalWorkingDirectory: self.originalWorkingDirectory, observabilityScope: self.observabilityScope))
         })
     }()
 
