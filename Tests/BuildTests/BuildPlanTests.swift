@@ -4850,10 +4850,10 @@ final class BuildPlanTests: XCTestCase {
         let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
 
         let yamlContents: String = try fs.readFileContents(yaml)
-        let inputs: SerializedJSON = """
+        let inputs = """
             inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath.escapedPathString)","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
         """
-        XCTAssertMatch(yamlContents, .contains(inputs.underlying))
+        XCTAssertMatch(yamlContents, .contains(inputs))
     }
 
     private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
@@ -5020,5 +5020,81 @@ final class BuildPlanTests: XCTestCase {
         case .clang:
             XCTFail("expected a Swift target")
         }
+    }
+
+    func testBasicSwiftPackageWithoutLocalRpath() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(shouldDisableLocalRpath: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+
+      #if os(macOS)
+        let linkArguments = [
+            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "exe").pathString,
+            "-module-name", "exe",
+            "-emit-executable",
+            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-target", defaultTargetTriple,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "exe.build", "exe.swiftmodule").pathString,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "lib.swiftmodule").pathString,
+            "-g",
+        ]
+      #elseif os(Windows)
+        let linkArguments = [
+            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "exe.exe").pathString,
+            "-module-name", "exe",
+            "-emit-executable",
+            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-target", defaultTargetTriple,
+            "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
+        ]
+      #else
+        let linkArguments = [
+            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "exe").pathString,
+            "-module-name", "exe",
+            "-emit-executable",
+            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-target", defaultTargetTriple,
+            "-g"
+        ]
+      #endif
+
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 }

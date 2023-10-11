@@ -24,7 +24,7 @@ extension SignatureProviderProtocol {
     func buildPolicySet(configuration: VerifierConfiguration, httpClient: HTTPClient) -> some VerifierPolicy {
         _CodeSigningPolicy()
         _ADPCertificatePolicy()
-        
+
         let now = Date()
         switch (configuration.certificateExpiration, configuration.certificateRevocation) {
         case (.enabled(let expiryValidationTime), .strict(let revocationValidationTime)):
@@ -158,27 +158,31 @@ struct _OCSPVerifierPolicy: VerifierPolicy {
 private struct _OCSPRequester: OCSPRequester {
     let httpClient: HTTPClient
 
-    func query(request: [UInt8], uri: String) async throws -> [UInt8] {
+    func query(request: [UInt8], uri: String) async -> OCSPRequesterQueryResult {
         guard let url = URL(string: uri), let host = url.host else {
-            throw SwiftOCSPRequesterError.invalidURL(uri)
+            return .terminalError(SwiftOCSPRequesterError.invalidURL(uri))
         }
 
-        let response = try await self.httpClient.post(
-            url,
-            body: Data(request),
-            headers: [
-                "Content-Type": "application/ocsp-request",
-                "Host": host,
-            ]
-        )
+        do {
+            let response = try await self.httpClient.post(
+                url,
+                body: Data(request),
+                headers: [
+                    "Content-Type": "application/ocsp-request",
+                    "Host": host,
+                ]
+            )
 
-        guard response.statusCode == 200 else {
-            throw SwiftOCSPRequesterError.invalidResponse(statusCode: response.statusCode)
+            guard response.statusCode == 200 else {
+                throw SwiftOCSPRequesterError.invalidResponse(statusCode: response.statusCode)
+            }
+            guard let responseBody = response.body else {
+                throw SwiftOCSPRequesterError.emptyResponse
+            }
+            return .response(Array(responseBody))
+        } catch {
+            return .nonTerminalError(error)
         }
-        guard let responseBody = response.body else {
-            throw SwiftOCSPRequesterError.emptyResponse
-        }
-        return Array(responseBody)
     }
 }
 

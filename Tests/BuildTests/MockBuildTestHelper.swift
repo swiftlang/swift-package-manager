@@ -72,6 +72,7 @@ func mockBuildParameters(
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
+    shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     targetTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
@@ -88,16 +89,13 @@ func mockBuildParameters(
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
+        shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+        shouldDisableLocalRpath: shouldDisableLocalRpath,
+        canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
         indexStoreMode: indexStoreMode,
-        driverParameters: .init(
-            canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
-            useExplicitModuleBuild: useExplicitModuleBuild
-        ),
-        linkingParameters: .init(
-            linkerDeadStrip: linkerDeadStrip,
-            linkTimeOptimizationMode: linkTimeOptimizationMode,
-            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
-        )
+        useExplicitModuleBuild: useExplicitModuleBuild,
+        linkerDeadStrip: linkerDeadStrip,
+        linkTimeOptimizationMode: linkTimeOptimizationMode
     )
 }
 

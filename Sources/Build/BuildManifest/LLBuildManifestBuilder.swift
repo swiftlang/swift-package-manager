@@ -130,7 +130,7 @@ extension LLBuildManifestBuilder {
 
             // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
             var derivedSourceDirPaths: [AbsolutePath] = []
-            for result in plan.prebuildCommandResults.values.flatMap({ $0 }) {
+            for result in self.plan.prebuildCommandResults.values.flatMap({ $0 }) {
                 derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
             }
             inputs.append(contentsOf: derivedSourceDirPaths.sorted().map { Node.directoryStructure($0) })
@@ -213,7 +213,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.target).compactMap { plan.targetMap[$0] }
+                .compactMap(\.target).compactMap { self.plan.targetMap[$0] }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -241,7 +241,7 @@ extension LLBuildManifestBuilder {
             // depends on.
             let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
                 .compactMap(\.target)
-                .compactMap { plan.targetMap[$0] }
+                .compactMap { self.plan.targetMap[$0] }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
             // The module outputs of the discovery targets this synthesized entry point target depends on are
@@ -270,70 +270,6 @@ extension TargetBuildDescription {
         guard case .swift(let targetBuildDescription) = self,
               case .discovery = targetBuildDescription.testTargetRole else { return nil }
         return targetBuildDescription
-    }
-}
-
-// MARK: - Product Command
-
-extension LLBuildManifestBuilder {
-    private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
-        let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
-
-        // Add dependency on Info.plist generation on Darwin platforms.
-        let testInputs: [AbsolutePath]
-        if buildProduct.product.type == .test, buildProduct.buildParameters.targetTriple.isDarwin(), buildProduct.buildParameters.testingParameters.experimentalTestOutput {
-            let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
-            testInputs = [testBundleInfoPlistPath]
-
-            self.manifest.addWriteInfoPlistCommand(principalClass: "\(buildProduct.product.targets[0].c99name).SwiftPMXCTestObserver", outputPath: testBundleInfoPlistPath)
-        } else {
-            testInputs = []
-        }
-
-        switch buildProduct.product.type {
-        case .library(.static):
-            try self.manifest.addShellCmd(
-                name: cmdName,
-                description: "Archiving \(buildProduct.binaryPath.prettyPath())",
-                inputs: (buildProduct.objects + [buildProduct.linkFileListPath]).map(Node.file),
-                outputs: [.file(buildProduct.binaryPath)],
-                arguments: try buildProduct.archiveArguments()
-            )
-
-        default:
-            let inputs = try buildProduct.objects
-                + buildProduct.dylibs.map { try $0.binaryPath }
-                + [buildProduct.linkFileListPath]
-                + testInputs
-
-            try self.manifest.addShellCmd(
-                name: cmdName,
-                description: "Linking \(buildProduct.binaryPath.prettyPath())",
-                inputs: inputs.map(Node.file),
-                outputs: [.file(buildProduct.binaryPath)],
-                arguments: try buildProduct.linkArguments()
-            )
-        }
-
-        // Create a phony node to represent the entire target.
-        let targetName = try buildProduct.product.getLLBuildTargetName(config: self.buildConfig)
-        let output: Node = .virtual(targetName)
-
-        self.manifest.addNode(output, toTarget: targetName)
-        try self.manifest.addPhonyCmd(
-            name: output.name,
-            inputs: [.file(buildProduct.binaryPath)],
-            outputs: [output]
-        )
-
-        if self.plan.graph.reachableProducts.contains(buildProduct.product) {
-            if buildProduct.product.type != .test {
-                self.addNode(output, toTarget: .main)
-            }
-            self.addNode(output, toTarget: .test)
-        }
-
-        self.manifest.addWriteLinkFileListCommand(objects: Array(buildProduct.objects), linkFileListPath: buildProduct.linkFileListPath)
     }
 }
 
@@ -401,25 +337,6 @@ extension LLBuildManifestBuilder {
 
     func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
         self.plan.buildParameters.buildPath.appending(component: path.basename)
-    }
-}
-
-extension TypedVirtualPath {
-    /// Resolve a typed virtual path provided by the Swift driver to
-    /// a node in the build graph.
-    func resolveToNode(fileSystem: FileSystem) throws -> Node {
-        if let absolutePath = (file.absolutePath.flatMap{ AbsolutePath($0) }) {
-            return Node.file(absolutePath)
-        } else if let relativePath = (file.relativePath.flatMap{ RelativePath($0) }) {
-            guard let workingDirectory: AbsolutePath = fileSystem.currentWorkingDirectory else {
-                throw InternalError("unknown working directory")
-            }
-            return Node.file(workingDirectory.appending(relativePath))
-        } else if let temporaryFileName = file.temporaryFileName {
-            return Node.virtual(temporaryFileName.pathString)
-        } else {
-            throw InternalError("Cannot resolve VirtualPath: \(file)")
-        }
     }
 }
 

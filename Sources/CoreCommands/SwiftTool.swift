@@ -682,6 +682,13 @@ public final class SwiftTool {
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
+            shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
+            canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                flags: ["entry-point-function-name"],
+                toolchain: toolchain,
+                fileSystem: self.fileSystem
+            ),
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
@@ -803,7 +810,9 @@ public final class SwiftTool {
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
             try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(
-                originalWorkingDirectory: self.originalWorkingDirectory))
+                originalWorkingDirectory: self.originalWorkingDirectory,
+                observabilityScope: self.observabilityScope
+            ))
         })
     }()
 
