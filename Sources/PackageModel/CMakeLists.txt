@@ -43,9 +43,10 @@ add_library(PackageModel
   Sources.swift
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
-  SwiftSDK.swift
-  SwiftSDKConfigurationStore.swift
-  SwiftSDKBundle.swift
+  SwiftSDKs/SwiftSDK.swift
+  SwiftSDKs/SwiftSDKConfigurationStore.swift
+  SwiftSDKs/SwiftSDKBundle.swift
+  SwiftSDKs/SwiftSDKBundleStore.swift
   Target/BinaryTarget.swift
   Target/ClangTarget.swift
   Target/PluginTarget.swift

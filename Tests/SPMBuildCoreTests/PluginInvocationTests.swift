@@ -1125,7 +1125,7 @@ class PluginInvocationTests: XCTestCase {
                             ),
                            .binaryTarget(
                                name: "LocalBinaryTool",
-                               path: "Binaries/LocalBinaryTool.artifactbundle"
+                               path: "Binaries/LocalBinaryTool.\(artifactBundleExtension)"
                            ),
                         ]
                    )

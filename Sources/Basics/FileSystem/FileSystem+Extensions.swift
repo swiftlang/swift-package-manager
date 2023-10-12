@@ -496,7 +496,7 @@ extension FileSystem {
         }
     }
 
-    public func getSharedSwiftSDKsDirectory(explicitDirectory: AbsolutePath?) throws -> AbsolutePath? {
+    public func getSharedSwiftSDKsDirectory(explicitDirectory: AbsolutePath?) throws -> AbsolutePath {
         if let explicitDirectory {
             // Create the explicit SDKs path if necessary
             if !exists(explicitDirectory) {
