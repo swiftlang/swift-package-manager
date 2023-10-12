@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Dispatch
 @_implementationOnly import Foundation
@@ -658,23 +659,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // we must not block the calling thread (for concurrency control) so nesting this in a queue
             self.evaluationQueue.addOperation {
-                do {
-                    // park the evaluation thread based on the max concurrency allowed
-                    self.concurrencySemaphore.wait()
+                // park the evaluation thread based on the max concurrency allowed
+                self.concurrencySemaphore.wait()
 
-                    let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
-                                                            swiftCompilerFlags: self.extraManifestFlags,
-                                                            swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
+                let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
+                                                        swiftCompilerFlags: self.extraManifestFlags,
+                                                        swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
 
-                    importScanner.scanImports(manifestPath, callbackQueue: callbackQueue) { result in
-                        do {
-                            let imports = try result.get().filter { !allowedImports.contains($0) }
-                            guard imports.isEmpty else {
-                                throw ManifestParseError.importsRestrictedModules(imports)
-                            }
-                        } catch {
-                            completion(.failure(error))
+                Task {
+                    let result = try await importScanner.scanImports(manifestPath)
+                    let imports = result.filter { !allowedImports.contains($0) }
+                    guard imports.isEmpty else {
+                        callbackQueue.async {
+                            completion(.failure(ManifestParseError.importsRestrictedModules(imports)))
                         }
+                        return
                     }
                 }
             }

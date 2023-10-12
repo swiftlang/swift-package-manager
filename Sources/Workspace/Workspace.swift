@@ -1409,8 +1409,8 @@ extension Workspace {
     }
 
     public func loadPluginImports(
-        packageGraph: PackageGraph,
-        completion: @escaping(Result<[PackageIdentity: [String: [String]]], Error>) -> Void) {
+        packageGraph: PackageGraph
+    ) async throws -> [PackageIdentity: [String: [String]]] {
         let pluginTargets = packageGraph.allTargets.filter{$0.type == .plugin}
         let scanner = SwiftcImportScanner(swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment, swiftCompilerFlags: hostToolchain.swiftCompilerFlags + ["-I", hostToolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString], swiftCompilerPath: hostToolchain.swiftCompilerPath)
         var importList = [PackageIdentity: [String: [String]]]()
@@ -1426,17 +1426,11 @@ extension Workspace {
             }
 
             for path in paths {
-                do {
-                    let result = try temp_await {
-                        scanner.scanImports(path, callbackQueue: DispatchQueue.sharedConcurrent, completion: $0)
-                    }
-                    importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
-                } catch {
-                    completion(.failure(error))
-                }
+                let result = try await scanner.scanImports(path)
+                importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
             }
         }
-        completion(.success(importList))
+        return importList
     }
 
     /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading in a longer-lived program, like an IDE.
