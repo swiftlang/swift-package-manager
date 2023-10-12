@@ -670,7 +670,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     let result = try await importScanner.scanImports(manifestPath)
                     let imports = result.filter { !allowedImports.contains($0) }
                     guard imports.isEmpty else {
-                        completion(.failure(ManifestParseError.importsRestrictedModules(imports)))
+                        callbackQueue.async {
+                            completion(.failure(ManifestParseError.importsRestrictedModules(imports)))
+                        }
                         return
                     }
                 }
