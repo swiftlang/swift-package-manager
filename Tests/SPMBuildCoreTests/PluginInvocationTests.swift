@@ -916,11 +916,11 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func testScanImportsInPluginTargets() throws {
+    func testScanImportsInPluginTargets() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -1058,39 +1058,35 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
-            workspace.loadPluginImports(packageGraph: graph) { (result: Result<[PackageIdentity : [String : [String]]], Error>) in
+            let dict = try await workspace.loadPluginImports(packageGraph: graph)
 
-                var count = 0
-                if let dict = try? result.get() {
-                    for (pkg, entry) in dict {
-                        if pkg.description == "mypackage" {
-                            XCTAssertNotNil(entry["XPlugin"])
-                            let XPluginPossibleImports1 = ["PackagePlugin", "XcodeProjectPlugin"]
-                            let XPluginPossibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "_SwiftConcurrencyShims"]
-                            XCTAssertTrue(entry["XPlugin"] == XPluginPossibleImports1 ||
-                                          entry["XPlugin"] == XPluginPossibleImports2)
+            var count = 0
+            for (pkg, entry) in dict {
+                if pkg.description == "mypackage" {
+                    XCTAssertNotNil(entry["XPlugin"])
+                    let XPluginPossibleImports1 = ["PackagePlugin", "XcodeProjectPlugin"]
+                    let XPluginPossibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "_SwiftConcurrencyShims"]
+                    XCTAssertTrue(entry["XPlugin"] == XPluginPossibleImports1 ||
+                                  entry["XPlugin"] == XPluginPossibleImports2)
 
-                            let YPluginPossibleImports1 = ["PackagePlugin", "Foundation"]
-                            let YPluginPossibleImports2 = ["PackagePlugin", "Foundation", "_SwiftConcurrencyShims"]
-                            XCTAssertTrue(entry["YPlugin"] == YPluginPossibleImports1 ||
-                                          entry["YPlugin"] == YPluginPossibleImports2)
-                            count += 1
-                        } else if pkg.description == "otherpackage" {
-                            XCTAssertNotNil(dict[pkg]?["QPlugin"])
+                    let YPluginPossibleImports1 = ["PackagePlugin", "Foundation"]
+                    let YPluginPossibleImports2 = ["PackagePlugin", "Foundation", "_SwiftConcurrencyShims"]
+                    XCTAssertTrue(entry["YPlugin"] == YPluginPossibleImports1 ||
+                                  entry["YPlugin"] == YPluginPossibleImports2)
+                    count += 1
+                } else if pkg.description == "otherpackage" {
+                    XCTAssertNotNil(dict[pkg]?["QPlugin"])
 
-                            let possibleImports1 = ["PackagePlugin", "XcodeProjectPlugin", "ModuleFoundViaExtraSearchPaths"]
-                            let possibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "ModuleFoundViaExtraSearchPaths", "_SwiftConcurrencyShims"]
-                            XCTAssertTrue(entry["QPlugin"] == possibleImports1 ||
-                                          entry["QPlugin"] == possibleImports2)
-                            count += 1
-                        }
-                    }
-                } else {
-                    XCTFail("Scanned import list should not be empty")
+                    let possibleImports1 = ["PackagePlugin", "XcodeProjectPlugin", "ModuleFoundViaExtraSearchPaths"]
+                    let possibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "ModuleFoundViaExtraSearchPaths", "_SwiftConcurrencyShims"]
+                    XCTAssertTrue(entry["QPlugin"] == possibleImports1 ||
+                                  entry["QPlugin"] == possibleImports2)
+                    count += 1
                 }
-
-                XCTAssertEqual(count, 2)
             }
+
+
+            XCTAssertEqual(count, 2)
         }
     }
 
