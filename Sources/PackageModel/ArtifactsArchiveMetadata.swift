@@ -15,6 +15,8 @@ import Foundation
 
 import struct TSCUtility.Version
 
+public let artifactBundleExtension = "artifactbundle"
+
 public struct ArtifactsArchiveMetadata: Equatable {
     public let schemaVersion: String
     public let artifacts: [String: Artifact]

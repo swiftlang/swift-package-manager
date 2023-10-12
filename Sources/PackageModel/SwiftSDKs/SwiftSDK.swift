@@ -20,6 +20,9 @@ import struct TSCUtility.Version
 
 /// Errors related to Swift SDKs.
 public enum SwiftSDKError: Swift.Error {
+    /// A bundle archive should contain at least one directory with the `.artifactbundle` extension.
+    case invalidBundleArchive(AbsolutePath)
+
     /// A passed argument is neither a valid file system path nor a URL.
     case invalidPathOrURL(String)
 
@@ -62,6 +65,11 @@ public enum SwiftSDKError: Swift.Error {
 extension SwiftSDKError: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .invalidBundleArchive(let archivePath):
+            return """
+            Swift SDK archive at `\(archivePath)` does not contain at least one directory with the \
+            `.artifactbundle` extension.
+            """
         case .invalidPathOrURL(let argument):
             return "`\(argument)` is neither a valid filesystem path nor a URL."
         case .invalidSchemaVersion:

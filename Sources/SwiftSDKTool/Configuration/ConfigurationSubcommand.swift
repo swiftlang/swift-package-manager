@@ -47,11 +47,15 @@ extension ConfigurationSubcommand {
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
+        let bundleStore = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            fileSystem: self.fileSystem,
+            observabilityScope: observabilityScope,
+            outputHandler: { print($0) }
+        )
         let configurationStore = try SwiftSDKConfigurationStore(
             hostTimeTriple: hostTriple,
-            swiftSDKsDirectoryPath: swiftSDKsDirectory,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            swiftSDKBundleStore: bundleStore
         )
         let targetTriple = try Triple(self.targetTriple)
 
