@@ -264,17 +264,35 @@ final class PackageToolTests: CommandsTestCase {
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
-            var path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
-            // Retag the dependency, and update.
-            let repo = GitRepository(path: fixturePath.appending("Foo"))
+            do {
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
+                _ = try checkoutRepo.revision(forTag: "1.2.3")
+            }
+
+
+            // update and retag the dependency, and update.
+            let repoPath = fixturePath.appending("Foo")
+            let repo = GitRepository(path: repoPath)
+            try localFileSystem.writeFileContents(repoPath.appending("test"), string: "test")
+            try repo.stageEverything()
+            try repo.commit()
             try repo.tag(name: "1.2.4")
+
+            // we will validate it is there
+            let revision = try repo.revision(forTag: "1.2.4")
+
             _ = try execute(["update"], packagePath: packageRoot)
 
-            // We shouldn't assume package path will be same after an update so ask again for it.
-            path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3", "1.2.4"])
+            do {
+                // We shouldn't assume package path will be same after an update so ask again for it.
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                // tag may not be there, but revision should be after update
+                XCTAssertTrue(checkoutRepo.exists(revision: .init(identifier: revision)))
+            }
         }
     }
 
@@ -475,7 +493,7 @@ final class PackageToolTests: CommandsTestCase {
     // Returns symbol graph with or without pretty printing.
     private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
         let tool = try SwiftTool.createSwiftToolForTest(options: GlobalOptions.parse(["--package-path", path.pathString]))
-        let symbolGraphExtractorPath = try tool.getDestinationToolchain().getSymbolGraphExtract()
+        let symbolGraphExtractorPath = try tool.getTargetToolchain().getSymbolGraphExtract()
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
@@ -502,7 +520,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
-            let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
+            let compactJSONText = String(decoding: compactGraphData, as: UTF8.self)
             XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
@@ -513,7 +531,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
-            let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
+            let prettyJSONText = String(decoding: prettyGraphData, as: UTF8.self)
             XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
@@ -768,7 +786,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPM.Package.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -842,7 +860,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -861,7 +879,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -905,7 +923,7 @@ final class PackageToolTests: CommandsTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let state = PinsStore.PinState.branch(name: "YOLO", revision: yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
+                XCTAssertEqual(pinsStore.pins[identity]?.state, state)
             }
 
             // Try to pin bar at a revision.
@@ -914,7 +932,7 @@ final class PackageToolTests: CommandsTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let state = PinsStore.PinState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
+                XCTAssertEqual(pinsStore.pins[identity]?.state, state)
             }
 
             // Try to pin bar at a bad revision.
@@ -931,7 +949,7 @@ final class PackageToolTests: CommandsTestCase {
             func build() throws -> String {
                 return try SwiftPM.Build.execute(packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // Build and check.
             _ = try build()
@@ -943,7 +961,7 @@ final class PackageToolTests: CommandsTestCase {
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
                 let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift"))
-                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), file: file, line: line)
+                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), "got \(contents)", file: file, line: line)
             }
 
             // We should see a pin file now.
@@ -953,10 +971,10 @@ final class PackageToolTests: CommandsTestCase {
             // Test pins file.
             do {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
-                XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
+                XCTAssertEqual(pinsStore.pins.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
-                    let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
+                    let pin = pinsStore.pins[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
                     guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
                         return XCTFail("invalid pin location \(path)")
@@ -980,7 +998,7 @@ final class PackageToolTests: CommandsTestCase {
                 try execute("resolve", "bar")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.pinsMap[identity]?.state {
+                switch pinsStore.pins[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
@@ -1009,7 +1027,7 @@ final class PackageToolTests: CommandsTestCase {
                 try execute("resolve", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                switch pinsStore.pinsMap[identity]?.state {
+                switch pinsStore.pins[identity]?.state {
                 case .version(let version, revision: _):
                     XCTAssertEqual(version, "1.2.3")
                 default:
@@ -1100,8 +1118,11 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Initial resolution with clean state.
-            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
-            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+            do {
+                try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
+                let (_, err)  = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+                XCTAssertMatch(err, .contains("Fetching \(repositoryURL)"))
+            }
 
             // Make a change to the dependency and tag a new version.
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift"), string:
@@ -1115,8 +1136,20 @@ final class PackageToolTests: CommandsTestCase {
             let updatedRevision = try depGit.revision(forTag: "1.0.1")
 
             // Require new version but re-use existing state that hasn't fetched the latest revision, yet.
-            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: updatedRevision, version: "1.0.1")
-            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+            do {
+                try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: updatedRevision, version: "1.0.1")
+                let (_, err) = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+                XCTAssertNoMatch(err, .contains("Fetching \(repositoryURL)"))
+                XCTAssertMatch(err, .contains("Updating \(repositoryURL)"))
+
+            }
+
+            // And again
+            do {
+                let (_, err) = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+                XCTAssertNoMatch(err, .contains("Updating \(repositoryURL)"))
+                XCTAssertNoMatch(err, .contains("Fetching \(repositoryURL)"))
+            }
         }
     }
 
@@ -1412,7 +1445,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string:
                 """
-                // swift-tools-version: 5.5
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1620,7 +1653,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string:
                 """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1672,7 +1705,7 @@ final class PackageToolTests: CommandsTestCase {
                 </dict>
                 """
             )
-            let hostTriple = try UserToolchain(destination: .hostDestination()).triple
+            let hostTriple = try UserToolchain(swiftSDK: .hostSwiftSDK()).targetTriple
             let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
             try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"), string:
                 """
@@ -1824,6 +1857,16 @@ final class PackageToolTests: CommandsTestCase {
                 let (stdout, _) = try SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Initial working directory: \(workingDirectory)"))
             }
+        }
+    }
+
+    func testAmbiguousCommandPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/AmbiguousCommands") { fixturePath in
+            let (stdout, _) = try SwiftPM.Package.execute(["plugin", "--package", "A", "A"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, .contains("Hello A!"))
         }
     }
 
@@ -2524,7 +2567,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 5.9
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",

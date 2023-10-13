@@ -25,7 +25,6 @@ public enum SwiftPM {
     case Registry
     case Test
     case Run
-    case XCTestHelper
 }
 
 extension SwiftPM {
@@ -42,21 +41,23 @@ extension SwiftPM {
             return "swift-test"
         case .Run:
             return "swift-run"
-        case .XCTestHelper:
-            return "swiftpm-xctest-helper"
         }
     }
 
     /// Path to currently built binary.
     public var path: AbsolutePath {
+        return Self.testBinaryPath(for: self.executableName)
+    }
+
+    public static func testBinaryPath(for executableName: RelativePath) -> AbsolutePath {
         #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, self.executableName)
+            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
         }
         fatalError()
         #else
-        return try! AbsolutePath(CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
-            .parentDirectory.appending(self.executableName)
+        return try! AbsolutePath(validating: CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
+            .parentDirectory.appending(executableName)
         #endif
     }
 }

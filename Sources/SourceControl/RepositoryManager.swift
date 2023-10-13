@@ -85,7 +85,7 @@ public class RepositoryManager: Cancellable {
         self.delegate = delegate
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
-        let maxConcurrentOperations = min(maxConcurrentOperations ?? 3, Concurrency.maxOperations)
+        let maxConcurrentOperations = max(1, maxConcurrentOperations ?? 3*Concurrency.maxOperations/4)
         self.lookupQueue = OperationQueue()
         self.lookupQueue.name = "org.swift.swiftpm.repository-manager"
         self.lookupQueue.maxConcurrentOperationCount = maxConcurrentOperations
@@ -102,7 +102,7 @@ public class RepositoryManager: Cancellable {
     /// - Parameters:
     ///   - package: The package identity of the repository to fetch,
     ///   - repository: The repository to look up.
-    ///   - skipUpdate: If a repository is available, skip updating it.
+    ///   - updateStrategy: strategy to update the repository.
     ///   - observabilityScope: The observability scope
     ///   - delegateQueue: Dispatch queue for delegate events
     ///   - callbackQueue: Dispatch queue for callbacks
@@ -110,7 +110,7 @@ public class RepositoryManager: Cancellable {
     public func lookup(
         package: PackageIdentity,
         repository: RepositorySpecifier,
-        skipUpdate: Bool,
+        updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
@@ -154,7 +154,7 @@ public class RepositoryManager: Cancellable {
                         try self.lookup(
                             package: package,
                             repository: repository,
-                            skipUpdate: skipUpdate,
+                            updateStrategy: updateStrategy,
                             observabilityScope: observabilityScope,
                             delegateQueue: delegateQueue
                         )
@@ -173,7 +173,7 @@ public class RepositoryManager: Cancellable {
                 try self.lookup(
                     package: package,
                     repository: repository,
-                    skipUpdate: skipUpdate,
+                    updateStrategy: updateStrategy,
                     observabilityScope: observabilityScope,
                     delegateQueue: delegateQueue
                 )
@@ -189,7 +189,7 @@ public class RepositoryManager: Cancellable {
     private func lookup(
         package: PackageIdentity,
         repository: RepositorySpecifier,
-        skipUpdate: Bool,
+        updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
@@ -201,23 +201,24 @@ public class RepositoryManager: Cancellable {
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
         if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
-            // update if necessary and return early
-            // skip update if not needed
-            if skipUpdate {
+            let repository = try handle.open()
+            // Update the repository if needed
+            if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
+                let start = DispatchTime.now()
+                
+                delegateQueue.async {
+                    self.delegate?.willUpdate(package: package, repository: handle.repository)
+                }
+                
+                try repository.fetch()
+                let duration = start.distance(to: .now())
+                delegateQueue.async {
+                    self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
+                }
+                return handle
+            } else if self.provider.isValidDirectory(repositoryPath) {
                 return handle
             }
-            // Update the repository when it is being looked up.
-            delegateQueue.async {
-                self.delegate?.willUpdate(package: package, repository: handle.repository)
-            }
-            let start = DispatchTime.now()
-            let repository = try handle.open()
-            try repository.fetch()
-            let duration = start.distance(to: .now())
-            delegateQueue.async {
-                self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
-            }
-            return handle
         }
 
         // inform delegate that we are starting to fetch
@@ -238,6 +239,7 @@ public class RepositoryManager: Cancellable {
                 package: package,
                 handle: handle,
                 repositoryPath: repositoryPath,
+                updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue
             )
@@ -279,6 +281,7 @@ public class RepositoryManager: Cancellable {
         package: PackageIdentity,
         handle: RepositoryHandle,
         repositoryPath: AbsolutePath,
+        updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> FetchDetails {
@@ -312,7 +315,9 @@ public class RepositoryManager: Cancellable {
                         // Fetch the repository into the cache.
                         if (self.fileSystem.exists(cachedRepositoryPath)) {
                             let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
-                            try repo.fetch(progress: updateFetchProgress(progress:))
+                            if self.fetchRequired(repository: repo, updateStrategy: updateStrategy) {
+                                try repo.fetch(progress: updateFetchProgress(progress:))
+                            }
                             cacheUsed = true
                         } else {
                             try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progressHandler: updateFetchProgress(progress:))
@@ -362,8 +367,30 @@ public class RepositoryManager: Cancellable {
         return FetchDetails(fromCache: cacheUsed, updatedCache: cacheUpdated)
     }
 
+    private func fetchRequired(
+        repository: Repository,
+        updateStrategy: RepositoryUpdateStrategy
+    ) -> Bool {
+        switch updateStrategy {
+        case .never:
+            return false
+        case .always:
+            return true
+        case .ifNeeded(let revision):
+            return !repository.exists(revision: revision)
+        }
+    }
+
+    /// Open a working copy checkout at a path
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         try self.provider.openWorkingCopy(at: path)
+    }
+
+    /// Validate a working copy check is aligned with its repository setup
+    public func isValidWorkingCopy(_ workingCopy: WorkingCheckout, for repository: RepositorySpecifier) throws -> Bool {
+        let relativePath = try repository.storagePath()
+        let repositoryPath = self.path.appending(relativePath)
+        return workingCopy.isAlternateObjectStoreValid(expected: repositoryPath)
     }
 
     /// Open a repository from a handle.
@@ -510,6 +537,12 @@ extension RepositoryManager {
     }
 }
 
+public enum RepositoryUpdateStrategy {
+    case never
+    case always
+    case ifNeeded(revision: Revision)
+}
+
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate {
     /// Called when a repository is about to be fetched.
@@ -546,9 +579,16 @@ extension RepositorySpecifier {
     /// This identifier is suitable for use in a file system path, and
     /// unique for each repository.
     private var fileSystemIdentifier: String {
+        // canonicalize across similar locations (mainly for URLs)
         // Use first 8 chars of a stable hash.
-        let suffix = self.location.description .sha256Checksum.prefix(8)
+        let suffix = self.canonicalLocation.description.sha256Checksum.prefix(8)
         return "\(self.basename)-\(suffix)"
+    }
+}
+
+extension RepositorySpecifier {
+    fileprivate var canonicalLocation: CanonicalPackageLocation {
+        .init(self.location.description)
     }
 }
 

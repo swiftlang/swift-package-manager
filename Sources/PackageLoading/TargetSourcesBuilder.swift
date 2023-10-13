@@ -553,7 +553,7 @@ public struct FileRuleDescription {
         /// Indicates that the file should be treated as ignored, without causing an unhandled-file warning.
         case ignored
 
-        /// Sentinal to indicate that no rule was chosen for a given file.
+        /// Sentinel to indicate that no rule was chosen for a given file.
         case none
     }
 
@@ -649,6 +649,15 @@ public struct FileRuleDescription {
         )
     }()
 
+    /// File types related to the string catalog.
+    public static let stringCatalog: FileRuleDescription = {
+        .init(
+            rule: .processResource(localization: .none),
+            toolsVersion: .v5_9,
+            fileTypes: ["xcstrings"]
+        )
+    }()
+
     /// File types related to the CoreData.
     public static let coredata: FileRuleDescription = {
         .init(
@@ -689,6 +698,7 @@ public struct FileRuleDescription {
     public static let xcbuildFileTypes: [FileRuleDescription] = [
         xib,
         assetCatalog,
+        stringCatalog,
         coredata,
         metal,
     ]

@@ -53,7 +53,7 @@ struct DumpSymbolGraph: SwiftCommand {
         // Configure the symbol graph extractor.
         let symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            tool: swiftTool.getTargetToolchain().getSymbolGraphExtract(),
             observabilityScope: swiftTool.observabilityScope,
             skipSynthesizedMembers: skipSynthesizedMembers,
             minimumAccessLevel: minimumAccessLevel,
@@ -112,7 +112,7 @@ struct DumpPackage: SwiftCommand {
         encoder.userInfo[Manifest.dumpPackageKey] = true
 
         let jsonData = try encoder.encode(rootManifest)
-        let jsonString = String(data: jsonData, encoding: .utf8)!
+        let jsonString = String(decoding: jsonData, as: UTF8.self)
         print(jsonString)
     }
 }

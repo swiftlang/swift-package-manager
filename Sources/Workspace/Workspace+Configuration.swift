@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2018-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2018-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -197,6 +197,8 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
+        public static var resolvedFileName = "Package.resolved"
+
         public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             rootPath.appending(".build")
         }
@@ -206,7 +208,7 @@ extension Workspace {
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending("Package.resolved")
+            rootPath.appending(Self.resolvedFileName)
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -460,7 +462,7 @@ extension Workspace.Configuration {
                 .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
             // computes the initial mirrors
-            self._mirrors = DependencyMirrors()
+            self._mirrors = try DependencyMirrors()
             try self.computeMirrors()
         }
 
@@ -490,13 +492,13 @@ extension Workspace.Configuration {
                 // prefer local mirrors to shared ones
                 let local = try self.localMirrors.get()
                 if !local.isEmpty {
-                    self._mirrors.append(contentsOf: local)
+                    try self._mirrors.append(contentsOf: local)
                     return
                 }
 
                 // use shared if local was not found or empty
                 if let shared = try self.sharedMirrors?.get(), !shared.isEmpty {
-                    self._mirrors.append(contentsOf: shared)
+                    try self._mirrors.append(contentsOf: shared)
                 }
             }
         }
@@ -518,10 +520,10 @@ extension Workspace.Configuration {
         /// The mirrors in this configuration
         public func get() throws -> DependencyMirrors {
             guard self.fileSystem.exists(self.path) else {
-                return DependencyMirrors()
+                return try DependencyMirrors()
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
-                return DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                return try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
             }
         }
 
@@ -532,8 +534,8 @@ extension Workspace.Configuration {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
-                let mirrors = DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
-                var updatedMirrors = DependencyMirrors(mirrors.mapping)
+                let mirrors = try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                var updatedMirrors = try DependencyMirrors(mirrors.mapping)
                 try handler(&updatedMirrors)
                 if updatedMirrors != mirrors {
                     try Self.save(
@@ -603,7 +605,7 @@ extension Workspace.Configuration {
 
 extension Workspace.Configuration {
     public class Registries {
-        private let localRegistries: RegistriesStorage
+        private let localRegistries: RegistriesStorage?
         private let sharedRegistries: RegistriesStorage?
         private let fileSystem: FileSystem
 
@@ -622,14 +624,20 @@ extension Workspace.Configuration {
         /// - Parameters:
         ///   - fileSystem: The file system to use.
         ///   - localRegistriesFile: Path to the workspace registries configuration file
-        ///   - sharedRegistriesFile: Path to the shared registries configuration file, defaults to the standard location.
+        ///   - sharedRegistriesFile: Path to the shared registries configuration file,
+        ///                           defaults to the standard location.
         public init(
             fileSystem: FileSystem,
-            localRegistriesFile: AbsolutePath,
+            localRegistriesFile: AbsolutePath?,
             sharedRegistriesFile: AbsolutePath?
         ) throws {
+            // At least one of local or shared is required
+            if localRegistriesFile == nil, sharedRegistriesFile == nil {
+                throw StringError("No registries configuration provided")
+            }
+
             self.fileSystem = fileSystem
-            self.localRegistries = .init(path: localRegistriesFile, fileSystem: fileSystem)
+            self.localRegistries = localRegistriesFile.map { .init(path: $0, fileSystem: fileSystem) }
             self.sharedRegistries = sharedRegistriesFile.map { .init(path: $0, fileSystem: fileSystem) }
             try self.computeRegistries()
         }
@@ -638,7 +646,10 @@ extension Workspace.Configuration {
         public func updateLocal(with handler: (inout RegistryConfiguration) throws -> Void) throws
             -> RegistryConfiguration
         {
-            try self.localRegistries.update(with: handler)
+            guard let localRegistries else {
+                throw InternalError("local registries not configured")
+            }
+            try localRegistries.update(with: handler)
             try self.computeRegistries()
             return self.configuration
         }
@@ -665,8 +676,9 @@ extension Workspace.Configuration {
                     configuration.merge(sharedConfiguration)
                 }
 
-                let localConfiguration = try localRegistries.load()
-                configuration.merge(localConfiguration)
+                if let localConfiguration = try localRegistries?.load() {
+                    configuration.merge(localConfiguration)
+                }
 
                 self._configuration = configuration
             }
@@ -693,7 +705,9 @@ extension Workspace.Configuration {
                 let decoder = JSONDecoder.makeWithDefaults()
                 return try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: RegistryConfiguration.self)
             } catch {
-                throw StringError("Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)")
+                throw StringError(
+                    "Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)"
+                )
             }
         }
 
@@ -742,7 +756,7 @@ public struct WorkspaceConfiguration {
 
     ///  Signing entity checking mode. Defaults to warn.
     public var signingEntityCheckingMode: CheckingMode
-    
+
     /// Whether to skip validating signature of signed packages downloaded from registry
     public var skipSignatureValidation: Bool
 
@@ -759,7 +773,7 @@ public struct WorkspaceConfiguration {
     public var createREPLProduct: Bool
 
     /// Whether or not there should be import restrictions applied when loading manifests
-    public var restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+    public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
     public init(
         skipDependenciesUpdates: Bool,
@@ -773,7 +787,7 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -786,7 +800,7 @@ public struct WorkspaceConfiguration {
         self.skipSignatureValidation = skipSignatureValidation
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
-        self.restrictImports = restrictImports
+        self.manifestImportRestrictions = manifestImportRestrictions
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -803,7 +817,7 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            restrictImports: .none
+            manifestImportRestrictions: .none
         )
     }
 

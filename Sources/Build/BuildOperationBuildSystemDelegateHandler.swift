@@ -215,11 +215,21 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
         }
 
+        let testObservabilitySetup: String
+        if self.context.buildParameters.testingParameters.experimentalTestOutput
+            && self.context.buildParameters.targetTriple.supportsTestSummary {
+            testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
+        } else {
+            testObservabilitySetup = ""
+        }
+
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
         stream.send(
             #"""
+            \#(generateTestObservationCode(buildParameters: self.context.buildParameters))
+
             import XCTest
             \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
 
@@ -227,6 +237,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
                 static func main() {
+                    \#(testObservabilitySetup)
                     XCTMain(__allDiscoveredTests())
                 }
             }
@@ -341,7 +352,7 @@ public struct BuildDescription: Codable {
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.writeCommands = writeCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters
+        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
             let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment)
@@ -369,9 +380,10 @@ public struct BuildDescription: Codable {
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)
         self.builtTestProducts = try plan.buildProducts.filter { $0.product.type == .test }.map { desc in
-            try BuiltTestProduct(
+            return try BuiltTestProduct(
                 productName: desc.product.name,
-                binaryPath: desc.binaryPath
+                binaryPath: desc.binaryPath,
+                packagePath: desc.package.path
             )
         }
         self.pluginDescriptions = pluginDescriptions
@@ -473,9 +485,11 @@ public final class BuildExecutionContext {
 final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
     override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
         guard let buildDescription = self.context.buildDescription else {
+            self.context.observabilityScope.emit(error: "unknown build description")
             return []
         }
-        guard let tool = buildDescription.copyCommands[command.name] else {
+        guard let tool = buildDescription.writeCommands[command.name] else {
+            self.context.observabilityScope.emit(error: "command \(command.name) not registered")
             return []
         }
 
@@ -517,7 +531,7 @@ final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
         }
 
         do {
-            try self.context.fileSystem.writeFileContents(outputFilePath, string: getFileContents(tool: tool))
+            try self.context.fileSystem.writeIfChanged(path: outputFilePath, string: getFileContents(tool: tool))
             return true
         } catch {
             self.context.observabilityScope.emit(error: "failed to write auxiliary file '\(outputFilePath.pathString)': \(error.interpolationDescription)")
@@ -890,11 +904,9 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 if output.utf8.count < 1024 * 10 {
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
-                        self
-                            .errorMessagesByTarget[parser.targetName] = (
-                                self
-                                    .errorMessagesByTarget[parser.targetName] ?? []
-                            ) + [match[0]]
+                        self.errorMessagesByTarget[parser.targetName] = (
+                                self.errorMessagesByTarget[parser.targetName] ?? []
+                        ) + [match[0]]
                     }
                 }
             }
@@ -1082,7 +1094,7 @@ extension Basics.Diagnostic {
 
     fileprivate static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Self {
         let producers = commands.map(\.description).joined(separator: ", ")
-        return .error("couldn't build \(output.key) because of missing producers: \(producers)")
+        return .error("couldn't build \(output.key) because of multiple producers: \(producers)")
     }
 
     fileprivate static func commandError(command: SPMLLBuild.Command, message: String) -> Self {

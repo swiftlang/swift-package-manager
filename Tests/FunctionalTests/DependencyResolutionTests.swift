@@ -23,7 +23,7 @@ class DependencyResolutionTests: XCTestCase {
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             XCTAssertBuilds(fixturePath)
 
-            let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Foo").pathString)
+            let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString)
             XCTAssertEqual(output, "Foo\nBar\n")
         }
     }
@@ -38,7 +38,7 @@ class DependencyResolutionTests: XCTestCase {
         try fixture(name: "DependencyResolution/Internal/Complex") { fixturePath in
             XCTAssertBuilds(fixturePath)
 
-            let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Foo").pathString)
+            let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString)
             XCTAssertEqual(output, "meiow Baz\n")
         }
     }
@@ -54,7 +54,7 @@ class DependencyResolutionTests: XCTestCase {
 
             let packageRoot = fixturePath.appending("Bar")
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar"))
+            XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar"))
             let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(try GitRepository(path: path).getTags().contains("1.2.3"))
         }
@@ -63,7 +63,7 @@ class DependencyResolutionTests: XCTestCase {
     func testExternalComplex() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             XCTAssertBuilds(fixturePath.appending("app"))
-            let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: "app", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Dealer").pathString)
+            let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: "app", ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }

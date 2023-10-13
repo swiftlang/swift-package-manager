@@ -954,9 +954,11 @@ public enum PIF {
             case USE_HEADERMAP
             case USES_SWIFTPM_UNSAFE_FLAGS
             case WATCHOS_DEPLOYMENT_TARGET
+            case XROS_DEPLOYMENT_TARGET
             case MARKETING_VERSION
             case CURRENT_PROJECT_VERSION
             case SWIFT_EMIT_MODULE_INTERFACE
+            case GENERATE_RESOURCE_ACCESSORS
         }
 
         public enum MultipleValueSetting: String, Codable {
@@ -1215,6 +1217,8 @@ extension PIF.FileReference {
 
         case "xcassets":
             return "folder.assetcatalog"
+        case "xcstrings":
+            return "text.json.xcstrings"
         case "storyboard":
             return "file.storyboard"
         case "xib":

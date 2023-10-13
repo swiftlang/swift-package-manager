@@ -30,6 +30,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     public static let v5_7 = ToolsVersion(version: "5.7.0")
     public static let v5_8 = ToolsVersion(version: "5.8.0")
     public static let v5_9 = ToolsVersion(version: "5.9.0")
+    public static let v5_10 = ToolsVersion(version: "5.10.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
@@ -105,30 +106,53 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
         _version = version
     }
 
+    private enum ValidationResult {
+        case valid
+        case unsupportedToolsVersion
+        case requireNewerTools
+    }
+
+    private func _validateToolsVersion(_ currentToolsVersion: ToolsVersion) -> ValidationResult {
+        // We don't want to throw any error when using the special vNext version.
+        if SwiftVersion.current.isDevelopment && self == .vNext {
+            return .valid
+        }
+
+        // Make sure the package has the right minimum tools version.
+        guard self >= .minimumRequired else {
+            return .unsupportedToolsVersion
+        }
+
+        // Make sure the package isn't newer than the current tools version.
+        guard currentToolsVersion >= self else {
+            return .requireNewerTools
+        }
+
+        return .valid
+    }
+
     /// Returns true if the tools version is valid and can be used by this
     /// version of the package manager.
+    public func validateToolsVersion(_ currentToolsVersion: ToolsVersion) -> Bool {
+        return self._validateToolsVersion(currentToolsVersion) == .valid
+    }
+
     public func validateToolsVersion(
         _ currentToolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         packageVersion: String? = .none
     ) throws {
-        // We don't want to throw any error when using the special vNext version.
-        if SwiftVersion.current.isDevelopment && self == .vNext {
-            return
-        }
-
-        // Make sure the package has the right minimum tools version.
-        guard self >= .minimumRequired else {
+        switch self._validateToolsVersion(currentToolsVersion) {
+        case .valid:
+            break
+        case .unsupportedToolsVersion:
             throw UnsupportedToolsVersion(
                 packageIdentity: packageIdentity,
                 packageVersion: packageVersion,
                 currentToolsVersion: currentToolsVersion,
                 packageToolsVersion: self
             )
-        }
-
-        // Make sure the package isn't newer than the current tools version.
-        guard currentToolsVersion >= self else {
+        case .requireNewerTools:
             throw RequireNewerTools(
                 packageIdentity: packageIdentity,
                 packageVersion: packageVersion,

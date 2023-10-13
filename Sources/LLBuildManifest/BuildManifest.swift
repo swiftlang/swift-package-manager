@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
+
+import class TSCBasic.Process
 
 public protocol AuxiliaryFileType {
     static var name: String { get }
@@ -19,7 +22,37 @@ public protocol AuxiliaryFileType {
 }
 
 public enum WriteAuxiliary {
-    public static let fileTypes: [AuxiliaryFileType.Type] = [LinkFileList.self]
+    public static let fileTypes: [AuxiliaryFileType.Type] = [
+        EntitlementPlist.self,
+        LinkFileList.self,
+        SourcesFileList.self,
+        SwiftGetVersion.self,
+        XCTestInfoPlist.self
+    ]
+
+    public struct EntitlementPlist: AuxiliaryFileType {
+        public static let name = "entitlement-plist"
+
+        public static func computeInputs(entitlement: String) -> [Node] {
+            [.virtual(Self.name), .virtual(entitlement)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let entitlementName = inputs.last?.extractedVirtualNodeName else {
+                throw Error.undefinedEntitlementName
+            }
+            let encoder = PropertyListEncoder()
+            encoder.outputFormat = .xml
+            let result = try encoder.encode([entitlementName: true])
+
+            let contents = String(decoding: result, as: UTF8.self)
+            return contents
+        }
+
+        private enum Error: Swift.Error {
+            case undefinedEntitlementName
+        }
+    }
 
     public struct LinkFileList: AuxiliaryFileType {
         public static let name = "link-file-list"
@@ -48,6 +81,82 @@ public enum WriteAuxiliary {
             }
 
             return content
+        }
+    }
+
+    public struct SourcesFileList: AuxiliaryFileType {
+        public static let name = "sources-file-list"
+
+        public static func computeInputs(sources: [AbsolutePath]) -> [Node] {
+            return [.virtual(Self.name)] + sources.map { Node.file($0) }
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            let sources = inputs.compactMap {
+                if $0.kind == .file {
+                    return $0.name
+                } else {
+                    return nil
+                }
+            }
+
+            guard sources.count > 0 else { return "" }
+
+            var contents = sources
+                .map { $0.spm_shellEscaped() }
+                .joined(separator: "\n")
+            contents.append("\n")
+            return contents
+        }
+    }
+
+    public struct SwiftGetVersion: AuxiliaryFileType {
+        public static let name = "swift-get-version"
+
+        public static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
+            return [.virtual(Self.name), .file(swiftCompilerPath)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let swiftCompilerPathString = inputs.first(where: { $0.kind == .file })?.name else {
+                throw Error.unknownSwiftCompilerPath
+            }
+            let swiftCompilerPath = try AbsolutePath(validating: swiftCompilerPathString)
+            return try TSCBasic.Process.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
+        }
+
+        private enum Error: Swift.Error {
+            case unknownSwiftCompilerPath
+        }
+    }
+
+    public struct XCTestInfoPlist: AuxiliaryFileType {
+        public static let name = "xctest-info-plist"
+
+        public static func computeInputs(principalClass: String) -> [Node] {
+            return [.virtual(Self.name), .virtual(principalClass)]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard let principalClass = inputs.last?.extractedVirtualNodeName else {
+                throw Error.undefinedPrincipalClass
+            }
+
+            let plist = InfoPlist(NSPrincipalClass: String(principalClass))
+            let encoder = PropertyListEncoder()
+            encoder.outputFormat = .xml
+            let result = try encoder.encode(plist)
+
+            let contents = String(decoding: result, as: UTF8.self)
+            return contents
+        }
+
+        private struct InfoPlist: Codable {
+            let NSPrincipalClass: String
+        }
+
+        private enum Error: Swift.Error {
+            case undefinedPrincipalClass
         }
     }
 }
@@ -127,6 +236,13 @@ public struct BuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
+    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: AbsolutePath) {
+        let inputs = WriteAuxiliary.EntitlementPlist.computeInputs(entitlement: entitlement)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
     public mutating func addWriteLinkFileListCommand(
         objects: [AbsolutePath],
         linkFileListPath: AbsolutePath
@@ -134,6 +250,33 @@ public struct BuildManifest {
         let inputs = WriteAuxiliary.LinkFileList.computeInputs(objects: objects)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: linkFileListPath)
         let name = linkFileListPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addWriteSourcesFileListCommand(
+        sources: [AbsolutePath],
+        sourcesFileListPath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
+        let name = sourcesFileListPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addSwiftGetVersionCommand(
+        swiftCompilerPath: AbsolutePath,
+        swiftVersionFilePath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.SwiftGetVersion.computeInputs(swiftCompilerPath: swiftCompilerPath)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: swiftVersionFilePath, alwaysOutOfDate: true)
+        let name = swiftVersionFilePath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
+        let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 
@@ -222,6 +365,7 @@ public struct BuildManifest {
         objects: [AbsolutePath],
         otherArguments: [String],
         sources: [AbsolutePath],
+        fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
         outputFileMapPath: AbsolutePath
@@ -239,6 +383,7 @@ public struct BuildManifest {
             objects: objects,
             otherArguments: otherArguments,
             sources: sources,
+            fileList: fileList,
             isLibrary: isLibrary,
             wholeModuleOptimization: wholeModuleOptimization,
             outputFileMapPath: outputFileMapPath

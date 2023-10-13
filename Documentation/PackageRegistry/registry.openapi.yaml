@@ -1,0 +1,448 @@
+openapi: 3.0.0
+info:
+  title: Swift Package Registry
+  version: "1"
+externalDocs:
+  description: Swift Evolution Proposal SE-0292
+  url: https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md
+servers:
+  - url: https://packages.swift.org
+paths:
+  "/{scope}/{name}":
+    parameters:
+      - $ref: "#/components/parameters/scope"
+      - $ref: "#/components/parameters/name"
+    get:
+      tags:
+        - Package
+      summary: List package releases
+      operationId: listPackageReleases
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - application/vnd.swift.registry.v1+json
+      responses:
+        "200":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/releases"
+              examples:
+                default:
+                  $ref: "#/components/examples/releases"
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+  "/{scope}/{name}/{version}":
+    parameters:
+      - $ref: "#/components/parameters/scope"
+      - $ref: "#/components/parameters/name"
+      - $ref: "#/components/parameters/version"
+    get:
+      tags:
+        - Release
+      summary: Fetch release metadata
+      operationId: fetchReleaseMetadata
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - application/vnd.swift.registry.v1+json
+      responses:
+        "200":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                default:
+                  $ref: "#/components/examples/metadata"
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+    put:
+      tags:
+        - Release
+      summary: Publish package release
+      operationId: publishPackageRelease
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - multipart/form-data
+      responses:
+        "100":
+          description: ""
+        "201":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/releases"
+              examples:
+                default:
+                  $ref: "#/components/examples/releases"
+        "202":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+  "/{scope}/{name}/{version}/Package.swift":
+    parameters:
+      - $ref: "#/components/parameters/scope"
+      - $ref: "#/components/parameters/name"
+      - $ref: "#/components/parameters/version"
+    get:
+      tags:
+        - Release
+      summary: Fetch manifest for a package release
+      operationId: fetchManifestForPackageRelease
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - application/vnd.swift.registry.v1+swift
+        - $ref: "#/components/parameters/swift_version"
+      responses:
+        "200":
+          description: ""
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            Content-Disposition:
+              schema:
+                type: string
+            Content-Length:
+              schema:
+                type: integer
+            Content-Version:
+              $ref: "#/components/headers/optionalContentVersion"
+            Link:
+              schema:
+                type: string
+          content:
+            text/x-swift:
+              schema:
+                type: string
+              examples:
+                default:
+                  $ref: "#/components/examples/manifest"
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+  "/{scope}/{name}/{version}.zip":
+    parameters:
+      - $ref: "#/components/parameters/scope"
+      - $ref: "#/components/parameters/name"
+      - $ref: "#/components/parameters/version"
+    get:
+      tags:
+        - Release
+      summary: Download source archive
+      operationId: downloadSourceArchive
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - application/vnd.swift.registry.v1+zip
+      responses:
+        "200":
+          description: ""
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            Content-Disposition:
+              schema:
+                type: string
+            Content-Length:
+              schema:
+                type: integer
+            Content-Version:
+              $ref: "#/components/headers/optionalContentVersion"
+            Digest:
+              required: true
+              schema:
+                type: string
+            Link:
+              schema:
+                type: string
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        3XX:
+          $ref: "#/components/responses/redirect"
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+  /identifiers:
+    parameters:
+      - $ref: "#/components/parameters/url"
+    get:
+      tags:
+        - Package
+      summary: Lookup package identifiers registered for a URL
+      operationId: lookupPackageIdentifiersByURL
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - application/vnd.swift.registry.v1+json
+      responses:
+        "200":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/identifiers"
+              examples:
+                default:
+                  $ref: "#/components/examples/identifiers"
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+components:
+  schemas:
+    releases:
+      type: object
+      example:
+        releases:
+          1.1.0: https://swift.pkg.github.com/mona/LinkedList/1.1.0
+      properties:
+        releases:
+          type: object
+      required:
+        - releases
+    identifiers:
+      type: object
+      example:
+        identifiers:
+          - "mona.LinkedList"
+      properties:
+        identifiers:
+          type: array
+          items:
+            type: string
+      required:
+        - identifiers
+    problem:
+      type: object
+      externalDocs:
+        url: https://tools.ietf.org/html/rfc7807
+      example:
+        instance: /account/12345/msgs/abc
+        balance: 30
+        type: https://example.com/probs/out-of-credit
+        title: You do not have enough credit.
+        accounts:
+          - /account/12345
+          - /account/67890
+        detail: Your current balance is 30, but that costs 50.
+      properties:
+        type:
+          type: string
+          format: uriref
+        title:
+          type: string
+        status:
+          type: number
+        instance:
+          type: string
+        detail:
+          type: string
+      required:
+        - detail
+        - instance
+        - status
+        - title
+        - type
+  responses:
+    problemDetails:
+      description: A client error.
+      headers:
+        Content-Version:
+          $ref: "#/components/headers/contentVersion"
+        Content-Language:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/problem"
+    redirect:
+      description: A server redirect.
+      headers:
+        Content-Version:
+          $ref: "#/components/headers/contentVersion"
+        Location:
+          schema:
+            type: string
+        Digest:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
+  parameters:
+    scope:
+      name: scope
+      in: path
+      required: true
+      schema:
+        type: string
+        example: "mona"
+        pattern: \A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}\z
+    name:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+        example: LinkedList
+        pattern: \A[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z
+    version:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: string
+        externalDocs:
+          description: Semantic Version number
+          url: https://semver.org
+        example: 1.0.0-beta.1
+        pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+    swift_version:
+      name: swift-version
+      in: query
+      schema:
+        type: string
+        example: 1.2.3
+        pattern: \d+(?:\.(\d+)){0,2}
+    url:
+      name: url
+      in: query
+      required: true
+      schema:
+        type: string
+        format: url
+        example: https://github.com/mona/LinkedList
+  examples:
+    releases:
+      value:
+        releases:
+          1.1.1:
+            url: https://swift.pkg.github.com/mona/LinkedList/1.1.1
+          1.1.0:
+            problem:
+              status: 410
+              title: Gone
+              detail: this release was removed from the registry
+            url: https://swift.pkg.github.com/mona/LinkedList/1.1.0
+          1.0.0:
+            url: https://swift.pkg.github.com/mona/LinkedList/1.0.0
+    manifest:
+      value: >-
+        // swift-tools-version:5.0
+
+        import PackageDescription
+
+
+        let package = Package(
+            name: "LinkedList",
+            products: [
+                .library(name: "LinkedList", targets: ["LinkedList"])
+            ],
+            targets: [
+                .target(name: "LinkedList"),
+                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+            ],
+            swiftLanguageVersions: [.v4, .v5]
+        )
+    metadata:
+      value:
+        keywords:
+          - data-structure
+          - collection
+        version: 1.1.1
+        "@type": SoftwareSourceCode
+        author:
+          "@type": Person
+          "@id": https://github.com/mona
+          middleName: Lisa
+          givenName: Mona
+          familyName: Octocat
+        license: https://www.apache.org/licenses/LICENSE-2.0
+        programmingLanguage:
+          url: https://swift.org
+          name: Swift
+          "@type": ComputerLanguage
+        codeRepository: https://github.com/mona/LinkedList
+        "@context":
+          - http://schema.org/
+        description: One thing links to another.
+        name: LinkedList
+    identifiers:
+      value:
+        identifiers:
+          - "mona.LinkedList"
+  headers:
+    contentVersion:
+      required: true
+      schema:
+        type: string
+        enum:
+          - "1"
+    optionalContentVersion:
+      required: false
+      schema:
+        type: string
+        enum:
+          - "1"

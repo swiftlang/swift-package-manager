@@ -12,6 +12,8 @@
 
 #if canImport(Glibc)
 @_implementationOnly import Glibc
+#elseif canImport(Musl)
+@_implementationOnly import Musl
 #elseif canImport(Darwin)
 @_implementationOnly import Darwin.C
 #elseif canImport(ucrt) && canImport(WinSDK)
@@ -440,7 +442,7 @@ private func manifestToJSON(_ package: Package) -> String {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     let data = try! encoder.encode(Output(package: .init(package), errors: errors, version: 2))
-    return String(data: data, encoding: .utf8)!
+    return String(decoding: data, as: UTF8.self)
 }
 
 var errors: [String] = []

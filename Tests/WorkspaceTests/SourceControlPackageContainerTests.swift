@@ -43,7 +43,7 @@ private class MockRepository: Repository {
         self.versions = versions
     }
 
-    init(fs: FileSystem, url: URL, versions: [Version: Manifest]) {
+    init(fs: FileSystem, url: SourceControlURL, versions: [Version: Manifest]) {
         self.fs = fs
         self.location = .url(url)
         self.packageRef = .remoteSourceControl(identity: PackageIdentity(url: url), url: url)
@@ -132,7 +132,10 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        return self.repositories[repository.location]!
+        guard let repository = self.repositories[repository.location] else {
+            throw InternalError("unknown repository at \(repository.location)")
+        }
+        return repository
     }
 
     func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
@@ -156,8 +159,9 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: RepositoryManager.Delegate {
+private class MockRepositoryManagerDelegate: RepositoryManager.Delegate {
     var fetched = ThreadSafeArrayStore<RepositorySpecifier>()
+    var updated = ThreadSafeArrayStore<RepositorySpecifier>()
 
     func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
         self.fetched.append(repository)
@@ -167,9 +171,16 @@ private class MockResolverDelegate: RepositoryManager.Delegate {
 
     func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {}
 
-    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {}
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
+        self.updated.append(repository)
+    }
 
     func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {}
+
+    func reset() {
+        self.fetched.clear()
+        self.updated.clear()
+    }
 }
 
 // Some handy versions & ranges.
@@ -208,7 +219,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         let provider = try Workspace._init(
@@ -219,7 +230,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref, skipUpdate: false)
+        let container = try provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
@@ -260,7 +271,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
@@ -276,7 +287,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, ["1.0.1"])
         }
@@ -284,7 +295,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.2.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! SourceControlPackageContainer
+            let container = try provider.getContainer(for: ref) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(container.validToolsVersionsCache["1.0.0"], false)
@@ -297,7 +308,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false)
+            let container = try provider.getContainer(for: ref)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, [])
         }
@@ -306,7 +317,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref, skipUpdate: false) as! SourceControlPackageContainer
+            let container = try provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
                 _ = try container.getDependencies(at: revision.identifier, productFilter: .nothing)
@@ -345,7 +356,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         let provider = try Workspace._init(
@@ -356,7 +367,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref, skipUpdate: false)
+        let container = try provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
@@ -394,7 +405,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate()
+            delegate: MockRepositoryManagerDelegate()
         )
 
         let provider = try Workspace._init(
@@ -404,7 +415,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             customRepositoryManager: repositoryManager
         )
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref, skipUpdate: false)
+        let container = try provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
@@ -438,7 +449,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5ProductMapping[$0.identity.description]!
             )
@@ -450,7 +461,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.identity.description]!
             )
@@ -590,7 +601,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Get a hold of the container for the test package.
             let packageRef = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDir), path: packageDir)
-            let container = try containerProvider.getContainer(for: packageRef, skipUpdate: false) as! SourceControlPackageContainer
+            let container = try containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
             do { _ = try container.getDependencies(at: "master", productFilter: .everything) }
@@ -608,6 +619,90 @@ class SourceControlPackageContainerTests: XCTestCase {
                 XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
                 XCTAssertMatch(error.repository.description, .suffix("SomePackage"))
                 XCTAssertMatch(error.reference, "535f4cb5b4a0872fa691473e82d7b27b9894df00")
+            }
+        }
+    }
+
+    func testRepositoryContainerUpdateStrategy() throws {
+        try testWithTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            let package = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
+
+            try localFileSystem.createDirectory(packageDirectory)
+            initGitRepo(packageDirectory)
+
+            try localFileSystem.writeFileContents(packageDirectory.appending(Manifest.filename), string: "")
+            try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: packageDirectory, toolsVersion: .current, fileSystem: localFileSystem)
+
+
+            let repositoryProvider = GitRepositoryProvider()
+            let repositoryManagerDelegate = MockRepositoryManagerDelegate()
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDirectory,
+                provider: repositoryProvider,
+                delegate: repositoryManagerDelegate
+            )
+
+            let containerProvider = try Workspace._init(
+                fileSystem: localFileSystem,
+                location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
+                customManifestLoader: MockManifestLoader(
+                    manifests: [
+                        .init(url: packageDirectory.pathString, version: nil): Manifest.createRootManifest(
+                            displayName: packageDirectory.basename,
+                            path: packageDirectory,
+                            targets: [
+                                try TargetDescription(name: packageDirectory.basename, path: packageDirectory.pathString),
+                            ]
+                        )
+                    ]
+                ),
+                customRepositoryManager: repositoryManager
+            )
+
+            do {
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .never
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+            }
+
+            do {
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .always
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 1)
+            }
+
+            do {
+                let repository = GitRepository(path: packageDirectory)
+                try repository.tag(name: "1.0.0")
+                let revision = try repository.resolveRevision(tag: "1.0.0")
+
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .ifNeeded(revision: revision.identifier)
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+            }
+
+            do {
+                repositoryManagerDelegate.reset()
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
+                _ = try containerProvider.getContainer(
+                    for: package,
+                    updateStrategy: .ifNeeded(revision: UUID().uuidString)
+                )
+                XCTAssertEqual(repositoryManagerDelegate.updated.count, 1)
             }
         }
     }
@@ -670,7 +765,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
 
             let packageReference = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
-            let container = try containerProvider.getContainer(for: packageReference, skipUpdate: false)
+            let container = try containerProvider.getContainer(for: packageReference)
 
             let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
             let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))
@@ -683,8 +778,19 @@ class SourceControlPackageContainerTests: XCTestCase {
 }
 
 extension PackageContainerProvider {
-    fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
-        try temp_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+    fileprivate func getContainer(
+        for package: PackageReference,
+        updateStrategy: ContainerUpdateStrategy = .always
+    ) throws -> PackageContainer {
+        try temp_await {
+            self.getContainer(
+                for: package,
+                updateStrategy: updateStrategy,
+                observabilityScope: ObservabilitySystem.NOOP,
+                on: .global(),
+                completion: $0
+            )
+        }
     }
 }
 

@@ -23,7 +23,7 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool)
+    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool, similarProductName: String?)
 
     /// The package dependency already satisfied by a different dependency package
     case dependencyAlreadySatisfiedByIdentifier(package: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
@@ -40,7 +40,7 @@ enum PackageGraphError: Swift.Error {
     /// Dependency between a plugin and a dependent target/product of a given type is unsupported
     case unsupportedPluginDependency(targetName: String, dependencyName: String, dependencyType: String, dependencyPackage: String?)
     /// A product was found in multiple packages.
-    case duplicateProduct(product: String, packages: [String])
+    case duplicateProduct(product: String, packages: [Package])
 
     /// Duplicate aliases for a target found in a product.
     case multipleModuleAliases(target: String,
@@ -70,11 +70,11 @@ public struct PackageGraph {
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
     public let allProducts: Set<ResolvedProduct>
 
-    /// The set of package dependencies required for a fully resolved graph.
+    /// Package dependencies required for a fully resolved graph.
     ///
-    //// This set will also have references to packages that are currently present
-    /// in the graph due to loading errors. This set doesn't include the root packages.
-    public let requiredDependencies: Set<PackageReference>
+    /// This will include a references to dependencies that are currently present
+    /// in the graph due to loading errors. This does not include the root packages.
+    public let requiredDependencies: [PackageReference]
 
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
@@ -123,7 +123,7 @@ public struct PackageGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        dependencies requiredDependencies: Set<PackageReference>,
+        dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
         self.rootPackages = rootPackages
@@ -219,11 +219,15 @@ extension PackageGraphError: CustomStringConvertible {
             (cycle.path + cycle.cycle).map({ $0.displayName }).joined(separator: " -> ") +
             " -> " + cycle.cycle[0].displayName
 
-        case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl):
+        case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl, let similarProductName):
             if dependencyProductInDecl {
                 return "product '\(dependencyProductName)' is declared in the same package '\(package)' and can't be used as a dependency for target '\(targetName)'."
             } else {
-                return "product '\(dependencyProductName)' required by package '\(package)' target '\(targetName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found")."
+                var description = "product '\(dependencyProductName)' required by package '\(package)' target '\(targetName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found")."
+                if let similarProductName {
+                    description += " Did you mean '\(similarProductName)'?"
+                }
+                return description
             }
         case .dependencyAlreadySatisfiedByIdentifier(let package, let dependencyURL, let otherDependencyURL, let identity):
             return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
@@ -245,7 +249,22 @@ extension PackageGraphError: CustomStringConvertible {
             return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
 
         case .duplicateProduct(let product, let packages):
-            return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
+            let packagesDescriptions = packages.sorted(by: { $0.identity < $1.identity }).map {
+                var description = "'\($0.identity)'"
+                switch $0.manifest.packageKind {
+                case .root(let path),
+                        .fileSystem(let path),
+                        .localSourceControl(let path):
+                    description += " (at '\(path)')"
+                case .remoteSourceControl(let url):
+                    description += " (from '\(url)')"
+                case .registry:
+                    break
+                }
+                return description
+            }
+
+            return "multiple products named '\(product)' in: \(packagesDescriptions.joined(separator: ", "))"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):

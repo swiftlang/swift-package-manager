@@ -126,14 +126,6 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testCache() throws {
-        if #available(macOS 11, *) {
-            // No need to skip the test.
-        }
-        else {
-            // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
-            try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
-        }
-
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -332,6 +324,19 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testCanonicalLocation() throws {
+        let variants: [RepositorySpecifier] = [
+            .init(url: "https://scm.com/org/foo"),
+            .init(url: "https://scm.com/org/foo.git"),
+            .init(url: "http://scm.com/org/foo"),
+            .init(url: "http://scm.com/org/foo.git")
+        ]
+
+        for variant in variants {
+            XCTAssertEqual(try variant.storagePath(), try variants[0].storagePath())
+        }
+    }
+
     func testConcurrency() throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
@@ -354,13 +359,13 @@ class RepositoryManagerTests: XCTestCase {
                 group.enter()
                 delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
                 manager.lookup(
-                    package: .init(url: dummyRepo.url),
+                    package: .init(url: SourceControlURL(dummyRepo.url)),
                     repository: dummyRepo,
-                    skipUpdate: false,
+                    updateStrategy: .always,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
                     callbackQueue: .sharedConcurrent
-                ) { result in                    
+                ) { result in
                     results[index] = result
                     group.leave()
                 }
@@ -426,7 +431,7 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didUpdate.count, 2)
 
             delegate.prepare(fetchExpected: false, updateExpected: false)
-            _ = try manager.lookup(repository: dummyRepo, skipUpdate: true, observabilityScope: observability.topScope)
+            _ = try manager.lookup(repository: dummyRepo, updateStrategy: .never, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
@@ -459,9 +464,9 @@ class RepositoryManagerTests: XCTestCase {
             provider.startGroup.enter()
             finishGroup.enter()
             manager.lookup(
-                package: .init(url: repository.url),
+                package: .init(urlString: repository.url),
                 repository: repository,
-                skipUpdate: true,
+                updateStrategy: .never,
                 observabilityScope: observability.topScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent
@@ -591,12 +596,16 @@ extension RepositoryManager {
         )
     }
 
-    fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
+    fileprivate func lookup(
+        repository: RepositorySpecifier,
+        updateStrategy: RepositoryUpdateStrategy = .always,
+        observabilityScope: ObservabilityScope
+    ) throws -> RepositoryHandle {
         return try temp_await {
             self.lookup(
-                package: .init(url: repository.url),
+                package: .init(url: SourceControlURL(repository.url)),
                 repository: repository,
-                skipUpdate: skipUpdate,
+                updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
@@ -675,7 +684,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
 
         // We only support one dummy URL.
-        let basename = repository.url.pathComponents.last!
+        let basename = (repository.url as NSString).lastPathComponent
         if basename != "dummy" {
             throw DummyError.invalidRepository
         }
@@ -790,7 +799,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
             fatalError("not implemented")
         }
 
-        func isAlternateObjectStoreValid() -> Bool {
+        func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
             fatalError("not implemented")
         }
 

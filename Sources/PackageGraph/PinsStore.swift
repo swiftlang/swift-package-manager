@@ -19,7 +19,7 @@ import enum TSCBasic.JSON
 import struct TSCUtility.Version
 
 public final class PinsStore {
-    public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
+    public typealias Pins = [PackageIdentity: PinsStore.Pin]
 
     public struct Pin: Equatable {
         /// The package reference of the pinned dependency.
@@ -56,15 +56,11 @@ public final class PinsStore {
     /// storage
     private let storage: PinsStorage
     private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PinsStore.Pin>
+    public let originHash: String?
 
     /// The current pins.
-
-    public var pinsMap: PinsMap {
+    public var pins: Pins {
         self._pins.get()
-    }
-
-    public var pins: AnySequence<Pin> {
-        AnySequence<Pin>(self.pinsMap.values)
     }
 
     /// Create a new pins store.
@@ -82,11 +78,13 @@ public final class PinsStore {
         self.mirrors = mirrors
 
         do {
-            self._pins = .init(try self.storage.load(mirrors: mirrors))
+            let (pins, originHash) = try self.storage.load(mirrors: mirrors)
+            self._pins = .init(pins)
+            self.originHash = originHash
         } catch {
             self._pins = .init()
             throw StringError(
-                "Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error.interpolationDescription)"
+                "\(pinsFile) file is corrupted or malformed; fix or delete the file to continue: \(error.interpolationDescription)"
             )
         }
     }
@@ -127,12 +125,16 @@ public final class PinsStore {
         self._pins.clear()
     }
 
-    public func saveState(toolsVersion: ToolsVersion) throws {
+    public func saveState(
+        toolsVersion: ToolsVersion,
+        originHash: String?
+    ) throws {
         try self.storage.save(
+            toolsVersion: toolsVersion,
             pins: self._pins.get(),
             mirrors: self.mirrors,
-            removeIfEmpty: true,
-            toolsVersion: toolsVersion
+            originHash: originHash,
+            removeIfEmpty: true
         )
     }
 
@@ -157,9 +159,9 @@ private struct PinsStorage {
         self.fileSystem = fileSystem
     }
 
-    func load(mirrors: DependencyMirrors) throws -> PinsStore.PinsMap {
+    func load(mirrors: DependencyMirrors) throws -> (pins: PinsStore.Pins, originHash: String?) {
         if !self.fileSystem.exists(self.path) {
-            return [:]
+            return (pins: [:], originHash: .none)
         }
 
         return try self.fileSystem.withLock(on: self.lockFilePath, type: .shared) {
@@ -167,22 +169,43 @@ private struct PinsStorage {
             switch version.version {
             case V1.version:
                 let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
-                return try v1.object.pins.map { try PinsStore.Pin($0, mirrors: mirrors) }
-                    .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
-                        if partial.keys.contains(iterator.packageRef.identity) {
-                            throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
-                        }
-                        partial[iterator.packageRef.identity] = iterator
-                    }
+                return (
+                    pins: try v1.object.pins
+                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                            if partial.keys.contains(iterator.packageRef.identity) {
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                            }
+                            partial[iterator.packageRef.identity] = iterator
+                        },
+                    originHash: .none
+                )
             case V2.version:
                 let v2 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V2.self)
-                return try v2.pins.map { try PinsStore.Pin($0, mirrors: mirrors) }
-                    .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
-                        if partial.keys.contains(iterator.packageRef.identity) {
-                            throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
-                        }
-                        partial[iterator.packageRef.identity] = iterator
-                    }
+                return (
+                    pins: try v2.pins
+                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                            if partial.keys.contains(iterator.packageRef.identity) {
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                            }
+                            partial[iterator.packageRef.identity] = iterator
+                        },
+                    originHash: .none
+                )
+            case V3.version:
+                let v3 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V3.self)
+                return (
+                    pins: try v3.pins
+                        .map { try PinsStore.Pin($0, mirrors: mirrors) }
+                        .reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                            if partial.keys.contains(iterator.packageRef.identity) {
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                            }
+                            partial[iterator.packageRef.identity] = iterator
+                        },
+                    originHash: v3.originHash
+                )
             default:
                 throw StringError("unknown 'PinsStorage' version '\(version.version)' at '\(self.path)'.")
             }
@@ -190,10 +213,11 @@ private struct PinsStorage {
     }
 
     func save(
-        pins: PinsStore.PinsMap,
+        toolsVersion: ToolsVersion,
+        pins: PinsStore.Pins,
         mirrors: DependencyMirrors,
-        removeIfEmpty: Bool,
-        toolsVersion: ToolsVersion
+        originHash: String?,
+        removeIfEmpty: Bool
     ) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
@@ -209,8 +233,18 @@ private struct PinsStorage {
             }
 
             var data: Data
-            if toolsVersion >= .v5_6 {
-                let container = try V2(pins: pins, mirrors: mirrors)
+            if toolsVersion > .v5_9  {
+                let container = try V3(
+                    pins: pins,
+                    mirrors: mirrors,
+                    originHash: originHash
+                )
+                data = try self.encoder.encode(container)
+            } else if toolsVersion >= .v5_6 {
+                let container = try V2(
+                    pins: pins,
+                    mirrors: mirrors
+                )
                 data = try self.encoder.encode(container)
             } else {
                 let container = try V1(pins: pins, mirrors: mirrors)
@@ -254,7 +288,7 @@ private struct PinsStorage {
         let version: Int
         let object: Container
 
-        init(pins: PinsStore.PinsMap, mirrors: DependencyMirrors) throws {
+        init(pins: PinsStore.Pins, mirrors: DependencyMirrors) throws {
             self.version = Self.version
             self.object = try .init(
                 pins: pins.values
@@ -356,7 +390,10 @@ private struct PinsStorage {
         let version: Int
         let pins: [Pin]
 
-        init(pins: PinsStore.PinsMap, mirrors: DependencyMirrors) throws {
+        init(
+            pins: PinsStore.Pins,
+            mirrors: DependencyMirrors
+        ) throws {
             self.version = Self.version
             self.pins = try pins.values
                 .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
@@ -423,6 +460,27 @@ private struct PinsStorage {
             }
         }
     }
+
+    // v3 storage format
+    struct V3: Codable {
+        static let version = 3
+
+        let version: Int
+        let originHash: String?
+        let pins: [V2.Pin]
+
+        init(
+            pins: PinsStore.Pins,
+            mirrors: DependencyMirrors,
+            originHash: String?
+        ) throws {
+            self.version = Self.version
+            self.pins = try pins.values
+                .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
+                .map { try V2.Pin($0, mirrors: mirrors) }
+            self.originHash = originHash
+        }
+    }
 }
 
 extension PinsStore.Pin {
@@ -433,10 +491,8 @@ extension PinsStore.Pin {
         var packageRef: PackageReference
         if let path = try? AbsolutePath(validating: location) {
             packageRef = .localSourceControl(identity: identity, path: path)
-        } else if let url = URL(string: location) {
-            packageRef = .remoteSourceControl(identity: identity, url: url)
         } else {
-            throw StringError("invalid package location \(location)")
+            packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         }
         if let newName = pin.package {
             packageRef = packageRef.withName(newName)
@@ -471,10 +527,7 @@ extension PinsStore.Pin {
         case .localSourceControl:
             packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
         case .remoteSourceControl:
-            guard let url = URL(string: location) else {
-                throw StringError("invalid url location: \(location)")
-            }
-            packageRef = .remoteSourceControl(identity: identity, url: url)
+            packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         case .registry:
             packageRef = .registry(identity: identity)
         }

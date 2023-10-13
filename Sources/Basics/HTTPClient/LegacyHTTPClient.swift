@@ -107,6 +107,7 @@ public final class LegacyHTTPClient: Cancellable {
         }
 
         if let authorization = request.options.authorizationProvider?(request.url),
+           !authorization.isEmpty,
            !request.headers.contains("Authorization")
         {
             request.headers.add(name: "Authorization", value: authorization)

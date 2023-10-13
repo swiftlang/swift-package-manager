@@ -28,6 +28,8 @@ import WinSDK
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 import func TSCBasic.exec
@@ -197,16 +199,16 @@ public final class SwiftTool {
     public let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
-    public let sharedSecurityDirectory: AbsolutePath?
+    public let sharedSecurityDirectory: AbsolutePath
 
     /// Path to the shared cache directory
-    public let sharedCacheDirectory: AbsolutePath?
+    public let sharedCacheDirectory: AbsolutePath
 
     /// Path to the shared configuration directory
-    public let sharedConfigurationDirectory: AbsolutePath?
+    public let sharedConfigurationDirectory: AbsolutePath
 
-    /// Path to the cross-compilation destinations directory.
-    public let sharedSwiftSDKsDirectory: AbsolutePath?
+    /// Path to the cross-compilation Swift SDKs directory.
+    public let sharedSwiftSDKsDirectory: AbsolutePath
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
@@ -426,7 +428,7 @@ public final class SwiftTool {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
                 },
-                restrictImports: .none
+                manifestImportRestrictions: .none
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -450,7 +452,7 @@ public final class SwiftTool {
     private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
+            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", Workspace.DefaultLocations.resolvedFileName)
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
@@ -527,11 +529,12 @@ public final class SwiftTool {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        if options.resolver.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: self.observabilityScope)
-        } else {
-            try workspace.resolve(root: root, observabilityScope: self.observabilityScope)
-        }
+        try workspace.resolve(
+            root: root,
+            forceResolution: false,
+            forceResolvedVersions: options.resolver.forceResolvedVersions,
+            observabilityScope: self.observabilityScope
+        )
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
@@ -590,8 +593,8 @@ public final class SwiftTool {
     }
 
     /// Returns the user toolchain to compile the actual product.
-    public func getDestinationToolchain() throws -> UserToolchain {
-        try _destinationToolchain.get()
+    public func getTargetToolchain() throws -> UserToolchain {
+        try _targetToolchain.get()
     }
 
     public func getHostToolchain() throws -> UserToolchain {
@@ -661,6 +664,68 @@ public final class SwiftTool {
         return buildSystem
     }
 
+    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+        let hostTriple = try self.getHostToolchain().targetTriple
+        let targetTriple = toolchain.targetTriple
+
+        let dataPath = self.scratchDirectory.appending(
+            component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+        )
+
+        return try BuildParameters(
+            dataPath: dataPath,
+            configuration: options.build.configuration,
+            toolchain: toolchain,
+            hostTriple: hostTriple,
+            targetTriple: targetTriple,
+            flags: options.build.buildFlags,
+            pkgConfigDirectories: options.locations.pkgConfigDirectories,
+            architectures: options.build.architectures,
+            workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            sanitizers: options.build.enabledSanitizers,
+            indexStoreMode: options.build.indexStoreMode.buildParameter,
+            isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+            driverParameters: .init(
+                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                    flags: ["entry-point-function-name"],
+                    toolchain: toolchain,
+                    fileSystem: self.fileSystem
+                ),
+                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
+                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
+                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: options.build.useExplicitModuleBuild
+            ),
+            linkingParameters: .init(
+                linkerDeadStrip: options.linker.linkerDeadStrip,
+                linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
+                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
+                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib
+            ),
+            outputParameters: .init(
+                isVerbose: self.logLevel <= .info
+            ),
+            testingParameters: .init(
+                configuration: options.build.configuration,
+                targetTriple: targetTriple,
+                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                testEntryPointPath: options.build.testEntryPointPath
+            )
+        )
+    }
+
+    /// Return the build parameters for the host toolchain.
+    public func hostBuildParameters() throws -> BuildParameters {
+        return try _hostBuildParameters.get()
+    }
+
+    private lazy var _hostBuildParameters: Result<BuildParameters, Swift.Error> = {
+        return Result(catching: {
+            try _buildParams(toolchain: self.getHostToolchain())
+        })
+    }()
+
     /// Return the build parameters.
     public func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
@@ -668,117 +733,82 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let destinationToolchain = try self.getDestinationToolchain()
-            let destinationTriple = destinationToolchain.triple
-
-            // Use "apple" as the subdirectory because in theory Xcode build system
-            // can be used to build for any Apple platform and it has it's own
-            // conventions for build subpaths based on platforms.
-            let dataPath = self.scratchDirectory.appending(
-                component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
-            )
-
-            return try BuildParameters(
-                dataPath: dataPath,
-                configuration: options.build.configuration,
-                toolchain: destinationToolchain,
-                destinationTriple: destinationTriple,
-                flags: options.build.buildFlags,
-                pkgConfigDirectories: options.locations.pkgConfigDirectories,
-                architectures: options.build.architectures,
-                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], toolchain: destinationToolchain, fileSystem: self.fileSystem
-                ),
-                sanitizers: options.build.enabledSanitizers,
-                enableCodeCoverage: false, // set by test commands when appropriate
-                indexStoreMode: options.build.indexStoreMode.buildParameter,
-                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
-                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                testEntryPointPath: options.build.testEntryPointPath,
-                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
-                linkerDeadStrip: options.linker.linkerDeadStrip,
-                verboseOutput: self.logLevel <= .info,
-                linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter
-            )
+            try _buildParams(toolchain: self.getTargetToolchain())
         })
     }()
 
-    /// Lazily compute the destination toolchain.
-    private lazy var _destinationToolchain: Result<UserToolchain, Swift.Error> = {
-        var destination: Destination
-        let hostDestination: Destination
+    /// Lazily compute the target toolchain.
+    private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
+        var swiftSDK: SwiftSDK
+        let hostSwiftSDK: SwiftSDK
         do {
             let hostToolchain = try _hostToolchain.get()
-            hostDestination = hostToolchain.destination
-            let hostTriple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+            hostSwiftSDK = hostToolchain.swiftSDK
+            let hostTriple = hostToolchain.targetTriple
 
             // Create custom toolchain if present.
-            if let customDestination = options.locations.customCompileDestination {
-                let destinations = try Destination.decode(
+            if let customDestination = self.options.locations.customCompileDestination {
+                let swiftSDKs = try SwiftSDK.decode(
                     fromFile: customDestination,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope
                 )
-                if destinations.count == 1 {
-                    destination = destinations[0]
-                } else if destinations.count > 1,
+                if swiftSDKs.count == 1 {
+                    swiftSDK = swiftSDKs[0]
+                } else if swiftSDKs.count > 1,
                           let triple = options.build.customCompileTriple,
-                          let matchingDestination = destinations.first(where: { $0.targetTriple == triple })
+                          let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
                 {
-                    destination = matchingDestination
+                    swiftSDK = matchingSDK
                 } else {
-                    return .failure(DestinationError.noDestinationsDecoded(customDestination))
+                    return .failure(SwiftSDKError.noSwiftSDKDecoded(customDestination))
                 }
             } else if let triple = options.build.customCompileTriple,
-                      let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
+                      let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
             {
-                destination = targetDestination
+                swiftSDK = targetSwiftSDK
             } else if let swiftSDKSelector = options.build.swiftSDKSelector {
-                destination = try SwiftSDKBundle.selectBundle(
-                    fromBundlesAt: sharedSwiftSDKsDirectory,
-                    fileSystem: fileSystem,
-                    matching: swiftSDKSelector,
-                    hostTriple: hostTriple,
-                    observabilityScope: observabilityScope
+                let store = SwiftSDKBundleStore(
+                    swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope,
+                    outputHandler: { print($0.description) }
                 )
+                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
             } else {
                 // Otherwise use the host toolchain.
-                destination = hostDestination
+                swiftSDK = hostSwiftSDK
             }
         } catch {
             return .failure(error)
         }
         // Apply any manual overrides.
         if let triple = options.build.customCompileTriple {
-            destination.targetTriple = triple
+            swiftSDK.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
-            destination.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
+            swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
-            destination.pathsConfiguration.sdkRootPath = sdk
+            swiftSDK.pathsConfiguration.sdkRootPath = sdk
         }
-        destination.architectures = options.build.architectures
+        swiftSDK.architectures = options.build.architectures.isEmpty ? nil : options.build.architectures
 
         // Check if we ended up with the host toolchain.
-        if hostDestination == destination {
+        if hostSwiftSDK == swiftSDK {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(destination: destination) })
+        return Result(catching: { try UserToolchain(swiftSDK: swiftSDK) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
-            try UserToolchain(destination: Destination.hostDestination(
-                originalWorkingDirectory: self.originalWorkingDirectory))
+            try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(
+                originalWorkingDirectory: self.originalWorkingDirectory,
+                observabilityScope: self.observabilityScope
+            ))
         })
     }()
 
@@ -794,7 +824,7 @@ public final class SwiftTool {
             case (false, .local):
                 cachePath = self.scratchDirectory
             case (false, .shared):
-                cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
+                cachePath = Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
             }
 
             var extraManifestFlags = self.options.build.manifestFlags
@@ -817,7 +847,7 @@ public final class SwiftTool {
                 isManifestSandboxEnabled: !self.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags,
-                restrictImports: nil
+                importRestrictions: .none
             )
         })
     }()
@@ -846,7 +876,7 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
     return root
 }
 
-private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
+private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath {
     if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
         if !fileSystem.exists(explicitSecurityDirectory) {
@@ -859,7 +889,7 @@ private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: File
     }
 }
 
-private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
+private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath {
     if let explicitConfigurationDirectory = options.locations.configurationDirectory {
         // Create the explicit config path if necessary
         if !fileSystem.exists(explicitConfigurationDirectory) {
@@ -872,7 +902,7 @@ private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem:
     }
 }
 
-private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
+private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath {
     if let explicitCacheDirectory = options.locations.cacheDirectory {
         // Create the explicit cache path if necessary
         if !fileSystem.exists(explicitCacheDirectory) {
@@ -974,6 +1004,19 @@ extension BuildOptions.LinkTimeOptimizationMode {
             return .full
         case .thin:
             return .thin
+        }
+    }
+}
+
+extension BuildOptions.DebugInfoFormat {
+    fileprivate var buildParameter: BuildParameters.DebugInfoFormat {
+        switch self {
+        case .dwarf:
+            return .dwarf
+        case .codeview:
+            return .codeview
+        case .none:
+            return .none
         }
     }
 }

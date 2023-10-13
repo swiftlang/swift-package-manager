@@ -12,9 +12,10 @@ add_library(PackageModel
   BuildEnvironment.swift
   BuildFlags.swift
   BuildSettings.swift
-  Destination.swift
+  DependencyMapper.swift
   Diagnostics.swift
   IdentityResolver.swift
+  InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift
@@ -42,9 +43,16 @@ add_library(PackageModel
   Sources.swift
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
-  SwiftSDKConfigurationStore.swift
-  SwiftSDKBundle.swift
-  Target.swift
+  SwiftSDKs/SwiftSDK.swift
+  SwiftSDKs/SwiftSDKConfigurationStore.swift
+  SwiftSDKs/SwiftSDKBundle.swift
+  SwiftSDKs/SwiftSDKBundleStore.swift
+  Target/BinaryTarget.swift
+  Target/ClangTarget.swift
+  Target/PluginTarget.swift
+  Target/SwiftTarget.swift
+  Target/SystemLibraryTarget.swift
+  Target/Target.swift
   Toolchain.swift
   ToolchainConfiguration.swift
   Toolset.swift

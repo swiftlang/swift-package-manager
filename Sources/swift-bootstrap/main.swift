@@ -108,6 +108,20 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     @Flag()
     public var useIntegratedSwiftDriver: Bool = false
 
+    /// A flag that indicates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    @Option()
+    public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+
+    enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
+        case none
+        case error
+    }
+
+    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
+    public var shouldDisableLocalRpath: Bool = false
+
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
@@ -177,7 +191,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 architectures: self.architectures,
                 buildFlags: self.buildFlags,
                 manifestBuildFlags: self.manifestFlags,
-                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver
+                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
+                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: self.shouldDisableLocalRpath
             )
         } catch _ as Diagnostics {
             throw ExitCode.failure
@@ -186,8 +202,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     struct Builder {
         let identityResolver: IdentityResolver
+        let dependencyMapper: DependencyMapper
         let hostToolchain: UserToolchain
-        let destinationToolchain: UserToolchain
+        let targetToolchain: UserToolchain
         let fileSystem: FileSystem
         let observabilityScope: ObservabilityScope
         let logLevel: Basics.Diagnostic.Severity
@@ -203,8 +220,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             }
 
             self.identityResolver = DefaultIdentityResolver()
-            self.hostToolchain = try UserToolchain(destination: Destination.hostDestination(originalWorkingDirectory: cwd))
-            self.destinationToolchain = hostToolchain // TODO: support destinations?
+            self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
+            self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(originalWorkingDirectory: cwd))
+            self.targetToolchain = hostToolchain // TODO: support cross-compilation?
             self.fileSystem = fileSystem
             self.observabilityScope = observabilityScope
             self.logLevel = logLevel
@@ -218,7 +236,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             architectures: [String],
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
-            useIntegratedSwiftDriver: Bool
+            useIntegratedSwiftDriver: Bool,
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool
         ) throws {
             let buildSystem = try createBuildSystem(
                 packagePath: packagePath,
@@ -229,6 +249,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 buildFlags: buildFlags,
                 manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+                explicitTargetDependencyImportCheck: explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
             try buildSystem.build(subset: .allExcludingTests)
@@ -243,6 +265,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
 
@@ -250,20 +274,28 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildFlags.swiftCompilerFlags += Self.additionalSwiftBuildFlags
 
             let dataPath = scratchDirectory.appending(
-                component: self.destinationToolchain.triple.platformBuildPathComponent(buildSystem: buildSystem)
+                component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
 
             let buildParameters = try BuildParameters(
                 dataPath: dataPath,
                 configuration: configuration,
-                toolchain: self.destinationToolchain,
-                hostTriple: self.hostToolchain.triple,
-                destinationTriple: self.destinationToolchain.triple,
+                toolchain: self.targetToolchain,
+                hostTriple: self.hostToolchain.targetTriple,
+                targetTriple: self.targetToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
-                verboseOutput: logLevel <= .info
+                driverParameters: .init(
+                    explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
+                    useIntegratedSwiftDriver: useIntegratedSwiftDriver
+                ),
+                linkingParameters: .init(
+                    shouldDisableLocalRpath: shouldDisableLocalRpath
+                ),
+                outputParameters: .init(
+                    isVerbose: logLevel <= .info
+                )
             )
 
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
@@ -322,7 +354,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
             _ = try topologicalSort(input) { pair in
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
-                let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
+                let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try temp_await { self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0) }
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in
@@ -334,7 +366,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
             let packageGraphRoot = PackageGraphRoot(
                 input: .init(packages: [packagePath]),
-                manifests: [packagePath: rootPackageManifest]
+                manifests: [packagePath: rootPackageManifest],
+                observabilityScope: observabilityScope
             )
 
             return try PackageGraph.load(
@@ -394,6 +427,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     packageLocation: package.locationString,
                     packageVersion: .none,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     delegateQueue: .sharedConcurrent,

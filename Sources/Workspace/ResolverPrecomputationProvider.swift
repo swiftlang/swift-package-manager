@@ -56,7 +56,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
 
     func getContainer(
         for package: PackageReference,
-        skipUpdate: Bool,
+        updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>) -> Void

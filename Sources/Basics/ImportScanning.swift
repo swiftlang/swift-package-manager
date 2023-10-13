@@ -23,11 +23,7 @@ private struct Imports: Decodable {
 }
 
 public protocol ImportScanner {
-    func scanImports(
-        _ filePathToScan: AbsolutePath,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[String], Error>) -> Void
-    )
+    func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String]
 }
 
 public struct SwiftcImportScanner: ImportScanner {
@@ -45,33 +41,16 @@ public struct SwiftcImportScanner: ImportScanner {
         self.swiftCompilerPath = swiftCompilerPath
     }
 
-    public func scanImports(
-        _ filePathToScan: AbsolutePath,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[String], Error>) -> Void
-    ) {
+    public func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String] {
         let cmd = [swiftCompilerPath.pathString,
                    filePathToScan.pathString,
                    "-scan-dependencies", "-Xfrontend", "-import-prescan"] + self.swiftCompilerFlags
 
-        TSCBasic.Process
-            .popen(arguments: cmd, environment: self.swiftCompilerEnvironment, queue: callbackQueue) { result in
-                dispatchPrecondition(condition: .onQueue(callbackQueue))
+        let result = try await TSCBasic.Process.popen(arguments: cmd, environment: self.swiftCompilerEnvironment)
 
-                do {
-                    let stdout = try result.get().utf8Output()
-                    let imports = try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports
-                        .filter { !defaultImports.contains($0) }
-
-                    callbackQueue.async {
-                        completion(.success(imports))
-                    }
-                } catch {
-                    callbackQueue.async {
-                        completion(.failure(error))
-                    }
-                }
-            }
+        let stdout = try result.utf8Output()
+        return try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports
+            .filter { !defaultImports.contains($0) }
     }
 
     public func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String] {

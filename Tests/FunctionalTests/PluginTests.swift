@@ -472,6 +472,7 @@ class PluginTests: XCTestCase {
                         readOnlyDirectories: [package.path],
                         allowNetworkConnections: [],
                         pkgConfigDirectories: [],
+                        sdkRootPath: nil,
                         fileSystem: localFileSystem,
                         observabilityScope: observability.topScope,
                         callbackQueue: delegateQueue,
@@ -742,6 +743,7 @@ class PluginTests: XCTestCase {
                 readOnlyDirectories: [package.path],
                 allowNetworkConnections: [],
                 pkgConfigDirectories: [],
+                sdkRootPath: try UserToolchain.default.sdkRootPath,
                 fileSystem: localFileSystem,
                 observabilityScope: observability.topScope,
                 callbackQueue: delegateQueue,
@@ -966,6 +968,15 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
             XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        }
+    }
+
+    func testIncorrectDependencies() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-tests"])
+            XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
     }
 

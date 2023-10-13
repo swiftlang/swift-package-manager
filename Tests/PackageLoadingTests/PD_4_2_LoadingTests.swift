@@ -23,6 +23,8 @@ import enum TSCBasic.PathValidationError
 
 import func TSCTestSupport.withCustomEnv
 
+import struct TSCUtility.Version
+
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2
@@ -38,7 +40,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
-                    .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                    .package(url: "\(AbsolutePath("/foo1").escapedPathString)", from: "1.0.0"),
                 ],
                 targets: [
                     .target(
@@ -253,15 +255,15 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
-                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath("/foo1").escapedPathString)", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath("/foo2").escapedPathString)", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
-                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString())"),
-                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .exact("1.2.3")),
-                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
-                   .package(url: "\(AbsolutePath("/foo7").escapedPathString())", .branch("master")),
-                   .package(url: "\(AbsolutePath("/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "\(AbsolutePath("/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString)"),
+                   .package(url: "\(AbsolutePath("/foo5").escapedPathString)", .exact("1.2.3")),
+                   .package(url: "\(AbsolutePath("/foo6").escapedPathString)", "1.2.3"..<"2.0.0"),
+                   .package(url: "\(AbsolutePath("/foo7").escapedPathString)", .branch("master")),
+                   .package(url: "\(AbsolutePath("/foo8").escapedPathString)", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "\(AbsolutePath("/foo9").escapedPathString)", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
                    .package(path: "~foo11"),
                    .package(path: "~/path/to/~/foo12"),
@@ -575,212 +577,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testCacheInvalidationOnEnv() throws {
-        try testWithTemporaryDirectory { path in
-            let fs = localFileSystem
-            let observability = ObservabilitySystem.makeForTesting()
-
-            let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.createDirectory(manifestPath.parentDirectory, recursive: true)
-            try fs.writeFileContents(
-                manifestPath,
-                string: """
-                    import PackageDescription
-                    let package = Package(
-                        name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: []),
-                        ]
-                    )
-                    """
-            )
-
-            let delegate = ManifestTestDelegate()
-
-            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
-
-            func check(loader: ManifestLoader, expectCached: Bool) throws {
-                delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
-
-                let manifest = try XCTUnwrap(loader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .fileSystem(manifestPath.parentDirectory),
-                    toolsVersion: .v4_2,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                ))
-
-                XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
-                XCTAssertEqual(manifest.displayName, "Trivial")
-                XCTAssertEqual(manifest.targets[0].name, "foo")
-            }
-
-            try check(loader: manifestLoader, expectCached: false)
-            try check(loader: manifestLoader, expectCached: true)
-
-            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
-                try check(loader: manifestLoader, expectCached: false)
-                try check(loader: manifestLoader, expectCached: true)
-            }
-
-            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
-                try check(loader: manifestLoader, expectCached: false)
-                try check(loader: manifestLoader, expectCached: true)
-            }
-
-            try check(loader: manifestLoader, expectCached: true)
-        }
-    }
-
-    func testCaching() throws {
-        try testWithTemporaryDirectory { path in
-            let fs = localFileSystem
-            let observability = ObservabilitySystem.makeForTesting()
-
-            let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.createDirectory(manifestPath.parentDirectory, recursive: true)
-            try fs.writeFileContents(
-                manifestPath,
-                string: """
-                    import PackageDescription
-                    let package = Package(
-                        name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: []),
-                        ]
-                    )
-                    """
-            )
-
-            let delegate = ManifestTestDelegate()
-
-            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
-
-            func check(loader: ManifestLoader, expectCached: Bool) throws {
-                delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
-
-                let manifest = try XCTUnwrap(loader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .fileSystem(manifestPath.parentDirectory),
-                    toolsVersion: .v4_2,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                ))
-
-                XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
-                XCTAssertEqual(manifest.displayName, "Trivial")
-                XCTAssertEqual(manifest.targets[0].name, "foo")
-            }
-
-            try check(loader: manifestLoader, expectCached: false)
-            for _ in 0..<2 {
-                try check(loader: manifestLoader, expectCached: true)
-            }
-
-            try fs.writeFileContents(
-                manifestPath,
-                string: """
-                    import PackageDescription
-
-                    let package = Package(
-
-                        name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: [  ]),
-                        ]
-                    )
-
-                    """
-            )
-
-            try check(loader: manifestLoader, expectCached: false)
-            for _ in 0..<2 {
-                try check(loader: manifestLoader, expectCached: true)
-            }
-
-            let noCacheLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: delegate)
-            for _ in 0..<2 {
-                try check(loader: noCacheLoader, expectCached: false)
-            }
-
-            // Resetting the cache should allow us to remove the cache
-            // directory without triggering assertions in sqlite.
-            manifestLoader.purgeCache(observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            try localFileSystem.removeFileTree(path)
-        }
-    }
-
-    func testContentBasedCaching() throws {
-        try testWithTemporaryDirectory { path in
-            let manifest = """
-                import PackageDescription
-                let package = Package(
-                    name: "Trivial",
-                    targets: [
-                        .target(name: "foo"),
-                    ]
-                )
-            """
-
-            let delegate = ManifestTestDelegate()
-
-            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
-
-            func check(loader: ManifestLoader, manifest: String) throws {
-                let fs = InMemoryFileSystem()
-                let observability = ObservabilitySystem.makeForTesting()
-
-                let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-                try fs.writeFileContents(manifestPath, string: manifest)
-
-                let m = try manifestLoader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .root(.root),
-                    toolsVersion: .v4_2,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                )
-
-                XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(m.displayName, "Trivial")
-            }
-
-            do {
-                delegate.prepare()
-                try check(loader: manifestLoader, manifest: manifest)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 1)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
-            }
-
-            do {
-                delegate.prepare(expectParsing: false)
-                try check(loader: manifestLoader, manifest: manifest)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 2)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
-            }
-
-            do {
-                delegate.prepare()
-                try check(loader: manifestLoader, manifest: manifest + "\n\n")
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 2)
-            }
-        }
-    }
-
     func testProductTargetNotFound() throws {
         let content = """
             import PackageDescription
@@ -831,6 +627,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             // warm up caches
             delegate.prepare()
@@ -843,6 +640,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -867,6 +665,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -912,6 +711,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
@@ -945,6 +745,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     packageLocation: manifestPath.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -973,49 +774,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
 #endif
-    }
-
-    final class ManifestTestDelegate: ManifestLoaderDelegate {
-        private let loaded = ThreadSafeArrayStore<AbsolutePath>()
-        private let parsed = ThreadSafeArrayStore<AbsolutePath>()
-        private let loadingGroup = DispatchGroup()
-        private let parsingGroup = DispatchGroup()
-
-        func prepare(expectParsing: Bool = true) {
-            self.loadingGroup.enter()
-            if expectParsing {
-                self.parsingGroup.enter()
-            }
-        }
-
-        func willLoad(manifest: AbsolutePath) {
-            self.loaded.append(manifest)
-            self.loadingGroup.leave()
-        }
-
-        func willParse(manifest: AbsolutePath) {
-            self.parsed.append(manifest)
-            self.parsingGroup.leave()
-        }
-
-        func clear() {
-            self.loaded.clear()
-            self.parsed.clear()
-        }
-
-        func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
-            guard case .success = self.loadingGroup.wait(timeout: timeout) else {
-                throw StringError("timeout waiting for loading")
-            }
-            return self.loaded.get()
-        }
-
-        func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
-            guard case .success = self.parsingGroup.wait(timeout: timeout) else {
-                throw StringError("timeout waiting for parsing")
-            }
-            return self.parsed.get()
-        }
     }
 }
 

@@ -81,7 +81,8 @@ extension SwiftPackageRegistryTool {
         var dryRun: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let configuration = try getRegistriesConfig(swiftTool).configuration
+            // Require both local and user-level registries config
+            let configuration = try getRegistriesConfig(swiftTool, global: false).configuration
 
             // validate package location
             let packageDirectory = try self.globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()

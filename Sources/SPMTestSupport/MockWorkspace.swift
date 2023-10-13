@@ -68,7 +68,7 @@ public final class MockWorkspace {
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
         self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
-        self.mirrors = customMirrors ?? DependencyMirrors()
+        self.mirrors = try customMirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(
             locationMapper: self.mirrors.effective(for:),
             identityMapper: self.mirrors.effectiveIdentity(for:)
@@ -139,9 +139,10 @@ public final class MockWorkspace {
                     let container = try temp_await {
                         containerProvider.getContainer(
                             for: packageRef,
-                            skipUpdate: true,
+                            updateStrategy: .never,
                             observabilityScope: observability.topScope,
-                            on: .sharedConcurrent, completion: $0
+                            on: .sharedConcurrent,
+                            completion: $0
                         )
                     }
                     guard let customContainer = container as? CustomPackageContainer else {
@@ -276,7 +277,7 @@ public final class MockWorkspace {
             location: .init(
                 scratchDirectory: self.sandbox.appending(".build"),
                 editsDirectory: self.sandbox.appending("edits"),
-                resolvedVersionsFile: self.sandbox.appending("Package.resolved"),
+                resolvedVersionsFile: Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.sandbox),
                 localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),
                 sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
                 sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,
@@ -294,7 +295,7 @@ public final class MockWorkspace {
                 skipSignatureValidation: false,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 defaultRegistry: self.defaultRegistry,
-                restrictImports: .none
+                manifestImportRestrictions: .none
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -316,9 +317,14 @@ public final class MockWorkspace {
 
     private var _workspace: Workspace?
 
-    public func closeWorkspace(resetState: Bool = true) throws {
+    public func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) throws {
         if resetState {
             try self._workspace?.resetState()
+        }
+        if resetResolvedFile {
+            try self._workspace.map {
+                try self.fileSystem.removeFileTree($0.location.resolvedVersionsFile)
+            }
         }
         self._workspace = nil
     }
@@ -511,7 +517,7 @@ public final class MockWorkspace {
 
         let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
-        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
 
         let dependencyManifests = try workspace.loadDependencyManifests(root: root, observabilityScope: observability.topScope)
 
@@ -727,7 +733,7 @@ public final class MockWorkspace {
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
-        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)
     }
@@ -758,11 +764,11 @@ public final class MockWorkspace {
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertFalse(self.store.pinsMap.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
+            XCTAssertFalse(self.store.pins.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
         }
 
         public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pinsMap.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
@@ -789,12 +795,12 @@ public final class MockWorkspace {
         }
 
         public func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.pinsMap.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }
 
-            XCTAssertEqual(pin.packageRef.kind, .remoteSourceControl(URL(string: url)!), file: file, line: line)
+            XCTAssertEqual(pin.packageRef.kind, .remoteSourceControl(SourceControlURL(url)), file: file, line: line)
         }
     }
 
@@ -900,6 +906,46 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func didDownloadAllBinaryArtifacts() {
+        // noop
+    }
+
+    public func willUpdateDependencies() {
+        // noop
+    }
+
+    public func didUpdateDependencies(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willResolveDependencies() {
+        // noop
+    }
+
+    public func didResolveDependencies(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willLoadGraph() {
+        // noop
+    }
+
+    public func didLoadGraph(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         // noop
     }
 

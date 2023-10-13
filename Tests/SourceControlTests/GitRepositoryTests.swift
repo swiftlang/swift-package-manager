@@ -483,12 +483,12 @@ class GitRepositoryTests: XCTestCase {
             let repo = GitRepository(path: testRepoPath)
             var currentRevision = try repo.getCurrentRevision()
             // This is the default branch of a new repo.
-            XCTAssert(repo.exists(revision: Revision(identifier: "main")))
+            XCTAssertTrue(repo.exists(revision: Revision(identifier: "main")))
             // Check a non existent revision.
             XCTAssertFalse(repo.exists(revision: Revision(identifier: "nonExistent")))
             // Checkout a new branch using command line.
             try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "checkout", "-b", "TestBranch1"])
-            XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch1")))
+            XCTAssertTrue(repo.exists(revision: Revision(identifier: "TestBranch1")))
             XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
 
             // Make sure we're on the new branch right now.
@@ -500,6 +500,31 @@ class GitRepositoryTests: XCTestCase {
             XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch2")))
             XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
             XCTAssertEqual(try repo.currentBranch(), "TestBranch2")
+        }
+    }
+
+    func testRevisionOperations() throws {
+        try testWithTemporaryDirectory { path in
+            // Create a repo.
+            let repositoryPath = path.appending("test-repo")
+            try makeDirectories(repositoryPath)
+            initGitRepo(repositoryPath)
+
+            let repo = GitRepository(path: repositoryPath)
+
+            do {
+                let revision = try repo.getCurrentRevision()
+                XCTAssertTrue(repo.exists(revision: revision))
+            }
+
+            do {
+                XCTAssertFalse(repo.exists(revision: Revision(identifier: UUID().uuidString)))
+
+                let tag = UUID().uuidString
+                try repo.tag(name: tag)
+                let revision = try repo.resolveRevision(tag: tag)
+                XCTAssertTrue(repo.exists(revision: revision))
+            }
         }
     }
 
@@ -657,11 +682,14 @@ class GitRepositoryTests: XCTestCase {
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
 
             // The object store should be valid.
-            XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid())
+            XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath))
+
+            // Wrong path
+            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath.appending(UUID().uuidString)))
 
             // Delete the clone (alternative object store).
             try localFileSystem.removeFileTree(testClonePath)
-            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid())
+            XCTAssertFalse(checkoutRepo.isAlternateObjectStoreValid(expected: testClonePath))
         }
     }
 

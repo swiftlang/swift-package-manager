@@ -135,7 +135,7 @@ fileprivate struct WorkspaceStateStorage {
             let storage = V6(dependencies: dependencies, artifacts: artifacts)
 
             let data = try self.encoder.encode(storage)
-            try self.fileSystem.writeFileContents(self.path, data: data)
+            try self.fileSystem.writeIfChanged(path: self.path, data: data)
         }
     }
 
@@ -480,10 +480,7 @@ extension PackageModel.PackageReference {
         case .localSourceControl:
             kind = try .localSourceControl(.init(validating: reference.location))
         case .remoteSourceControl:
-            guard let url = URL(string: reference.location) else {
-                throw StringError("invalid url \(reference.location)")
-            }
-            kind = .remoteSourceControl(url)
+            kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
         }
@@ -800,10 +797,7 @@ extension PackageModel.PackageReference {
         case .localSourceControl:
             kind = try .localSourceControl(.init(validating: reference.location))
         case .remoteSourceControl:
-            guard let url = URL(string: reference.location) else {
-                throw StringError("invalid url \(reference.location)")
-            }
-            kind = .remoteSourceControl(url)
+            kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
         }
@@ -1040,10 +1034,8 @@ extension PackageModel.PackageReference {
         case "remote":
             if let path = try? AbsolutePath(validating: reference.location) {
                 kind = .localSourceControl(path)
-            } else if let url = URL(string: reference.location) {
-                kind = .remoteSourceControl(url)
             } else {
-                throw StringError("invalid package kind \(reference.kind)")
+                kind = .remoteSourceControl(SourceControlURL(reference.location))
             }
         default:
             throw StringError("invalid package kind \(reference.kind)")

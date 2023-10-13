@@ -61,6 +61,12 @@ let swiftPMProduct = (
     ]
 )
 
+#if os(Windows)
+let systemSQLitePkgConfig: String? = nil
+#else
+let systemSQLitePkgConfig: String? = "sqlite3"
+#endif
+
 /** An array of products which have two versions listed: one dynamically linked, the other with the
 automatic linking type with `-auto` suffix appended to product's name.
 */
@@ -143,7 +149,7 @@ let package = Package(
 
         // MARK: SwiftPM specific support libraries
 
-        .systemLibrary(name: "SPMSQLite3", pkgConfig: "sqlite3"),
+        .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
 
         .target(
             name: "Basics",
@@ -154,7 +160,7 @@ let package = Package(
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt", "Vendor/README.md"]
         ),
 
         .target(
@@ -491,13 +497,6 @@ let package = Package(
             name: "swift-package-registry",
             dependencies: ["Commands", "PackageRegistryTool"]
         ),
-        .executableTarget(
-            /** Shim tool to find test names on OS X */
-            name: "swiftpm-xctest-helper",
-            dependencies: [],
-            linkerSettings: [
-                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
-            ]),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
@@ -549,7 +548,11 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "SPMTestSupport"]
+            dependencies: ["Build", "PackageModel", "SPMTestSupport"]
+        ),
+        .testTarget(
+            name: "LLBuildManifestTests",
+            dependencies: ["Basics", "LLBuildManifest", "SPMTestSupport"]
         ),
         .testTarget(
             name: "WorkspaceTests",
@@ -667,6 +670,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             ]
         ),
 
+        .executableTarget(
+            name: "dummy-swiftc",
+            dependencies: [
+                "Basics",
+            ]
+        ),
+
         .testTarget(
             name: "CommandsTests",
             dependencies: [
@@ -682,6 +692,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",
+                "dummy-swiftc",
             ]
         ),
     ])
@@ -712,7 +723,9 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
             .package(name: "swift-llbuild", path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [.product(name: "llbuildSwift", package: "swift-llbuild")]
+    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [
+        .product(name: "llbuildSwift", package: "swift-llbuild"),
+    ]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
@@ -723,10 +736,10 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.5.0")),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "0.6.0")),
+        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
     ]
 } else {
     package.dependencies += [

@@ -21,6 +21,35 @@ class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
         .v5_9
     }
 
+    func testPlatforms() throws {
+        let content =  """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v14), .iOS(.v17),
+                   .tvOS(.v17), .watchOS(.v10), .visionOS(.v1),
+                   .macCatalyst(.v17), .driverKit(.v23),
+               ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+
+        XCTAssertEqual(manifest.platforms, [
+            PlatformDescription(name: "macos", version: "14.0"),
+            PlatformDescription(name: "ios", version: "17.0"),
+            PlatformDescription(name: "tvos", version: "17.0"),
+            PlatformDescription(name: "watchos", version: "10.0"),
+            PlatformDescription(name: "visionos", version: "1.0"),
+            PlatformDescription(name: "maccatalyst", version: "17.0"),
+            PlatformDescription(name: "driverkit", version: "23.0"),
+        ])
+    }
+
     func testMacroTargets() throws {
         let content = """
             import CompilerPluginSupport

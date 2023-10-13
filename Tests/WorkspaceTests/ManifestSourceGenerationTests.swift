@@ -52,6 +52,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             try fs.writeFileContents(manifestPath, string: manifestContents)
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
+            let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
             let manifest = try temp_await {
                 manifestLoader.load(
                     manifestPath: manifestPath,
@@ -61,6 +62,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                     packageLocation: packageDir.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fs,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -92,6 +94,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                     packageLocation: packageDir.pathString,
                     packageVersion: nil,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fs,
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
@@ -432,12 +435,13 @@ class ManifestSourceGenerationTests: XCTestCase {
             let package = Package(
                 name: "MyPackage",
                 platforms: [
-                    .macOS(.v13),
-                    .iOS(.v16),
-                    .tvOS(.v16),
-                    .watchOS(.v9),
-                    .macCatalyst(.v16),
-                    .driverKit(.v22)
+                    .macOS(.v14),
+                    .iOS(.v17),
+                    .tvOS(.v17),
+                    .watchOS(.v10),
+                    .visionOS(.v1),
+                    .macCatalyst(.v17),
+                    .driverKit(.v23)
                 ],
                 targets: [
                 ]
@@ -460,8 +464,8 @@ class ManifestSourceGenerationTests: XCTestCase {
                         name: "MyExe",
                         dependencies: [
                             .target(name: "MyLib", condition: .when(platforms: [
-                                .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .driverKit,
-                                .linux, .windows, .android, .wasi, .openbsd
+                                .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS,
+                                .driverKit, .linux, .windows, .android, .wasi, .openbsd
                             ]))
                         ]
                     ),

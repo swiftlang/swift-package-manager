@@ -23,11 +23,11 @@ internal final class PubGrubPackageContainer {
     let underlying: PackageContainer
 
     /// Reference to the pins map.
-    private let pinsMap: PinsStore.PinsMap
+    private let pins: PinsStore.Pins
 
-    init(underlying: PackageContainer, pinsMap: PinsStore.PinsMap) {
+    init(underlying: PackageContainer, pins: PinsStore.Pins) {
         self.underlying = underlying
-        self.pinsMap = pinsMap
+        self.pins = pins
     }
 
     var package: PackageReference {
@@ -36,7 +36,7 @@ internal final class PubGrubPackageContainer {
 
     /// Returns the pinned version for this package, if any.
     var pinnedVersion: Version? {
-        switch self.pinsMap[self.underlying.package.identity]?.state {
+        switch self.pins[self.underlying.package.identity]?.state {
         case .version(let version, _):
             return version
         default:
@@ -76,16 +76,12 @@ internal final class PubGrubPackageContainer {
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term) throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
-        let versionSet = term.requirement
+        var versionSet = term.requirement
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
         if let pinnedVersion {
             if versionSet.contains(pinnedVersion) {
-                // Make sure the pinned version is still available
-                let version = try self.underlying.versionsDescending().first { pinnedVersion == $0 }
-                if version != nil {
-                    return version
-                }
+                versionSet = .exact(pinnedVersion)
             }
         }
 

@@ -204,14 +204,56 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    // noop
+    public func willUpdateDependencies() {
+        self.observabilityScope.emit(debug: "Updating dependencies")
+        os_signpost(.begin, name: SignpostName.updatingDependencies)
+    }
 
-    func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {}
+    public func didUpdateDependencies(duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Dependencies updated in (\(duration.descriptionInSeconds))")
+        os_signpost(.end, name: SignpostName.updatingDependencies)
+    }
+
+    public func willResolveDependencies() {
+        self.observabilityScope.emit(debug: "Resolving dependencies")
+        os_signpost(.begin, name: SignpostName.resolvingDependencies)
+    }
+
+    public func didResolveDependencies(duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Dependencies resolved in (\(duration.descriptionInSeconds))")
+        os_signpost(.end, name: SignpostName.resolvingDependencies)
+    }
+
+    func willLoadGraph() {
+        self.observabilityScope.emit(debug: "Loading and validating graph")
+        os_signpost(.begin, name: SignpostName.loadingGraph)
+    }
+
+    func didLoadGraph(duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Graph loaded in (\(duration.descriptionInSeconds))")
+        os_signpost(.end, name: SignpostName.loadingGraph)
+    }
+
+    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Compiled manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
+    }
+
+    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Evaluated manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
+    }
+
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
+        self.observabilityScope.emit(debug: "Loaded manifest for '\(packageIdentity)' (from '\(url)') in \(duration.descriptionInSeconds)")
+    }
+
+    // noop
     func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
     func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
     func resolvedFileChanged() {}
     func didDownloadAllBinaryArtifacts() {}
+    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+    func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
 }
 
 public extension _SwiftCommand {

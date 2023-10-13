@@ -8,10 +8,6 @@
 # (W), PGP key ID and fingerprint (P), description (D), and snail-mail address
 # (S).
  
-# N: Anders Bertelrud
-# E: anders@apple.com
-# D: Package Manager
-
 # N: Boris Buegling
 # E: bbuegling@apple.com
 # D: Package Manager
@@ -28,4 +24,4 @@
 
 # The following lines are used by GitHub to automatically recommend reviewers.
 
-* @abertelrud @neonichu @tomerd @MaxDesiatov
+* @neonichu @tomerd @MaxDesiatov

@@ -306,7 +306,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() throws {
-        let fooURL = URL("https://example.com/foo")
+        let fooURL = SourceControlURL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
@@ -1416,7 +1416,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = try resolver.solve(root: rootNode, constraints: dependencies)
 
         // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
@@ -1450,41 +1450,13 @@ final class PubgrubTests: XCTestCase {
             "b": (.version(v1), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("a", .version(v1)),
             ("b", .version(v1_1)),
             ("c", .version(v1))
-        ])
-    }
-
-    func testMissingPin() throws {
-        // This checks that we can drop pins that are no longer available but still keep the ones
-        // which fit the constraints.
-        try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
-        try builder.serve("a", at: v1_1)
-        try builder.serve("b", at: v1)
-        try builder.serve("b", at: v1_1)
-
-        let dependencies = try builder.create(dependencies: [
-            "a": (.versionSet(v1Range), .specific(["a"])),
-        ])
-
-        // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
-        // to v1.
-        let pinsStore = try builder.create(pinsStore: [
-            "a": (.version(v1), .specific(["a"])),
-            "b": (.version("1.2.0"), .specific(["b"])),
-        ])
-
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
-        let result = resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("a", .version(v1)),
-            ("b", .version(v1_1)),
         ])
     }
 
@@ -1504,7 +1476,7 @@ final class PubgrubTests: XCTestCase {
             "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
-        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let resolver = builder.create(pins: pinsStore.pins)
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
@@ -1644,7 +1616,7 @@ final class PubgrubTests: XCTestCase {
                         versionRequirement: .exact(Version(1, 0, 0))
                     )]
                 ]),
-            pinsMap: PinsStore.PinsMap()
+            pins: PinsStore.Pins()
         )
         let rootLocation = AbsolutePath("/Root")
         let otherLocation = AbsolutePath("/Other")
@@ -2864,7 +2836,7 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let resolver = builder.create(pinsMap: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
+        let resolver = builder.create(pins: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
         let dependencies = try builder.create(dependencies: [
             "a": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["a"])),
             "c": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["c"])),
@@ -3116,7 +3088,7 @@ public struct MockProvider: PackageContainerProvider {
 
     public func getContainer(
         for package: PackageReference,
-        skipUpdate: Bool,
+        updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>
@@ -3253,18 +3225,18 @@ class DependencyGraphBuilder {
             store.pin(packageRef: try reference(for: package), state: pin.0)
         }
 
-        try! store.saveState(toolsVersion: ToolsVersion.current)
+        try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         return store
     }
 
 
-    func create(pinsMap: PinsStore.PinsMap = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(pins: PinsStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: Array(self.containers.values))
-        return PubGrubDependencyResolver(provider :provider, pinsMap: pinsMap, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
+        return PubGrubDependencyResolver(provider :provider, pins: pins, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
     }
 }
 

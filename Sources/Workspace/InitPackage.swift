@@ -69,6 +69,9 @@ public final class InitPackage {
     /// The options for package to create.
     let options: InitPackageOptions
 
+    /// Configuration from the used toolchain.
+    let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
+
     /// The name of the package to create.
     let pkgname: String
 
@@ -85,12 +88,14 @@ public final class InitPackage {
         name: String,
         packageType: PackageType,
         destinationPath: AbsolutePath,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
             options: InitPackageOptions(packageType: packageType),
             destinationPath: destinationPath,
+            installedSwiftPMConfiguration: installedSwiftPMConfiguration,
             fileSystem: fileSystem
         )
     }
@@ -100,12 +105,14 @@ public final class InitPackage {
         name: String,
         options: InitPackageOptions,
         destinationPath: AbsolutePath,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         self.options = options
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
         self.destinationPath = destinationPath
+        self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
     }
 
@@ -259,8 +266,7 @@ public final class InitPackage {
             } else if packageType == .macro {
                 pkgParams.append("""
                     dependencies: [
-                        // Depend on the latest Swift 5.9 prerelease of SwiftSyntax
-                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-25-b"),
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "\(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)"),
                     ]
                 """)
             }
@@ -641,14 +647,19 @@ public final class InitPackage {
                 import SwiftSyntaxMacros
                 import SwiftSyntaxMacrosTestSupport
                 import XCTest
+
+                // Macro implementations build for the host, so the corresponding module is not available when cross-compiling. Cross-compiled tests may still make use of the macro itself in end-to-end tests.
+                #if canImport(\##(moduleName)Macros)
                 import \##(moduleName)Macros
 
                 let testMacros: [String: Macro.Type] = [
                     "stringify": StringifyMacro.self,
                 ]
+                #endif
 
                 final class \##(moduleName)Tests: XCTestCase {
-                    func testMacro() {
+                    func testMacro() throws {
+                        #if canImport(\##(moduleName)Macros)
                         assertMacroExpansion(
                             """
                             #stringify(a + b)
@@ -658,9 +669,13 @@ public final class InitPackage {
                             """,
                             macros: testMacros
                         )
+                        #else
+                        throw XCTSkip("macros are only supported when running tests for the host platform")
+                        #endif
                     }
 
-                    func testMacroWithStringLiteral() {
+                    func testMacroWithStringLiteral() throws {
+                        #if canImport(\##(moduleName)Macros)
                         assertMacroExpansion(
                             #"""
                             #stringify("Hello, \(name)")
@@ -670,6 +685,9 @@ public final class InitPackage {
                             """#,
                             macros: testMacros
                         )
+                        #else
+                        throw XCTSkip("macros are only supported when running tests for the host platform")
+                        #endif
                     }
                 }
 
@@ -787,6 +805,8 @@ extension PackageModel.Platform {
             return "tvOS"
         case .watchOS:
             return "watchOS"
+        case .visionOS:
+            return "visionOS"
         case .driverKit:
             return "DriverKit"
         default:
@@ -822,6 +842,8 @@ extension SupportedPlatform {
             return (9...14).contains(version.major)
         case .watchOS:
             return (2...7).contains(version.major)
+        case .visionOS:
+            return (1...1).contains(version.major)
         case .driverKit:
             return (19...20).contains(version.major)
 

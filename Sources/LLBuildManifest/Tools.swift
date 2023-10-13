@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,6 +17,9 @@ public protocol ToolProtocol: Codable {
     /// The name of the tool.
     static var name: String { get }
 
+    /// Whether or not the tool should run on every build instead of using dependency tracking.
+    var alwaysOutOfDate: Bool { get }
+
     /// The list of inputs to declare.
     var inputs: [Node] { get }
 
@@ -28,6 +31,8 @@ public protocol ToolProtocol: Codable {
 }
 
 extension ToolProtocol {
+    public var alwaysOutOfDate: Bool { return false }
+
     public func write(to stream: ManifestToolStream) {}
 }
 
@@ -150,15 +155,17 @@ public struct ShellTool: ToolProtocol {
     }
 }
 
-public struct WriteAuxiliaryFile: ToolProtocol {
+public struct WriteAuxiliaryFile: Equatable, ToolProtocol {
     public static let name: String = "write-auxiliary-file"
 
     public let inputs: [Node]
     private let outputFilePath: AbsolutePath
+    public let alwaysOutOfDate: Bool
 
-    public init(inputs: [Node], outputFilePath: AbsolutePath) {
+    public init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false) {
         self.inputs = inputs
         self.outputFilePath = outputFilePath
+        self.alwaysOutOfDate = alwaysOutOfDate
     }
 
     public var outputs: [Node] {
@@ -262,6 +269,7 @@ public struct SwiftCompilerTool: ToolProtocol {
     public var objects: [AbsolutePath]
     public var otherArguments: [String]
     public var sources: [AbsolutePath]
+    public var fileList: AbsolutePath
     public var isLibrary: Bool
     public var wholeModuleOptimization: Bool
     public var outputFileMapPath: AbsolutePath
@@ -278,6 +286,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         objects: [AbsolutePath],
         otherArguments: [String],
         sources: [AbsolutePath],
+        fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
         outputFileMapPath: AbsolutePath
@@ -293,6 +302,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.objects = objects
         self.otherArguments = otherArguments
         self.sources = sources
+        self.fileList = fileList
         self.isLibrary = isLibrary
         self.wholeModuleOptimization = wholeModuleOptimization
         self.outputFileMapPath = outputFileMapPath
@@ -313,7 +323,6 @@ public struct SwiftCompilerTool: ToolProtocol {
             }
         }
         arguments += [
-            "-incremental",
             "-emit-dependencies",
             "-emit-module",
             "-emit-module-path", moduleOutputPath.pathString,
@@ -324,8 +333,10 @@ public struct SwiftCompilerTool: ToolProtocol {
         }
         if wholeModuleOptimization {
             arguments += ["-whole-module-optimization", "-num-threads", "\(Self.numThreads)"]
+        } else {
+            arguments += ["-incremental"]
         }
-        arguments += ["-c"] + sources.map { $0.pathString }
+        arguments += ["-c", "@\(self.fileList.pathString)"]
         arguments += ["-I", importPath.pathString]
         arguments += otherArguments
         return arguments

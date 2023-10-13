@@ -25,7 +25,7 @@ final class ContainerProvider {
     private let skipUpdate: Bool
 
     /// Reference to the pins store.
-    private let pinsMap: PinsStore.PinsMap
+    private let pins: PinsStore.Pins
 
     /// Observability scope to emit diagnostics with
     private let observabilityScope: ObservabilityScope
@@ -39,12 +39,12 @@ final class ContainerProvider {
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
-        pinsMap: PinsStore.PinsMap,
+        pins: PinsStore.Pins,
         observabilityScope: ObservabilityScope
     ) {
         self.underlying = underlying
         self.skipUpdate = skipUpdate
-        self.pinsMap = pinsMap
+        self.pins = pins
         self.observabilityScope = observabilityScope
     }
 
@@ -57,7 +57,10 @@ final class ContainerProvider {
     }
 
     /// Get the container for the given identifier, loading it if necessary.
-    func getContainer(for package: PackageReference, completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void) {
+    func getContainer(
+        for package: PackageReference,
+        completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
+    ) {
         // Return the cached container, if available.
         if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
             return completion(.success(container))
@@ -79,12 +82,12 @@ final class ContainerProvider {
             // Otherwise, fetch the container from the provider
             self.underlying.getContainer(
                 for: package,
-                skipUpdate: self.skipUpdate,
+                updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
                 observabilityScope: self.observabilityScope.makeChildScope(description: "getting package container", metadata: package.diagnosticsMetadata),
                 on: .sharedConcurrent
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
-                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
+                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pins: self.pins)
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -108,14 +111,14 @@ final class ContainerProvider {
             if needsFetching {
                 self.underlying.getContainer(
                     for: identifier,
-                    skipUpdate: self.skipUpdate,
+                    updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
                     observabilityScope: self.observabilityScope.makeChildScope(description: "prefetching package container", metadata: identifier.diagnosticsMetadata),
                     on: .sharedConcurrent
                 ) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
+                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pins: self.pins)
                     }
                 }
             }

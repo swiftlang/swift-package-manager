@@ -32,24 +32,44 @@ enum TestingSupport {
     ///
     /// - Returns: Path to XCTestHelper tool.
     static func xctestHelperPath(swiftTool: SwiftTool) throws -> AbsolutePath {
-        let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = try AbsolutePath(validating: CommandLine.arguments.first!,
-            relativeTo: swiftTool.originalWorkingDirectory).parentDirectory
-        // XCTestHelper tool is installed in libexec.
-        let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
-        if swiftTool.fileSystem.isFile(maybePath) {
-            return maybePath
+        var triedPaths = [AbsolutePath]()
+
+        func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
+            // XCTestHelper tool is installed in libexec.
+            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", "swiftpm-xctest-helper")
+            if swiftTool.fileSystem.isFile(maybePath) {
+                return maybePath
+            } else {
+                triedPaths.append(maybePath)
+                return nil
+            }
         }
-        // This will be true during swiftpm development.
-        // FIXME: Factor all of the development-time resource location stuff into a common place.
-        let path = binDirectory.appending(component: xctestHelperBin)
-        if swiftTool.fileSystem.isFile(path) {
-            return path
+
+        if let firstCLIArgument = CommandLine.arguments.first {
+            let runningSwiftBuildPath = try AbsolutePath(validating: firstCLIArgument, relativeTo: swiftTool.originalWorkingDirectory)
+            if let xctestHelperPath = findXCTestHelper(swiftBuildPath: runningSwiftBuildPath) {
+                return xctestHelperPath
+            }
         }
-        throw InternalError("XCTestHelper binary not found.")
+
+        // This will be true during swiftpm development or when using swift.org toolchains.
+        let xcodePath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
+        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcrun", "--find", "swift-build", environment: ["DEVELOPER_DIR": xcodePath]).spm_chomp()
+        if let xctestHelperPath = findXCTestHelper(swiftBuildPath: try AbsolutePath(validating: installedSwiftBuildPath)) {
+            return xctestHelperPath
+        }
+
+        throw InternalError("XCTestHelper binary not found, tried \(triedPaths.map { $0.pathString }.joined(separator: ", "))")
     }
 
-    static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [AbsolutePath: [TestSuite]] {
+    static func getTestSuites(
+        in testProducts: [BuiltTestProduct],
+        swiftTool: SwiftTool,
+        enableCodeCoverage: Bool,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
             .map {(
                 $0.bundlePath,
@@ -57,6 +77,8 @@ enum TestingSupport {
                     fromTestAt: $0.bundlePath,
                     swiftTool: swiftTool,
                     enableCodeCoverage: enableCodeCoverage,
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
                     sanitizers: sanitizers
                 )
             )}
@@ -73,21 +95,31 @@ enum TestingSupport {
     /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of TestSuite
-    static func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [TestSuite] {
+    static func getTestSuites(
+        fromTestAt path: AbsolutePath,
+        swiftTool: SwiftTool,
+        enableCodeCoverage: Bool,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [TestSuite] {
         // Run the correct tool.
+        var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try Self.constructTestEnvironment(
-                toolchain: try swiftTool.getDestinationToolchain(),
+                toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
-                    enableCodeCoverage: enableCodeCoverage
+                    enableCodeCoverage: enableCodeCoverage,
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput
                 ),
                 sanitizers: sanitizers
             )
 
             // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-            let sdkPlatformFrameworksPath = try Destination.sdkPlatformFrameworkPaths()
+            let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths()
             // appending since we prefer the user setting (if set) to the one we inject
             env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
             env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
@@ -98,17 +130,18 @@ enum TestingSupport {
         }
         #else
         let env = try Self.constructTestEnvironment(
-            toolchain: try swiftTool.getDestinationToolchain(),
+            toolchain: try swiftTool.getTargetToolchain(),
             buildParameters: swiftTool.buildParametersForTest(
-                enableCodeCoverage: enableCodeCoverage
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding
             ),
             sanitizers: sanitizers
         )
-        let args = [path.description, "--dump-tests-json"]
+        args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+        return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
     }
 
     /// Creates the environment needed to test related tools.
@@ -128,7 +161,7 @@ enum TestingSupport {
         }
 
         // Add the code coverage related variables.
-        if buildParameters.enableCodeCoverage {
+        if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
             // `%m` will create a pool of profraw files and append the data from
@@ -144,16 +177,6 @@ enum TestingSupport {
         if let location = toolchain.xctestPath {
             env.prependPath("Path", value: location.pathString)
         }
-        #elseif os(Linux)
-        var libraryPaths = ["/usr/lib/swift/linux"]
-        if let path = env["PATH"], let firstPathEntry = path.components(separatedBy: ":").first {
-            libraryPaths.append("\(firstPathEntry)/../lib/swift/linux")
-        }
-        if let originalLibraryPaths = env["LD_LIBRARY_PATH"] {
-            libraryPaths.append(originalLibraryPaths)
-        }
-        // Pass this explicitly on Linux because XCTest started requiring it, rdar://103054033
-        env["LD_LIBRARY_PATH"] = libraryPaths.joined(separator: ":")
         #endif
         return env
         #else
@@ -181,13 +204,17 @@ enum TestingSupport {
 extension SwiftTool {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
-        enableTestability: Bool? = nil
+        enableTestability: Bool? = nil,
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
-        parameters.enableCodeCoverage = enableCodeCoverage
+        parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.enableTestability = enableTestability ?? true
+        parameters.shouldSkipBuilding = shouldSkipBuilding
+        parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

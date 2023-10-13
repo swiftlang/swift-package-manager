@@ -98,7 +98,7 @@ extension ModuleError: CustomStringConvertible {
         switch self {
         case .duplicateModule(let target, let packages):
             let packages = packages.map(\.description).sorted().joined(separator: "', '")
-            return "multiple targets named '\(target)' in: '\(packages)'; consider using the `moduleAliases` parameter in manifest to provide unique names"
+            return "multiple targets named '\(target)' in: '\(packages)'"
         case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir):
             let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             var clauses = ["Source files for target \(target) should be located under '\(folderName)/\(target)'"]
@@ -877,7 +877,7 @@ public final class PackageBuilder {
         }
 
         // Create the build setting assignment table for this target.
-        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path)
+        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path, cxxLanguageStandard: self.manifest.cxxLanguageStandard)
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
@@ -1017,7 +1017,7 @@ public final class PackageBuilder {
     }
 
     /// Creates build setting assignment table for the given target.
-    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath) throws -> BuildSettings
+    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath, cxxLanguageStandard: String? = nil) throws -> BuildSettings
         .AssignmentTable
     {
         var table = BuildSettings.AssignmentTable()
@@ -1089,7 +1089,7 @@ public final class PackageBuilder {
                 }
 
                 if lang == .Cxx {
-                    values = ["-cxx-interoperability-mode=default"]
+                    values = ["-cxx-interoperability-mode=default"] + (cxxLanguageStandard.flatMap { ["-Xcc", "-std=\($0)"] } ?? [])
                 } else {
                     values = []
                 }
@@ -1153,7 +1153,13 @@ public final class PackageBuilder {
             conditions.append(condition)
         }
 
-        if let platforms = condition?.platformNames.compactMap({ platformRegistry.platformByName[$0] }),
+        if let platforms = condition?.platformNames.map({
+            if let platform = platformRegistry.platformByName[$0] {
+                return platform
+            } else {
+                return PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
+            }
+        }),
            !platforms.isEmpty
         {
             let condition = PlatformsCondition(platforms: platforms)

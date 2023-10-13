@@ -41,6 +41,9 @@ public struct SwiftPackageTool: ParsableCommand {
             Init.self,
             Format.self,
 
+            Install.self,
+            Uninstall.self,
+            
             APIDiff.self,
             DeprecatedAPIDiff.self,
             DumpSymbolGraph.self,
@@ -123,7 +126,7 @@ extension PluginCommand.PluginOptions {
     func merged(with other: Self) -> Self {
         // validate against developer mistake
         assert(
-            Mirror(reflecting: self).children.count == 3,
+            Mirror(reflecting: self).children.count == 4,
             "Property added to PluginOptions without updating merged(with:)!"
         )
         // actual merge
@@ -133,6 +136,9 @@ extension PluginCommand.PluginOptions {
         merged.additionalAllowedWritableDirectories.append(contentsOf: other.additionalAllowedWritableDirectories)
         if other.allowNetworkConnections != .none {
             merged.allowNetworkConnections = other.allowNetworkConnections
+        }
+        if other.packageIdentity != nil {
+            merged.packageIdentity = other.packageIdentity
         }
         return merged
     }

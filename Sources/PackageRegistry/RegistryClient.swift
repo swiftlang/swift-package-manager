@@ -76,7 +76,7 @@ public final class RegistryClient: Cancellable {
 
         if let authorizationProvider {
             self.authorizationProvider = { url in
-                guard let registryAuthentication = configuration.authentication(for: url) else {
+                guard let registryAuthentication = try? configuration.authentication(for: url) else {
                     return .none
                 }
                 guard let (user, password) = authorizationProvider.authentication(for: url) else {
@@ -86,9 +86,7 @@ public final class RegistryClient: Cancellable {
                 switch registryAuthentication.type {
                 case .basic:
                     let authorizationString = "\(user):\(password)"
-                    guard let authorizationData = authorizationString.data(using: .utf8) else {
-                        return nil
-                    }
+                    let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
@@ -283,8 +281,39 @@ public final class RegistryClient: Cancellable {
             package: package,
             version: version,
             timeout: timeout,
-            observabilityScope: observabilityScope
-        )
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue
+        ) { result in
+            completion(
+                result.tryMap { versionMetadata in
+                    PackageVersionMetadata(
+                        registry: registry,
+                        licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
+                        readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
+                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { SourceControlURL($0) },
+                        resources: versionMetadata.resources.map {
+                            .init(
+                                name: $0.name,
+                                type: $0.type,
+                                checksum: $0.checksum,
+                                signing: $0.signing.flatMap {
+                                    PackageVersionMetadata.Signing(
+                                        signatureBase64Encoded: $0.signatureBase64Encoded,
+                                        signatureFormat: $0.signatureFormat
+                                    )
+                                },
+                                signingEntity: $0.signing.flatMap {
+                                    guard let signatureData = Data(base64Encoded: $0.signatureBase64Encoded) else {
+                                        return nil
+                                    }
+                                    guard let signatureFormat = SignatureFormat(rawValue: $0.signatureFormat) else {
+                                        return nil
+                                    }
+                                    let configuration = self.configuration.signing(for: package, registry: registry)
+                                    return try? temp_await { completion in
+                                        let wrappedCompletion: @Sendable (Result<SigningEntity?, Error>) -> Void = {
+                                            completion($0)
+                                        }
 
         let resources = await withTaskGroup(of: PackageVersionMetadata.Resource?.self) { group in
             for resource in versionMetadata.resources {
@@ -571,12 +600,125 @@ public final class RegistryClient: Cancellable {
                     content: manifestContent
                 )
 
-                let alternativeManifests = try response.headers.parseManifestLinks()
-                for alternativeManifest in alternativeManifests {
-                    result[alternativeManifest.filename] = (
-                        toolsVersion: alternativeManifest.toolsVersion,
-                        content: .none
-                    )
+                // checksum TOFU validation helper
+                let checksumTOFU = PackageVersionChecksumTOFU(
+                    fingerprintStorage: self.fingerprintStorage,
+                    fingerprintCheckingMode: self.fingerprintCheckingMode,
+                    versionMetadataProvider: { _, _ in versionMetadata }
+                )
+
+                let start = DispatchTime.now()
+                observabilityScope
+                    .emit(info: "retrieving available manifests for \(package) \(version) from \(request.url)")
+                self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+                    switch result {
+                    case .success(let response):
+                        do {
+                            observabilityScope
+                                .emit(
+                                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                                )
+                            switch response.statusCode {
+                            case 200:
+                                try response.validateAPIVersion()
+                                try response.validateContentType(.swift)
+
+                                guard let data = response.body else {
+                                    throw RegistryError.invalidResponse
+                                }
+                                let manifestContent = String(decoding: data, as: UTF8.self)
+
+                                signatureValidation.validate(
+                                    registry: registry,
+                                    package: package,
+                                    version: version,
+                                    toolsVersion: .none,
+                                    manifestContent: manifestContent,
+                                    configuration: self.configuration.signing(for: package, registry: registry),
+                                    timeout: timeout,
+                                    fileSystem: localFileSystem,
+                                    observabilityScope: observabilityScope,
+                                    callbackQueue: callbackQueue
+                                ) { signatureResult in
+                                    switch signatureResult {
+                                    case .success:
+                                        // TODO: expose Data based API on checksumAlgorithm
+                                        let actualChecksum = self.checksumAlgorithm.hash(.init(data))
+                                            .hexadecimalRepresentation
+
+                                        checksumTOFU.validateManifest(
+                                            registry: registry,
+                                            package: package,
+                                            version: version,
+                                            toolsVersion: .none,
+                                            checksum: actualChecksum,
+                                            timeout: timeout,
+                                            observabilityScope: observabilityScope,
+                                            callbackQueue: callbackQueue
+                                        ) { checksumResult in
+                                            switch checksumResult {
+                                            case .success:
+                                                do {
+                                                    var result =
+                                                        [String: (toolsVersion: ToolsVersion, content: String?)]()
+                                                    let toolsVersion = try ToolsVersionParser
+                                                        .parse(utf8String: manifestContent)
+                                                    result[Manifest.filename] = (
+                                                        toolsVersion: toolsVersion,
+                                                        content: manifestContent
+                                                    )
+
+                                                    let alternativeManifests = try response.headers.parseManifestLinks()
+                                                    for alternativeManifest in alternativeManifests {
+                                                        result[alternativeManifest.filename] = (
+                                                            toolsVersion: alternativeManifest.toolsVersion,
+                                                            content: .none
+                                                        )
+                                                    }
+                                                    completion(.success(result))
+                                                } catch {
+                                                    completion(.failure(
+                                                        RegistryError.failedRetrievingManifest(
+                                                            registry: registry,
+                                                            package: package.underlying,
+                                                            version: version,
+                                                            error: error
+                                                        )
+                                                    ))
+                                                }
+                                            case .failure(let error):
+                                                completion(.failure(error))
+                                            }
+                                        }
+                                    case .failure(let error):
+                                        completion(.failure(error))
+                                    }
+                                }
+                            case 404:
+                                throw RegistryError.packageVersionNotFound
+                            default:
+                                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                            }
+                        } catch {
+                            completion(.failure(
+                                RegistryError.failedRetrievingManifest(
+                                    registry: registry,
+                                    package: package.underlying,
+                                    version: version,
+                                    error: error
+                                )
+                            ))
+                        }
+                    case .failure(let error):
+                        completion(.failure(
+                            RegistryError.failedRetrievingManifest(
+                                registry: registry,
+                                package: package.underlying,
+                                version: version,
+                                error: error
+                            )
+                        ))
+                    }
                 }
                 return result
 
@@ -739,11 +881,100 @@ public final class RegistryClient: Cancellable {
                     observabilityScope: observabilityScope
                 )
 
-                return manifestContent
-            case 404:
-                throw RegistryError.packageVersionNotFound
-            default:
-                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                // checksum TOFU validation helper
+                let checksumTOFU = PackageVersionChecksumTOFU(
+                    fingerprintStorage: self.fingerprintStorage,
+                    fingerprintCheckingMode: self.fingerprintCheckingMode,
+                    versionMetadataProvider: { _, _ in versionMetadata }
+                )
+
+                let start = DispatchTime.now()
+                observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(request.url)")
+                self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+                    switch result {
+                    case .success(let response):
+                        do {
+                            observabilityScope
+                                .emit(
+                                    debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                                )
+                            switch response.statusCode {
+                            case 200:
+                                try response.validateAPIVersion(isOptional: true)
+                                try response.validateContentType(.swift)
+
+                                guard let data = response.body else {
+                                    throw RegistryError.invalidResponse
+                                }
+                                let manifestContent = String(decoding: data, as: UTF8.self)
+
+                                signatureValidation.validate(
+                                    registry: registry,
+                                    package: package,
+                                    version: version,
+                                    toolsVersion: customToolsVersion,
+                                    manifestContent: manifestContent,
+                                    configuration: self.configuration.signing(for: package, registry: registry),
+                                    timeout: timeout,
+                                    fileSystem: localFileSystem,
+                                    observabilityScope: observabilityScope,
+                                    callbackQueue: callbackQueue
+                                ) { signatureResult in
+                                    switch signatureResult {
+                                    case .success:
+                                        // TODO: expose Data based API on checksumAlgorithm
+                                        let actualChecksum = self.checksumAlgorithm.hash(.init(data))
+                                            .hexadecimalRepresentation
+
+                                        checksumTOFU.validateManifest(
+                                            registry: registry,
+                                            package: package,
+                                            version: version,
+                                            toolsVersion: customToolsVersion,
+                                            checksum: actualChecksum,
+                                            timeout: timeout,
+                                            observabilityScope: observabilityScope,
+                                            callbackQueue: callbackQueue
+                                        ) { checksumResult in
+                                            switch checksumResult {
+                                            case .success:
+                                                completion(.success(manifestContent))
+                                            case .failure(let error):
+                                                completion(.failure(error))
+                                            }
+                                        }
+                                    case .failure(let error):
+                                        completion(.failure(error))
+                                    }
+                                }
+                            case 404:
+                                throw RegistryError.packageVersionNotFound
+                            default:
+                                throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                            }
+                        } catch {
+                            completion(.failure(
+                                RegistryError.failedRetrievingManifest(
+                                    registry: registry,
+                                    package: package.underlying,
+                                    version: version,
+                                    error: error
+                                )
+                            ))
+                        }
+                    case .failure(let error):
+                        completion(.failure(
+                            RegistryError.failedRetrievingManifest(
+                                registry: registry,
+                                package: package.underlying,
+                                version: version,
+                                error: error
+                            )
+                        ))
+                    }
+                }
+            case .failure(let error):
+                completion(.failure(error))
             }
         } catch {
             throw RegistryError.failedRetrievingManifest(
@@ -994,7 +1225,7 @@ public final class RegistryClient: Cancellable {
     }
 
     public func lookupIdentities(
-        scmURL: URL,
+        scmURL: SourceControlURL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
     ) async throws -> Set<PackageIdentity> {
@@ -1020,7 +1251,7 @@ public final class RegistryClient: Cancellable {
     // marked internal for testing
     func _lookupIdentities(
         registry: Registry,
-        scmURL: URL,
+        scmURL: SourceControlURL,
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope
     ) async throws -> Set<PackageIdentity> {
@@ -1367,14 +1598,14 @@ public final class RegistryClient: Cancellable {
         case 400...499:
             return RegistryError.clientError(
                 code: response.statusCode,
-                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                details: response.body.map { String(decoding: $0, as: UTF8.self) } ?? ""
             )
         case 501:
             return RegistryError.authenticationMethodNotSupported
         case 500...599:
             return RegistryError.serverError(
                 code: response.statusCode,
-                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                details: response.body.map { String(decoding: $0, as: UTF8.self) } ?? ""
             )
         default:
             return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)
@@ -1416,7 +1647,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedRetrievingReleaseChecksum(registry: Registry, package: PackageIdentity, version: Version, error: Error)
     case failedRetrievingManifest(registry: Registry, package: PackageIdentity, version: Version, error: Error)
     case failedDownloadingSourceArchive(registry: Registry, package: PackageIdentity, version: Version, error: Error)
-    case failedIdentityLookup(registry: Registry, scmURL: URL, error: Error)
+    case failedIdentityLookup(registry: Registry, scmURL: SourceControlURL, error: Error)
     case failedLoadingPackageArchive(AbsolutePath)
     case failedLoadingPackageMetadata(AbsolutePath)
     case failedPublishing(Error)
@@ -1609,14 +1840,14 @@ extension RegistryClient {
     public struct PackageMetadata {
         public let registry: Registry
         public let versions: [Version]
-        public let alternateLocations: [URL]?
+        public let alternateLocations: [SourceControlURL]?
     }
 
     public struct PackageVersionMetadata: Sendable {
         public let registry: Registry
         public let licenseURL: URL?
         public let readmeURL: URL?
-        public let repositoryURLs: [URL]?
+        public let repositoryURLs: [SourceControlURL]?
         public let resources: [Resource]
         public let author: Author?
         public let description: String?
@@ -1672,7 +1903,7 @@ extension RegistryClient {
 
 extension RegistryClient {
     fileprivate struct AlternativeLocationLink {
-        let url: URL
+        let url: SourceControlURL
         let kind: Kind
 
         enum Kind: String {
@@ -1823,8 +2054,7 @@ extension HTTPClientHeaders {
             return nil
         }
 
-        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }),
-              let url = URL(string: link)
+        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) })
         else {
             return nil
         }
@@ -1836,7 +2066,7 @@ extension HTTPClientHeaders {
         }
 
         return RegistryClient.AlternativeLocationLink(
-            url: url,
+            url: SourceControlURL(link),
             kind: kind
         )
     }

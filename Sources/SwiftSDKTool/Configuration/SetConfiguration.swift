@@ -19,7 +19,7 @@ struct SetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
         abstract: """
-        Sets configuration options for installed cross-compilation destinations.
+        Sets configuration options for installed Swift SDKs.
         """
     )
 
@@ -63,24 +63,24 @@ struct SetConfiguration: ConfigurationSubcommand {
 
     @Argument(
         help: """
-        An identifier of an already installed destination. Use the `list` subcommand to see all available \
+        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
         identifiers.
         """
     )
-    var destinationID: String
+    var sdkID: String
 
-    @Argument(help: "The run-time triple of the destination to configure.")
-    var runTimeTriple: String
+    @Argument(help: "The target triple of the Swift SDK to configure.")
+    var targetTriple: String
 
     func run(
-        buildTimeTriple: Triple,
-        runTimeTriple: Triple,
-        _ destination: Destination,
+        hostTriple: Triple,
+        targetTriple: Triple,
+        _ swiftSDK: SwiftSDK,
         _ configurationStore: SwiftSDKConfigurationStore,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        var configuration = destination.pathsConfiguration
+        var configuration = swiftSDK.pathsConfiguration
         var updatedProperties = [String]()
 
         let currentWorkingDirectory: AbsolutePath? = fileSystem.currentWorkingDirectory
@@ -123,21 +123,21 @@ struct SetConfiguration: ConfigurationSubcommand {
         guard !updatedProperties.isEmpty else {
             observabilityScope.emit(
                 error: """
-                No properties of destination `\(destinationID) for run-time triple `\(runTimeTriple)` were updated \
+                No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
                 since none were specified. Pass `--help` flag to see the list of all available properties.
                 """
             )
             return
         }
 
-        var destination = destination
-        destination.pathsConfiguration = configuration
-        try configurationStore.updateConfiguration(destinationID: destinationID, destination: destination)
+        var swiftSDK = swiftSDK
+        swiftSDK.pathsConfiguration = configuration
+        try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: swiftSDK)
 
         observabilityScope.emit(
             info: """
-            These properties of destination `\(destinationID) for run-time triple \
-            `\(runTimeTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
+            These properties of Swift SDK `\(sdkID)` for target triple \
+            `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
             """
         )
     }

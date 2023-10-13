@@ -55,7 +55,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                     builtProducts.append(
                         BuiltTestProduct(
                             productName: product.name,
-                            binaryPath: binaryPath
+                            binaryPath: binaryPath,
+                            packagePath: package.path
                         )
                     )
                 }
@@ -103,6 +104,10 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func build(subset: BuildSubset) throws {
+        guard !buildParameters.shouldSkipBuilding else {
+            return
+        }
+
         let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
@@ -184,7 +189,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             platform: "macosx",
             sdk: "macosx",
             sdkVariant: nil,
-            targetArchitecture: buildParameters.triple.arch.rawValue,
+            targetArchitecture: buildParameters.targetTriple.archName,
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )
@@ -313,10 +318,11 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
-            enableTestability: buildParameters.enableTestability,
+            enableTestability: buildParameters.testingParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
-            pkgConfigDirectories: buildParameters.pkgConfigDirectories
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath
         )
     }
 }

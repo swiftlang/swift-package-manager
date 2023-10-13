@@ -27,6 +27,7 @@ import struct TSCUtility.Version
 public struct FileSystemPackageContainer: PackageContainer {
     public let package: PackageReference
     private let identityResolver: IdentityResolver
+    private let dependencyMapper: DependencyMapper
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
@@ -42,6 +43,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     public init(
         package: PackageReference,
         identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fileSystem: FileSystem,
@@ -55,6 +57,7 @@ public struct FileSystemPackageContainer: PackageContainer {
         }
         self.package = package
         self.identityResolver = identityResolver
+        self.dependencyMapper = dependencyMapper
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.fileSystem = fileSystem
@@ -84,6 +87,7 @@ public struct FileSystemPackageContainer: PackageContainer {
                     packageVersion: nil,
                     currentToolsVersion: self.currentToolsVersion,
                     identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,
                     delegateQueue: .sharedConcurrent,

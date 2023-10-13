@@ -1,0 +1,197 @@
+{
+  "configurations" : [
+    {
+      "id" : "2178F4FD-6533-44DD-8F74-D1D6E64575E8",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:",
+      "identifier" : "package-info",
+      "name" : "package-info"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "BasicsTests",
+        "name" : "BasicsTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "BuildTests",
+        "name" : "BuildTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "CommandsTests",
+        "name" : "CommandsTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "FunctionalPerformanceTests",
+        "name" : "FunctionalPerformanceTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "FunctionalTests",
+        "name" : "FunctionalTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageCollectionsModelTests",
+        "name" : "PackageCollectionsModelTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageCollectionsSigningTests",
+        "name" : "PackageCollectionsSigningTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageCollectionsTests",
+        "name" : "PackageCollectionsTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageDescriptionTests",
+        "name" : "PackageDescriptionTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageFingerprintTests",
+        "name" : "PackageFingerprintTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageGraphPerformanceTests",
+        "name" : "PackageGraphPerformanceTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageGraphTests",
+        "name" : "PackageGraphTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageLoadingPerformanceTests",
+        "name" : "PackageLoadingPerformanceTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageLoadingTests",
+        "name" : "PackageLoadingTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageModelTests",
+        "name" : "PackageModelTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackagePluginAPITests",
+        "name" : "PackagePluginAPITests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageRegistryTests",
+        "name" : "PackageRegistryTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "PackageSigningTests",
+        "name" : "PackageSigningTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SPMBuildCoreTests",
+        "name" : "SPMBuildCoreTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SourceControlTests",
+        "name" : "SourceControlTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "WorkspaceTests",
+        "name" : "WorkspaceTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "XCBuildSupportTests",
+        "name" : "XCBuildSupportTests"
+      }
+    }
+  ],
+  "version" : 1
+}

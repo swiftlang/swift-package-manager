@@ -17,6 +17,7 @@ add_library(Commands
   PackageTools/EditCommands.swift
   PackageTools/Format.swift
   PackageTools/Init.swift
+  PackageTools/InstalledPackages.swift
   PackageTools/Learn.swift
   PackageTools/PluginCommand.swift
   PackageTools/ResetCommands.swift
@@ -43,12 +44,14 @@ add_library(Commands
   Utilities/MultiRootSupport.swift
   Utilities/PluginDelegate.swift
   Utilities/SymbolGraphExtract.swift
-  Utilities/TestingSupport.swift)
+  Utilities/TestingSupport.swift
+  Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics
   Build
   CoreCommands
+  LLBuildManifest
   PackageGraph
   SourceControl
   TSCBasic

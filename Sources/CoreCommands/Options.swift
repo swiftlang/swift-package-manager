@@ -425,10 +425,6 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
     public var jobs: UInt32?
 
-    /// Emit the Swift module separately from the object files.
-    @Flag()
-    public var emitSwiftModuleSeparately: Bool = false
-
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
@@ -446,6 +442,10 @@ public struct BuildOptions: ParsableArguments {
     /// The build system to use.
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native
+
+    /// The Debug Information Format to use.
+    @Option(name: .customLong("debug-info-format", withSingleDash: true))
+    public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
@@ -499,6 +499,16 @@ public struct BuildOptions: ParsableArguments {
         /// See `BuildParameters.LinkTimeOptimizationMode.thin` for details.
         case thin
     }
+
+    /// See `BuildParameters.DebugInfoFormat` for details.
+    public enum DebugInfoFormat: String, Codable, ExpressibleByArgument {
+        /// See `BuildParameters.DebugInfoFormat.dwarf` for details.
+        case dwarf
+        /// See `BuildParameters.DebugInfoFormat.codeview` for details.
+        case codeview
+        /// See `BuildParameters.DebugInfoFormat.none` for details.
+        case none
+    }
 }
 
 public struct LinkerOptions: ParsableArguments {
@@ -514,6 +524,10 @@ public struct LinkerOptions: ParsableArguments {
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
     public var shouldLinkStaticSwiftStdlib: Bool = false
+
+    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
+    public var shouldDisableLocalRpath: Bool = false
 }
 
 // MARK: - Extensions

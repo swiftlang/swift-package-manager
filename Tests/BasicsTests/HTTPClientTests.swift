@@ -40,7 +40,7 @@ final class HTTPClientTests: XCTestCase {
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -58,10 +58,10 @@ final class HTTPClientTests: XCTestCase {
     func testPost() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -80,10 +80,10 @@ final class HTTPClientTests: XCTestCase {
     func testPut() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -104,7 +104,7 @@ final class HTTPClientTests: XCTestCase {
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let httpClient = HTTPClient { request, _ in
             XCTAssertEqual(request.url, url, "url should match")
@@ -173,21 +173,37 @@ final class HTTPClientTests: XCTestCase {
 
     func testAuthorization() async throws {
         let url = URL("http://test")
-        let authorization = UUID().uuidString
 
-        let httpClient = HTTPClient { request, _ in
-            XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
-            XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
-            return .init(statusCode: 200)
+        do {
+            let authorization = UUID().uuidString
+
+            let httpClient = HTTPClient { request, _ in
+                XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
+                XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
+                return .init(statusCode: 200)
+            }
+
+            var request = HTTPClient.Request(method: .get, url: url)
+            request.options.authorizationProvider = { requestUrl in
+                requestUrl == url ? authorization : nil
+            }
+
+            let response = try await httpClient.execute(request)
+            XCTAssertEqual(response.statusCode, 200, "statusCode should match")
         }
 
-        var request = HTTPClient.Request(method: .get, url: url)
-        request.options.authorizationProvider = { requestUrl in
-            requestUrl == url ? authorization : nil
-        }
+        do {
+            let httpClient = HTTPClient { request, _ in
+                XCTAssertFalse(request.headers.contains("Authorization"), "not expecting Authorization")
+                return .init(statusCode: 200)
+            }
 
-        let response = try await httpClient.execute(request)
-        XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+            var request = HTTPClient.Request(method: .get, url: url)
+            request.options.authorizationProvider = { _ in "" }
+
+            let response = try await httpClient.execute(request)
+            XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+        }
     }
 
     func testValidResponseCodes() async throws {
