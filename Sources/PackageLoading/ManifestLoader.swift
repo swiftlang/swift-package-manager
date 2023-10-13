@@ -1044,24 +1044,3 @@ extension ManifestLoader {
         }
     }
 }
-
-extension ManifestLoader {
-    /// Represents behavior that can be deferred until a more appropriate time.
-    struct DelayableAction<T> {
-        var target: T?
-        var action: ((T) -> Void)?
-
-        func perform() {
-            if let value = target, let cleanup = action {
-                cleanup(value)
-            }
-        }
-
-        mutating func delay() -> DelayableAction {
-            let next = DelayableAction(target: target, action: action)
-            target = nil
-            action = nil
-            return next
-        }
-    }
-}
