@@ -392,7 +392,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     completion(.success(manifest))
                 }
             } catch {
-                return callbackQueue.async {
+                callbackQueue.async {
                     completion(.failure(error))
                 }
             }
@@ -607,7 +607,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             let result = try await importScanner.scanImports(manifestPath)
             let imports = result.filter { !allowedImports.contains($0) }
-    }
             guard imports.isEmpty else {
                 throw ManifestParseError.importsRestrictedModules(imports)
             }
@@ -682,17 +681,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return try await self.tokenBucket.withToken {
             var evaluationResult = EvaluationResult()
 
-        // For now, we load the manifest by having Swift interpret it directly.
-        // Eventually, we should have two loading processes, one that loads only
-        // the declarative package specification using the Swift compiler directly
-        // and validates it.
             // For now, we load the manifest by having Swift interpret it directly.
             // Eventually, we should have two loading processes, one that loads only
             // the declarative package specification using the Swift compiler directly
             // and validates it.
 
-        // Compute the path to runtime we need to load.
-        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
             // Compute the path to runtime we need to load.
             let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
 
