@@ -56,6 +56,25 @@ extension LLBuildManifestBuilder {
                 outputs: [.file(buildProduct.binaryPath)],
                 arguments: try buildProduct.linkArguments()
             )
+
+            if buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
+                let basename = try buildProduct.binaryPath.basename
+                let plistPath = try buildProduct.binaryPath.parentDirectory
+                    .appending(component: "\(basename)-entitlement.plist")
+                self.manifest.addEntitlementPlistCommand(
+                    entitlement: "com.apple.security.get-task-allow",
+                    outputPath: plistPath
+                )
+
+                let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
+                try self.manifest.addShellCmd(
+                    name: "\(cmdName)-entitlements",
+                    description: "Applying debug entitlements to \(buildProduct.binaryPath.prettyPath())",
+                    inputs: [buildProduct.binaryPath, plistPath].map(Node.file),
+                    outputs: <#T##[Node]#>,
+                    arguments: <#T##[String]#>
+                )
+            }
         }
 
         // Create a phony node to represent the entire target.
