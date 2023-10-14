@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageModel
 import SPMTestSupport
 import XCTest
 
@@ -114,6 +115,8 @@ class ResourcesTests: XCTestCase {
     }
 
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsWarningsAsErrors(), "skipping because test environment doesn't support warnings as errors")
+
         try fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,

@@ -2159,7 +2159,10 @@ final class PackageToolTests: CommandsTestCase {
             do {
                 let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                let filteredStderr = stderr.components(separatedBy: "\n").filter {
+                    !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit")
+                }.joined(separator: "\n")
+                XCTAssertEqual(filteredStderr, "")
             }
 
             // Check default command arguments
