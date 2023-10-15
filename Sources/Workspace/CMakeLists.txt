@@ -23,6 +23,7 @@ add_library(Workspace
   Workspace.swift
   Workspace+BinaryArtifacts.swift
   Workspace+Configuration.swift
+  Workspace+Delegation.swift
   Workspace+Dependencies.swift
   Workspace+Editing.swift
   Workspace+Manifests.swift
