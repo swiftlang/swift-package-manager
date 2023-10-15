@@ -716,6 +716,141 @@ extension Workspace.BinaryArtifactsManager {
     }
 }
 
+extension Workspace {
+    func updateBinaryArtifacts(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) throws {
+        let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(from: manifests, observabilityScope: observabilityScope)
+
+        var artifactsToRemove: [ManagedArtifact] = []
+        var artifactsToAdd: [ManagedArtifact] = []
+        var artifactsToDownload: [BinaryArtifactsManager.RemoteArtifact] = []
+        var artifactsToExtract: [ManagedArtifact] = []
+
+        for artifact in state.artifacts {
+            if !manifestArtifacts.local.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
+                !manifestArtifacts.remote.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) {
+                artifactsToRemove.append(artifact)
+            }
+        }
+
+        for artifact in manifestArtifacts.local {
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
+                targetName: artifact.targetName
+            ]
+
+            if artifact.path.extension?.lowercased() == "zip" {
+                // If we already have an artifact that was extracted from an archive with the same checksum,
+                // we don't need to extract the artifact again.
+                if case .local(let existingChecksum) = existingArtifact?.source, existingChecksum == (try self.binaryArtifactsManager.checksum(forBinaryArtifactAt: artifact.path)) {
+                    continue
+                }
+
+                artifactsToExtract.append(artifact)
+            } else {
+                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifact.path, observabilityScope: observabilityScope) else {
+                    observabilityScope.emit(.localArtifactNotFound(artifactPath: artifact.path, targetName: artifact.targetName))
+                    continue
+                }
+                artifactsToAdd.append(artifact)
+            }
+
+            if let existingArtifact, isAtArtifactsDirectory(existingArtifact) {
+                // Remove the old extracted artifact, be it local archived or remote one.
+                artifactsToRemove.append(existingArtifact)
+            }
+        }
+
+        for artifact in manifestArtifacts.remote {
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
+                targetName: artifact.targetName
+            ]
+
+            if let existingArtifact {
+                if case .remote(let existingURL, let existingChecksum) = existingArtifact.source {
+                    // If we already have an artifact with the same checksum, we don't need to download it again.
+                    if artifact.checksum == existingChecksum {
+                        continue
+                    }
+
+                    let urlChanged = artifact.url != URL(string: existingURL)
+                    // If the checksum is different but the package wasn't updated, this is a security risk.
+                    if !urlChanged && !addedOrUpdatedPackages.contains(artifact.packageRef) {
+                        observabilityScope.emit(.artifactChecksumChanged(targetName: artifact.targetName))
+                        continue
+                    }
+                }
+
+                if isAtArtifactsDirectory(existingArtifact) {
+                    // Remove the old extracted artifact, be it local archived or remote one.
+                    artifactsToRemove.append(existingArtifact)
+                }
+            }
+
+            artifactsToDownload.append(artifact)
+        }
+
+        // Remove the artifacts and directories which are not needed anymore.
+        observabilityScope.trap {
+            for artifact in artifactsToRemove {
+                state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
+
+                if isAtArtifactsDirectory(artifact) {
+                    try fileSystem.removeFileTree(artifact.path)
+                }
+            }
+
+            for directory in try fileSystem.getDirectoryContents(self.location.artifactsDirectory) {
+                let directoryPath = self.location.artifactsDirectory.appending(component: directory)
+                if try fileSystem.isDirectory(directoryPath) && fileSystem.getDirectoryContents(directoryPath).isEmpty {
+                    try fileSystem.removeFileTree(directoryPath)
+                }
+            }
+        }
+
+        guard !observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
+        // Download the artifacts
+        let downloadedArtifacts = try self.binaryArtifactsManager.download(
+            artifactsToDownload,
+            artifactsDirectory: self.location.artifactsDirectory,
+            observabilityScope: observabilityScope
+        )
+        artifactsToAdd.append(contentsOf: downloadedArtifacts)
+
+        // Extract the local archived artifacts
+        let extractedLocalArtifacts = try self.binaryArtifactsManager.extract(
+            artifactsToExtract,
+            artifactsDirectory: self.location.artifactsDirectory,
+            observabilityScope: observabilityScope
+        )
+        artifactsToAdd.append(contentsOf: extractedLocalArtifacts)
+
+        // Add the new artifacts
+        for artifact in artifactsToAdd {
+            self.state.artifacts.add(artifact)
+        }
+
+        guard !observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
+        observabilityScope.trap {
+            try self.state.save()
+        }
+
+        func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
+            artifact.path.isDescendant(of: self.location.artifactsDirectory)
+        }
+    }
+}
+
 extension FileSystem {
     // helper to decide if an archive directory would benefit from stripping first level
     fileprivate func shouldStripFirstLevel(

@@ -11,6 +11,7 @@ add_library(Workspace
   DefaultPluginScriptRunner.swift
   Diagnostics.swift
   InitPackage.swift
+  LoadableResult.swift
   ManagedArtifact.swift
   ManagedDependency.swift
   PackageContainer/FileSystemPackageContainer.swift
@@ -22,7 +23,14 @@ add_library(Workspace
   Workspace.swift
   Workspace+BinaryArtifacts.swift
   Workspace+Configuration.swift
+  Workspace+Dependencies.swift
+  Workspace+Editing.swift
   Workspace+Manifests.swift
+  Workspace+PackageContainer.swift
+  Workspace+Pinning.swift
+  Workspace+Registry.swift
+  Workspace+Signing.swift
+  Workspace+SourceControl.swift
   Workspace+State.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic
