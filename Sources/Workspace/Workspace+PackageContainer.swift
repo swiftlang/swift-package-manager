@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import class Basics.ObservabilityScope
-import class Dispatch.DispatchQueue
 import func Dispatch.dispatchPrecondition
-import protocol PackageGraph.PackageContainerProvider
+import class Dispatch.DispatchQueue
+import enum PackageFingerprint.FingerprintCheckingMode
 import enum PackageGraph.ContainerUpdateStrategy
 import protocol PackageGraph.PackageContainer
-import enum PackageFingerprint.FingerprintCheckingMode
+import protocol PackageGraph.PackageContainerProvider
 import struct PackageModel.PackageReference
 
 // MARK: - Package container provider
@@ -31,7 +31,7 @@ extension Workspace: PackageContainerProvider {
     ) {
         do {
             switch package.kind {
-                // If the container is local, just create and return a local package container.
+            // If the container is local, just create and return a local package container.
             case .root, .fileSystem:
                 let container = try FileSystemPackageContainer(
                     package: package,
@@ -45,7 +45,7 @@ extension Workspace: PackageContainerProvider {
                 queue.async {
                     completion(.success(container))
                 }
-                // Resolve the container using the repository manager.
+            // Resolve the container using the repository manager.
             case .localSourceControl, .remoteSourceControl:
                 let repositorySpecifier = try package.makeRepositorySpecifier()
                 self.repositoryManager.lookup(
@@ -72,13 +72,14 @@ extension Workspace: PackageContainerProvider {
                             manifestLoader: self.manifestLoader,
                             currentToolsVersion: self.currentToolsVersion,
                             fingerprintStorage: self.fingerprints,
-                            fingerprintCheckingMode: FingerprintCheckingMode.map(self.configuration.fingerprintCheckingMode),
+                            fingerprintCheckingMode: FingerprintCheckingMode
+                                .map(self.configuration.fingerprintCheckingMode),
                             observabilityScope: observabilityScope
                         )
                     }
                     completion(result)
                 }
-                // Resolve the container using the registry
+            // Resolve the container using the registry
             case .registry:
                 let container = RegistryPackageContainer(
                     package: package,

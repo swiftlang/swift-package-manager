@@ -12,12 +12,12 @@
 
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
-import struct Basics.RelativePath
-import class Basics.ThreadSafeKeyValueStore
 import class Basics.ObservabilityScope
+import func Basics.os_signpost
+import struct Basics.RelativePath
 import enum Basics.SignpostName
 import func Basics.temp_await
-import func Basics.os_signpost
+import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import enum Dispatch.DispatchTimeInterval
@@ -30,8 +30,8 @@ import struct PackageGraph.Incompatibility
 import struct PackageGraph.MultiplexResolverDelegate
 import struct PackageGraph.ObservabilityDependencyResolverDelegate
 import struct PackageGraph.PackageContainerConstraint
-import struct PackageGraph.PackageGraphRootInput
 import struct PackageGraph.PackageGraphRoot
+import struct PackageGraph.PackageGraphRootInput
 import class PackageGraph.PinsStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term
@@ -68,8 +68,12 @@ extension Workspace {
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
+        let rootManifests = try temp_await { self.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: observabilityScope,
+            completion: $0
+        ) }
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
@@ -102,7 +106,11 @@ extension Workspace {
         } else {
             // We have input packages so we have to partially update the package graph. Remove
             // the pins for the input packages so only those packages are updated.
-            pins = pinsStore.pins.filter{ !packages.contains($0.value.packageRef.identity.description) && !packages.contains($0.value.packageRef.deprecatedName) }
+            pins = pinsStore.pins
+                .filter {
+                    !packages.contains($0.value.packageRef.identity.description) && !packages
+                        .contains($0.value.packageRef.deprecatedName)
+                }
         }
 
         // Resolve the dependencies.
@@ -124,18 +132,31 @@ extension Workspace {
 
         if dryRun {
             return observabilityScope.trap {
-                return try self.computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true, observabilityScope: observabilityScope)
+                try self.computePackageStateChanges(
+                    root: graphRoot,
+                    resolvedDependencies: updateResults,
+                    updateBranches: true,
+                    observabilityScope: observabilityScope
+                )
             }
         }
 
         // Update the checkouts based on new dependency resolution.
-        let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, observabilityScope: observabilityScope)
+        let packageStateChanges = self.updateDependenciesCheckouts(
+            root: graphRoot,
+            updateResults: updateResults,
+            updateBranches: true,
+            observabilityScope: observabilityScope
+        )
         guard !observabilityScope.errorsReported else {
             return nil
         }
 
         // Load the updated manifests.
-        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+        let updatedDependencyManifests = try self.loadDependencyManifests(
+            root: graphRoot,
+            observabilityScope: observabilityScope
+        )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
@@ -153,7 +174,7 @@ extension Workspace {
         )
 
         // Update the binary target artifacts.
-        let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
+        let addedOrUpdatedPackages = packageStateChanges.compactMap { $0.1.isAddedOrUpdated ? $0.0 : nil }
         try self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
@@ -195,17 +216,26 @@ extension Workspace {
             }
 
             guard let pinsStore = try? self.pinsStore.load(), let storedHash = pinsStore.originHash else {
-                observabilityScope.emit(debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash is missing. resolving and updating accordingly")
+                observabilityScope
+                    .emit(
+                        debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash is missing. resolving and updating accordingly"
+                    )
                 return try resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
             let currentHash = try self.computeResolvedFileOriginHash(root: root)
             guard storedHash == currentHash else {
-                observabilityScope.emit(debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash does do not match manifest dependencies. resolving and updating accordingly")
+                observabilityScope
+                    .emit(
+                        debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash does do not match manifest dependencies. resolving and updating accordingly"
+                    )
                 return try resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
-            observabilityScope.emit(debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash matches manifest dependencies, attempting resolution based on this file")
+            observabilityScope
+                .emit(
+                    debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash matches manifest dependencies, attempting resolution based on this file"
+                )
             let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
@@ -219,7 +249,10 @@ extension Workspace {
             case .required(let reason):
                 // FIXME: ideally this is not done based on a side-effect
                 let reasonString = Self.format(workspaceResolveReason: reason)
-                observabilityScope.emit(debug: "resolution based on '\(self.location.resolvedVersionsFile.basename)' could not be completed because \(reasonString). resolving and updating accordingly")
+                observabilityScope
+                    .emit(
+                        debug: "resolution based on '\(self.location.resolvedVersionsFile.basename)' could not be completed because \(reasonString). resolving and updating accordingly"
+                    )
                 return try resolveAndUpdateResolvedFile(forceResolution: false)
             }
         }
@@ -237,17 +270,17 @@ extension Workspace {
     }
 
     private func computeResolvedFileOriginHash(root: PackageGraphRootInput) throws -> String {
-        var content = try root.packages.reduce(into: "", { partial, element in
+        var content = try root.packages.reduce(into: "") { partial, element in
             let path = try ManifestLoader.findManifest(
                 packagePath: element,
                 fileSystem: self.fileSystem,
                 currentToolsVersion: self.currentToolsVersion
             )
-            partial.append(try self.fileSystem.readFileContents(path))
-        })
-        content += root.dependencies.reduce(into: "", { partial, element in
+            try partial.append(self.fileSystem.readFileContents(path))
+        }
+        content += root.dependencies.reduce(into: "") { partial, element in
             partial += element.locationString
-        })
+        }
         return content.sha256Checksum
     }
 
@@ -255,7 +288,8 @@ extension Workspace {
     func _resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        observabilityScope: ObservabilityScope) throws -> DependencyManifests {
+        observabilityScope: ObservabilityScope
+    ) throws -> DependencyManifests {
         let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: explicitProduct,
@@ -270,9 +304,15 @@ extension Workspace {
             // FIXME: ideally this is not done based on a side-effect
             let reasonString = Self.format(workspaceResolveReason: reason)
             if !self.fileSystem.exists(self.location.resolvedVersionsFile) {
-                observabilityScope.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
+                observabilityScope
+                    .emit(
+                        error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)"
+                    )
             } else {
-                observabilityScope.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
+                observabilityScope
+                    .emit(
+                        error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)"
+                    )
             }
             return manifests
         }
@@ -291,7 +331,11 @@ extension Workspace {
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
+        let rootManifests = try temp_await { self.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: observabilityScope,
+            completion: $0
+        ) }
         let graphRoot = PackageGraphRoot(
             input: root,
             manifests: rootManifests,
@@ -301,8 +345,13 @@ extension Workspace {
         )
 
         // Load the pins store or abort now.
-        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }), !observabilityScope.errorsReported else {
-            return (try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope), .notRequired)
+        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }),
+              !observabilityScope.errorsReported
+        else {
+            return try (
+                self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope),
+                .notRequired
+            )
         }
 
         // Request all the containers to fetch them in parallel.
@@ -312,7 +361,10 @@ extension Workspace {
         let group = DispatchGroup()
         for pin in pinsStore.pins.values {
             group.enter()
-            let observabilityScope = observabilityScope.makeChildScope(description: "requesting package containers", metadata: pin.packageRef.diagnosticsMetadata)
+            let observabilityScope = observabilityScope.makeChildScope(
+                description: "requesting package containers",
+                metadata: pin.packageRef.diagnosticsMetadata
+            )
 
             let updateStrategy: ContainerUpdateStrategy = {
                 if self.configuration.skipDependenciesUpdates {
@@ -323,7 +375,7 @@ extension Workspace {
                         return .ifNeeded(revision: revision)
                     case .revision(let revision):
                         return .ifNeeded(revision: revision)
-                    case .version(_, let .some(revision)):
+                    case .version(_, .some(let revision)):
                         return .ifNeeded(revision: revision)
                     case .version(_, .none):
                         return .always
@@ -333,7 +385,7 @@ extension Workspace {
 
             self.packageContainerProvider.getContainer(
                 for: pin.packageRef,
-                updateStrategy:  updateStrategy,
+                updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 on: .sharedConcurrent,
                 completion: { _ in group.leave() }
@@ -345,7 +397,7 @@ extension Workspace {
         //
         // We require cloning if there is no checkout or if the checkout doesn't
         // match with the pin.
-        let requiredPins = pinsStore.pins.values.filter{ pin in
+        let requiredPins = pinsStore.pins.values.filter { pin in
             // also compare the location in case it has changed
             guard let dependency = state.dependencies[comparingLocation: pin.packageRef] else {
                 return true
@@ -362,21 +414,40 @@ extension Workspace {
 
         // Retrieve the required pins.
         for pin in requiredPins {
-            observabilityScope.makeChildScope(description: "retrieving dependency pins", metadata: pin.packageRef.diagnosticsMetadata).trap {
+            observabilityScope.makeChildScope(
+                description: "retrieving dependency pins",
+                metadata: pin.packageRef.diagnosticsMetadata
+            ).trap {
                 switch pin.packageRef.kind {
                 case .localSourceControl, .remoteSourceControl:
-                    _ = try self.checkoutRepository(package: pin.packageRef, at: pin.state, observabilityScope: observabilityScope)
+                    _ = try self.checkoutRepository(
+                        package: pin.packageRef,
+                        at: pin.state,
+                        observabilityScope: observabilityScope
+                    )
                 case .registry:
-                    _ = try self.downloadRegistryArchive(package: pin.packageRef, at: pin.state, observabilityScope: observabilityScope)
+                    _ = try self.downloadRegistryArchive(
+                        package: pin.packageRef,
+                        at: pin.state,
+                        observabilityScope: observabilityScope
+                    )
                 default:
                     throw InternalError("invalid pin type \(pin.packageRef.kind)")
                 }
             }
         }
 
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, automaticallyAddManagedDependencies: true, observabilityScope: observabilityScope)
+        let currentManifests = try self.loadDependencyManifests(
+            root: graphRoot,
+            automaticallyAddManagedDependencies: true,
+            observabilityScope: observabilityScope
+        )
 
-        try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], observabilityScope: observabilityScope)
+        try self.updateBinaryArtifacts(
+            manifests: currentManifests,
+            addedOrUpdatedPackages: [],
+            observabilityScope: observabilityScope
+        )
 
         let precomputationResult = try self.precomputeResolution(
             root: graphRoot,
@@ -408,8 +479,12 @@ extension Workspace {
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
+        let rootManifests = try temp_await { self.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: observabilityScope,
+            completion: $0
+        ) }
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
@@ -505,13 +580,20 @@ extension Workspace {
         }
 
         // Update the checkouts with dependency resolution result.
-        let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: result, observabilityScope: observabilityScope)
+        let packageStateChanges = self.updateDependenciesCheckouts(
+            root: graphRoot,
+            updateResults: result,
+            observabilityScope: observabilityScope
+        )
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
 
         // Update the pinsStore.
-        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+        let updatedDependencyManifests = try self.loadDependencyManifests(
+            root: graphRoot,
+            observabilityScope: observabilityScope
+        )
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
@@ -528,7 +610,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
+        let addedOrUpdatedPackages = packageStateChanges.compactMap { $0.1.isAddedOrUpdated ? $0.0 : nil }
         try self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
@@ -537,7 +619,6 @@ extension Workspace {
 
         return updatedDependencyManifests
     }
-
 
     /// Updates the current working checkouts i.e. clone or remove based on the
     /// provided dependency resolution result.
@@ -568,7 +649,10 @@ extension Workspace {
 
         // First remove the checkouts that are no longer required.
         for (packageRef, state) in packageStateChanges {
-            observabilityScope.makeChildScope(description: "removing unneeded checkouts", metadata: packageRef.diagnosticsMetadata).trap {
+            observabilityScope.makeChildScope(
+                description: "removing unneeded checkouts",
+                metadata: packageRef.diagnosticsMetadata
+            ).trap {
                 switch state {
                 case .added, .updated, .unchanged:
                     break
@@ -580,12 +664,25 @@ extension Workspace {
 
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
-            observabilityScope.makeChildScope(description: "updating or cloning new packages", metadata: packageRef.diagnosticsMetadata).trap {
+            observabilityScope.makeChildScope(
+                description: "updating or cloning new packages",
+                metadata: packageRef.diagnosticsMetadata
+            ).trap {
                 switch state {
                 case .added(let state):
-                    _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
+                    _ = try self.updateDependency(
+                        package: packageRef,
+                        requirement: state.requirement,
+                        productFilter: state.products,
+                        observabilityScope: observabilityScope
+                    )
                 case .updated(let state):
-                    _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
+                    _ = try self.updateDependency(
+                        package: packageRef,
+                        requirement: state.requirement,
+                        productFilter: state.products,
+                        observabilityScope: observabilityScope
+                    )
                 case .removed, .unchanged:
                     break
                 }
@@ -624,16 +721,30 @@ extension Workspace {
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
                 guard let tag = container.getTag(for: version) else {
-                    throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
+                    throw try InternalError(
+                        "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
+                    )
                 }
                 let revision = try container.getRevision(forTag: tag)
                 try container.checkIntegrity(version: version, revision: revision)
-                return try self.checkoutRepository(package: package, at: .version(version, revision: revision), observabilityScope: observabilityScope)
+                return try self.checkoutRepository(
+                    package: package,
+                    at: .version(version, revision: revision),
+                    observabilityScope: observabilityScope
+                )
             } else if let _ = container as? RegistryPackageContainer {
-                return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
+                return try self.downloadRegistryArchive(
+                    package: package,
+                    at: version,
+                    observabilityScope: observabilityScope
+                )
             } else if let customContainer = container as? CustomPackageContainer {
                 let path = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
-                let dependency = try ManagedDependency(packageRef: package, state: .custom(version: version, path: path), subpath: RelativePath(validating: ""))
+                let dependency = try ManagedDependency(
+                    packageRef: package,
+                    state: .custom(version: version, path: path),
+                    subpath: RelativePath(validating: "")
+                )
                 self.state.dependencies.add(dependency)
                 try self.state.save()
                 return path
@@ -642,10 +753,18 @@ extension Workspace {
             }
 
         case .revision(let revision, .none):
-            return try self.checkoutRepository(package: package, at: .revision(revision), observabilityScope: observabilityScope)
+            return try self.checkoutRepository(
+                package: package,
+                at: .revision(revision),
+                observabilityScope: observabilityScope
+            )
 
         case .revision(let revision, .some(let branch)):
-            return try self.checkoutRepository(package: package, at: .branch(name: branch, revision: revision), observabilityScope: observabilityScope)
+            return try self.checkoutRepository(
+                package: package,
+                at: .branch(name: branch, revision: revision),
+                observabilityScope: observabilityScope
+            )
 
         case .unversioned:
             let dependency = try ManagedDependency.fileSystem(packageRef: package)
@@ -686,12 +805,19 @@ extension Workspace {
         let computedConstraints =
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
-            root.manifests.values.flatMap{ try $0.dependencyConstraints(productFilter: .everything) } +
+            root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
-        let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
-        let resolver = PubGrubDependencyResolver(provider: precomputationProvider, pins: pinsStore.pins, observabilityScope: observabilityScope)
+        let precomputationProvider = ResolverPrecomputationProvider(
+            root: root,
+            dependencyManifests: dependencyManifests
+        )
+        let resolver = PubGrubDependencyResolver(
+            provider: precomputationProvider,
+            pins: pinsStore.pins,
+            observabilityScope: observabilityScope
+        )
         let result = resolver.solve(constraints: computedConstraints)
 
         guard !observabilityScope.errorsReported else {
@@ -719,15 +845,17 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) -> PinsStore?  {
+    ) -> PinsStore? {
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
             return nil
         }
 
-        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.requiredPackages.filter({ $0.kind.isPinnable }) }) else {
+        guard let requiredDependencies = observabilityScope
+            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isPinnable) })
+        else {
             return nil
         }
-        for dependency in self.state.dependencies.filter({ $0.packageRef.kind.isPinnable }) {
+        for dependency in self.state.dependencies.filter(\.packageRef.kind.isPinnable) {
             // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
@@ -736,7 +864,7 @@ extension Workspace {
                 if !(pin?.packageRef.equalsIncludingLocation(dependency.packageRef) ?? false) {
                     pinsStore.pin(dependency)
                 }
-            } else if let pin = pinsStore.pins[dependency.packageRef.identity]  {
+            } else if let pin = pinsStore.pins[dependency.packageRef.identity] {
                 // otherwise, it should *not* be in the pins store.
                 pinsStore.remove(pin)
             }
@@ -747,7 +875,6 @@ extension Workspace {
 
     /// This enum represents state of an external package.
     public enum PackageStateChange: Equatable, CustomStringConvertible {
-
         /// The requirement imposed by the the state.
         public enum Requirement: Equatable, CustomStringConvertible {
             /// A version requirement.
@@ -780,6 +907,7 @@ extension Workspace {
                 }
             }
         }
+
         public struct State: Equatable {
             public let requirement: Requirement
             public let products: ProductFilter
@@ -879,7 +1007,7 @@ extension Workspace {
             case .revision(let identifier, let branch):
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
-                guard let container = (try temp_await {
+                guard let container = try (temp_await {
                     packageContainerProvider.getContainer(
                         for: packageRef,
                         updateStrategy: .never,
@@ -896,7 +1024,9 @@ extension Workspace {
                 // If we have a branch and we shouldn't be updating the
                 // branches, use the revision from pin instead (if present).
                 if branch != nil, !updateBranches {
-                    if case .branch(branch, let pinRevision) = pinsStore.pins.values.first(where: { $0.packageRef == packageRef })?.state {
+                    if case .branch(branch, let pinRevision) = pinsStore.pins.values
+                        .first(where: { $0.packageRef == packageRef })?.state
+                    {
                         revision = Revision(identifier: pinRevision)
                     }
                 }
@@ -911,15 +1041,23 @@ extension Workspace {
                     } else {
                         newState = .revision(revision)
                     }
-                    if case .sourceControlCheckout(let checkoutState) = currentDependency.state, checkoutState == newState {
+                    if case .sourceControlCheckout(let checkoutState) = currentDependency.state,
+                       checkoutState == newState
+                    {
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
-                        let newState = PackageStateChange.State(requirement: .revision(revision, branch: branch), products: products)
+                        let newState = PackageStateChange.State(
+                            requirement: .revision(revision, branch: branch),
+                            products: products
+                        )
                         packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
-                    let newState = PackageStateChange.State(requirement: .revision(revision, branch: branch), products: products)
+                    let newState = PackageStateChange.State(
+                        requirement: .revision(revision, branch: branch),
+                        products: products
+                    )
                     packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
 
@@ -937,7 +1075,9 @@ extension Workspace {
             }
         }
         // Set the state of any old package that might have been removed.
-        for packageRef in self.state.dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.identity] == nil {
+        for packageRef in self.state.dependencies.lazy.map(\.packageRef)
+            where packageStateChanges[packageRef.identity] == nil
+        {
             packageStateChanges[packageRef.identity] = (packageRef, .removed)
         }
 
@@ -945,7 +1085,10 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver(pins: PinsStore.Pins, observabilityScope: ObservabilityScope) throws -> PubGrubDependencyResolver {
+    fileprivate func createResolver(
+        pins: PinsStore.Pins,
+        observabilityScope: ObservabilityScope
+    ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
         let observabilityDelegate = ObservabilityDependencyResolverDelegate(observabilityScope: observabilityScope)
         if let workspaceDelegate = self.delegate {
@@ -1006,30 +1149,43 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     }
 
     func willResolve(term: Term) {
-        // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at package level
-        resolving.memoize(term.node.package.identity) {
-            self.workspaceDelegate?.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
+        // this may be called multiple time by the resolver for various version ranges, but we only want to propagate
+        // once since we report at package level
+        self.resolving.memoize(term.node.package.identity) {
+            self.workspaceDelegate?.willComputeVersion(
+                package: term.node.package.identity,
+                location: term.node.package.locationString
+            )
             return true
         }
     }
 
     func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        self.workspaceDelegate?.didComputeVersion(package: term.node.package.identity, location: term.node.package.locationString, version: version.description, duration: duration)
+        self.workspaceDelegate?.didComputeVersion(
+            package: term.node.package.identity,
+            location: term.node.package.locationString,
+            version: version.description,
+            duration: duration
+        )
     }
 
     // noop
     func derived(term: Term) {}
     func conflict(conflict: Incompatibility) {}
     func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {}
-    func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {}
+    func partiallySatisfied(
+        term: Term,
+        by assignment: Assignment,
+        incompatibility: Incompatibility,
+        difference: Term
+    ) {}
     func failedToResolve(incompatibility: Incompatibility) {}
     func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {}
 }
 
-
 // FIXME: the manifest loading logic should be changed to use identity instead of location once identity is unique
 // at that time we should remove this
-//@available(*, deprecated)
+// @available(*, deprecated)
 extension PackageDependency {
     var locationString: String {
         switch self {
@@ -1053,7 +1209,7 @@ extension Workspace.ManagedDependencies {
     fileprivate func hasEditedDependencies() -> Bool {
         self.contains(where: {
             switch $0.state {
-            case .edited(_, _):
+            case .edited:
                 return true
             default:
                 return false

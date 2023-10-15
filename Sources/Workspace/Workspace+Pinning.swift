@@ -26,12 +26,15 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws {
         var dependenciesToPin = [ManagedDependency]()
-        let requiredDependencies = try dependencyManifests.requiredPackages.filter({ $0.kind.isPinnable })
+        let requiredDependencies = try dependencyManifests.requiredPackages.filter(\.kind.isPinnable)
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
             } else {
-                observabilityScope.emit(warning: "required dependency \(dependency.identity) (\(dependency.locationString)) was not found in managed dependencies and will not be recorded in resolved file")
+                observabilityScope
+                    .emit(
+                        warning: "required dependency \(dependency.identity) (\(dependency.locationString)) was not found in managed dependencies and will not be recorded in resolved file"
+                    )
             }
         }
 
@@ -46,7 +49,9 @@ extension Workspace {
                 needsUpdate = true
             } else {
                 for dependency in dependenciesToPin {
-                    if let pin = storedPinStore.pins.first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) }) {
+                    if let pin = storedPinStore.pins
+                        .first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) })
+                    {
                         if pin.value.state != PinsStore.Pin(dependency)?.state {
                             needsUpdate = true
                             break
@@ -92,9 +97,13 @@ extension Workspace {
     public func watchResolvedFile() throws {
         // Return if we're already watching it.
         guard self.resolvedFileWatcher == nil else { return }
-        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFile) { [weak self] in
-            self?.delegate?.resolvedFileChanged()
-        }
+        self
+            .resolvedFileWatcher = try ResolvedFileWatcher(
+                resolvedFile: self.location
+                    .resolvedVersionsFile
+            ) { [weak self] in
+                self?.delegate?.resolvedFileChanged()
+            }
     }
 }
 
@@ -109,8 +118,8 @@ extension PinsStore {
     }
 }
 
-fileprivate extension PinsStore.Pin {
-    init?(_ dependency: Workspace.ManagedDependency) {
+extension PinsStore.Pin {
+    fileprivate init?(_ dependency: Workspace.ManagedDependency) {
         switch dependency.state {
         case .sourceControlCheckout(.version(let version, let revision)):
             self.init(
@@ -164,7 +173,7 @@ extension PinsStore.PinState {
         }
     }
 
-    func equals(_ version: Version) -> Bool {
+    func equals(_: Version) -> Bool {
         switch self {
         case .version(let version, _):
             return version == version

@@ -12,9 +12,9 @@
 
 import Basics
 import Foundation
+import PackageLoading
 import PackageModel
 import SPMBuildCore
-import PackageLoading
 
 import struct TSCBasic.ByteString
 import protocol TSCBasic.HashAlgorithm
@@ -696,7 +696,8 @@ extension Workspace.BinaryArtifactsManager {
                 _ = try decoder.decode(XCFrameworkMetadata.self, from: fileSystem.readFileContents(infoPlist))
                 return .xcframework
             } catch {
-                observabilityScope.emit(debug: "info.plist found in '\(path)' but failed to parse: \(error.interpolationDescription)")
+                observabilityScope
+                    .emit(debug: "info.plist found in '\(path)' but failed to parse: \(error.interpolationDescription)")
             }
         }
 
@@ -722,7 +723,10 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) throws {
-        let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(from: manifests, observabilityScope: observabilityScope)
+        let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(
+            from: manifests,
+            observabilityScope: observabilityScope
+        )
 
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
@@ -730,8 +734,11 @@ extension Workspace {
         var artifactsToExtract: [ManagedArtifact] = []
 
         for artifact in state.artifacts {
-            if !manifestArtifacts.local.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
-                !manifestArtifacts.remote.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) {
+            if !manifestArtifacts.local
+                .contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
+                !manifestArtifacts.remote
+                .contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName })
+            {
                 artifactsToRemove.append(artifact)
             }
         }
@@ -745,14 +752,23 @@ extension Workspace {
             if artifact.path.extension?.lowercased() == "zip" {
                 // If we already have an artifact that was extracted from an archive with the same checksum,
                 // we don't need to extract the artifact again.
-                if case .local(let existingChecksum) = existingArtifact?.source, existingChecksum == (try self.binaryArtifactsManager.checksum(forBinaryArtifactAt: artifact.path)) {
+                if case .local(let existingChecksum) = existingArtifact?.source,
+                   try existingChecksum == (self.binaryArtifactsManager.checksum(forBinaryArtifactAt: artifact.path))
+                {
                     continue
                 }
 
                 artifactsToExtract.append(artifact)
             } else {
-                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifact.path, observabilityScope: observabilityScope) else {
-                    observabilityScope.emit(.localArtifactNotFound(artifactPath: artifact.path, targetName: artifact.targetName))
+                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(
+                    fileSystem: self.fileSystem,
+                    path: artifact.path,
+                    observabilityScope: observabilityScope
+                ) else {
+                    observabilityScope.emit(.localArtifactNotFound(
+                        artifactPath: artifact.path,
+                        targetName: artifact.targetName
+                    ))
                     continue
                 }
                 artifactsToAdd.append(artifact)

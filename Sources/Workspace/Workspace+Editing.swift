@@ -33,7 +33,10 @@ extension Workspace {
             return
         }
 
-        let observabilityScope = observabilityScope.makeChildScope(description: "editing package", metadata: dependency.packageRef.diagnosticsMetadata)
+        let observabilityScope = observabilityScope.makeChildScope(
+            description: "editing package",
+            metadata: dependency.packageRef.diagnosticsMetadata
+        )
 
         let checkoutState: CheckoutState
         switch dependency.state {
@@ -62,28 +65,35 @@ extension Workspace {
         if fileSystem.exists(destination) {
             // FIXME: this should not block
             let manifest = try temp_await {
-                self.loadManifest(packageIdentity: dependency.packageRef.identity,
-                                  packageKind: .fileSystem(destination),
-                                  packagePath: destination,
-                                  packageLocation: dependency.packageRef.locationString,
-                                  observabilityScope: observabilityScope,
-                                  completion: $0)
+                self.loadManifest(
+                    packageIdentity: dependency.packageRef.identity,
+                    packageKind: .fileSystem(destination),
+                    packagePath: destination,
+                    packageLocation: dependency.packageRef.locationString,
+                    observabilityScope: observabilityScope,
+                    completion: $0
+                )
             }
 
             guard manifest.displayName == packageName else {
-                return observabilityScope.emit(error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)")
+                return observabilityScope
+                    .emit(
+                        error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)"
+                    )
             }
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch {
                 observabilityScope.emit(.editBranchNotCheckedOut(
                     packageName: packageName,
-                    branchName: checkoutBranch))
+                    branchName: checkoutBranch
+                ))
             }
             if let revision {
                 observabilityScope.emit(.editRevisionNotUsed(
                     packageName: packageName,
-                    revisionIdentifier: revision.identifier))
+                    revisionIdentifier: revision.identifier
+                ))
             }
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
@@ -148,8 +158,8 @@ extension Workspace {
         }
 
         // Save the new state.
-        self.state.dependencies.add(
-            try dependency.edited(subpath: RelativePath(validating: packageName), unmanagedPath: path)
+        try self.state.dependencies.add(
+            dependency.edited(subpath: RelativePath(validating: packageName), unmanagedPath: path)
         )
         try self.state.save()
     }
@@ -161,13 +171,13 @@ extension Workspace {
         root: PackageGraphRootInput? = nil,
         observabilityScope: ObservabilityScope
     ) throws {
-
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
         // If the dependency isn't in edit mode, we can't unedit it.
         guard case .edited(_, let unmanagedPath) = dependency.state else {
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.identity.description)
+            throw WorkspaceDiagnostics
+                .DependencyNotInEditMode(dependencyName: dependency.packageRef.identity.description)
         }
 
         // Set force remove to true for unmanaged dependencies.  Note that
@@ -194,15 +204,23 @@ extension Workspace {
             try fileSystem.removeFileTree(path)
         }
         // If this was the last editable dependency, remove the editables directory too.
-        if fileSystem.exists(self.location.editsDirectory), try fileSystem.getDirectoryContents(self.location.editsDirectory).isEmpty {
+        if fileSystem.exists(self.location.editsDirectory),
+           try fileSystem.getDirectoryContents(self.location.editsDirectory).isEmpty
+        {
             try fileSystem.removeFileTree(self.location.editsDirectory)
         }
 
-        if case .edited(let basedOn, _) = dependency.state, case .sourceControlCheckout(let checkoutState) = basedOn?.state {
+        if case .edited(let basedOn, _) = dependency.state,
+           case .sourceControlCheckout(let checkoutState) = basedOn?.state
+        {
             // Restore the original checkout.
             //
             // The retrieve method will automatically update the managed dependency state.
-            _ = try self.checkoutRepository(package: dependency.packageRef, at: checkoutState, observabilityScope: observabilityScope)
+            _ = try self.checkoutRepository(
+                package: dependency.packageRef,
+                at: checkoutState,
+                observabilityScope: observabilityScope
+            )
         } else {
             // The original dependency was removed, update the managed dependency state.
             self.state.dependencies.remove(dependency.packageRef.identity)

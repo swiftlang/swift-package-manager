@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
-import struct Basics.InternalError
 import protocol Basics.FileSystem
+import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
@@ -34,15 +34,20 @@ import Dispatch
 extension Workspace {
     // the goal of this code is to help align dependency identities across source control and registry origins
     // the issue this solves is that dependencies will have different identities across the origins
-    // for example, source control based dependency on http://github.com/apple/swift-nio would have an identifier of "swift-nio"
+    // for example, source control based dependency on http://github.com/apple/swift-nio would have an identifier of
+    // "swift-nio"
     // while in the registry, the same package will [likely] have an identifier of "apple.swift-nio"
-    // since there is not generally fire sure way to translate one system to the other (urls can vary widely, so the best we would be able to do is guess)
-    // what this code does is query the registry of it "knows" what the registry identity of URL is, and then use the registry identity instead of the URL bases one
-    // the code also supports a "full swizzle" mode in which it _replaces_ the source control dependency with a registry one which encourages the transition
+    // since there is not generally fire sure way to translate one system to the other (urls can vary widely, so the
+    // best we would be able to do is guess)
+    // what this code does is query the registry of it "knows" what the registry identity of URL is, and then use the
+    // registry identity instead of the URL bases one
+    // the code also supports a "full swizzle" mode in which it _replaces_ the source control dependency with a registry
+    // one which encourages the transition
     // from source control based dependencies to registry based ones
 
-    // TODO
-    // 1. handle mixed situation when some versions on the registry but some on source control. we need a second lookup to make sure the version exists
+    // TODO:
+    // 1. handle mixed situation when some versions on the registry but some on source control. we need a second lookup
+    // to make sure the version exists
     // 2. handle registry returning multiple identifiers, how do we choose the right one?
     struct RegistryAwareManifestLoader: ManifestLoaderProtocol {
         private let underlying: ManifestLoaderProtocol
@@ -55,7 +60,11 @@ extension Workspace {
             (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
         >()
 
-        init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
+        init(
+            underlying: ManifestLoaderProtocol,
+            registryClient: RegistryClient,
+            transformationMode: TransformationMode
+        ) {
             self.underlying = underlying
             self.registryClient = registryClient
             self.transformationMode = transformationMode
@@ -123,9 +132,13 @@ extension Workspace {
             let sync = DispatchGroup()
             let transformations = ThreadSafeKeyValueStore<PackageDependency, PackageIdentity>()
             for dependency in manifest.dependencies {
-                if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location  {
+                if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location {
                     sync.enter()
-                    self.mapRegistryIdentity(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+                    self.mapRegistryIdentity(
+                        url: url,
+                        observabilityScope: observabilityScope,
+                        callbackQueue: callbackQueue
+                    ) { result in
                         defer { sync.leave() }
                         switch result {
                         case .failure(let error):
@@ -154,8 +167,7 @@ extension Workspace {
                         observabilityScope: observabilityScope
                     )
                     completion(.success(updatedManifest))
-                }
-                catch {
+                } catch {
                     return completion(.failure(error))
                 }
             }
@@ -181,7 +193,10 @@ extension Workspace {
                     case .identity:
                         // we replace the *identity* of the dependency in order to align the identities
                         // and de-dupe across source control and registry origins
-                        observabilityScope.emit(info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'.")
+                        observabilityScope
+                            .emit(
+                                info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'."
+                            )
                         modifiedDependency = .sourceControl(
                             identity: registryIdentity,
                             nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
@@ -196,8 +211,12 @@ extension Workspace {
                         switch settings.requirement {
                         case .exact, .range:
                             let requirement = try settings.requirement.asRegistryRequirement()
-                            observabilityScope.emit(info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'.")
-                            targetDependencyPackageNameTransformations[dependency.nameForTargetDependencyResolutionOnly] = registryIdentity.description
+                            observabilityScope
+                                .emit(
+                                    info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'."
+                                )
+                            targetDependencyPackageNameTransformations[dependency
+                                .nameForTargetDependencyResolutionOnly] = registryIdentity.description
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,
@@ -208,7 +227,10 @@ extension Workspace {
                             // in such case, the best we can do is to replace the *identity* of the
                             // source control dependency in order to align the identities
                             // and de-dupe across source control and registry origins
-                            observabilityScope.emit(info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'.")
+                            observabilityScope
+                                .emit(
+                                    info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'."
+                                )
                             modifiedDependency = .sourceControl(
                                 identity: registryIdentity,
                                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
@@ -229,17 +251,24 @@ extension Workspace {
                     var modifiedDependencies = [TargetDescription.Dependency]()
                     for dependency in target.dependencies {
                         var modifiedDependency = dependency
-                        if case .product(let name, let packageName, let moduleAliases, let condition) = dependency, let packageName = packageName {
+                        if case .product(let name, let packageName, let moduleAliases, let condition) = dependency,
+                           let packageName
+                        {
                             // makes sure we use the updated package name for target based dependencies
                             if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
-                                modifiedDependency = .product(name: name, package: modifiedPackageName, moduleAliases: moduleAliases, condition: condition)
+                                modifiedDependency = .product(
+                                    name: name,
+                                    package: modifiedPackageName,
+                                    moduleAliases: moduleAliases,
+                                    condition: condition
+                                )
                             }
                         }
                         modifiedDependencies.append(modifiedDependency)
                     }
 
-                    modifiedTargets.append(
-                        try TargetDescription(
+                    try modifiedTargets.append(
+                        TargetDescription(
                             name: target.name,
                             dependencies: modifiedDependencies,
                             path: target.path,
@@ -300,7 +329,11 @@ extension Workspace {
                 }
             }
 
-            self.registryClient.lookupIdentities(scmURL: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+            self.registryClient.lookupIdentities(
+                scmURL: url,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { result in
                 switch result {
                 case .failure(let error):
                     self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
@@ -332,8 +365,8 @@ extension Workspace {
     }
 }
 
-fileprivate extension PackageDependency.SourceControl.Requirement {
-    func asRegistryRequirement() throws -> PackageDependency.Registry.Requirement {
+extension PackageDependency.SourceControl.Requirement {
+    fileprivate func asRegistryRequirement() throws -> PackageDependency.Registry.Requirement {
         switch self {
         case .range(let versions):
             return .range(versions)

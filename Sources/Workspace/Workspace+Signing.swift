@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct PackageGraph.PackageGraph
 import enum PackageFingerprint.FingerprintCheckingMode
+import struct PackageGraph.PackageGraph
 import struct PackageModel.PackageIdentity
 import struct PackageModel.RegistryReleaseMetadata
 import enum PackageSigning.SigningEntityCheckingMode
@@ -63,7 +63,10 @@ extension Workspace {
                 }
                 let mirroredIdentity = PackageIdentity.plain(mirror)
                 guard mirroredIdentity.isRegistry else {
-                    throw SigningError.expectedSignedMirroredToSourceControl(package: identity, expected: expectedSigningEntity)
+                    throw SigningError.expectedSignedMirroredToSourceControl(
+                        package: identity,
+                        expected: expectedSigningEntity
+                    )
                 }
                 guard let package = packageGraph.packages.first(where: { $0.identity == mirroredIdentity }) else {
                     // Unsure if this case is reachable in practice.
@@ -85,8 +88,15 @@ extension Workspace {
 
     public enum SigningError: Swift.Error {
         case expectedIdentityNotFound(package: PackageIdentity)
-        case expectedSignedMirroredToSourceControl(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
-        case mismatchedSigningEntity(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity, actual: RegistryReleaseMetadata.SigningEntity)
+        case expectedSignedMirroredToSourceControl(
+            package: PackageIdentity,
+            expected: RegistryReleaseMetadata.SigningEntity
+        )
+        case mismatchedSigningEntity(
+            package: PackageIdentity,
+            expected: RegistryReleaseMetadata.SigningEntity,
+            actual: RegistryReleaseMetadata.SigningEntity
+        )
         case unsigned(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
     }
 }

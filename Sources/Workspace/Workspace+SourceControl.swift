@@ -52,7 +52,12 @@ extension Workspace {
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
         // Inform the delegate that we're about to start.
-        delegate?.willCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
+        delegate?.willCheckOut(
+            package: package.identity,
+            repository: repository.location.description,
+            revision: checkoutState.description,
+            at: checkoutPath
+        )
         let start = DispatchTime.now()
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
@@ -61,9 +66,12 @@ extension Workspace {
         try? fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
 
         // Record the new state.
-        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies", metadata: package.diagnosticsMetadata)
-        self.state.dependencies.add(
-            try .sourceControlCheckout(
+        observabilityScope.emit(
+            debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
+            metadata: package.diagnosticsMetadata
+        )
+        try self.state.dependencies.add(
+            .sourceControlCheckout(
                 packageRef: package,
                 state: checkoutState,
                 subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)
@@ -73,8 +81,15 @@ extension Workspace {
 
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
-        delegate?.didCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath, duration: duration)
-        observabilityScope.emit(debug: "`\(repository.location.description)` checked out at \(checkoutState.debugDescription)")
+        delegate?.didCheckOut(
+            package: package.identity,
+            repository: repository.location.description,
+            revision: checkoutState.description,
+            at: checkoutPath,
+            duration: duration
+        )
+        observabilityScope
+            .emit(debug: "`\(repository.location.description)` checked out at \(checkoutState.debugDescription)")
 
         return checkoutPath
     }
@@ -135,7 +150,10 @@ extension Workspace {
 
                 // Ensure that the alternative object store is still valid.
                 guard try self.repositoryManager.isValidWorkingCopy(workingCopy, for: repository) else {
-                    observabilityScope.emit(debug: "working copy at '\(checkoutPath)' does not align with expected local path of '\(repository)'")
+                    observabilityScope
+                        .emit(
+                            debug: "working copy at '\(checkoutPath)' does not align with expected local path of '\(repository)'"
+                        )
                     break fetch
                 }
 
@@ -174,7 +192,11 @@ extension Workspace {
         try self.fileSystem.removeFileTree(checkoutPath)
 
         // Inform the delegate that we're about to start.
-        self.delegate?.willCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: checkoutPath)
+        self.delegate?.willCreateWorkingCopy(
+            package: package.identity,
+            repository: handle.repository.location.description,
+            at: checkoutPath
+        )
         let start = DispatchTime.now()
 
         // Create the working copy.
@@ -182,7 +204,12 @@ extension Workspace {
 
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
-        self.delegate?.didCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: checkoutPath, duration: duration)
+        self.delegate?.didCreateWorkingCopy(
+            package: package.identity,
+            repository: handle.repository.location.description,
+            at: checkoutPath,
+            duration: duration
+        )
 
         return checkoutPath
     }
@@ -210,79 +237,80 @@ extension Workspace {
 
 // MARK: - Registry Source archive management
 
- extension Workspace {
-     func downloadRegistryArchive(
+extension Workspace {
+    func downloadRegistryArchive(
         package: PackageReference,
         at version: Version,
         observabilityScope: ObservabilityScope
-     ) throws -> AbsolutePath {
-         // FIXME: this should not block
-         let downloadPath = try temp_await {
-             self.registryDownloadsManager.lookup(
+    ) throws -> AbsolutePath {
+        // FIXME: this should not block
+        let downloadPath = try temp_await {
+            self.registryDownloadsManager.lookup(
                 package: package.identity,
                 version: version,
                 observabilityScope: observabilityScope,
                 delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
-             )
-         }
+            )
+        }
 
-         // Record the new state.
-         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies", metadata: package.diagnosticsMetadata)
-         self.state.dependencies.add(
-            try .registryDownload(
+        // Record the new state.
+        observabilityScope.emit(
+            debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
+            metadata: package.diagnosticsMetadata
+        )
+        try self.state.dependencies.add(
+            .registryDownload(
                 packageRef: package,
                 version: version,
                 subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
             )
-         )
-         try self.state.save()
+        )
+        try self.state.save()
 
-         return downloadPath
-     }
+        return downloadPath
+    }
 
-     func downloadRegistryArchive(
+    func downloadRegistryArchive(
         package: PackageReference,
         at pinState: PinsStore.PinState,
         observabilityScope: ObservabilityScope
-     ) throws -> AbsolutePath {
-         switch pinState {
-         case .version(let version, _):
-             return try self.downloadRegistryArchive(
+    ) throws -> AbsolutePath {
+        switch pinState {
+        case .version(let version, _):
+            return try self.downloadRegistryArchive(
                 package: package,
                 at: version,
                 observabilityScope: observabilityScope
-             )
-         default:
-             throw InternalError("invalid pin state: \(pinState)")
-         }
-     }
+            )
+        default:
+            throw InternalError("invalid pin state: \(pinState)")
+        }
+    }
 
-     func removeRegistryArchive(for dependency: ManagedDependency) throws {
-         guard case .registryDownload = dependency.state else {
-             throw InternalError("cannot remove source archive for \(dependency) with state \(dependency.state)")
-         }
+    func removeRegistryArchive(for dependency: ManagedDependency) throws {
+        guard case .registryDownload = dependency.state else {
+            throw InternalError("cannot remove source archive for \(dependency) with state \(dependency.state)")
+        }
 
-         let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
-         try self.fileSystem.removeFileTree(downloadPath)
+        let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
+        try self.fileSystem.removeFileTree(downloadPath)
 
-         // remove the local copy
-         try self.registryDownloadsManager.remove(package: dependency.packageRef.identity)
-     }
- }
+        // remove the local copy
+        try self.registryDownloadsManager.remove(package: dependency.packageRef.identity)
+    }
+}
 
 extension CheckoutState {
     var revision: Revision {
-        get {
-            switch self {
-            case .revision(let revision):
-                return revision
-            case .version(_, let revision):
-                return revision
-            case .branch(_, let revision):
-                return revision
-            }
+        switch self {
+        case .revision(let revision):
+            return revision
+        case .version(_, let revision):
+            return revision
+        case .branch(_, let revision):
+            return revision
         }
     }
 

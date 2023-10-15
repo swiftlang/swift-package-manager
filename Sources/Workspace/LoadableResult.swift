@@ -25,13 +25,13 @@ public final class LoadableResult<Value> {
 
     /// Load and return the result.
     public func loadResult() -> Result<Value, Error> {
-        return Result(catching: {
+        Result(catching: {
             try self.construct()
         })
     }
 
     /// Load and return the value.
     public func load() throws -> Value {
-        return try loadResult().get()
+        try self.loadResult().get()
     }
 }
