@@ -126,7 +126,7 @@ let package = Package(
         // library; the bootstrap scripts build the deployable version.
         .target(
             name: "PackageDescription",
-            exclude: ["CMakeLists.txt"],
+            exclude: ["CMakeLists.txt", "PackageDescription.docc"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
