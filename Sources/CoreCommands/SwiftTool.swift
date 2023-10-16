@@ -685,7 +685,13 @@ public final class SwiftTool {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+            debuggingParameters: .init(
+                debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+                targetTriple: targetTriple,
+                shouldEnableDebuggingEntitlement:
+                    (options.build.configuration == .debug && !options.build.disableUnsafeDebugging) ||
+                    (options.build.enableUnsafeDebugging && !options.build.disableUnsafeDebugging)
+            ),
             driverParameters: .init(
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"],

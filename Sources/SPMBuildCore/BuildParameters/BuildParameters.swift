@@ -132,20 +132,24 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
-        debuggingParameters: Debugging = .init(),
+        debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
         testingParameters: Testing? = nil
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        self.debuggingParameters = debuggingParameters ?? .init(
+            targetTriple: targetTriple,
+            shouldEnableDebuggingEntitlement: configuration == .debug
+        )
 
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = try hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.targetTriple = targetTriple
-        switch debuggingParameters.debugInfoFormat {
+        switch self.debuggingParameters.debugInfoFormat {
         case .dwarf:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
@@ -182,7 +186,6 @@ public struct BuildParameters: Encodable {
         self.indexStoreMode = indexStoreMode
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
-        self.debuggingParameters = debuggingParameters
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.Triple
+import enum PackageModel.BuildConfiguration
 
 extension BuildParameters {
     public struct Debugging: Encodable {
