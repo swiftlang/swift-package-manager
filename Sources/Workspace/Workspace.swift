@@ -80,6 +80,10 @@ public class Workspace {
 
     /// The delegate interface.
     private(set) weak var delegate: Delegate?
+    
+    /// The continuation for workspace events stream to be yielded to. In the future this will replace the `delegate`
+    /// property.
+    private let eventsContinuation: AsyncStream<Event>.Continuation?
 
     /// The workspace location.
     public let location: Location
@@ -327,8 +331,8 @@ public class Workspace {
         // core
         fileSystem: FileSystem,
         location: Location,
-        authorizationProvider: AuthorizationProvider? = .none,
-        registryAuthorizationProvider: AuthorizationProvider? = .none,
+        authorizationProvider: (any AuthorizationProvider)? = .none,
+        registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
         configuration: WorkspaceConfiguration? = .none,
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
@@ -380,7 +384,7 @@ public class Workspace {
         )
     }
 
-    private init(
+    init(
         // core
         fileSystem: FileSystem,
         location: Location,
@@ -407,7 +411,8 @@ public class Workspace {
         customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
         // delegate
-        delegate: Delegate?
+        delegate: Delegate?,
+        eventsContinuation: AsyncStream<Workspace.Event>.Continuation? = nil
     ) throws {
         // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long lived.
         // instead, observabilityScope is passed into the individual workspace methods which are short lived.
@@ -557,6 +562,8 @@ public class Workspace {
             storageDirectory: self.location.scratchDirectory,
             initializationWarningHandler: initializationWarningHandler
         )
+
+        self.eventsContinuation = eventsContinuation
     }
 }
 

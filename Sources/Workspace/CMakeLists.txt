@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Workspace
+  AsyncWorkspace.swift
   CheckoutState.swift
   DefaultPluginScriptRunner.swift
   Diagnostics.swift
@@ -26,6 +27,7 @@ add_library(Workspace
   Workspace+Delegation.swift
   Workspace+Dependencies.swift
   Workspace+Editing.swift
+  Workspace+Event.swift
   Workspace+Manifests.swift
   Workspace+PackageContainer.swift
   Workspace+Pinning.swift
