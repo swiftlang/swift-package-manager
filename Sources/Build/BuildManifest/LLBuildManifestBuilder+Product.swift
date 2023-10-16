@@ -92,9 +92,9 @@ extension LLBuildManifestBuilder {
                 )
 
                 try self.manifest.addShellCmd(
-                    name: "\(cmdName)-entitlements",
+                    name: "\(cmdName)-codesigning",
                     description: "Applying debug entitlements to \(buildProduct.binaryPath.prettyPath())",
-                    inputs: [.virtual(targetName + "-CodeSigning")],
+                    inputs: [codeSigningOutput],
                     outputs: [.file(buildProduct.binaryPath)],
                     arguments: ["mv", linkedBinaryPath.pathString, buildProduct.binaryPath.pathString]
                 )
