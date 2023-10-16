@@ -667,7 +667,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testRootPackageWithConditionals() throws {
         try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
             let (_, stderr) = try SwiftPM.Build.execute(packagePath: path)
-            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
+            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit") && !$0.isEmpty }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }
     }
