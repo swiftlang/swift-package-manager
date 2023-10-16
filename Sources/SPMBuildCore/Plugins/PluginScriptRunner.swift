@@ -19,7 +19,7 @@ import PackageGraph
 /// Implements the mechanics of running and communicating with a plugin (implemented as a set of Swift source files). In most environments this is done by compiling the code to an executable, invoking it as a sandboxed subprocess, and communicating with it using pipes. Specific implementations are free to implement things differently, however.
 public protocol PluginScriptRunner {
     
-    /// Public protocol function that starts compiling the plugin script to an exectutable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
+    /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callback queue when compilation ends.
     func compilePluginScript(
         sourceFiles: [AbsolutePath],
         pluginName: String,
