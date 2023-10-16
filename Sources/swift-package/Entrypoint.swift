@@ -12,4 +12,9 @@
 
 import Commands
 
-SwiftPackageTool.main()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftPackageTool.main()
+    }
+}
