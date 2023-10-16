@@ -865,7 +865,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoMatch(workspace.delegate.events, [.contains("updating repo")])
     }
 
-    func testPrecomputeResolution_empty() throws {
+    func testPrecomputeResolution_empty() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -905,13 +905,13 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result.isRequired, false)
         }
     }
 
-    func testPrecomputeResolution_newPackages() throws {
+    func testPrecomputeResolution_newPackages() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -967,13 +967,13 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
         }
     }
 
-    func testPrecomputeResolution_requirementChange_versionToBranch() throws {
+    func testPrecomputeResolution_requirementChange_versionToBranch() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1032,7 +1032,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
@@ -1042,7 +1042,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrecomputeResolution_requirementChange_versionToRevision() throws {
+    func testPrecomputeResolution_requirementChange_versionToRevision() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
@@ -1084,7 +1084,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try testWorkspace.checkPrecomputeResolution { result in
+        try await testWorkspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
@@ -1094,7 +1094,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrecomputeResolution_requirementChange_localToBranch() throws {
+    func testPrecomputeResolution_requirementChange_localToBranch() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1152,7 +1152,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
@@ -1162,7 +1162,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrecomputeResolution_requirementChange_versionToLocal() throws {
+    func testPrecomputeResolution_requirementChange_versionToLocal() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1220,7 +1220,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
@@ -1230,7 +1230,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrecomputeResolution_requirementChange_branchToLocal() throws {
+    func testPrecomputeResolution_requirementChange_branchToLocal() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1289,7 +1289,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
@@ -1299,7 +1299,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrecomputeResolution_other() throws {
+    func testPrecomputeResolution_other() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1358,7 +1358,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(
                 result.result,
@@ -1371,7 +1371,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrecomputeResolution_notRequired() throws {
+    func testPrecomputeResolution_notRequired() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1431,7 +1431,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        try workspace.checkPrecomputeResolution { result in
+        try await workspace.checkPrecomputeResolution { result in
             XCTAssertNoDiagnostics(result.diagnostics)
             XCTAssertEqual(result.result.isRequired, false)
         }

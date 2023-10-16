@@ -510,13 +510,16 @@ public final class MockWorkspace {
         public let diagnostics: [Basics.Diagnostic]
     }
 
-    public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) throws {
+    public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
         let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
-        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: rootInput.packages,
+            observabilityScope: observability.topScope
+        )
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
 
         let dependencyManifests = try workspace.loadDependencyManifests(root: root, observabilityScope: observability.topScope)
