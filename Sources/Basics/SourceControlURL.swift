@@ -13,21 +13,17 @@
 import Foundation
 
 public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
-    private let underlying: URL?
     private let urlString: String
 
     public init(stringLiteral: String) {
-        self.underlying = URL(string: stringLiteral)
         self.urlString = stringLiteral
     }
 
     public init(_ urlString: String) {
-        self.underlying = URL(string: urlString)
         self.urlString = urlString
     }
 
     public init(_ url: URL) {
-        self.underlying = url
         self.urlString = url.absoluteString
     }
 
@@ -40,11 +36,7 @@ public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
     }
 
     public var url: URL? {
-        return self.underlying
-    }
-
-    public var scheme: String? {
-        return self.underlying?.scheme
+        return URL(string: self.urlString)
     }
 }
 

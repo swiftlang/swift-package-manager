@@ -424,7 +424,7 @@ public struct CanonicalPackageLocation: Equatable, CustomStringConvertible {
 }
 
 /// Similar to `CanonicalPackageLocation` but differentiates based on the scheme.
-public struct CanonicalPackageURL: CustomStringConvertible {
+public struct CanonicalPackageURL: Equatable, CustomStringConvertible {
     public let description: String
     public let scheme: String?
 

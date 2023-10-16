@@ -11367,7 +11367,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "FooPackage",
@@ -11378,7 +11379,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
                 ),
             ]
         )
@@ -11480,7 +11482,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "BarPackage",
@@ -11510,7 +11513,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "FooPackage",
@@ -11521,7 +11525,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
                 ),
             ]
         )

@@ -169,11 +169,16 @@ extension PackageReference: Equatable {
         }
         switch (self.kind, other.kind) {
         case (.remoteSourceControl(let lurl), .remoteSourceControl(let rurl)):
-            return lurl.scheme == rurl.scheme
+            return lurl.canonicalURL == rurl.canonicalURL
         default:
-            break
+            return true
         }
-        return true
+    }
+}
+
+extension SourceControlURL {
+    var canonicalURL: CanonicalPackageURL {
+        CanonicalPackageURL(self.absoluteString)
     }
 }
 
