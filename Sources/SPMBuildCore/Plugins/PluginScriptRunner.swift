@@ -61,6 +61,29 @@ public protocol PluginScriptRunner {
     var hostTriple: Triple { get throws }
 }
 
+extension PluginScriptRunner {
+    /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callback queue when compilation ends.
+    public func compilePluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope,
+        delegate: PluginScriptCompilerDelegate
+    ) async throws -> PluginCompilationResult {
+        try await withCheckedThrowingContinuation {
+            self.compilePluginScript(
+                sourceFiles: sourceFiles,
+                pluginName: pluginName,
+                toolsVersion: toolsVersion,
+                observabilityScope: observabilityScope,
+                callbackQueue: .sharedConcurrent,
+                delegate: delegate,
+                completion: $0.resume(with:)
+            )
+        }
+    }
+}
+
 /// Protocol by which `PluginScriptRunner` communicates back to the caller as it compiles plugins.
 public protocol PluginScriptCompilerDelegate {
     /// Called immediately before compiling a plugin. Will not be called if the plugin didn't have to be compiled. This call is always followed by a `didCompilePlugin()` but is mutually exclusive with a `skippedCompilingPlugin()` call.

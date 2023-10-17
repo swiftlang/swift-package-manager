@@ -258,7 +258,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // If any plugins are part of the build set, compile them now to surface
         // any errors up-front. Returns true if we should proceed with the build
         // or false if not. It will already have thrown any appropriate error.
-        guard try self.compilePlugins(in: subset) else {
+        guard try await self.compilePlugins(in: subset) else {
             return
         }
 
@@ -335,7 +335,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
-    func compilePlugin(_ plugin: PluginDescription) throws {
+    func compilePlugin(_ plugin: PluginDescription) async throws {
         guard let pluginConfiguration else {
             throw InternalError("unknown plugin script runner")
         }
@@ -379,16 +379,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
         }
         let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
-        let result = try temp_await {
-            pluginConfiguration.scriptRunner.compilePluginScript(
-                sourceFiles: plugin.sources.paths,
-                pluginName: plugin.targetName,
-                toolsVersion: plugin.toolsVersion,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: DispatchQueue.sharedConcurrent,
-                delegate: delegate,
-                completion: $0)
-        }
+        let result = try await pluginConfiguration.scriptRunner.compilePluginScript(
+            sourceFiles: plugin.sources.paths,
+            pluginName: plugin.targetName,
+            toolsVersion: plugin.toolsVersion,
+            observabilityScope: self.observabilityScope,
+            delegate: delegate
+        )
 
         // Throw an error on failure; we will already have emitted the compiler's output in this case.
         if !result.succeeded {
