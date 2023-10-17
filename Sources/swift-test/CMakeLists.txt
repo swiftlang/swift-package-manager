@@ -11,6 +11,9 @@ add_executable(swift-test
 target_link_libraries(swift-test PRIVATE
   Commands)
 
+target_compile_options(swift-experimental-sdk PRIVATE
+  -parse-as-library)
+
 if(USE_CMAKE_INSTALL)
 install(TARGETS swift-test
   RUNTIME DESTINATION bin)

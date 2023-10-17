@@ -12,4 +12,9 @@
 
 import Commands
 
-SwiftTestTool.main()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftTestTool.main()
+    }
+}

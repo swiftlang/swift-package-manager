@@ -167,7 +167,7 @@ public enum TestOutput: String, ExpressibleByArgument {
 }
 
 /// swift-test tool namespace
-public struct SwiftTestTool: SwiftCommand {
+public struct SwiftTestTool: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "test",
         _superCommandName: "swift",
@@ -188,7 +188,7 @@ public struct SwiftTestTool: SwiftCommand {
     @OptionGroup()
     var options: TestToolOptions
 
-    public func run(_ swiftTool: SwiftTool) throws {
+    public func run(_ swiftTool: SwiftTool) async throws {
         do {
             // Validate commands arguments
             try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
@@ -292,7 +292,7 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             if self.options.enableCodeCoverage, ranSuccessfully {
-                try processCodeCoverage(testProducts, swiftTool: swiftTool)
+                try await processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
             if self.options.enableExperimentalTestOutput, !ranSuccessfully {
@@ -351,7 +351,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // process code Coverage if request
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
-                try processCodeCoverage(testProducts, swiftTool: swiftTool)
+                try await processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
             if !runner.ranSuccessfully {
@@ -396,16 +396,14 @@ public struct SwiftTestTool: SwiftCommand {
     }
 
     /// Processes the code coverage data and emits a json.
-    private func processCodeCoverage(_ testProducts: [BuiltTestProduct], swiftTool: SwiftTool) throws {
+    private func processCodeCoverage(_ testProducts: [BuiltTestProduct], swiftTool: SwiftTool) async throws {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftTool.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftTool.observabilityScope
+        )
+
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }
