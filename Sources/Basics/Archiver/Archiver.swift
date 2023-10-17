@@ -67,7 +67,7 @@ extension Archiver {
         }
     }    
 
-    /// Asynchronously compress the contents of a directory to a destination archive.
+    /// Asynchronously compresses the contents of a directory to a destination archive.
     ///
     /// - Parameters:
     ///   - directory: The `AbsolutePath` to the archive to extract.
