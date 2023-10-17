@@ -198,9 +198,11 @@ extension Workspace {
                 }
             }
 
+            let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map { $0.packageRef } }
+
             var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
-                node.manifest.dependenciesRequired(for: node.productFilter).compactMap { dependency in
+                return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
                     let package = dependency.packageRef
                     let (inserted, index) = requiredIdentities.append(package)
                     if !inserted {
@@ -209,17 +211,26 @@ extension Workspace {
                         if existing.canonicalLocation == package.canonicalLocation {
                             // same literal location is fine
                             if existing.locationString != package.locationString {
-                                let preferred = [existing, package].sorted(by: {
-                                    $0.locationString > $1.locationString
-                                }).first! // safe
-                                observabilityScope.emit(debug: """
-                                similar variants of package '\(package.identity)' \
-                                found at '\(package.locationString)' and '\(existing.locationString)'. \
-                                using preferred variant '\(preferred.locationString)'
-                                """)
-                                if preferred.locationString != existing.locationString {
-                                    requiredIdentities.remove(existing)
-                                    requiredIdentities.insert(preferred, at: index)
+                                // we prefer the top level dependencies
+                                if topLevelDependencies.contains(where: { $0.locationString ==  existing.locationString }) {
+                                    observabilityScope.emit(debug: """
+                                    similar variants of package '\(package.identity)' \
+                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                    using preferred root variant '\(existing.locationString)'
+                                    """)
+                                } else {
+                                    let preferred = [existing, package].sorted(by: {
+                                        $0.locationString > $1.locationString
+                                    }).first! // safe
+                                    observabilityScope.emit(debug: """
+                                    similar variants of package '\(package.identity)' \
+                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                    using preferred variant '\(preferred.locationString)'
+                                    """)
+                                    if preferred.locationString != existing.locationString {
+                                        requiredIdentities.remove(existing)
+                                        requiredIdentities.insert(preferred, at: index)
+                                    }
                                 }
                             }
                         } else {

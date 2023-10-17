@@ -1723,8 +1723,8 @@ extension Workspace {
                 needsUpdate = true
             } else {
                 for dependency in dependenciesToPin {
-                    if let pin = storedPinStore.pins.first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) }) {
-                        if pin.value.state != PinsStore.Pin(dependency)?.state {
+                    if let pin = storedPinStore.pins[comparingLocation: dependency.packageRef] {
+                        if pin.state != PinsStore.Pin(dependency)?.state {
                             needsUpdate = true
                             break
                         }
@@ -2531,9 +2531,8 @@ extension Workspace {
             // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
-                let pin = pinsStore.pins[dependency.packageRef.identity]
                 // if pin not found, or location is different (it may have changed at this point) pin it
-                if !(pin?.packageRef.equalsIncludingLocation(dependency.packageRef) ?? false) {
+                if pinsStore.pins[comparingLocation: dependency.packageRef] == .none {
                     pinsStore.pin(dependency)
                 }
             } else if let pin = pinsStore.pins[dependency.packageRef.identity]  {
@@ -3099,7 +3098,7 @@ extension Workspace {
 
                 // only update if necessary
                 if !workingCopy.exists(revision: revision) {
-                    // The fetch operation may update contents of the checkout, 
+                    // The fetch operation may update contents of the checkout,
                     // so we need to do mutable-immutable dance.
                     try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
                     try workingCopy.fetch()
@@ -3949,5 +3948,14 @@ extension Workspace.ManagedDependencies {
                 return false
             }
         })
+    }
+}
+
+extension PinsStore.Pins {
+    subscript(comparingLocation package: PackageReference) -> PinsStore.Pin? {
+        if let pin = self[package.identity], pin.packageRef.equalsIncludingLocation(package) {
+            return pin
+        }
+        return .none
     }
 }
