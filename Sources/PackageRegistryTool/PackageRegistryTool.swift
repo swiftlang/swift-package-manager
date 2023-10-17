@@ -19,7 +19,7 @@ import PackageRegistry
 import Workspace
 
 @available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
-public struct SwiftPackageRegistryTool: ParsableCommand {
+public struct SwiftPackageRegistryTool: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",

@@ -28,7 +28,7 @@ import struct TSCBasic.SHA256
 import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
-    struct Publish: SwiftCommand {
+    struct Publish: AsyncSwiftCommand {
         static let metadataFilename = "package-metadata.json"
 
         static let configuration = CommandConfiguration(
@@ -80,7 +80,7 @@ extension SwiftPackageRegistryTool {
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             // Require both local and user-level registries config
             let configuration = try getRegistriesConfig(swiftTool, global: false).configuration
 
@@ -162,7 +162,7 @@ extension SwiftPackageRegistryTool {
                     certificateChainPaths: self.certificateChainPaths
                 )
 
-                let result = try PackageArchiveSigner.prepareArchiveAndSign(
+                let result = try await PackageArchiveSigner.prepareArchiveAndSign(
                     packageIdentity: packageIdentity,
                     packageVersion: packageVersion,
                     packageDirectory: packageDirectory,
@@ -181,7 +181,7 @@ extension SwiftPackageRegistryTool {
                 // step 2: generate source archive for the package release
                 // step 3: signing not required
                 swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
-                archivePath = try PackageArchiver.archive(
+                archivePath = try await PackageArchiver.archive(
                     packageIdentity: self.packageIdentity,
                     packageVersion: self.packageVersion,
                     packageDirectory: packageDirectory,
@@ -302,7 +302,7 @@ enum PackageArchiveSigner {
         cancellator: Cancellator?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> ArchiveAndSignResult {
+    ) async throws -> ArchiveAndSignResult {
         // signing identity
         let (signingIdentity, intermediateCertificates) = try Self.signingIdentityAndIntermediateCertificates(
             mode: mode,
@@ -337,7 +337,7 @@ enum PackageArchiveSigner {
 
         // create the archive
         observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
-        let archivePath = try PackageArchiver.archive(
+        let archivePath = try await PackageArchiver.archive(
             packageIdentity: packageIdentity,
             packageVersion: packageVersion,
             packageDirectory: packageDirectory,
@@ -461,7 +461,7 @@ enum PackageArchiver {
         workingFilesToCopy: [String],
         cancellator: Cancellator?,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
 
         // create temp location for sources
@@ -488,7 +488,7 @@ enum PackageArchiver {
             try localFileSystem.writeFileContents(toBeReplacedPath, bytes: replacement)
         }
 
-        try SwiftPackageTool.archiveSource(
+        try await SwiftPackageTool.archiveSource(
             at: sourceDirectory,
             to: archivePath,
             fileSystem: localFileSystem,

@@ -16,7 +16,7 @@ import CoreCommands
 import SourceControl
 
 extension SwiftPackageTool {
-    struct ArchiveSource: SwiftCommand {
+    struct ArchiveSource: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "archive-source",
             abstract: "Create a source archive for the package"
@@ -31,7 +31,7 @@ extension SwiftPackageTool {
         )
         var output: AbsolutePath?
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let packageDirectory = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
 
             let archivePath: AbsolutePath
@@ -43,7 +43,7 @@ extension SwiftPackageTool {
                 archivePath = packageDirectory.appending("\(packageName).zip")
             }
 
-            try SwiftPackageTool.archiveSource(
+            try await SwiftPackageTool.archiveSource(
                 at: packageDirectory,
                 to: archivePath,
                 fileSystem: localFileSystem,
@@ -64,7 +64,7 @@ extension SwiftPackageTool {
         to archivePath: AbsolutePath,
         fileSystem: FileSystem,
         cancellator: Cancellator?
-    ) throws  {
+    ) async throws {
         let gitRepositoryProvider = GitRepositoryProvider()
         if gitRepositoryProvider.repositoryExists(at: packageDirectory) &&
             gitRepositoryProvider.isValidDirectory(packageDirectory){
@@ -72,9 +72,7 @@ extension SwiftPackageTool {
             try repository.archive(to: archivePath)
         } else {
             let zipArchiver = ZipArchiver(fileSystem: fileSystem, cancellator: cancellator)
-            try temp_await {
-                zipArchiver.compress(directory: packageDirectory, to: archivePath, completion: $0)
-            }
+            try await zipArchiver.compress(directory: packageDirectory, to: archivePath)
         }
     }
 }
