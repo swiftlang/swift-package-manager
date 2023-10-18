@@ -270,15 +270,6 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
 private protocol TestBuildCommand {}
 
-/// Functionality common to all build commands related to test targets.
-extension TestBuildCommand {
-    /// Returns a value containing `spaces` number of space characters.
-    /// Intended to facilitate indenting generated code a specified number of levels.
-    fileprivate func indent(_ spaces: Int) -> ByteStreamable {
-        Format.asRepeating(string: " ", count: spaces)
-    }
-}
-
 private final class InProcessTool: Tool {
     let context: BuildExecutionContext
     let type: CustomLLBuildCommand.Type
