@@ -26,7 +26,6 @@ import XCTest
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
-import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
