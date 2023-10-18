@@ -19,7 +19,6 @@ import SPMBuildCore
 import SPMLLBuild
 
 import struct TSCBasic.ByteString
-import protocol TSCBasic.ByteStreamable
 import struct TSCBasic.Format
 import class TSCBasic.LocalFileOutputByteStream
 import protocol TSCBasic.OutputByteStream
@@ -269,15 +268,6 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 private protocol TestBuildCommand {}
-
-/// Functionality common to all build commands related to test targets.
-extension TestBuildCommand {
-    /// Returns a value containing `spaces` number of space characters.
-    /// Intended to facilitate indenting generated code a specified number of levels.
-    fileprivate func indent(_ spaces: Int) -> ByteStreamable {
-        Format.asRepeating(string: " ", count: spaces)
-    }
-}
 
 private final class InProcessTool: Tool {
     let context: BuildExecutionContext
