@@ -62,7 +62,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.virtual("Foo"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fs)
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fileSystem: fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
@@ -118,7 +118,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.file("/file.out"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fs)
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fileSystem: fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
@@ -182,7 +182,7 @@ final class LLBuildManifestTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fs)
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fileSystem: fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
