@@ -16,6 +16,8 @@ private let namesToExclude = [".git", ".build"]
 
 public struct LLBuildManifestWriter {
     private let manifest: LLBuildManifest
+    // FIXME: since JSON is a superset of YAML and we don't need to parse these manifests,
+    // we should just use `JSONEncoder` instead.
     private var buffer = """
     client:
       name: basic
