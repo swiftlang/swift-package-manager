@@ -11,7 +11,7 @@ add_executable(swift-test
 target_link_libraries(swift-test PRIVATE
   Commands)
 
-target_compile_options(swift-experimental-sdk PRIVATE
+target_compile_options(swift-test PRIVATE
   -parse-as-library)
 
 if(USE_CMAKE_INSTALL)
