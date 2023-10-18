@@ -108,7 +108,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         try fileSystem.writeFileContents(path, string: content)
     }
 
-    private func execute(fileSystem: Basics.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
+    private func execute(fileSystem: Basics.FileSystem, tool: TestDiscoveryTool) throws {
         let index = self.context.buildParameters.indexStore
         let api = try self.context.indexStoreAPI.get()
         let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
@@ -120,7 +120,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
-            path.basename == LLBuildManifest.TestDiscoveryTool.mainFileName
+            path.basename == TestDiscoveryTool.mainFileName
         }
 
         var maybeMainFile: AbsolutePath?
@@ -152,7 +152,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         }
 
         guard let mainFile = maybeMainFile else {
-            throw InternalError("main output (\(LLBuildManifest.TestDiscoveryTool.mainFileName)) not found")
+            throw InternalError("main output (\(TestDiscoveryTool.mainFileName)) not found")
         }
 
         let testsKeyword = tests.isEmpty ? "let" : "var"
@@ -200,7 +200,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
-    private func execute(fileSystem: Basics.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
+    private func execute(fileSystem: Basics.FileSystem, tool: TestEntryPointTool) throws {
         // Find the inputs, which are the names of the test discovery module(s)
         let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
@@ -209,9 +209,9 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
         // Find the main output file
         guard let mainFile = outputs.first(where: { path in
-            path.basename == LLBuildManifest.TestEntryPointTool.mainFileName
+            path.basename == TestEntryPointTool.mainFileName
         }) else {
-            throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
+            throw InternalError("main file output (\(TestEntryPointTool.mainFileName)) not found")
         }
 
         let testObservabilitySetup: String
@@ -290,22 +290,22 @@ public struct BuildDescription: Codable {
     public typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
-    let swiftCommands: [BuildManifest.CmdName: SwiftCompilerTool]
+    let swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool]
 
     /// The Swift compiler frontend invocation targets.
-    let swiftFrontendCommands: [BuildManifest.CmdName: SwiftFrontendTool]
+    let swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool]
 
     /// The map of test discovery commands.
-    let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
+    let testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool]
 
     /// The map of test entry point commands.
-    let testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool]
+    let testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool]
 
     /// The map of copy commands.
-    let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+    let copyCommands: [LLBuildManifest.CmdName: CopyTool]
 
     /// The map of write commands.
-    let writeCommands: [BuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile]
+    let writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile]
 
     /// A flag that indicates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
@@ -328,12 +328,12 @@ public struct BuildDescription: Codable {
 
     public init(
         plan: BuildPlan,
-        swiftCommands: [BuildManifest.CmdName: SwiftCompilerTool],
-        swiftFrontendCommands: [BuildManifest.CmdName: SwiftFrontendTool],
-        testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
-        testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
-        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
-        writeCommands: [BuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile],
+        swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
+        swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
+        testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool],
+        testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
+        copyCommands: [LLBuildManifest.CmdName: CopyTool],
+        writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
