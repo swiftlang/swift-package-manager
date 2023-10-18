@@ -23,14 +23,8 @@ public struct ManifestWriter {
 
     """
 
-    init(manifest: BuildManifest, buffer: String = """
-    client:
-      name: basic
-    tools: {}
-
-    """) {
+    init(manifest: BuildManifest) {
         self.manifest = manifest
-        self.buffer = buffer
 
         self.render(targets: manifest.targets)
 
