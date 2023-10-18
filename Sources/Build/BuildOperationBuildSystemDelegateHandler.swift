@@ -19,7 +19,6 @@ import SPMBuildCore
 import SPMLLBuild
 
 import struct TSCBasic.ByteString
-import protocol TSCBasic.ByteStreamable
 import struct TSCBasic.Format
 import class TSCBasic.LocalFileOutputByteStream
 import protocol TSCBasic.OutputByteStream
