@@ -14,8 +14,8 @@ import Basics
 
 private let namesToExclude = [".git", ".build"]
 
-public struct ManifestWriter {
-    private let manifest: BuildManifest
+public struct LLBuildManifestWriter {
+    private let manifest: LLBuildManifest
     private var buffer = """
     client:
       name: basic
@@ -23,7 +23,7 @@ public struct ManifestWriter {
 
     """
 
-    init(manifest: BuildManifest) {
+    private init(manifest: LLBuildManifest) {
         self.manifest = manifest
 
         self.render(targets: manifest.targets)
@@ -35,13 +35,13 @@ public struct ManifestWriter {
         self.render(commands: manifest.commands)
     }
 
-    public static func write(_ manifest: BuildManifest, at path: AbsolutePath, _ fileSystem: FileSystem) throws {
-        let writer = ManifestWriter(manifest: manifest)
+    public static func write(_ manifest: LLBuildManifest, at path: AbsolutePath, fileSystem: FileSystem) throws {
+        let writer = LLBuildManifestWriter(manifest: manifest)
 
         try fileSystem.writeFileContents(path, string: writer.buffer)
     }
 
-    private mutating func render(targets: [BuildManifest.TargetName: Target]) {
+    private mutating func render(targets: [LLBuildManifest.TargetName: Target]) {
         self.buffer += "targets:\n"
         for (_, target) in targets.sorted(by: { $0.key < $1.key }) {
             self.buffer += "  \(target.name.asJSON): \(target.nodes.map(\.name).sorted().asJSON)\n"
@@ -99,7 +99,7 @@ public struct ManifestWriter {
         """
     }
 
-    private mutating func render(commands: [BuildManifest.CmdName: Command]) {
+    private mutating func render(commands: [LLBuildManifest.CmdName: Command]) {
         self.buffer += "commands:\n"
         for (_, command) in commands.sorted(by: { $0.key < $1.key }) {
             self.buffer += "  \(command.name.asJSON):\n"

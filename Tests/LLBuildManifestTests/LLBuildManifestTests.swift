@@ -31,7 +31,7 @@ final class LLBuildManifestTests: XCTestCase {
         let decodedEntitlements = try decoder.decode([String: Bool].self, from: .init(contents.utf8))
         XCTAssertEqual(decodedEntitlements, [testEntitlement: true])
 
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
         let outputPath = AbsolutePath("/test.plist")
         manifest.addEntitlementPlistCommand(entitlement: testEntitlement, outputPath: outputPath)
 
@@ -44,7 +44,7 @@ final class LLBuildManifestTests: XCTestCase {
     }
 
     func testBasics() throws {
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
 
         let root: AbsolutePath = "/some"
 
@@ -62,7 +62,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.virtual("Foo"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter.write(manifest, at: "/manifest.yaml", fs)
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
@@ -90,7 +90,7 @@ final class LLBuildManifestTests: XCTestCase {
     }
 
     func testShellCommands() throws {
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
 
         let root: AbsolutePath = .root
 
@@ -118,7 +118,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.file("/file.out"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter.write(manifest, at: "/manifest.yaml", fs)
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
@@ -147,7 +147,7 @@ final class LLBuildManifestTests: XCTestCase {
     }
 
     func testMutatedNodes() throws {
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
 
         let root: AbsolutePath = .root
 
@@ -182,7 +182,7 @@ final class LLBuildManifestTests: XCTestCase {
         )
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter.write(manifest, at: "/manifest.yaml", fs)
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 

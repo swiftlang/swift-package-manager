@@ -300,22 +300,22 @@ public struct BuildDescription: Codable {
     public typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
-    let swiftCommands: [BuildManifest.CmdName: SwiftCompilerTool]
+    let swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool]
 
     /// The Swift compiler frontend invocation targets.
-    let swiftFrontendCommands: [BuildManifest.CmdName: SwiftFrontendTool]
+    let swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool]
 
     /// The map of test discovery commands.
-    let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
+    let testDiscoveryCommands: [LLBuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
     /// The map of test entry point commands.
-    let testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool]
+    let testEntryPointCommands: [LLBuildManifest.CmdName: LLBuildManifest.TestEntryPointTool]
 
     /// The map of copy commands.
-    let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+    let copyCommands: [LLBuildManifest.CmdName: LLBuildManifest.CopyTool]
 
     /// The map of write commands.
-    let writeCommands: [BuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile]
+    let writeCommands: [LLBuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile]
 
     /// A flag that indicates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
@@ -338,12 +338,12 @@ public struct BuildDescription: Codable {
 
     public init(
         plan: BuildPlan,
-        swiftCommands: [BuildManifest.CmdName: SwiftCompilerTool],
-        swiftFrontendCommands: [BuildManifest.CmdName: SwiftFrontendTool],
-        testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
-        testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
-        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
-        writeCommands: [BuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile],
+        swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
+        swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
+        testDiscoveryCommands: [LLBuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        testEntryPointCommands: [LLBuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
+        copyCommands: [LLBuildManifest.CmdName: LLBuildManifest.CopyTool],
+        writeCommands: [LLBuildManifest.CmdName: LLBuildManifest.WriteAuxiliaryFile],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands

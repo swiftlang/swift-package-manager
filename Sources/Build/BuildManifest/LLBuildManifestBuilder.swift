@@ -47,7 +47,7 @@ public class LLBuildManifestBuilder {
     /// ObservabilityScope with which to emit diagnostics
     public let observabilityScope: ObservabilityScope
 
-    public internal(set) var manifest: BuildManifest = .init()
+    public internal(set) var manifest: LLBuildManifest = .init()
 
     var buildConfig: String { self.buildParameters.configuration.dirname }
     var buildParameters: BuildParameters { self.plan.buildParameters }
@@ -73,7 +73,7 @@ public class LLBuildManifestBuilder {
 
     /// Generate manifest at the given path.
     @discardableResult
-    public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
+    public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
 
         self.manifest.createTarget(TargetKind.main.targetName)
@@ -109,7 +109,7 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        try ManifestWriter.write(self.manifest, at: path, self.fileSystem)
+        try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
         return self.manifest
     }
 
