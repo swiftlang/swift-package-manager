@@ -11,63 +11,108 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import protocol TSCBasic.ByteStreamable
-import struct TSCBasic.Format
-import protocol TSCBasic.OutputByteStream
-import class TSCBasic.BufferedOutputByteStream
+
+private let namesToExclude = [".git", ".build"]
 
 public struct ManifestWriter {
-    let fileSystem: FileSystem
+    private let manifest: BuildManifest
+    private var buffer = """
+    client:
+      name: basic
+    tools: {}
 
-    public init(fileSystem: FileSystem) {
-        self.fileSystem = fileSystem
+    """
+
+    init(manifest: BuildManifest, buffer: String = """
+    client:
+      name: basic
+    tools: {}
+
+    """) {
+        self.manifest = manifest
+        self.buffer = buffer
+
+        self.render(targets: manifest.targets)
+
+        self.buffer += "default: \(manifest.defaultTarget.asJSON)\n"
+
+        self.render(nodes: manifest.commands.values.flatMap { $0.tool.inputs + $0.tool.outputs })
+
+        self.render(commands: manifest.commands)
     }
 
-    public func write(
-        _ manifest: BuildManifest,
-        at path: AbsolutePath
-    ) throws {
-        let stream = BufferedOutputByteStream()
-        stream.send(
-            """
-            client:
-              name: basic
-            tools: {}
-            targets:\n
-            """
-        )
+    public static func write(_ manifest: BuildManifest, at path: AbsolutePath, _ fileSystem: FileSystem) throws {
+        let writer = ManifestWriter(manifest: manifest)
 
-        for (_, target) in manifest.targets.sorted(by: { $0.key < $1.key }) {
-            stream.send("  ").send(Format.asJSON(target.name))
-            stream.send(": ").send(Format.asJSON(target.nodes.map(\.name).sorted())).send("\n")
+        try fileSystem.writeFileContents(path, string: writer.buffer)
+    }
+
+    private mutating func render(targets: [BuildManifest.TargetName: Target]) {
+        self.buffer += "targets:\n"
+        for (_, target) in targets.sorted(by: { $0.key < $1.key }) {
+            self.buffer += "  \(target.name.asJSON): \(target.nodes.map(\.name).sorted().asJSON)\n"
+        }
+    }
+
+    private mutating func render(nodes: [Node]) {
+        // We need to explicitly configure certain kinds of nodes.
+        let directoryStructureNodes = Set(nodes.filter { $0.kind == .directoryStructure })
+            .sorted(by: { $0.name < $1.name })
+        let commandTimestampNodes = Set(nodes.filter { $0.attributes?.isCommandTimestamp == true })
+            .sorted(by: { $0.name < $1.name })
+        let mutatedNodes = Set(nodes.filter { $0.attributes?.isMutated == true })
+            .sorted(by: { $0.name < $1.name })
+
+        if !directoryStructureNodes.isEmpty || !mutatedNodes.isEmpty || !commandTimestampNodes.isEmpty {
+            self.buffer += "nodes:\n"
         }
 
-        stream.send("default: ").send(Format.asJSON(manifest.defaultTarget)).send("\n")
-
-        // We need to explicitly configure  the directory structure nodes.
-        let directoryStructureNodes = Set(manifest.commands
-            .values
-            .flatMap{ $0.tool.inputs }
-            .filter{ $0.kind == .directoryStructure }
-        )
-
-        if !directoryStructureNodes.isEmpty {
-            stream.send("nodes:\n")
-        }
-        let namesToExclude = [".git", ".build"]
-        for node in directoryStructureNodes.sorted(by: { $0.name < $1.name }) {
-            stream.send("  ").send(Format.asJSON(node)).send(":\n")
-                .send("    is-directory-structure: true\n")
-                .send("    content-exclusion-patterns: ").send(Format.asJSON(namesToExclude)).send("\n")
+        for node in directoryStructureNodes {
+            self.render(directoryStructure: node)
         }
 
-        stream.send("commands:\n")
-        for (_,  command) in manifest.commands.sorted(by: { $0.key < $1.key }) {
-            stream.send("  ").send(Format.asJSON(command.name)).send(":\n")
+        for node in commandTimestampNodes {
+            self.render(isCommandTimestamp: node)
+        }
+
+        for node in mutatedNodes {
+            self.render(isMutated: node)
+        }
+    }
+
+    private mutating func render(directoryStructure node: Node) {
+        self.buffer += """
+          \(node.asJSON):
+            is-directory-structure: true
+            content-exclusion-patterns: \(namesToExclude.asJSON)
+
+        """
+    }
+
+    private mutating func render(isCommandTimestamp node: Node) {
+        self.buffer += """
+          \(node.asJSON):
+            is-command-timestamp: true
+
+        """
+    }
+
+    private mutating func render(isMutated node: Node) {
+        self.buffer += """
+          \(node.asJSON):
+            is-mutated: true
+
+        """
+    }
+
+    private mutating func render(commands: [BuildManifest.CmdName: Command]) {
+        self.buffer += "commands:\n"
+        for (_, command) in commands.sorted(by: { $0.key < $1.key }) {
+            self.buffer += "  \(command.name.asJSON):\n"
 
             let tool = command.tool
 
-            let manifestToolWriter = ManifestToolStream(stream)
+            var manifestToolWriter = ManifestToolStream()
             manifestToolWriter["tool"] = tool
             manifestToolWriter["inputs"] = tool.inputs
             manifestToolWriter["outputs"] = tool.outputs
@@ -76,96 +121,94 @@ public struct ManifestWriter {
                 manifestToolWriter["always-out-of-date"] = "true"
             }
 
-            tool.write(to: manifestToolWriter)
+            tool.write(to: &manifestToolWriter)
 
-            stream.send("\n")
+            self.buffer += "\(manifestToolWriter.buffer)\n"
         }
-
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
     }
 }
 
-public final class ManifestToolStream {
-    private let stream: OutputByteStream
-
-    fileprivate init(_ stream: OutputByteStream) {
-        self.stream = stream
-    }
+public struct ManifestToolStream {
+    fileprivate var buffer = ""
 
     public subscript(key: String) -> Int {
         get { fatalError() }
         set {
-            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
+            self.buffer += "    \(key): \(newValue.description.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> String {
         get { fatalError() }
         set {
-            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
+            self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> ToolProtocol {
         get { fatalError() }
         set {
-            stream.send("    \(key): \(type(of: newValue).name)\n")
+            self.buffer += "    \(key): \(type(of: newValue).name)\n"
         }
     }
 
     public subscript(key: String) -> AbsolutePath {
-         get { fatalError() }
-         set {
-             stream.send("    \(key): ").send(Format.asJSON(newValue.pathString)).send("\n")
-         }
-     }
+        get { fatalError() }
+        set {
+            self.buffer += "    \(key): \(newValue.pathString.asJSON)\n"
+        }
+    }
 
     public subscript(key: String) -> [AbsolutePath] {
-         get { fatalError() }
-         set {
-             stream.send("    \(key): ").send(Format.asJSON(newValue.map(\.pathString))).send("\n")
-         }
-     }
+        get { fatalError() }
+        set {
+            self.buffer += "    \(key): \(newValue.map(\.pathString).asJSON)\n"
+        }
+    }
 
     public subscript(key: String) -> [Node] {
         get { fatalError() }
         set {
-            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
+            self.buffer += "    \(key): \(newValue.map(\.encodingName).asJSON)\n"
         }
     }
 
     public subscript(key: String) -> Bool {
         get { fatalError() }
         set {
-            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
+            self.buffer += "    \(key): \(newValue.description)\n"
         }
     }
 
     public subscript(key: String) -> [String] {
         get { fatalError() }
         set {
-            stream.send("    \(key): ").send(Format.asJSON(newValue)).send("\n")
+            self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> [String: String] {
         get { fatalError() }
         set {
-            stream.send("    \(key):\n")
+            self.buffer += "    \(key):\n"
             for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
-                stream.send("      ").send(Format.asJSON(key)).send(": ").send(Format.asJSON(value)).send("\n")
+                self.buffer += "      \(key.asJSON): \(value.asJSON)\n"
             }
         }
     }
 }
 
-extension Format {
-    static func asJSON(_ items: [Node]) -> ByteStreamable {
-        return asJSON(items.map { $0.encodingName })
+extension [String] {
+    fileprivate var asJSON: String {
+        """
+        [\(self.map(\.asJSON).joined(separator: ","))]
+        """
     }
+}
 
-    static func asJSON(_ item: Node) -> ByteStreamable {
-        return asJSON(item.encodingName)
+extension Node {
+    fileprivate var asJSON: String {
+        self.encodingName.asJSON
     }
 }
 
@@ -178,4 +221,75 @@ extension Node {
             return name + "/"
         }
     }
+}
+
+extension String {
+    fileprivate var asJSON: String {
+        "\"\(self.jsonEscaped)\""
+    }
+
+    private var jsonEscaped: String {
+        // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
+        String(decoding: self.utf8.flatMap { character -> [UInt8] in
+            // Handle string escapes; we use constants here to directly match the RFC.
+            switch character {
+            // Literal characters.
+            case 0x20 ... 0x21, 0x23 ... 0x5B, 0x5D ... 0xFF:
+                return [character]
+
+            // Single-character escaped characters.
+            case 0x22: // '"'
+                return [
+                    0x5C, // '\'
+                    0x22, // '"'
+                ]
+            case 0x5C: // '\\'
+                return [
+                    0x5C, // '\'
+                    0x5C, // '\'
+                ]
+            case 0x08: // '\b'
+                return [
+                    0x5C, // '\'
+                    0x62, // 'b'
+                ]
+            case 0x0C: // '\f'
+                return [
+                    0x5C, // '\'
+                    0x66, // 'b'
+                ]
+            case 0x0A: // '\n'
+                return [
+                    0x5C, // '\'
+                    0x6E, // 'n'
+                ]
+            case 0x0D: // '\r'
+                return [
+                    0x5C, // '\'
+                    0x72, // 'r'
+                ]
+            case 0x09: // '\t'
+                return [
+                    0x5C, // '\'
+                    0x74, // 't'
+                ]
+
+            // Multi-character escaped characters.
+            default:
+                return [
+                    0x5C, // '\'
+                    0x75, // 'u'
+                    hexdigit(0),
+                    hexdigit(0),
+                    hexdigit(character >> 4),
+                    hexdigit(character & 0xF),
+                ]
+            }
+        }, as: UTF8.self)
+    }
+}
+
+/// Convert an integer in 0..<16 to its hexadecimal ASCII character.
+private func hexdigit(_ value: UInt8) -> UInt8 {
+    value < 10 ? (0x30 + value) : (0x41 + value - 10)
 }

@@ -109,7 +109,7 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        try ManifestWriter(fileSystem: self.fileSystem).write(self.manifest, at: path)
+        try ManifestWriter.write(self.manifest, at: path, self.fileSystem)
         return self.manifest
     }
 
