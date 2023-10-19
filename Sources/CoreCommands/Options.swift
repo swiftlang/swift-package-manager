@@ -477,22 +477,11 @@ public struct BuildOptions: ParsableArguments {
     )
     public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
-    /// Whether to enable debugging capabilities for code built by SwiftPM.
-    @Flag(
-        help: """
-        Whether to enable unsafe debugging and backtraces for code built by SwiftPM. \
-        Currently has an effect only on macOS.
-        """
-    )
-    public var enableUnsafeDebugging: Bool = false
+    @Flag(help: .hidden)
+    public var enableGetTaskAllowEntitlement: Bool = false
 
-    /// Whether to disable debugging capabilities for code built by SwiftPM.
-    @Flag(help: """
-        Whether to disable unsafe debugging and backtraces for code built by SwiftPM. \
-        Currently has an effect only on macOS.
-        """
-    )
-    public var disableUnsafeDebugging: Bool = false
+    @Flag(help: .hidden)
+    public var disableGetTaskAllowEntitlement: Bool = false
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed

@@ -148,7 +148,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     /// The arguments to link and create this product.
-    public func linkArguments(outputPathSuffix: String = "") throws -> [String] {
+    public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompilerPath.pathString]
         args += self.buildParameters.sanitizers.linkSwiftFlags()
         args += self.additionalFlags
@@ -164,7 +164,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         args += ["-L", self.buildParameters.buildPath.pathString]
-        args += try ["-o", binaryPath.pathString + outputPathSuffix]
+        args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
         args += self.dylibs.map { "-l" + $0.product.name }
 

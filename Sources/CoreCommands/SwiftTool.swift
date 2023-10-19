@@ -689,8 +689,8 @@ public final class SwiftTool {
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 targetTriple: targetTriple,
                 shouldEnableDebuggingEntitlement:
-                    (options.build.configuration == .debug && !options.build.disableUnsafeDebugging) ||
-                    (options.build.enableUnsafeDebugging && !options.build.disableUnsafeDebugging)
+                    (options.build.configuration == .debug && !options.build.disableGetTaskAllowEntitlement) ||
+                    (options.build.enableGetTaskAllowEntitlement && !options.build.disableGetTaskAllowEntitlement)
             ),
             driverParameters: .init(
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
