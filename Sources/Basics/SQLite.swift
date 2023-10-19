@@ -12,7 +12,11 @@
 
 import Foundation
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SPMSQLite3
+#else
+import SPMSQLite3
+#endif
 
 /// A minimal SQLite wrapper.
 public final class SQLite {

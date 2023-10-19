@@ -12,7 +12,6 @@
 
 @testable import Basics
 @testable import Build
-@_implementationOnly import DriverSupport
 import PackageLoading
 @testable import PackageGraph
 @testable import PackageModel
@@ -21,6 +20,12 @@ import SPMTestSupport
 import SwiftDriver
 import Workspace
 import XCTest
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
