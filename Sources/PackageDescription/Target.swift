@@ -39,6 +39,8 @@ public final class Target {
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
+        /// A target that provides assets consumed by other targets.
+        case artifact
     }
 
     /// The different types of a target's dependency on another entity.
