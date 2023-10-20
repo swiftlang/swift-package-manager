@@ -95,10 +95,9 @@ final class BuildToolTests: CommandsTestCase {
                 }
 
                 XCTAssertTrue(
-                    stderr
-                        .contains(
-                            "warning: Target A imports another target (B) in the package without declaring it a dependency."
-                        ),
+                    stderr.contains(
+                        "warning: Target A imports another target (B) in the package without declaring it a dependency."
+                    ),
                     "got stdout: \(stdout), stderr: \(stderr)"
                 )
             }
@@ -117,10 +116,9 @@ final class BuildToolTests: CommandsTestCase {
                 }
 
                 XCTAssertTrue(
-                    stderr
-                        .contains(
-                            "error: Target A imports another target (B) in the package without declaring it a dependency."
-                        ),
+                    stderr.contains(
+                        "error: Target A imports another target (B) in the package without declaring it a dependency."
+                    ),
                     "got stdout: \(stdout), stderr: \(stderr)"
                 )
             }
@@ -135,10 +133,9 @@ final class BuildToolTests: CommandsTestCase {
                     return
                 }
                 XCTAssertFalse(
-                    stderr
-                        .contains(
-                            "warning: Target A imports another target (B) in the package without declaring it a dependency."
-                        ),
+                    stderr.contains(
+                        "warning: Target A imports another target (B) in the package without declaring it a dependency."
+                    ),
                     "got stdout: \(stdout), stderr: \(stderr)"
                 )
             }
@@ -488,11 +485,9 @@ final class BuildToolTests: CommandsTestCase {
             // message won't be there at all when the legacy compiler driver is used, we gate this check on whether the
             // remark is there in the first place.
             let result = try execute(["-c", "release", "-Xswiftc", "-wmo"], packagePath: fixturePath)
-            if result.stdout
-                .contains(
-                    "remark: Incremental compilation has been disabled: it is not compatible with whole module optimization"
-                )
-            {
+            if result.stdout.contains(
+                "remark: Incremental compilation has been disabled: it is not compatible with whole module optimization"
+            ) {
                 XCTAssertMatch(result.stdout, .contains("optimization\n"))
                 XCTAssertNoMatch(result.stdout, .contains("optimization["))
                 XCTAssertNoMatch(result.stdout, .contains("optimizationremark"))
