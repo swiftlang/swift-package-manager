@@ -10,20 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Build
 import Basics
-import class TSCBasic.InMemoryFileSystem
+@testable import Build
+import LLBuildManifest
 import PackageGraph
 import PackageModel
 import struct SPMBuildCore.BuildParameters
-import LLBuildManifest
 import SPMTestSupport
+import class TSCBasic.InMemoryFileSystem
 import XCTest
 
 final class LLBuildManifestBuilderTests: XCTestCase {
     func testCreateProductCommand() throws {
         let pkg = AbsolutePath("/pkg")
-        let fs = InMemoryFileSystem(emptyFiles:
+        let fs = InMemoryFileSystem(
+            emptyFiles:
             pkg.appending(components: "Sources", "exe", "main.swift").pathString
         )
 
@@ -33,7 +34,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: try .init(validating: pkg.pathString),
+                    path: .init(validating: pkg.pathString),
                     targets: [
                         TargetDescription(name: "exe"),
                     ]
@@ -41,6 +42,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
+
+        // macOS, release build
 
         var buildParameters = mockBuildParameters(environment: BuildEnvironment(
             platform: .macOS,
@@ -56,19 +59,30 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         var result = try BuildPlanResult(plan: plan)
         var buildProduct = try result.buildProduct(for: "exe")
 
-        var llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        var llbuild = LLBuildManifestBuilder(
+            plan,
+            fileSystem: localFileSystem,
+            observabilityScope: observability.topScope
+        )
         try llbuild.createProductCommand(buildProduct)
+
+        let basicReleaseCommandNames = [
+            "/path/to/build/release/exe.product/Objects.LinkFileList",
+            "<exe-release.exe>",
+            "C.exe-release.exe",
+        ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
-            [
-                "/path/to/build/release/exe.product/Objects.LinkFileList",
-                "<exe-release.exe>",
-                "C.exe-release.exe",
-            ]
+            basicReleaseCommandNames
         )
 
-        buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement = true
+        // macOS, debug build
+
+        buildParameters = mockBuildParameters(environment: BuildEnvironment(
+            platform: .macOS,
+            configuration: .debug
+        ))
         plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
@@ -82,15 +96,18 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
 
-        let entitlementsCommandName = "C.exe-release.exe-entitlements"
+        let entitlementsCommandName = "C.exe-debug.exe-entitlements"
+        let basicDebugCommandNames = [
+            "/path/to/build/debug/exe.product/Objects.LinkFileList",
+            "<exe-debug.exe>",
+            "C.exe-debug.exe",
+        ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
             [
-                "/path/to/build/release/exe-entitlement.plist",
-                "/path/to/build/release/exe.product/Objects.LinkFileList",
-                "<exe-release.exe>",
-                "C.exe-release.exe",
+                "/path/to/build/debug/exe-entitlement.plist",
+            ] + basicDebugCommandNames + [
                 entitlementsCommandName,
             ]
         )
@@ -103,15 +120,63 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         XCTAssertEqual(
             entitlementsCommand.inputs,
             [
-                .file("/path/to/build/release/exe", isMutated: true),
-                .file("/path/to/build/release/exe-entitlement.plist")
+                .file("/path/to/build/debug/exe", isMutated: true),
+                .file("/path/to/build/debug/exe-entitlement.plist"),
             ]
         )
         XCTAssertEqual(
             entitlementsCommand.outputs,
             [
-                .virtual("exe-release.exe-CodeSigning"),
+                .virtual("exe-debug.exe-CodeSigning"),
             ]
+        )
+
+        // Linux, release build
+
+        buildParameters = mockBuildParameters(environment: BuildEnvironment(
+            platform: .linux,
+            configuration: .release
+        ))
+        plan = try BuildPlan(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        result = try BuildPlanResult(plan: plan)
+        buildProduct = try result.buildProduct(for: "exe")
+
+        llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        try llbuild.createProductCommand(buildProduct)
+
+        XCTAssertEqual(
+            llbuild.manifest.commands.map(\.key).sorted(),
+            basicReleaseCommandNames
+        )
+
+        // Linux, debug build
+
+        buildParameters = mockBuildParameters(environment: BuildEnvironment(
+            platform: .linux,
+            configuration: .debug
+        ))
+        plan = try BuildPlan(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        result = try BuildPlanResult(plan: plan)
+        buildProduct = try result.buildProduct(for: "exe")
+
+        llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        try llbuild.createProductCommand(buildProduct)
+
+        XCTAssertEqual(
+            llbuild.manifest.commands.map(\.key).sorted(),
+            basicDebugCommandNames
         )
     }
 }

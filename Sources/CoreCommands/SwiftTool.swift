@@ -664,6 +664,11 @@ public final class SwiftTool {
         return buildSystem
     }
 
+    static let entitlementsMacOSWarning = """
+    `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
+    when building on macOS.
+    """
+
     private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
         let hostTriple = try self.getHostToolchain().targetTriple
         let targetTriple = toolchain.targetTriple
@@ -671,6 +676,12 @@ public final class SwiftTool {
         let dataPath = self.scratchDirectory.appending(
             component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
         )
+
+        if !targetTriple.isMacOSX && (
+            options.build.disableGetTaskAllowEntitlement || options.build.enableGetTaskAllowEntitlement
+        ) {
+            observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
+        }
 
         return try BuildParameters(
             dataPath: dataPath,
