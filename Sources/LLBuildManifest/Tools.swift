@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,6 +17,9 @@ public protocol ToolProtocol: Codable {
     /// The name of the tool.
     static var name: String { get }
 
+    /// Whether or not the tool should run on every build instead of using dependency tracking.
+    var alwaysOutOfDate: Bool { get }
+
     /// The list of inputs to declare.
     var inputs: [Node] { get }
 
@@ -24,11 +27,13 @@ public protocol ToolProtocol: Codable {
     var outputs: [Node] { get }
 
     /// Write a description of the tool to the given output `stream`.
-    func write(to stream: ManifestToolStream)
+    func write(to stream: inout ManifestToolStream)
 }
 
 extension ToolProtocol {
-    public func write(to stream: ManifestToolStream) {}
+    public var alwaysOutOfDate: Bool { return false }
+
+    public func write(to stream: inout ManifestToolStream) {}
 }
 
 public struct PhonyTool: ToolProtocol {
@@ -80,7 +85,7 @@ public struct CopyTool: ToolProtocol {
         self.outputs = outputs
     }
 
-    public func write(to stream: ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = "Copying \(inputs[0].name)"
     }
 }
@@ -100,7 +105,7 @@ public struct PackageStructureTool: ToolProtocol {
         self.outputs = outputs
     }
 
-    public func write(to stream: ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = "Planning build"
         stream["allow-missing-inputs"] = true
     }
@@ -135,7 +140,7 @@ public struct ShellTool: ToolProtocol {
         self.allowMissingInputs = allowMissingInputs
     }
 
-    public func write(to stream: ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = description
         stream["args"] = arguments
         if !environment.isEmpty {
@@ -150,22 +155,24 @@ public struct ShellTool: ToolProtocol {
     }
 }
 
-public struct WriteAuxiliaryFile: ToolProtocol {
+public struct WriteAuxiliaryFile: Equatable, ToolProtocol {
     public static let name: String = "write-auxiliary-file"
 
     public let inputs: [Node]
     private let outputFilePath: AbsolutePath
+    public let alwaysOutOfDate: Bool
 
-    public init(inputs: [Node], outputFilePath: AbsolutePath) {
+    public init(inputs: [Node], outputFilePath: AbsolutePath, alwaysOutOfDate: Bool = false) {
         self.inputs = inputs
         self.outputFilePath = outputFilePath
+        self.alwaysOutOfDate = alwaysOutOfDate
     }
 
     public var outputs: [Node] {
         return [.file(outputFilePath)]
     }
 
-    public func write(to stream: ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = "Write auxiliary file \(outputFilePath.pathString)"
     }
 }
@@ -193,7 +200,7 @@ public struct ClangTool: ToolProtocol {
         self.dependencies = dependencies
     }
 
-    public func write(to stream: ManifestToolStream) {
+    public func write(to stream: inout ManifestToolStream) {
         stream["description"] = description
         stream["args"] = arguments
         if let dependencies {
@@ -238,9 +245,8 @@ public struct SwiftFrontendTool: ToolProtocol {
         self.arguments = arguments
     }
 
-    public func write(to stream: ManifestToolStream) {
-      ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments)
-        .write(to: stream)
+    public func write(to stream: inout ManifestToolStream) {
+      ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: &stream)
     }
 }
 
@@ -335,7 +341,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         return arguments
     }
 
-    public func write(to stream: ManifestToolStream) {
-        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: stream)
+    public func write(to stream: inout ManifestToolStream) {
+        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: &stream)
     }
 }

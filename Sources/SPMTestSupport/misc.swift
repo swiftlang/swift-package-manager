@@ -32,6 +32,7 @@ import enum TSCUtility.Git
 @_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
 
+/// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: (AbsolutePath) throws -> Void
@@ -39,10 +40,30 @@ public func testWithTemporaryDirectory(
     let body2 = { (path: TSCAbsolutePath) in
         try body(AbsolutePath(path))
     }
+
     try TSCTestSupport.testWithTemporaryDirectory(
         function: function,
         body: body2
     )
+}
+
+public func testWithTemporaryDirectory(
+    function: StaticString = #function,
+    body: (AbsolutePath) async throws -> Void
+) async throws {
+    let cleanedFunction = function.description
+        .replacingOccurrences(of: "(", with: "")
+        .replacingOccurrences(of: ")", with: "")
+        .replacingOccurrences(of: ".", with: "")
+        .replacingOccurrences(of: ":", with: "_")
+    try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+        defer {
+            // Unblock and remove the tmp dir on deinit.
+            try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+            try? localFileSystem.removeFileTree(tmpDirPath)
+        }
+        try await body(tmpDirPath)
+    }
 }
 
 /// Test-helper function that runs a block of code on a copy of a test fixture
@@ -268,7 +289,12 @@ public func loadPackageGraph(
 
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages)
-    let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
+    let graphRoot = PackageGraphRoot(
+        input: input,
+        manifests: rootManifests,
+        explicitProduct: explicitProduct,
+        observabilityScope: observabilityScope
+    )
 
     return try PackageGraph.load(
         root: graphRoot,
@@ -362,5 +388,22 @@ extension RelativePath: ExpressibleByStringLiteral {
 extension RelativePath: ExpressibleByStringInterpolation {
     public init(stringLiteral value: String) {
         try! self.init(validating: value)
+    }
+}
+
+extension InitPackage {
+    public convenience init(
+        name: String,
+        packageType: PackageType,
+        destinationPath: AbsolutePath,
+        fileSystem: FileSystem
+    ) throws {
+        try self.init(
+            name: name,
+            options: InitPackageOptions(packageType: packageType),
+            destinationPath: destinationPath,
+            installedSwiftPMConfiguration: .default,
+            fileSystem: fileSystem
+        )
     }
 }

@@ -264,17 +264,35 @@ final class PackageToolTests: CommandsTestCase {
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
-            var path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
-            // Retag the dependency, and update.
-            let repo = GitRepository(path: fixturePath.appending("Foo"))
+            do {
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
+                _ = try checkoutRepo.revision(forTag: "1.2.3")
+            }
+
+
+            // update and retag the dependency, and update.
+            let repoPath = fixturePath.appending("Foo")
+            let repo = GitRepository(path: repoPath)
+            try localFileSystem.writeFileContents(repoPath.appending("test"), string: "test")
+            try repo.stageEverything()
+            try repo.commit()
             try repo.tag(name: "1.2.4")
+
+            // we will validate it is there
+            let revision = try repo.revision(forTag: "1.2.4")
+
             _ = try execute(["update"], packagePath: packageRoot)
 
-            // We shouldn't assume package path will be same after an update so ask again for it.
-            path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3", "1.2.4"])
+            do {
+                // We shouldn't assume package path will be same after an update so ask again for it.
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                // tag may not be there, but revision should be after update
+                XCTAssertTrue(checkoutRepo.exists(revision: .init(identifier: revision)))
+            }
         }
     }
 
@@ -502,7 +520,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
-            let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
+            let compactJSONText = String(decoding: compactGraphData, as: UTF8.self)
             XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
@@ -513,7 +531,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
-            let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
+            let prettyJSONText = String(decoding: prettyGraphData, as: UTF8.self)
             XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
@@ -768,7 +786,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPM.Package.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -842,7 +860,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -861,7 +879,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -931,7 +949,7 @@ final class PackageToolTests: CommandsTestCase {
             func build() throws -> String {
                 return try SwiftPM.Build.execute(packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // Build and check.
             _ = try build()
@@ -943,7 +961,7 @@ final class PackageToolTests: CommandsTestCase {
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
                 let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift"))
-                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), file: file, line: line)
+                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), "got \(contents)", file: file, line: line)
             }
 
             // We should see a pin file now.
@@ -1842,6 +1860,16 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testAmbiguousCommandPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/AmbiguousCommands") { fixturePath in
+            let (stdout, _) = try SwiftPM.Package.execute(["plugin", "--package", "A", "A"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, .contains("Hello A!"))
+        }
+    }
+
     func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -2131,7 +2159,10 @@ final class PackageToolTests: CommandsTestCase {
             do {
                 let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                let filteredStderr = stderr.components(separatedBy: "\n").filter {
+                    !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit")
+                }.joined(separator: "\n")
+                XCTAssertEqual(filteredStderr, "")
             }
 
             // Check default command arguments

@@ -171,8 +171,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         // which ones they are until we've built them and can examine the binaries.
         let toolchain = try swiftTool.getTargetToolchain()
         var buildParameters = try swiftTool.buildParameters()
-        buildParameters.enableTestability = true
-        buildParameters.enableCodeCoverage = parameters.enableCodeCoverage
+        buildParameters.testingParameters.enableTestability = true
+        buildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
         try buildSystem.build(subset: .allIncludingTests)
 
@@ -199,6 +199,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 swiftTool: swiftTool,
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
+                experimentalTestOutput: false,
                 sanitizers: swiftTool.options.build.sanitizers
             )
             for testSuite in testSuites {

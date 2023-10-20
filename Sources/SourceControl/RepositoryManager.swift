@@ -85,7 +85,7 @@ public class RepositoryManager: Cancellable {
         self.delegate = delegate
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
-        let maxConcurrentOperations = min(maxConcurrentOperations ?? 3, Concurrency.maxOperations)
+        let maxConcurrentOperations = max(1, maxConcurrentOperations ?? 3*Concurrency.maxOperations/4)
         self.lookupQueue = OperationQueue()
         self.lookupQueue.name = "org.swift.swiftpm.repository-manager"
         self.lookupQueue.maxConcurrentOperationCount = maxConcurrentOperations
@@ -205,18 +205,20 @@ public class RepositoryManager: Cancellable {
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
-
+                
                 delegateQueue.async {
                     self.delegate?.willUpdate(package: package, repository: handle.repository)
                 }
-
+                
                 try repository.fetch()
                 let duration = start.distance(to: .now())
                 delegateQueue.async {
                     self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                 }
+                return handle
+            } else if self.provider.isValidDirectory(repositoryPath) {
+                return handle
             }
-            return handle
         }
 
         // inform delegate that we are starting to fetch
@@ -379,8 +381,16 @@ public class RepositoryManager: Cancellable {
         }
     }
 
+    /// Open a working copy checkout at a path
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         try self.provider.openWorkingCopy(at: path)
+    }
+
+    /// Validate a working copy check is aligned with its repository setup
+    public func isValidWorkingCopy(_ workingCopy: WorkingCheckout, for repository: RepositorySpecifier) throws -> Bool {
+        let relativePath = try repository.storagePath()
+        let repositoryPath = self.path.appending(relativePath)
+        return workingCopy.isAlternateObjectStoreValid(expected: repositoryPath)
     }
 
     /// Open a repository from a handle.
@@ -577,8 +587,9 @@ extension RepositorySpecifier {
 }
 
 extension RepositorySpecifier {
-    fileprivate var canonicalLocation: CanonicalPackageLocation {
-        .init(self.location.description)
+    fileprivate var canonicalLocation: String {
+        let canonicalPackageLocation: CanonicalPackageURL = .init(self.location.description)
+        return "\(canonicalPackageLocation.description)_\(canonicalPackageLocation.scheme ?? "")"
     }
 }
 

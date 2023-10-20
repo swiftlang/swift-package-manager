@@ -13,11 +13,20 @@ add_library(Build
   BuildDescription/SharedTargetBuildDescription.swift
   BuildDescription/SwiftTargetBuildDescription.swift
   BuildDescription/TargetBuildDescription.swift
+  BuildManifest/LLBuildManifestBuilder.swift
+  BuildManifest/LLBuildManifestBuilder+Clang.swift
+  BuildManifest/LLBuildManifestBuilder+Product.swift
+  BuildManifest/LLBuildManifestBuilder+Resources.swift
+  BuildManifest/LLBuildManifestBuilder+Swift.swift
   BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
-  BuildPlan.swift
-  LLBuildManifestBuilder.swift
-  SwiftCompilerOutputParser.swift)
+  BuildPlan/BuildPlan.swift
+  BuildPlan/BuildPlan+Clang.swift
+  BuildPlan/BuildPlan+Product.swift
+  BuildPlan/BuildPlan+Swift.swift
+  BuildPlan/BuildPlan+Test.swift
+  SwiftCompilerOutputParser.swift
+  TestObservation.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics

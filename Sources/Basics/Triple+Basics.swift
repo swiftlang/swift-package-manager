@@ -64,13 +64,11 @@ extension Triple {
     /// This is currently meant for Apple platforms only.
     public func tripleString(forPlatformVersion version: String) -> String {
         precondition(isDarwin())
-        // This function did not handle triples with a specific environments and
-        // object formats previously to using SwiftDriver.Triple and still does
-        // not.
         return """
             \(self.archName)-\
             \(self.vendorName)-\
-            \(self.osNameUnversioned)\(version)
+            \(self.osNameUnversioned)\(version)\
+            \(self.environmentName.isEmpty ? "" : "-\(self.environmentName)")
             """
     }
 
@@ -185,6 +183,24 @@ extension Triple {
             return ".resources"
         }
     }
+
+    /// Returns `true` if code compiled for `triple` can run on `self` value of ``Triple``.
+    public func isRuntimeCompatible(with triple: Triple) -> Bool {
+        guard self != triple else {
+            return true
+        }
+
+        if
+            self.arch == triple.arch &&
+            self.vendor == triple.vendor &&
+            self.os == triple.os &&
+            self.environment == triple.environment
+        {
+            return self.osVersion >= triple.osVersion
+        } else {
+            return false
+        }
+    }
 }
 
 extension Triple: CustomStringConvertible {
@@ -192,7 +208,11 @@ extension Triple: CustomStringConvertible {
 }
 
 extension Triple: Equatable {
-    public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.triple == rhs.triple
+    public static func ==(lhs: Triple, rhs: Triple) -> Bool {
+      lhs.arch == rhs.arch
+        && lhs.vendor == rhs.vendor
+        && lhs.os == rhs.os
+        && lhs.environment == rhs.environment
+        && lhs.osVersion == rhs.osVersion
     }
 }

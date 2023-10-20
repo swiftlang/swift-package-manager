@@ -40,6 +40,16 @@ public final class UserToolchain: Toolchain {
     /// An array of paths to search for libraries at link time.
     public let librarySearchPaths: [AbsolutePath]
 
+    /// Path containing Swift resources for dynamic linking.
+    public var swiftResourcesPath: AbsolutePath? {
+        swiftSDK.pathsConfiguration.swiftResourcesPath
+    }
+
+    /// Path containing Swift resources for static linking.
+    public var swiftStaticResourcesPath: AbsolutePath? {
+        swiftSDK.pathsConfiguration.swiftStaticResourcesPath
+    }
+
     /// Additional flags to be passed to the build tools.
     public var extraFlags: BuildFlags
 
@@ -75,6 +85,8 @@ public final class UserToolchain: Toolchain {
     private let environment: EnvironmentVariables
 
     public let isSwiftDevelopmentToolchain: Bool
+
+    public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
@@ -172,9 +184,7 @@ public final class UserToolchain: Toolchain {
                 }
                 return "link"
             }
-            // TODO(compnerd) consider defaulting to `llvm-ar` universally with
-            // a fallback to `ar`.
-            return triple.isAndroid() ? "llvm-ar" : "ar"
+            return "llvm-ar"
         }()
 
         if let librarian = UserToolchain.lookup(
@@ -190,7 +200,18 @@ public final class UserToolchain: Toolchain {
         if let librarian = try? UserToolchain.getTool(tool, binDirectories: binDirectories) {
             return librarian
         }
-        return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+        if triple.isApple() || triple.isWindows() {
+            return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+        } else {
+            if let librarian = try? UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: false) {
+                return librarian
+            }
+            // Fall back to looking for binutils `ar` if `llvm-ar` can't be found.
+            if let librarian = try? UserToolchain.getTool("ar", binDirectories: binDirectories) {
+                return librarian
+            }
+            return try UserToolchain.findTool("ar", envSearchPaths: searchPaths, useXcrun: false)
+        }
     }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
@@ -456,7 +477,8 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: EnvironmentVariables = .process(),
         searchStrategy: SearchStrategy = .default,
-        customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil
+        customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
+        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil
     ) throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
@@ -499,7 +521,19 @@ public final class UserToolchain: Toolchain {
         self.isSwiftDevelopmentToolchain = false
         #endif
 
-        // Use the triple from destination or compute the host triple using swiftc.
+        if let customInstalledSwiftPMConfiguration {
+            self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
+        } else {
+            let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "config.json"])
+            if localFileSystem.exists(path) {
+                self.installedSwiftPMConfiguration = try JSONDecoder.makeWithDefaults().decode(path: path, fileSystem: localFileSystem, as: InstalledSwiftPMConfiguration.self)
+            } else {
+                // We *could* eventually make this an error, but not for a few releases.
+                self.installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
+            }
+        }
+
+        // Use the triple from Swift SDK or compute the host triple using swiftc.
         var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
         // Change the triple to the specified arch if there's exactly one of them.
@@ -582,13 +616,10 @@ public final class UserToolchain: Toolchain {
             environment: environment
         )
 
-        let swiftPluginServerPath: AbsolutePath?
         let xctestPath: AbsolutePath?
         if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
-            swiftPluginServerPath = nil
             xctestPath = nil
         } else {
-            swiftPluginServerPath = try Self.derivePluginServerPath(triple: triple)
             xctestPath = try Self.deriveXCTestPath(
                 swiftSDK: self.swiftSDK,
                 triple: triple,
@@ -603,8 +634,7 @@ public final class UserToolchain: Toolchain {
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
-            xctestPath: xctestPath,
-            swiftPluginServerPath: swiftPluginServerPath
+            xctestPath: xctestPath
         )
     }
 
@@ -678,8 +708,8 @@ public final class UserToolchain: Toolchain {
 
     private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
         if triple.isDarwin() {
-            let xctestFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
-            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: [:])
+            let pluginServerPathFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: pluginServerPathFindArgs, environment: [:])
                 .spm_chomp() {
                 return try AbsolutePath(validating: path)
             }
@@ -810,7 +840,13 @@ public final class UserToolchain: Toolchain {
         configuration.xctestPath
     }
 
+    private let _swiftPluginServerPath = ThreadSafeBox<AbsolutePath?>()
+
     public var swiftPluginServerPath: AbsolutePath? {
-        configuration.swiftPluginServerPath
+        get throws {
+            try _swiftPluginServerPath.memoize {
+                return try Self.derivePluginServerPath(triple: self.targetTriple)
+            }
+        }
     }
 }

@@ -55,7 +55,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                     builtProducts.append(
                         BuiltTestProduct(
                             productName: product.name,
-                            binaryPath: binaryPath
+                            binaryPath: binaryPath,
+                            packagePath: package.path
                         )
                     )
                 }
@@ -317,10 +318,11 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
-            enableTestability: buildParameters.enableTestability,
+            enableTestability: buildParameters.testingParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
-            pkgConfigDirectories: buildParameters.pkgConfigDirectories
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath
         )
     }
 }

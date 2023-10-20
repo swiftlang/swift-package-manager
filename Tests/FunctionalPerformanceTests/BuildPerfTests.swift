@@ -63,7 +63,7 @@ class BuildPerfTests: XCTestCasePerf {
         try fixture(name: name) { fixturePath in
             let app = fixturePath.appending(components: (appString ?? ""))
             let triple = try UserToolchain.default.targetTriple
-            let product = app.appending(components: ".build", triple.platformBuildPathComponent(), "debug", productString)
+            let product = app.appending(components: ".build", triple.platformBuildPathComponent, "debug", productString)
             try self.execute(packagePath: app)
             measure {
                 try! self.clean(packagePath: app)
@@ -77,7 +77,7 @@ class BuildPerfTests: XCTestCasePerf {
         try fixture(name: name) { fixturePath in
             let app = fixturePath.appending(components: (appString ?? ""))
             let triple = try UserToolchain.default.targetTriple
-            let product = app.appending(components: ".build", triple.platformBuildPathComponent(), "debug", productString)
+            let product = app.appending(components: ".build", triple.platformBuildPathComponent, "debug", productString)
             try self.execute(packagePath: app)
             measure {
                 try! self.execute(packagePath: app)

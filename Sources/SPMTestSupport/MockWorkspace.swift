@@ -68,7 +68,7 @@ public final class MockWorkspace {
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
         self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
-        self.mirrors = customMirrors ?? DependencyMirrors()
+        self.mirrors = try customMirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(
             locationMapper: self.mirrors.effective(for:),
             identityMapper: self.mirrors.effectiveIdentity(for:)
@@ -295,7 +295,7 @@ public final class MockWorkspace {
                 skipSignatureValidation: false,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 defaultRegistry: self.defaultRegistry,
-                restrictImports: .none
+                manifestImportRestrictions: .none
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -517,7 +517,7 @@ public final class MockWorkspace {
 
         let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
-        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
 
         let dependencyManifests = try workspace.loadDependencyManifests(root: root, observabilityScope: observability.topScope)
 
@@ -733,7 +733,7 @@ public final class MockWorkspace {
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
-        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)
     }
@@ -930,6 +930,22 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func didLoadGraph(duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         // noop
     }
 

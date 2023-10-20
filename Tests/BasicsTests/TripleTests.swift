@@ -122,6 +122,12 @@ final class TripleTests: XCTestCase {
 
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "", is: "mips-apple-darwin")
         XCTAssertTriple("mips-apple-darwin19", forPlatformVersion: "22", is: "mips-apple-darwin22")
+
+        XCTAssertTriple("arm64-apple-ios-simulator", forPlatformVersion: "", is: "arm64-apple-ios-simulator")
+        XCTAssertTriple("arm64-apple-ios-simulator", forPlatformVersion: "13.0", is: "arm64-apple-ios13.0-simulator")
+
+        XCTAssertTriple("arm64-apple-ios12-simulator", forPlatformVersion: "", is: "arm64-apple-ios-simulator")
+        XCTAssertTriple("arm64-apple-ios12-simulator", forPlatformVersion: "13.0", is: "arm64-apple-ios13.0-simulator")
     }
 
     func testKnownTripleParsing() {
@@ -158,5 +164,60 @@ final class TripleTests: XCTestCase {
         XCTAssertTriple("aarch64-unknown-linux-android", matches: (.aarch64, nil, nil, .linux, .android, .elf))
         XCTAssertTriple("x86_64-unknown-windows-msvc", matches: (.x86_64, nil, nil, .win32, .msvc, .coff))
         XCTAssertTriple("wasm32-unknown-wasi", matches: (.wasm32, nil, nil, .wasi, nil, .wasm))
+    }    
+
+    func testTriple() {
+        let linux = try? Triple("x86_64-unknown-linux-gnu")
+        XCTAssertNotNil(linux)
+        XCTAssertEqual(linux!.os, .linux)
+        XCTAssertEqual(linux!.osVersion, Triple.Version.zero)
+        XCTAssertEqual(linux!.environment, .gnu)
+
+        let macos = try? Triple("x86_64-apple-macosx10.15")
+        XCTAssertNotNil(macos!)
+        XCTAssertEqual(macos!.osVersion, .init(parse: "10.15"))
+        let newVersion = "10.12"
+        let tripleString = macos!.tripleString(forPlatformVersion: newVersion)
+        XCTAssertEqual(tripleString, "x86_64-apple-macosx10.12")
+        let macosNoX = try? Triple("x86_64-apple-macos12.2")
+        XCTAssertNotNil(macosNoX!)
+        XCTAssertEqual(macosNoX!.os, .macosx)
+        XCTAssertEqual(macosNoX!.osVersion, .init(parse: "12.2"))
+
+        let android = try? Triple("aarch64-unknown-linux-android24")
+        XCTAssertNotNil(android)
+        XCTAssertEqual(android!.os, .linux)
+        XCTAssertEqual(android!.environment, .android)
+
+        let linuxWithABIVersion = try? Triple("x86_64-unknown-linux-gnu42")
+        XCTAssertEqual(linuxWithABIVersion!.environment, .gnu)
+    }
+
+    func testEquality() throws {
+        let macOSTriple = try Triple("arm64-apple-macos")
+        let macOSXTriple = try Triple("arm64-apple-macosx")
+        XCTAssertEqual(macOSTriple, macOSXTriple)
+
+        let intelMacOSTriple = try Triple("x86_64-apple-macos")
+        XCTAssertNotEqual(macOSTriple, intelMacOSTriple)
+
+        let linuxWithoutGNUABI = try Triple("x86_64-unknown-linux")
+        let linuxWithGNUABI = try Triple("x86_64-unknown-linux-gnu")
+        XCTAssertNotEqual(linuxWithoutGNUABI, linuxWithGNUABI)
+    }
+
+    func testWASI() throws {
+        let wasi = try Triple("wasm32-unknown-wasi")
+
+        // WASI dynamic libraries are only experimental,
+        // but SwiftPM requires this property not to crash.
+        _ = wasi.dynamicLibraryExtension
+    }
+
+    func testIsRuntimeCompatibleWith() throws {
+        try XCTAssertTrue(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-macosx")))
+        try XCTAssertTrue(Triple("x86_64-unknown-linux").isRuntimeCompatible(with: Triple("x86_64-unknown-linux")))
+        try XCTAssertFalse(Triple("x86_64-apple-macosx").isRuntimeCompatible(with: Triple("x86_64-apple-linux")))
+        try XCTAssertTrue(Triple("x86_64-apple-macosx14.0").isRuntimeCompatible(with: Triple("x86_64-apple-macosx13.0")))
     }
 }

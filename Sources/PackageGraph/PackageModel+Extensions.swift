@@ -14,7 +14,7 @@ import PackageModel
 
 extension PackageDependency {
     /// Create the package reference object for the dependency.
-    public func createPackageRef() -> PackageReference {
+    public var packageRef: PackageReference {
         let packageKind: PackageReference.Kind
         switch self {
         case .fileSystem(let settings):
@@ -38,7 +38,7 @@ extension Manifest {
     public func dependencyConstraints(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         return try self.dependenciesRequired(for: productFilter).map({
             return PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter)
         })

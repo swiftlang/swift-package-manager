@@ -52,7 +52,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -82,10 +82,10 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testPost() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -116,10 +116,10 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testPut() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let requestBody = UUID().uuidString.data(using: .utf8)
+        let requestBody = Data(UUID().uuidString.utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -152,7 +152,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseBody = UUID().uuidString.data(using: .utf8)
+        let responseBody = Data(UUID().uuidString.utf8)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -596,7 +596,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
 
-        let total = 10
+        let total = min(10, ProcessInfo.processInfo.activeProcessorCount / 2)
         // this DispatchGroup is used to wait for the requests to start before calling cancel
         let startGroup = DispatchGroup()
         // this DispatchGroup is used to park the delayed threads that would be cancelled

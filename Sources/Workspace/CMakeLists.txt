@@ -10,18 +10,19 @@ add_library(Workspace
   CheckoutState.swift
   DefaultPluginScriptRunner.swift
   Diagnostics.swift
-  FileSystemPackageContainer.swift
   InitPackage.swift
   ManagedArtifact.swift
   ManagedDependency.swift
-  RegistryPackageContainer.swift
+  PackageContainer/FileSystemPackageContainer.swift
+  PackageContainer/RegistryPackageContainer.swift
+  PackageContainer/SourceControlPackageContainer.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
-  SourceControlPackageContainer.swift
   ToolsVersionSpecificationRewriter.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
   Workspace+Configuration.swift
+  Workspace+Manifests.swift
   Workspace+State.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic

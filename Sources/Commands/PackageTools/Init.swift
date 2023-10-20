@@ -51,6 +51,7 @@ extension SwiftPackageTool {
                 name: packageName,
                 packageType: initMode,
                 destinationPath: cwd,
+                installedSwiftPMConfiguration: swiftTool.getHostToolchain().installedSwiftPMConfiguration,
                 fileSystem: swiftTool.fileSystem
             )
             initPackage.progressReporter = { message in

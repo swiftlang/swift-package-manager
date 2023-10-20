@@ -68,9 +68,18 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occur during
     /// dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
-    
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic], duration: DispatchTimeInterval)
+
+    /// The workspace is about to compile a package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String)
+    /// The workspace successfully compiled a package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval)
+   
+    /// The workspace is about to evaluate (execute) a compiled package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String)
+    /// The workspace successfully evaluated (executed) a compiled package manifest, as reported by the assigned manifest loader. this happens for non-cached manifests
+    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval)
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -157,56 +166,96 @@ extension WorkspaceDelegate {
     }
 }
 
+private class WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
+    private weak var workspaceDelegate: Workspace.Delegate?
+
+    init(workspaceDelegate: Workspace.Delegate) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func willLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        // handled by workspace directly
+    }
+
+    func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        // handled by workspace directly
+    }
+
+    func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
+        // noop
+    }
+
+    func didParse(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    func willCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        self.workspaceDelegate?.willCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation)
+    }
+    
+    func didCompile(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.workspaceDelegate?.didCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation, duration: duration)
+    }
+
+    func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
+        self.workspaceDelegate?.willCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation)
+    }
+
+    func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
+        self.workspaceDelegate?.didEvaluateManifest(packageIdentity: packageIdentity, packageLocation: packageLocation, duration: duration)
+    }
+}
+
 private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: package, packageLocation: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+        self.workspaceDelegate?.willFetchPackage(package: package, packageLocation: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
     }
 
     func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
+        self.workspaceDelegate?.fetchingPackage(package: package, packageLocation: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
     }
 
     func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didFetchPackage(package: package, packageLocation: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+        self.workspaceDelegate?.didFetchPackage(package: package, packageLocation: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
     func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
-        self.workspaceDelegate.willUpdateRepository(package: package, repository: repository.location.description)
+        self.workspaceDelegate?.willUpdateRepository(package: package, repository: repository.location.description)
     }
 
     func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didUpdateRepository(package: package, repository: repository.location.description, duration: duration)
+        self.workspaceDelegate?.didUpdateRepository(package: package, repository: repository.location.description, duration: duration)
     }
 }
 
 private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: package, packageLocation: .none, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
+        self.workspaceDelegate?.willFetchPackage(package: package, packageLocation: .none, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
     }
 
     func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+        self.workspaceDelegate?.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
     func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
+        self.workspaceDelegate?.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
     }
 }
 
 private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate?) {
         self.workspaceDelegate = workspaceDelegate
@@ -244,7 +293,7 @@ private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
 }
 
 private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
     private let resolving = ThreadSafeKeyValueStore<PackageIdentity, Bool>()
 
     init(_ delegate: Workspace.Delegate) {
@@ -254,13 +303,13 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func willResolve(term: Term) {
         // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at package level
         resolving.memoize(term.node.package.identity) {
-            self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
+            self.workspaceDelegate?.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
             return true
         }
     }
 
     func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didComputeVersion(package: term.node.package.identity, location: term.node.package.locationString, version: version.description, duration: duration)
+        self.workspaceDelegate?.didComputeVersion(package: term.node.package.identity, location: term.node.package.locationString, version: version.description, duration: duration)
     }
 
     // noop
@@ -273,26 +322,26 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
 }
 
 private class WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager.Delegate {
-    private unowned let workspaceDelegate: Workspace.Delegate
+    private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willDownloadBinaryArtifact(from url: String) {
-        self.workspaceDelegate.willDownloadBinaryArtifact(from: url)
+        self.workspaceDelegate?.willDownloadBinaryArtifact(from: url)
     }
 
     func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didDownloadBinaryArtifact(from: url, result: result, duration: duration)
+        self.workspaceDelegate?.didDownloadBinaryArtifact(from: url, result: result, duration: duration)
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        self.workspaceDelegate.downloadingBinaryArtifact(from: url, bytesDownloaded: bytesDownloaded, totalBytesToDownload: totalBytesToDownload)
+        self.workspaceDelegate?.downloadingBinaryArtifact(from: url, bytesDownloaded: bytesDownloaded, totalBytesToDownload: totalBytesToDownload)
     }
 
     func didDownloadAllBinaryArtifacts() {
-        self.workspaceDelegate.didDownloadAllBinaryArtifacts()
+        self.workspaceDelegate?.didDownloadAllBinaryArtifacts()
     }
 }
 
@@ -312,13 +361,13 @@ public class Workspace {
     public typealias Delegate = WorkspaceDelegate
 
     /// The delegate interface.
-    fileprivate weak var delegate: Delegate?
+    private(set) weak var delegate: Delegate?
 
     /// The workspace location.
     public let location: Location
 
     /// The mirrors config.
-    fileprivate let mirrors: DependencyMirrors
+    let mirrors: DependencyMirrors
 
     /// The current persisted state of the workspace.
     // public visibility for testing
@@ -329,39 +378,41 @@ public class Workspace {
     public let pinsStore: LoadableResult<PinsStore>
 
     /// The file system on which the workspace will operate.
-    fileprivate let fileSystem: FileSystem
+    let fileSystem: any FileSystem
 
     /// The host toolchain to use.
     fileprivate let hostToolchain: UserToolchain
 
     /// The manifest loader to use.
-    fileprivate let manifestLoader: ManifestLoaderProtocol
+    let manifestLoader: ManifestLoaderProtocol
 
     /// The tools version currently in use.
-    fileprivate let currentToolsVersion: ToolsVersion
+    let currentToolsVersion: ToolsVersion
 
     /// Utility to resolve package identifiers
     // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var identityResolver: IdentityResolver
+    let identityResolver: IdentityResolver
+
+    /// Utility to map dependencies
+    let dependencyMapper: DependencyMapper
 
     /// The custom package container provider used by this workspace, if any.
-    fileprivate let customPackageContainerProvider: PackageContainerProvider?
+    let customPackageContainerProvider: PackageContainerProvider?
 
     /// The package container provider used by this workspace.
-    fileprivate var packageContainerProvider: PackageContainerProvider {
+    var packageContainerProvider: PackageContainerProvider {
         return self.customPackageContainerProvider ?? self
     }
 
     /// Source control repository manager used for interacting with source control based dependencies
     // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var repositoryManager: RepositoryManager
+    let repositoryManager: RepositoryManager
 
     /// The registry manager.
-    // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var registryClient: RegistryClient
+    fileprivate let registryClient: RegistryClient
 
     /// Registry based dependencies downloads manager used for interacting with registry based dependencies
-    fileprivate var registryDownloadsManager: RegistryDownloadsManager
+    fileprivate let registryDownloadsManager: RegistryDownloadsManager
 
     /// Binary artifacts manager used for downloading and extracting binary artifacts
     fileprivate let binaryArtifactsManager: BinaryArtifactsManager
@@ -439,6 +490,7 @@ public class Workspace {
             customRegistryClient: .none,
             customBinaryArtifactsManager: .none,
             customIdentityResolver: .none,
+            customDependencyMapper: .none,
             customChecksumAlgorithm: .none,
             delegate: delegate
         )
@@ -532,7 +584,8 @@ public class Workspace {
         let manifestLoader = ManifestLoader(
             toolchain: customHostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
-            restrictImports: configuration?.restrictImports
+            importRestrictions: configuration?.manifestImportRestrictions,
+            delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
         )
         try self.init(
             fileSystem: fileSystem,
@@ -577,6 +630,7 @@ public class Workspace {
         customRegistryClient: RegistryClient? = .none,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
+        customDependencyMapper: DependencyMapper? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
         // delegate
         delegate: Delegate? = .none
@@ -603,6 +657,7 @@ public class Workspace {
             customRegistryClient: customRegistryClient,
             customBinaryArtifactsManager: customBinaryArtifactsManager,
             customIdentityResolver: customIdentityResolver,
+            customDependencyMapper: customDependencyMapper,
             customChecksumAlgorithm: customChecksumAlgorithm,
             delegate: delegate
         )
@@ -632,6 +687,7 @@ public class Workspace {
         customRegistryClient: RegistryClient?,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
         customIdentityResolver: IdentityResolver?,
+        customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
         // delegate
         delegate: Delegate?
@@ -647,8 +703,12 @@ public class Workspace {
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
-            restrictImports: configuration?.restrictImports
+            importRestrictions: configuration?.manifestImportRestrictions
         )
+        // set delegate if not set
+        if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {
+            manifestLoader.delegate = delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
+        }
 
         let configuration = configuration ?? .default
 
@@ -663,6 +723,7 @@ public class Workspace {
             locationMapper: mirrors.effective(for:),
             identityMapper: mirrors.effectiveIdentity(for:)
         )
+        let dependencyMapper = customDependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver)
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
@@ -762,6 +823,7 @@ public class Workspace {
         self.binaryArtifactsManager = binaryArtifactsManager
 
         self.identityResolver = identityResolver
+        self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
         self.pinsStore = LoadableResult {
@@ -1051,7 +1113,12 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
+        let graphRoot = PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope
+        )
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
@@ -1063,7 +1130,7 @@ extension Workspace {
         }
 
         // Add unversioned constraints for edited packages.
-        var updateConstraints = currentManifests.editedPackagesConstraints()
+        var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += try graphRoot.constraints()
@@ -1103,14 +1170,16 @@ extension Workspace {
 
         // Update the checkouts based on new dependency resolution.
         let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, observabilityScope: observabilityScope)
+        guard !observabilityScope.errorsReported else {
+            return nil
+        }
 
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
-            let missing = stillMissingPackages.map{ $0.description }
-            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
+            observabilityScope.emit(.exhaustedAttempts(missing: stillMissingPackages))
             return nil
         }
 
@@ -1131,7 +1200,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        return nil
+        return packageStateChanges
     }
 
     @discardableResult
@@ -1172,9 +1241,9 @@ extension Workspace {
             root: manifests.root,
             identityResolver: self.identityResolver,
             additionalFileRules: self.configuration.additionalFileRules,
-            externalManifests: manifests.allDependencyManifests(),
-            requiredDependencies: manifests.computePackages().required,
-            unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
+            externalManifests: manifests.allDependencyManifests,
+            requiredDependencies: manifests.requiredPackages,
+            unsafeAllowedPackages: manifests.unsafeAllowedPackages,
             binaryArtifacts: binaryArtifacts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
@@ -1339,8 +1408,8 @@ extension Workspace {
     }
 
     public func loadPluginImports(
-        packageGraph: PackageGraph,
-        completion: @escaping(Result<[PackageIdentity: [String: [String]]], Error>) -> Void) {
+        packageGraph: PackageGraph
+    ) async throws -> [PackageIdentity: [String: [String]]] {
         let pluginTargets = packageGraph.allTargets.filter{$0.type == .plugin}
         let scanner = SwiftcImportScanner(swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment, swiftCompilerFlags: hostToolchain.swiftCompilerFlags + ["-I", hostToolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString], swiftCompilerPath: hostToolchain.swiftCompilerPath)
         var importList = [PackageIdentity: [String: [String]]]()
@@ -1356,17 +1425,11 @@ extension Workspace {
             }
 
             for path in paths {
-                do {
-                    let result = try temp_await {
-                        scanner.scanImports(path, callbackQueue: DispatchQueue.sharedConcurrent, completion: $0)
-                    }
-                    importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
-                } catch {
-                    completion(.failure(error))
-                }
+                let result = try await scanner.scanImports(path)
+                importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
             }
         }
-        completion(.success(importList))
+        return importList
     }
 
     /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading in a longer-lived program, like an IDE.
@@ -1552,7 +1615,7 @@ extension Workspace {
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
-    fileprivate func unedit(
+    func unedit(
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
@@ -1618,6 +1681,14 @@ extension Workspace {
         }
     }
 
+    /// Create the cache directories.
+    fileprivate func createCacheDirectories(observabilityScope: ObservabilityScope) {
+        observabilityScope.trap {
+            try fileSystem.createDirectory(self.repositoryManager.path, recursive: true)
+            try fileSystem.createDirectory(self.location.repositoriesCheckoutsDirectory, recursive: true)
+            try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
+        }
+    }
 }
 
 // MARK: - Pinning Functions
@@ -1632,7 +1703,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws {
         var dependenciesToPin = [ManagedDependency]()
-        let requiredDependencies = try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        let requiredDependencies = try dependencyManifests.requiredPackages.filter({ $0.kind.isPinnable })
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
@@ -1652,8 +1723,8 @@ extension Workspace {
                 needsUpdate = true
             } else {
                 for dependency in dependenciesToPin {
-                    if let pin = storedPinStore.pins.first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) }) {
-                        if pin.value.state != PinsStore.Pin(dependency)?.state {
+                    if let pin = storedPinStore.pins[comparingLocation: dependency.packageRef] {
+                        if pin.state != PinsStore.Pin(dependency)?.state {
                             needsUpdate = true
                             break
                         }
@@ -1688,6 +1759,19 @@ extension Workspace {
         // Ask resolved file watcher to update its value so we don't fire
         // an extra event if the file was modified by us.
         self.resolvedFileWatcher?.updateValue()
+    }
+
+    /// Watch the Package.resolved for changes.
+    ///
+    /// This is useful if clients want to be notified when the Package.resolved
+    /// file is changed *outside* of libSwiftPM operations. For example, as part
+    /// of a git operation.
+    public func watchResolvedFile() throws {
+        // Return if we're already watching it.
+        guard self.resolvedFileWatcher == nil else { return }
+        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFile) { [weak self] in
+            self?.delegate?.resolvedFileChanged()
+        }
     }
 }
 
@@ -1732,580 +1816,6 @@ fileprivate extension PinsStore.Pin {
     }
 }
 
-// MARK: - Manifest Loading and caching
-
-extension Workspace {
-    /// A struct representing all the current manifests (root + external) in a package graph.
-    public struct DependencyManifests {
-        /// The package graph root.
-        let root: PackageGraphRoot
-
-        /// The dependency manifests in the transitive closure of root manifest.
-        let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)]
-
-        private let workspace: Workspace
-
-        fileprivate init(
-            root: PackageGraphRoot,
-            dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)],
-            workspace: Workspace
-        ) {
-            self.root = root
-            self.dependencies = dependencies
-            self.workspace = workspace
-        }
-
-        /// Returns all manifests contained in DependencyManifests.
-        public func allDependencyManifests() -> OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)> {
-            return self.dependencies.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
-                partial[item.dependency.packageRef.identity] = (item.manifest, item.fileSystem)
-            }
-        }
-
-        /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        public func missingPackages() throws -> Set<PackageReference> {
-            return try self.computePackages().missing
-        }
-
-        /// Returns the list of packages which are allowed to vend products with unsafe flags.
-        func unsafeAllowedPackages() -> Set<PackageReference> {
-            var result = Set<PackageReference>()
-
-            for dependency in self.dependencies {
-                let dependency = dependency.dependency
-                switch dependency.state {
-                case .sourceControlCheckout(let checkout):
-                    if checkout.isBranchOrRevisionBased {
-                        result.insert(dependency.packageRef)
-                    }
-                case .registryDownload, .edited, .custom:
-                    continue
-                case .fileSystem:
-                    result.insert(dependency.packageRef)
-                }
-            }
-
-            // Root packages are always allowed to use unsafe flags.
-            result.formUnion(root.packageReferences)
-
-            return result
-        }
-
-        func computePackages() throws -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [PackageIdentity: Manifest] = try Dictionary(throwingUniqueKeysWithValues:
-                self.root.packages.map { ($0.key, $0.value.manifest) } +
-                self.dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }
-            )
-
-            var inputIdentities: Set<PackageReference> = []
-            let inputNodes: [GraphLoadingNode] = self.root.packages.map{ identity, package in
-                inputIdentities.insert(package.reference)
-                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: self.workspace.fileSystem)
-                return node
-            } + self.root.dependencies.compactMap{ dependency in
-                let package = dependency.createPackageRef()
-                inputIdentities.insert(package)
-                return manifestsMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
-                }
-            }
-
-            // FIXME: this is dropping legitimate packages with equal identities and should be revised as part of the identity work
-            var requiredIdentities: Set<PackageReference> = []
-            _ = transitiveClosure(inputNodes) { node in
-                return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
-                    let package = dependency.createPackageRef()
-                    requiredIdentities.insert(package)
-                    return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
-                    }
-                }
-            }
-            // FIXME: This should be an ordered set.
-            requiredIdentities = inputIdentities.union(requiredIdentities)
-
-            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
-                // FIXME: adding this guard to ensure refactoring is correct 9/21
-                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
-                // a dependency is put into edit mode, which we want to deprecate anyways
-                if case .remoteSourceControl = $0.1.packageKind {
-                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
-                    guard effectiveURL == $0.1.packageKind.locationString else {
-                        throw InternalError("effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)")
-                    }
-                }
-                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
-            })
-            // We should never have loaded a manifest we don't need.
-            assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
-            // These are the missing package identities.
-            let missingIdentities = requiredIdentities.subtracting(availableIdentities)
-
-            return (requiredIdentities, missingIdentities)
-        }
-
-        /// Returns constraints of the dependencies, including edited package constraints.
-        func dependencyConstraints() throws -> [PackageContainerConstraint] {
-            var allConstraints = [PackageContainerConstraint]()
-
-            for (externalManifest, managedDependency, productFilter, _) in dependencies {
-                // For edited packages, add a constraint with unversioned requirement so the
-                // resolver doesn't try to resolve it.
-                switch managedDependency.state {
-                case .edited:
-                    // FIXME: We shouldn't need to construct a new package reference object here.
-                    // We should get the correct one from managed dependency object.
-                    let ref = PackageReference.fileSystem(
-                        identity: managedDependency.packageRef.identity,
-                        path: workspace.path(to: managedDependency)
-                    )
-                    let constraint = PackageContainerConstraint(
-                        package: ref,
-                        requirement: .unversioned,
-                        products: productFilter)
-                    allConstraints.append(constraint)
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
-                    break
-                }
-                allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
-            }
-            return allConstraints
-        }
-
-        // FIXME: @testable(internal)
-        /// Returns a list of constraints for all 'edited' package.
-        public func editedPackagesConstraints() -> [PackageContainerConstraint] {
-            var constraints = [PackageContainerConstraint]()
-
-            for (_, managedDependency, productFilter, _) in dependencies {
-                switch managedDependency.state {
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom: continue
-                case .edited: break
-                }
-                // FIXME: We shouldn't need to construct a new package reference object here.
-                // We should get the correct one from managed dependency object.
-                let ref = PackageReference.fileSystem(
-                    identity: managedDependency.packageRef.identity,
-                    path: workspace.path(to: managedDependency)
-                )
-                let constraint = PackageContainerConstraint(
-                    package: ref,
-                    requirement: .unversioned,
-                    products: productFilter)
-                constraints.append(constraint)
-            }
-            return constraints
-        }
-    }
-
-    /// Watch the Package.resolved for changes.
-    ///
-    /// This is useful if clients want to be notified when the Package.resolved
-    /// file is changed *outside* of libSwiftPM operations. For example, as part
-    /// of a git operation.
-    public func watchResolvedFile() throws {
-        // Return if we're already watching it.
-        guard self.resolvedFileWatcher == nil else { return }
-        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFile) { [weak self] in
-            self?.delegate?.resolvedFileChanged()
-        }
-    }
-
-    /// Create the cache directories.
-    fileprivate func createCacheDirectories(observabilityScope: ObservabilityScope) {
-        observabilityScope.trap {
-            try fileSystem.createDirectory(self.repositoryManager.path, recursive: true)
-            try fileSystem.createDirectory(self.location.repositoriesCheckoutsDirectory, recursive: true)
-            try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
-        }
-    }
-
-    /// Returns the location of the dependency.
-    ///
-    /// Source control dependencies will return the subpath inside `checkoutsPath` and
-    /// Registry dependencies will return the subpath inside `registryDownloadsPath` and
-    /// edited dependencies will either return a subpath inside `editablesPath` or
-    /// a custom path.
-    public func path(to dependency: Workspace.ManagedDependency) -> AbsolutePath {
-        switch dependency.state {
-        case .sourceControlCheckout:
-            return self.location.repositoriesCheckoutSubdirectory(for: dependency)
-        case .registryDownload:
-            return self.location.registryDownloadSubdirectory(for: dependency)
-        case .edited(_, let path):
-            return path ?? self.location.editSubdirectory(for: dependency)
-        case .fileSystem(let path):
-            return path
-        case .custom(_, let path):
-            return path
-        }
-    }
-
-    /// Returns manifest interpreter flags for a package.
-    // TODO: should this be throwing instead?
-    public func interpreterFlags(for packagePath: AbsolutePath) -> [String] {
-        do {
-            guard let manifestLoader = self.manifestLoader as? ManifestLoader else {
-                throw StringError("unexpected manifest loader kind")
-            }
-
-            let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: self.fileSystem, currentToolsVersion: self.currentToolsVersion)
-            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: self.fileSystem)
-
-            guard self.currentToolsVersion >= manifestToolsVersion || SwiftVersion.current.isDevelopment, manifestToolsVersion >= ToolsVersion.minimumRequired else {
-                throw StringError("invalid tools version")
-            }
-            return manifestLoader.interpreterFlags(for: manifestToolsVersion)
-        } catch {
-            // We ignore all failures here and return empty array.
-            return []
-        }
-    }
-
-    /// Load the manifests for the current dependency tree.
-    ///
-    /// This will load the manifests for the root package as well as all the
-    /// current dependencies from the working checkouts.l
-    public func loadDependencyManifests(
-        root: PackageGraphRoot,
-        automaticallyAddManagedDependencies: Bool = false,
-        observabilityScope: ObservabilityScope
-    ) throws -> DependencyManifests {
-        // Utility Just because a raw tuple cannot be hashable.
-        struct Key: Hashable {
-            let identity: PackageIdentity
-            let productFilter: ProductFilter
-        }
-
-        // Make a copy of dependencies as we might mutate them in the for loop.
-        let dependenciesToCheck = Array(self.state.dependencies)
-        // Remove any managed dependency which has become a root.
-        for dependency in dependenciesToCheck {
-            if root.packages.keys.contains(dependency.packageRef.identity) {
-                observabilityScope.makeChildScope(description: "removing managed dependencies", metadata: dependency.packageRef.diagnosticsMetadata).trap {
-                    try self.remove(package: dependency.packageRef)
-                }
-            }
-        }
-
-        // Validates that all the managed dependencies are still present in the file system.
-        self.fixManagedDependencies(observabilityScope: observabilityScope)
-        guard !observabilityScope.errorsReported else {
-            // return partial results
-            return DependencyManifests(root: root, dependencies: [], workspace: self)
-        }
-
-        // Load root dependencies manifests (in parallel)
-        let rootDependencies = root.dependencies.map{ $0.createPackageRef() }
-        let rootDependenciesManifests = try temp_await { self.loadManagedManifests(for: rootDependencies, observabilityScope: observabilityScope, completion: $0) }
-
-        let topLevelManifests = root.manifests.merging(rootDependenciesManifests, uniquingKeysWith: { lhs, rhs in
-            return lhs // prefer roots!
-        })
-
-        // optimization: preload first level dependencies manifest (in parallel)
-        let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map{ $0.createPackageRef() } }.flatMap({ $0 })
-        let firstLevelManifests = try temp_await { self.loadManagedManifests(for: firstLevelDependencies, observabilityScope: observabilityScope, completion: $0) } // FIXME: this should not block
-
-        // Continue to load the rest of the manifest for this graph
-        // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
-        var loadedManifests = firstLevelManifests
-        // Compute the transitive closure of available dependencies.
-        let topologicalSortInput = topLevelManifests.map { identity, manifest in KeyedPair(manifest, key: Key(identity: identity, productFilter: .everything)) }
-        let topologicalSortSuccessors: (KeyedPair<Manifest, Key>) throws -> [KeyedPair<Manifest, Key>] = { pair in
-            // optimization: preload manifest we know about in parallel
-            let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
-            let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
-            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved file)
-            if automaticallyAddManagedDependencies {
-                try dependenciesToLoad.forEach { ref in
-                    // Since we are creating managed dependencies based on the resolved file in this mode, but local packages aren't part of that file, they will be missing from it. So we're eagerly adding them here, but explicitly don't add any that are overridden by a root with the same identity since that would lead to loading the given package twice, once as a root and once as a dependency  which violates various assumptions.
-                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
-                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
-                    }
-                }
-                observabilityScope.trap { try self.state.save() }
-            }
-            let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
-            dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return dependenciesRequired.compactMap { dependency in
-                loadedManifests[dependency.identity].flatMap {
-                    // we also compare the location as this function may attempt to load
-                    // dependencies that have the same identity but from a different location
-                    // which is an error case we diagnose an report about in the GraphLoading part which
-                    // is prepared to handle the case where not all manifest are available
-                    $0.canonicalPackageLocation == dependency.createPackageRef().canonicalLocation ?
-                    KeyedPair($0, key: Key(identity: dependency.identity, productFilter: dependency.productFilter)) : nil
-                }
-            }
-        }
-
-        // Look for any cycle in the dependencies.
-        if let cycle = try findCycle(topologicalSortInput, successors: topologicalSortSuccessors) {
-            observabilityScope.emit(
-                error: "cyclic dependency declaration found: " +
-                (cycle.path + cycle.cycle).map({ $0.key.identity.description }).joined(separator: " -> ") +
-                " -> " + cycle.cycle[0].key.identity.description
-            )
-            // return partial results
-            return DependencyManifests(root: root, dependencies: [], workspace: self)
-        }
-        let allManifestsWithPossibleDuplicates = try topologicalSort(topologicalSortInput, successors: topologicalSortSuccessors)
-
-        // merge the productFilter of the same package (by identity)
-        var deduplication = [PackageIdentity: Int]()
-        var allManifests = [(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter)]()
-        for pair in allManifestsWithPossibleDuplicates {
-            if let index = deduplication[pair.key.identity]  {
-                let productFilter = allManifests[index].productFilter.merge(pair.key.productFilter)
-                allManifests[index] = (pair.key.identity, pair.item, productFilter)
-            } else {
-                deduplication[pair.key.identity] = allManifests.count
-                allManifests.append((pair.key.identity, pair.item, pair.key.productFilter))
-            }
-        }
-
-        let dependencyManifests = allManifests.filter{ !root.manifests.values.contains($0.manifest) }
-
-        // TODO: this check should go away when introducing explicit overrides
-        // check for overrides attempts with same name but different path
-        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.displayName, $0) }
-        dependencyManifests.forEach { identity, manifest, _ in
-            if let override = rootManifestsByName[manifest.displayName], override.packageLocation != manifest.packageLocation  {
-                observabilityScope.emit(error: "unable to override package '\(manifest.displayName)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'")
-            }
-        }
-
-        let dependencies = try dependencyManifests.map{ identity, manifest, productFilter -> (Manifest, ManagedDependency, ProductFilter, FileSystem) in
-            guard let dependency = self.state.dependencies[identity] else {
-                throw InternalError("dependency not found for \(identity) at \(manifest.packageLocation)")
-            }
-
-            let packageRef = PackageReference(identity: identity, kind: manifest.packageKind)
-            let fileSystem = try self.getFileSystem(package: packageRef, state: dependency.state, observabilityScope: observabilityScope)
-            return (manifest, dependency, productFilter, fileSystem ?? self.fileSystem)
-        }
-
-        return DependencyManifests(root: root, dependencies: dependencies, workspace: self)
-    }
-
-    /// Loads the given manifests, if it is present in the managed dependencies.
-    private func loadManagedManifests(for packages: [PackageReference], observabilityScope: ObservabilityScope, completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void) {
-        let sync = DispatchGroup()
-        let manifests = ThreadSafeKeyValueStore<PackageIdentity, Manifest>()
-        Set(packages).forEach { package in
-            sync.enter()
-            self.loadManagedManifest(for: package, observabilityScope: observabilityScope) { manifest in
-                defer { sync.leave() }
-                if let manifest {
-                    manifests[package.identity] = manifest
-                }
-            }
-        }
-
-        sync.notify(queue: .sharedConcurrent) {
-            completion(.success(manifests.get()))
-        }
-    }
-
-    /// Loads the given manifest, if it is present in the managed dependencies.
-    fileprivate func loadManagedManifest(
-        for package: PackageReference,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Manifest?) -> Void
-    ) {
-        // Check if this dependency is available.
-        // we also compare the location as this function may attempt to load
-        // dependencies that have the same identity but from a different location
-        // which is an error case we diagnose an report about in the GraphLoading part which
-        // is prepared to handle the case where not all manifest are available
-        guard let managedDependency = self.state.dependencies[comparingLocation: package] else {
-            return completion(.none)
-        }
-
-        // Get the path of the package.
-        let packagePath = self.path(to: managedDependency)
-
-        // The kind and version, if known.
-        let packageKind: PackageReference.Kind
-        let packageVersion: Version?
-        switch managedDependency.state {
-        case .sourceControlCheckout(let checkoutState):
-            packageKind = managedDependency.packageRef.kind
-            switch checkoutState {
-            case .version(let checkoutVersion, _):
-                packageVersion = checkoutVersion
-            default:
-                packageVersion = .none
-            }
-        case .registryDownload(let downloadedVersion):
-            packageKind = managedDependency.packageRef.kind
-            packageVersion = downloadedVersion
-        case .custom(let availableVersion, _):
-            packageKind = managedDependency.packageRef.kind
-            packageVersion = availableVersion
-        case .edited, .fileSystem:
-            packageKind = .fileSystem(packagePath)
-            packageVersion = .none
-        }
-
-        let fileSystem: FileSystem?
-        do {
-            fileSystem = try self.getFileSystem(package: package, state: managedDependency.state, observabilityScope: observabilityScope)
-        } catch {
-            // only warn here in case of issues since we should not even get here without a valid package container
-            observabilityScope.emit(
-                warning: "unexpected failure while accessing custom package container",
-                underlyingError: error
-            )
-            fileSystem = nil
-        }
-
-        // Load and return the manifest.
-        self.loadManifest(
-            packageIdentity: managedDependency.packageRef.identity,
-            packageKind: packageKind,
-            packagePath: packagePath,
-            packageLocation: managedDependency.packageRef.locationString,
-            packageVersion: packageVersion,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        ) { result in
-            // error is added to diagnostics in the function above
-            completion(try? result.get())
-        }
-    }
-
-    /// Load the manifest at a given path.
-    ///
-    /// This is just a helper wrapper to the manifest loader.
-    fileprivate func loadManifest(
-        packageIdentity: PackageIdentity,
-        packageKind: PackageReference.Kind,
-        packagePath: AbsolutePath,
-        packageLocation: String,
-        packageVersion: Version? = nil,
-        fileSystem: FileSystem? = nil,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        let fileSystem = fileSystem ?? self.fileSystem
-
-        // Load the manifest, bracketed by the calls to the delegate callbacks.
-        delegate?.willLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
-
-        let manifestLoadingScope = observabilityScope.makeChildScope(description: "Loading manifest") {
-            .packageMetadata(identity: packageIdentity, kind: packageKind)
-        }
-
-        var manifestLoadingDiagnostics = [Diagnostic]()
-
-        let start = DispatchTime.now()
-        self.manifestLoader.load(
-            packagePath: packagePath,
-            packageIdentity: packageIdentity,
-            packageKind: packageKind,
-            packageLocation: packageLocation,
-            packageVersion: packageVersion.map { (version: $0, revision: nil) },
-            currentToolsVersion: self.currentToolsVersion,
-            identityResolver: self.identityResolver,
-            fileSystem: fileSystem,
-            observabilityScope: manifestLoadingScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
-        ) { result in
-            let duration = start.distance(to: .now())
-            var result = result
-            switch result {
-            case .failure(let error):
-                manifestLoadingDiagnostics.append(.error(error))
-                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics, duration: duration)
-            case .success(let manifest):
-                let validator = ManifestValidator(manifest: manifest, sourceControlValidator: self.repositoryManager, fileSystem: self.fileSystem)
-                let validationIssues = validator.validate()
-                if !validationIssues.isEmpty {
-                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                    result = .failure(Diagnostics.fatalError)
-                    manifestLoadingDiagnostics.append(contentsOf: validationIssues)
-                }
-                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics, duration: duration)
-            }
-            manifestLoadingScope.emit(manifestLoadingDiagnostics)
-            completion(result)
-        }
-    }
-
-    /// Validates that all the edited dependencies are still present in the file system.
-    /// If some checkout dependency is removed form the file system, clone it again.
-    /// If some edited dependency is removed from the file system, mark it as unedited and
-    /// fallback on the original checkout.
-    fileprivate func fixManagedDependencies(observabilityScope: ObservabilityScope) {
-
-        // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
-        if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
-            try? self.state.reset()
-        }
-
-        // Make a copy of dependencies as we might mutate them in the for loop.
-        let allDependencies = Array(self.state.dependencies)
-        for dependency in allDependencies {
-            observabilityScope.makeChildScope(description: "copying managed dependencies", metadata: dependency.packageRef.diagnosticsMetadata).trap {
-                // If the dependency is present, we're done.
-                let dependencyPath = self.path(to: dependency)
-                if fileSystem.isDirectory(dependencyPath) {
-                    return
-                }
-
-                switch dependency.state {
-                case .sourceControlCheckout(let checkoutState):
-                    // If some checkout dependency has been removed, retrieve it again.
-                    _ = try self.checkoutRepository(package: dependency.packageRef, at: checkoutState, observabilityScope: observabilityScope)
-                    observabilityScope.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity.description))
-
-                case .registryDownload(let version):
-                    // If some downloaded dependency has been removed, retrieve it again.
-                    _ = try self.downloadRegistryArchive(package: dependency.packageRef, at: version, observabilityScope: observabilityScope)
-                    observabilityScope.emit(.registryDependencyMissing(packageName: dependency.packageRef.identity.description))
-
-                case .custom(let version, let path):
-                    let container = try temp_await {
-                        self.packageContainerProvider.getContainer(
-                            for: dependency.packageRef,
-                            updateStrategy: .never,
-                            observabilityScope: observabilityScope,
-                            on: .sharedConcurrent,
-                            completion: $0
-                        )
-                    }
-                    if let customContainer = container as? CustomPackageContainer {
-                        let newPath = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
-                        observabilityScope.emit(.customDependencyMissing(packageName: dependency.packageRef.identity.description))
-
-                        // FIXME: We should be able to handle this case and also allow changed paths for registry and SCM downloads.
-                        if newPath != path {
-                            observabilityScope.emit(error: "custom dependency was retrieved at a different path: \(newPath)")
-                        }
-                    } else {
-                        observabilityScope.emit(error: "invalid custom dependency container: \(container)")
-                    }
-                case .edited:
-                    // If some edited dependency has been removed, mark it as unedited.
-                    //
-                    // Note: We don't resolve the dependencies when unediting
-                    // here because we expect this method to be called as part
-                    // of some other resolve operation (i.e. resolve, update, etc).
-                    try self.unedit(dependency: dependency, forceRemove: true, observabilityScope: observabilityScope)
-
-                    observabilityScope.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
-
-                case .fileSystem:
-                    self.state.dependencies.remove(dependency.packageRef.identity)
-                    try self.state.save()
-                }
-            }
-        }
-    }
-}
 
 // MARK: - Binary artifacts
 
@@ -2582,7 +2092,13 @@ extension Workspace {
 
         // FIXME: this should not block
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            explicitProduct: explicitProduct,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope
+        )
 
         // Load the pins store or abort now.
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }), !observabilityScope.errorsReported else {
@@ -2603,8 +2119,8 @@ extension Workspace {
                     return .never
                 } else {
                     switch pin.state {
-                    case .branch:
-                        return .always
+                    case .branch(_, let revision):
+                        return .ifNeeded(revision: revision)
                     case .revision(let revision):
                         return .ifNeeded(revision: revision)
                     case .version(_, let .some(revision)):
@@ -2697,7 +2213,13 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            explicitProduct: explicitProduct,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope
+        )
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
             return currentManifests
@@ -2719,7 +2241,7 @@ extension Workspace {
         }
 
         // Compute the missing package identities.
-        let missingPackages = try currentManifests.missingPackages()
+        let missingPackages = try currentManifests.missingPackages
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
@@ -2762,7 +2284,7 @@ extension Workspace {
 
         // Create the constraints.
         var computedConstraints = [PackageContainerConstraint]()
-        computedConstraints += currentManifests.editedPackagesConstraints()
+        computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
@@ -2791,10 +2313,9 @@ extension Workspace {
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
-            let missing = stillMissingPackages.map{ $0.description }
-            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.sorted().joined(separator: "', '"))' unresolved.")
+            observabilityScope.emit(.exhaustedAttempts(missing: stillMissingPackages))
             return updatedDependencyManifests
         }
 
@@ -2835,7 +2356,12 @@ extension Workspace {
     ) -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
         guard let packageStateChanges = observabilityScope.trap({
-            try self.computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches, observabilityScope: observabilityScope)
+            try self.computePackageStateChanges(
+                root: root,
+                resolvedDependencies: updateResults,
+                updateBranches: updateBranches,
+                observabilityScope: observabilityScope
+            )
         }) else {
             return []
         }
@@ -2844,9 +2370,10 @@ extension Workspace {
         for (packageRef, state) in packageStateChanges {
             observabilityScope.makeChildScope(description: "removing unneeded checkouts", metadata: packageRef.diagnosticsMetadata).trap {
                 switch state {
-                case .added, .updated, .unchanged: break
+                case .added, .updated, .unchanged: 
+                    break
                 case .removed:
-                    try remove(package: packageRef)
+                    try self.remove(package: packageRef)
                 }
             }
         }
@@ -2859,7 +2386,8 @@ extension Workspace {
                     _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
                 case .updated(let state):
                     _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
-                case .removed, .unchanged: break
+                case .removed, .unchanged:
+                    break
                 }
             }
         }
@@ -2959,7 +2487,7 @@ extension Workspace {
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
             root.manifests.values.flatMap{ try $0.dependencyConstraints(productFilter: .everything) } +
-            dependencyManifests.dependencyConstraints() +
+            dependencyManifests.dependencyConstraints +
             constraints
 
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
@@ -2996,16 +2524,15 @@ extension Workspace {
             return nil
         }
 
-        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable }) }) else {
+        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.requiredPackages.filter({ $0.kind.isPinnable }) }) else {
             return nil
         }
         for dependency in self.state.dependencies.filter({ $0.packageRef.kind.isPinnable }) {
             // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
-                let pin = pinsStore.pins[dependency.packageRef.identity]
                 // if pin not found, or location is different (it may have changed at this point) pin it
-                if !(pin?.packageRef.equalsIncludingLocation(dependency.packageRef) ?? false) {
+                if pinsStore.pins[comparingLocation: dependency.packageRef] == .none {
                     pinsStore.pin(dependency)
                 }
             } else if let pin = pinsStore.pins[dependency.packageRef.identity]  {
@@ -3306,6 +2833,7 @@ extension Workspace: PackageContainerProvider {
                 let container = try FileSystemPackageContainer(
                     package: package,
                     identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
                     manifestLoader: self.manifestLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     fileSystem: self.fileSystem,
@@ -3335,6 +2863,7 @@ extension Workspace: PackageContainerProvider {
                         return try SourceControlPackageContainer(
                             package: package,
                             identityResolver: self.identityResolver,
+                            dependencyMapper: self.dependencyMapper,
                             repositorySpecifier: repositorySpecifier,
                             repository: repository,
                             manifestLoader: self.manifestLoader,
@@ -3351,6 +2880,7 @@ extension Workspace: PackageContainerProvider {
                 let container = RegistryPackageContainer(
                     package: package,
                     identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
                     registryClient: self.registryClient,
                     manifestLoader: self.manifestLoader,
                     currentToolsVersion: self.currentToolsVersion,
@@ -3467,8 +2997,13 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
-        // first fetch the repository.
-        let checkoutPath = try self.fetchRepository(package: package, observabilityScope: observabilityScope)
+
+        // first fetch the repository
+        let checkoutPath = try self.fetchRepository(
+            package: package,
+            at: checkoutState.revision,
+            observabilityScope: observabilityScope
+        )
 
         // Check out the given revision.
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
@@ -3537,37 +3072,44 @@ extension Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetchRepository(package: PackageReference, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+    private func fetchRepository(
+        package: PackageReference,
+        at revision: Revision,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
+        let repository = try package.makeRepositorySpecifier()
+
         // If we already have it, fetch to update the repo from its remote.
         // also compare the location as it may have changed
         if let dependency = self.state.dependencies[comparingLocation: package] {
-            let path = self.location.repositoriesCheckoutSubdirectory(for: dependency)
+            let checkoutPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
 
-            // Make sure the directory is not missing (we will have to clone again
-            // if not).
-            fetch: if self.fileSystem.isDirectory(path) {
+            // Make sure the directory is not missing (we will have to clone again if not).
+            // This can become invalid if the build directory is moved.
+            fetch: if self.fileSystem.isDirectory(checkoutPath) {
                 // Fetch the checkout in case there are updates available.
-                let workingCopy = try self.repositoryManager.openWorkingCopy(at: path)
+                let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
                 // Ensure that the alternative object store is still valid.
-                //
-                // This can become invalid if the build directory is moved.
-                guard workingCopy.isAlternateObjectStoreValid() else {
+                guard try self.repositoryManager.isValidWorkingCopy(workingCopy, for: repository) else {
+                    observabilityScope.emit(debug: "working copy at '\(checkoutPath)' does not align with expected local path of '\(repository)'")
                     break fetch
                 }
 
-                // The fetch operation may update contents of the checkout, so
-                // we need do mutable-immutable dance.
-                try self.fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-                try workingCopy.fetch()
-                try? self.fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
+                // only update if necessary
+                if !workingCopy.exists(revision: revision) {
+                    // The fetch operation may update contents of the checkout,
+                    // so we need to do mutable-immutable dance.
+                    try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
+                    try workingCopy.fetch()
+                    try? self.fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
+                }
 
-                return path
+                return checkoutPath
             }
         }
 
         // If not, we need to get the repository from the checkouts.
-        let repository = try package.makeRepositorySpecifier()
         // FIXME: this should not block
         let handle = try temp_await {
             self.repositoryManager.lookup(
@@ -3582,24 +3124,24 @@ extension Workspace {
         }
 
         // Clone the repository into the checkouts.
-        let path = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
+        let checkoutPath = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
 
         // Remove any existing content at that path.
-        try self.fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-        try self.fileSystem.removeFileTree(path)
+        try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
+        try self.fileSystem.removeFileTree(checkoutPath)
 
         // Inform the delegate that we're about to start.
-        self.delegate?.willCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path)
+        self.delegate?.willCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: checkoutPath)
         let start = DispatchTime.now()
         
         // Create the working copy.
-        _ = try handle.createWorkingCopy(at: path, editable: false)
-        
+        _ = try handle.createWorkingCopy(at: checkoutPath, editable: false)
+
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
-        self.delegate?.didCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path, duration: duration)
+        self.delegate?.didCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: checkoutPath, duration: duration)
 
-        return path
+        return checkoutPath
     }
 
     /// Removes the clone and checkout of the provided specifier.
@@ -3931,7 +3473,7 @@ extension CheckoutState {
         }
     }
 
-    fileprivate var isBranchOrRevisionBased: Bool {
+    var isBranchOrRevisionBased: Bool {
         switch self {
         case .revision, .branch:
             return true
@@ -3952,52 +3494,19 @@ extension CheckoutState {
     }
 }
 
-extension Workspace {
-    fileprivate func getFileSystem(package: PackageReference, state: Workspace.ManagedDependency.State, observabilityScope: ObservabilityScope) throws -> FileSystem? {
-        // Only custom containers may provide a file system.
-        guard self.customPackageContainerProvider != nil else {
-            return nil
-        }
-
-        switch state {
-        // File-system based dependencies do not provide a custom file system object.
-        case .fileSystem:
-            return nil
-        case .custom:
-            let container = try temp_await {
-                self.packageContainerProvider.getContainer(
-                    for: package,
-                    updateStrategy: .never,
-                    observabilityScope: observabilityScope,
-                    on: .sharedConcurrent,
-                    completion: $0
-                )
-            }
-            guard let customContainer = container as? CustomPackageContainer else {
-                observabilityScope.emit(error: "invalid custom dependency container: \(container)")
-                return nil
-            }
-            return try customContainer.getFileSystem()
-        default:
-            observabilityScope.emit(error: "invalid managed dependency state for custom dependency: \(state)")
-            return nil
-        }
-    }
-}
-
 extension Workspace.Location {
     /// Returns the path to the dependency's repository checkout directory.
-    fileprivate func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
     }
 
     /// Returns the path to the  dependency's download directory.
-    fileprivate func registryDownloadSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    func registryDownloadSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.registryDownloadDirectory.appending(dependency.subpath)
     }
 
     /// Returns the path to the dependency's edit directory.
-    fileprivate func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.editsDirectory.appending(dependency.subpath)
     }
 }
@@ -4132,6 +3641,7 @@ extension Workspace {
             packageLocation: String,
             packageVersion: (version: Version?, revision: String?)?,
             identityResolver: IdentityResolver,
+            dependencyMapper: DependencyMapper,
             fileSystem: FileSystem,
             observabilityScope: ObservabilityScope,
             delegateQueue: DispatchQueue,
@@ -4146,6 +3656,7 @@ extension Workspace {
                 packageLocation: packageLocation,
                 packageVersion: packageVersion,
                 identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
@@ -4437,5 +3948,14 @@ extension Workspace.ManagedDependencies {
                 return false
             }
         })
+    }
+}
+
+extension PinsStore.Pins {
+    subscript(comparingLocation package: PackageReference) -> PinsStore.Pin? {
+        if let pin = self[package.identity], pin.packageRef.equalsIncludingLocation(package) {
+            return pin
+        }
+        return .none
     }
 }

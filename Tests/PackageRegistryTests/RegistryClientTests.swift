@@ -439,7 +439,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -559,7 +559,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -591,7 +591,7 @@ final class RegistryClientTests: XCTestCase {
         configuration.security = .testDefault
 
         let contentType = Fingerprint.ContentType.manifest(.none)
-        let manifestChecksum = checksumAlgorithm.hash(.init(defaultManifest.data(using: .utf8)!))
+        let manifestChecksum = checksumAlgorithm.hash(.init(Data(defaultManifest.utf8)))
             .hexadecimalRepresentation
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -698,7 +698,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -833,7 +833,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let defaultManifestData = defaultManifest.data(using: .utf8)!
+                let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -1360,7 +1360,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+                let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -1385,9 +1385,9 @@ final class RegistryClientTests: XCTestCase {
         configuration.security = .testDefault
 
         let defaultManifestChecksum = checksumAlgorithm
-            .hash(.init(manifestContent(toolsVersion: .none).data(using: .utf8)!)).hexadecimalRepresentation
+            .hash(.init(Data(manifestContent(toolsVersion: .none).utf8))).hexadecimalRepresentation
         let versionManifestChecksum = checksumAlgorithm
-            .hash(.init(manifestContent(toolsVersion: .v5_3).data(using: .utf8)!)).hexadecimalRepresentation
+            .hash(.init(Data(manifestContent(toolsVersion: .v5_3).utf8))).hexadecimalRepresentation
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
                 version: [
@@ -1494,7 +1494,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+                let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -1628,7 +1628,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+                let data = Data(manifestContent(toolsVersion: toolsVersion).utf8)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -3047,7 +3047,7 @@ final class RegistryClientTests: XCTestCase {
             case (.get, identifiersURL):
                 XCTAssertEqual(
                     request.headers.get("Authorization").first,
-                    "Basic \("\(user):\(password)".data(using: .utf8)!.base64EncodedString())"
+                    "Basic \(Data("\(user):\(password)".utf8).base64EncodedString())"
                 )
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
@@ -3234,7 +3234,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertNil(request.headers.get("X-Swift-Package-Signature-Format").first)
 
                 // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                let body = String(decoding: request.body!, as: UTF8.self)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
@@ -3301,7 +3301,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertNil(request.headers.get("X-Swift-Package-Signature-Format").first)
 
                 // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                let body = String(decoding: request.body!, as: UTF8.self)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
@@ -3371,7 +3371,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertEqual(request.headers.get("X-Swift-Package-Signature-Format").first, signatureFormat.rawValue)
 
                 // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                let body = String(decoding: request.body!, as: UTF8.self)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
                 XCTAssertMatch(body, .contains(signature))

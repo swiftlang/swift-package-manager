@@ -18,12 +18,12 @@ import PackageModel
 
 import var TSCBasic.stdoutStream
 
-/// A protocol for functions and properties common to all destination subcommands.
+/// A protocol for functions and properties common to all Swift SDK subcommands.
 protocol SwiftSDKSubcommand: AsyncParsableCommand {
     /// Common locations options provided by ArgumentParser.
     var locations: LocationOptions { get }
 
-    /// Run a command operating on cross-compilation destinations, passing it required configuration values.
+    /// Run a command operating on Swift SDKs, passing it required configuration values.
     /// - Parameters:
     ///   - hostTriple: triple of the machine this command is running on.
     ///   - swiftSDKsDirectory: directory containing Swift SDK artifact bundles and their configuration.
@@ -39,38 +39,33 @@ extension SwiftSDKSubcommand {
     /// The file system used by default by this command.
     var fileSystem: FileSystem { localFileSystem }
 
-    /// Parses destinations directory option if provided or uses the default path for cross-compilation destinations
+    /// Parses Swift SDKs directory option if provided or uses the default path for Swift SDKs
     /// on the file system. A new directory at this path is created if one doesn't exist already.
     /// - Returns: existing or a newly created directory at the computed location.
-    func getOrCreateDestinationsDirectory() throws -> AbsolutePath {
-        guard var destinationsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
+    func getOrCreateSwiftSDKsDirectory() throws -> AbsolutePath {
+        var swiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: locations.swiftSDKsDirectory
-        ) else {
-            let expectedPath = try fileSystem.swiftSDKsDirectory
-            throw StringError(
-                "Couldn't find or create a directory where cross-compilation destinations are stored: `\(expectedPath)`"
-            )
+        )
+
+        if !self.fileSystem.exists(swiftSDKsDirectory) {
+            swiftSDKsDirectory = try self.fileSystem.getOrCreateSwiftPMSwiftSDKsDirectory()
         }
 
-        if !self.fileSystem.exists(destinationsDirectory) {
-            destinationsDirectory = try self.fileSystem.getOrCreateSwiftPMSwiftSDKsDirectory()
-        }
-
-        return destinationsDirectory
+        return swiftSDKsDirectory
     }
 
     public func run() async throws {
         let observabilityHandler = SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
         let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
-        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
+        let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
         let hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK())
         let triple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil
         do {
-            try await self.run(hostTriple: triple, destinationsDirectory, observabilityScope)
+            try await self.run(hostTriple: triple, swiftSDKsDirectory, observabilityScope)
             if observabilityScope.errorsReported {
                 throw ExitCode.failure
             }

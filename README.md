@@ -77,7 +77,7 @@ If you have any trouble with the package manager, help is available. We recommen
 
 When reporting an issue please follow the bug reporting guidelines, they can be found in [contribution guide](./CONTRIBUTING.md#reporting-issues).
 
-If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODEOWNERS](CODEOWNERS); however, the mailing list is usually the best place to go for help.
+If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODEOWNERS](CODEOWNERS); however, Swift Forums is usually the best place to go for help.
 
 ---
 

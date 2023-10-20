@@ -67,6 +67,7 @@ enum TestingSupport {
         swiftTool: SwiftTool,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
@@ -77,6 +78,7 @@ enum TestingSupport {
                     swiftTool: swiftTool,
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
                     sanitizers: sanitizers
                 )
             )}
@@ -98,17 +100,20 @@ enum TestingSupport {
         swiftTool: SwiftTool,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [TestSuite] {
         // Run the correct tool.
+        var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput
                 ),
                 sanitizers: sanitizers
             )
@@ -132,11 +137,11 @@ enum TestingSupport {
             ),
             sanitizers: sanitizers
         )
-        let args = [path.description, "--dump-tests-json"]
+        args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+        return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
     }
 
     /// Creates the environment needed to test related tools.
@@ -156,7 +161,7 @@ enum TestingSupport {
         }
 
         // Add the code coverage related variables.
-        if buildParameters.enableCodeCoverage {
+        if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
             // `%m` will create a pool of profraw files and append the data from
@@ -200,14 +205,16 @@ extension SwiftTool {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
         enableTestability: Bool? = nil,
-        shouldSkipBuilding: Bool = false
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
-        parameters.enableCodeCoverage = enableCodeCoverage
+        parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.enableTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
+        parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

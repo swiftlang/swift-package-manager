@@ -380,7 +380,7 @@ private func optionalRow(_ title: String, _ contents: String?, indentationLevel:
 private extension JSONEncoder {
     func print<T>(_ value: T) throws where T: Encodable {
         let jsonData = try self.encode(value)
-        let jsonString = String(data: jsonData, encoding: .utf8)!
+        let jsonString = String(decoding: jsonData, as: UTF8.self)
         Swift.print(jsonString)
     }
 }

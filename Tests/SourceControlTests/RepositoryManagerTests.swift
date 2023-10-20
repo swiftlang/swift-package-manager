@@ -328,8 +328,6 @@ class RepositoryManagerTests: XCTestCase {
         let variants: [RepositorySpecifier] = [
             .init(url: "https://scm.com/org/foo"),
             .init(url: "https://scm.com/org/foo.git"),
-            .init(url: "http://scm.com/org/foo"),
-            .init(url: "http://scm.com/org/foo.git")
         ]
 
         for variant in variants {
@@ -799,7 +797,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
             fatalError("not implemented")
         }
 
-        func isAlternateObjectStoreValid() -> Bool {
+        func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
             fatalError("not implemented")
         }
 

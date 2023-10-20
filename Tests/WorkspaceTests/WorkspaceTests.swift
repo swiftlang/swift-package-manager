@@ -26,7 +26,6 @@ import XCTest
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
-import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
@@ -1882,7 +1881,7 @@ final class WorkspaceTests: XCTestCase {
         // Check that we can compute missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(
-                try! manifests.missingPackages().map(\.locationString).sorted(),
+                try! manifests.missingPackages.map(\.locationString).sorted(),
                 [
                     sandbox.appending(components: "pkgs", "Bar").pathString,
                     sandbox.appending(components: "pkgs", "Foo").pathString,
@@ -1902,7 +1901,7 @@ final class WorkspaceTests: XCTestCase {
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(
-                try! manifests.missingPackages().map(\.locationString).sorted(),
+                try! manifests.missingPackages.map(\.locationString).sorted(),
                 [sandbox.appending(components: "pkgs", "Bar").pathString]
             )
             XCTAssertNoDiagnostics(diagnostics)
@@ -1918,7 +1917,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(try! manifests.missingPackages().map(\.locationString).sorted(), [])
+            XCTAssertEqual(try! manifests.missingPackages.map(\.locationString).sorted(), [])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -1985,7 +1984,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
             XCTAssertEqual(
-                manifests.allDependencyManifests().map(\.value.manifest.displayName),
+                manifests.allDependencyManifests.map(\.value.manifest.displayName),
                 ["Foo", "Baz", "Bam", "Bar"]
             )
             XCTAssertNoDiagnostics(diagnostics)
@@ -2359,7 +2358,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(fooPath))
 
         try workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
-            let editedPackages = manifests.editedPackagesConstraints()
+            let editedPackages = manifests.editedPackagesConstraints
             XCTAssertEqual(editedPackages.map(\.package.locationString), [fooPath.pathString])
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -4279,12 +4278,12 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Bar").pathString
         )
-        mirrors.set(
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BazMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
@@ -4371,12 +4370,12 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Bar").pathString
         )
-        mirrors.set(
+        try mirrors.set(
             mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
             for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
@@ -4474,9 +4473,9 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
-        mirrors.set(mirror: "https://scm.com/org/baz-mirror", for: "https://scm.com/org/baz")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
+        try mirrors.set(mirror: "https://scm.com/org/baz-mirror", for: "https://scm.com/org/baz")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4563,9 +4562,9 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/baz")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/baz")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4668,8 +4667,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "org.bar-mirror", for: "https://scm.com/org/bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "org.bar-mirror", for: "https://scm.com/org/bar")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4738,8 +4737,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -11027,6 +11026,563 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDeterministicURLPreference() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "BarProduct", package: "bar"),
+                            .product(name: "BazProduct", package: "baz"),
+                            .product(name: "QuxProduct", package: "qux"),
+                        ]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "https://github.com/org/bar.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/baz.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/qux.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://github.com/org/bar.git",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://github.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://github.com/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz.git",
+                    targets: [
+                        MockTarget(name: "BazTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "git@github.com:org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "git@github.com:org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "QuxPackage",
+                    url: "https://github.com/org/qux.git",
+                    targets: [
+                        MockTarget(name: "QuxTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "QuxProduct", targets: ["QuxTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "https://github.com/org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root", "QuxPackage")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
+
+            }
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'git@github.com:org/foo.git' and 'https://github.com/org/foo.git'. using preferred variant 'https://github.com/org/foo.git'",
+                    severity: .debug
+                )
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'http://github.com/org/foo' and 'https://github.com/org/foo.git'. using preferred variant 'https://github.com/org/foo.git'",
+                    severity: .debug
+                )
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+        }
+
+        workspace.checkResolved { result in
+            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+        }
+    }
+
+    func testDeterministicURLPreferenceWithRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                            .product(name: "BazProduct", package: "baz"),
+                        ]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "git@github.com:org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/bar.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/baz.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "git@github.com:org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://github.com/org/bar.git",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://github.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://github.com/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz.git",
+                    targets: [
+                        MockTarget(name: "BazTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "https://github.com/org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
+
+            }
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'https://github.com/org/foo.git' and 'git@github.com:org/foo.git'. using preferred root variant 'git@github.com:org/foo.git'",
+                    severity: .debug
+                )
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'http://github.com/org/foo' and 'git@github.com:org/foo.git'. using preferred root variant 'git@github.com:org/foo.git'",
+                    severity: .debug
+                )
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+        }
+
+        workspace.checkResolved { result in
+            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+        }
+    }
+
+    func testCanonicalURLChanges() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo")
+                        ])
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "https://github.com/org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ]
+                ),
+                MockPackage(
+                    name: "Root2",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo")
+                        ])
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "git@github.com:org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "git@github.com:org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                ),
+            ]
+        )
+
+        // check usage of canonical URL
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "FooPackage", "Root")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+        }
+
+        workspace.checkResolved { result in
+            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+        }
+
+        // update URL to one with different scheme
+
+        try workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "FooPackage", "Root2")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
+
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+        }
+
+        workspace.checkResolved { result in
+            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+        }
+    }
+
+    func testCanonicalURLChangesWithTransitiveDependencies() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "https://github.com/org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/bar.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ]
+                ),
+                MockPackage(
+                    name: "Root2",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "git@github.com:org/foo.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .sourceControl(
+                            url: "https://github.com/org/bar.git",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://github.com/org/bar.git",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            url: "http://github.com/org/foo",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://github.com/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "git@github.com:org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                ),
+            ]
+        )
+
+        // check usage of canonical URL
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "BarPackage", "FooPackage", "Root")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
+
+            }
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'http://github.com/org/foo' and 'https://github.com/org/foo.git'. using preferred root variant 'https://github.com/org/foo.git'",
+                    severity: .debug
+                )
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+        }
+
+        workspace.checkResolved { result in
+            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "https://github.com/org/foo.git")
+        }
+
+        // update URL to one with different scheme
+
+        try workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "BarPackage", "FooPackage", "Root2")
+                let package = result.find(package: "foo")
+                XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
+
+            }
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "similar variants of package 'foo' found at 'http://github.com/org/foo' and 'git@github.com:org/foo.git'. using preferred root variant 'git@github.com:org/foo.git'",
+                    severity: .debug
+                )
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+        }
+
+        workspace.checkResolved { result in
+            XCTAssertEqual(result.store.pins["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+        }
+    }
+
     func testCycleRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -11140,7 +11696,11 @@ final class WorkspaceTests: XCTestCase {
                     severity: .error
                 )
                 result.check(
-                    diagnostic: "exhausted attempts to resolve the dependencies graph, with 'bar remoteSourceControl http://scm.com/org/bar', 'foo remoteSourceControl http://scm.com/org/foo' unresolved.",
+                    diagnostic: """
+                    exhausted attempts to resolve the dependencies graph, with the following dependencies unresolved:
+                    * 'bar' from http://scm.com/org/bar
+                    * 'foo' from http://scm.com/org/foo
+                    """,
                     severity: .error
                 )
             }
@@ -11273,6 +11833,7 @@ final class WorkspaceTests: XCTestCase {
                 packageLocation: String,
                 packageVersion: (version: Version?, revision: String?)?,
                 identityResolver: IdentityResolver,
+                dependencyMapper: DependencyMapper,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 delegateQueue: DispatchQueue,
@@ -14232,8 +14793,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredSignedCorrectly() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "ecorp.bar", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
             type: "adp",
@@ -14256,8 +14817,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirrorSignedIncorrectly() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "ecorp.bar", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(.recognized(
             type: "adp",
@@ -14288,8 +14849,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredUnsigned() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "ecorp.bar", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
@@ -14313,8 +14874,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredToSCM() throws {
-        let mirrors = DependencyMirrors()
-        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
@@ -14423,7 +14984,7 @@ final class WorkspaceTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "text/x-swift",
                     ],
-                    body: "// swift-tools-version:\(ToolsVersion.current)".data(using: .utf8)
+                    body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
                 )
             ))
         }
@@ -14445,7 +15006,7 @@ final class WorkspaceTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "application/zip",
                     ],
-                    body: "".data(using: .utf8)
+                    body: Data("".utf8)
                 )
             ))
         }

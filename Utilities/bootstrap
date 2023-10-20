@@ -395,6 +395,8 @@ def install(args):
     # Install swiftpm content in all of the passed prefixes.
     for prefix in args.install_prefixes:
         install_swiftpm(prefix, args)
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        install_file(args, config_path, os.path.join(os.path.join(prefix, "share"), "pm"))
 
     # Install libSwiftPM if an install directory was provided.
     if args.libswiftpm_install_dir:
@@ -461,9 +463,11 @@ def install_dylib(args, library_name, install_dir, module_names):
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
 def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[]):
     src = os.path.join(args.bin_dir, binary)
+    install_file(args, src, destination, destination_is_directory=destination_is_directory, ignored_patterns=ignored_patterns)
 
+def install_file(args, src, destination, destination_is_directory=True, ignored_patterns=[]):
     if destination_is_directory:
-        dest = os.path.join(destination, binary)
+        dest = os.path.join(destination, os.path.basename(src))
         mkdir_p(os.path.dirname(dest))
     else:
         dest = destination
@@ -765,6 +769,9 @@ def get_swiftpm_flags(args):
             "--configuration", "release",
         ])
 
+    if not '-macosx' in args.build_target and args.command == 'install':
+        build_flags.append("--disable-local-rpath")
+
     if args.verbose:
         build_flags.append("--verbose")
 
@@ -805,8 +812,9 @@ def get_swiftpm_flags(args):
     for modifier in ["-Xswiftc", "-Xbuild-tools-swiftc"]:
         build_flags.extend([modifier, "-module-cache-path", modifier, local_module_cache_path])
 
+    # Disabled, enable this again when it works
     # Enforce explicit target dependencies
-    build_flags.extend(["--explicit-target-dependency-import-check", "error"])
+    # build_flags.extend(["--explicit-target-dependency-import-check", "error"])
 
     return build_flags
 

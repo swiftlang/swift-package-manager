@@ -112,7 +112,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) {
         /// Checks if stdout stream is tty.
         var buildParameters = buildParameters
-        buildParameters.colorizedOutput = outputStream.isTTY
+        buildParameters.outputParameters.isColorized = outputStream.isTTY
 
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
@@ -164,7 +164,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
 
-    public func getBuildManifest() throws -> LLBuildManifest.BuildManifest {
+    public func getBuildManifest() throws -> LLBuildManifest {
         return try self.plan().manifest
     }
 
@@ -418,7 +418,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest.BuildManifest) {
+    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
 
@@ -443,6 +443,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 buildEnvironment: self.buildParameters.buildEnvironment,
                 toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
+                sdkRootPath: self.buildParameters.toolchain.sdkRootPath,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
@@ -669,7 +670,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func packageStructureChanged() -> Bool {
         do {
-            _ = try plan()
+            _ = try self.plan()
         }
         catch Diagnostics.fatalError {
             return false
@@ -702,7 +703,7 @@ extension BuildOperation {
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest.BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
