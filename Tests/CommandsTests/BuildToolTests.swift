@@ -12,6 +12,7 @@
 
 import Basics
 @testable import Commands
+@testable import CoreCommands
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -599,7 +600,7 @@ final class BuildToolTests: CommandsTestCase {
 
             XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
             #else
-            output = try self.build(["-v"], packagePath: fixturePath).output
+            var output = try self.build(["-v"], packagePath: fixturePath).output
 
             XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
 
