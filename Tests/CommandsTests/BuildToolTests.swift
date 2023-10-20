@@ -23,7 +23,8 @@ import XCTest
 
 struct BuildResult {
     let binPath: AbsolutePath
-    let output: String
+    let stdout: String
+    let stderr: String
     let binContents: [String]
 }
 
@@ -39,7 +40,7 @@ final class BuildToolTests: CommandsTestCase {
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil, isRelease: Bool = false) throws -> BuildResult {
         let buildConfigurationArguments = isRelease ? ["-c", "release"] : []
-        let (output, _) = try execute(args + buildConfigurationArguments, packagePath: packagePath)
+        let (stdout, stderr) = try execute(args + buildConfigurationArguments, packagePath: packagePath)
         defer { try! SwiftPM.Package.execute(["clean"], packagePath: packagePath) }
         let (binPathOutput, _) = try execute(
             ["--show-bin-path"] + buildConfigurationArguments,
@@ -54,7 +55,7 @@ final class BuildToolTests: CommandsTestCase {
             // is what `binContents` is meant to represent.
             return contents != ["output-file-map.json"]
         }
-        return BuildResult(binPath: binPath, output: output, binContents: binContents)
+        return BuildResult(binPath: binPath, stdout: stdout, stderr: stderr, binContents: binContents)
     }
 
     func testUsage() throws {
@@ -560,76 +561,76 @@ final class BuildToolTests: CommandsTestCase {
             #if os(macOS)
             // Try building with default parameters.  This should succeed. We build verbosely so we get full command
             // lines.
-            var output = try build(["-v"], packagePath: fixturePath).output
+            var buildResult = try build(["-v"], packagePath: fixturePath)
 
-            XCTAssertMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
-            output = try self.build(["-c", "debug", "-v"], packagePath: fixturePath).output
+            buildResult = try self.build(["-c", "debug", "-v"], packagePath: fixturePath)
 
-            XCTAssertMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
             // Build with different combinations of the entitlement flag and debug/release build configurations.
 
-            output = try self.build(
+            buildResult = try self.build(
                 ["--enable-get-task-allow-entitlement", "-v"],
                 packagePath: fixturePath,
                 isRelease: true
-            ).output
+            )
 
-            XCTAssertMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
-            output = try self.build(
+            buildResult = try self.build(
                 ["-c", "debug", "--enable-get-task-allow-entitlement", "-v"],
                 packagePath: fixturePath
-            ).output
+            )
 
-            XCTAssertMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
-            output = try self.build(
+            buildResult = try self.build(
                 ["-c", "debug", "--disable-get-task-allow-entitlement", "-v"],
                 packagePath: fixturePath
-            ).output
+            )
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
-            output = try self.build(
+            buildResult = try self.build(
                 ["--disable-get-task-allow-entitlement", "-v"],
                 packagePath: fixturePath,
                 isRelease: true
-            ).output
+            )
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
             #else
-            var output = try self.build(["-v"], packagePath: fixturePath).output
+            var buildResult = try self.build(["-v"], packagePath: fixturePath)
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
-            output = try self.build(["-v"], packagePath: fixturePath, isRelease: true).output
+            buildResult = try self.build(["-v"], packagePath: fixturePath, isRelease: true)
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
 
-            output = try self.build(
+            buildResult = try self.build(
                 ["--disable-get-task-allow-entitlement", "-v"],
                 packagePath: fixturePath,
                 isRelease: true
-            ).output
+            )
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
-            XCTAssertMatch(output, .contains(SwiftTool.entitlementsMacOSWarning))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertMatch(buildResult.stdout, .contains(SwiftTool.entitlementsMacOSWarning))
 
-            output = try self.build(
+            buildResult = try self.build(
                 ["--enable-get-task-allow-entitlement", "-v"],
                 packagePath: fixturePath,
                 isRelease: true
-            ).output
+            )
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
-            XCTAssertMatch(output, .contains(SwiftTool.entitlementsMacOSWarning))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertMatch(buildResult.stderr, .contains(SwiftTool.entitlementsMacOSWarning))
             #endif
 
-            output = try self.build(["-c", "release", "-v"], packagePath: fixturePath, isRelease: true).output
+            buildResult = try self.build(["-c", "release", "-v"], packagePath: fixturePath, isRelease: true)
 
-            XCTAssertNoMatch(output, .contains("codesign --force --sign - --entitlements"))
+            XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
         }
     }
 }
