@@ -200,21 +200,6 @@ extension AbsolutePath {
 }
 
 extension AbsolutePath {
-    /// Returns a relative path that, when concatenated to `base`, yields the
-    /// callee path itself.  If `base` is not an ancestor of the callee, the
-    /// returned path will begin with one or more `..` path components.
-    ///
-    /// Because both paths are absolute, they always have a common ancestor
-    /// (the root path, if nothing else).  Therefore, any path can be made
-    /// relative to any other path by using a sufficient number of `..` path
-    /// components.
-    ///
-    /// This method is strictly syntactic and does not access the file system
-    /// in any way.  Therefore, it does not take symbolic links into account.
-    public func relative(to base: AbsolutePath) -> RelativePath {
-        RelativePath(self.underlying.relative(to: base.underlying))
-    }
-
     /// Returns true if the path is an ancestor of the given path.
     ///
     /// This method is strictly syntactic and does not access the file system
