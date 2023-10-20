@@ -31,7 +31,7 @@ final class LLBuildManifestTests: XCTestCase {
         let decodedEntitlements = try decoder.decode([String: Bool].self, from: .init(contents.utf8))
         XCTAssertEqual(decodedEntitlements, [testEntitlement: true])
 
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
         let outputPath = AbsolutePath("/test.plist")
         manifest.addEntitlementPlistCommand(entitlement: testEntitlement, outputPath: outputPath)
 
@@ -44,7 +44,7 @@ final class LLBuildManifestTests: XCTestCase {
     }
 
     func testBasics() throws {
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
 
         let root: AbsolutePath = "/some"
 
@@ -62,7 +62,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.virtual("Foo"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter(fileSystem: fs).write(manifest, at: "/manifest.yaml")
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fileSystem: fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
@@ -90,7 +90,7 @@ final class LLBuildManifestTests: XCTestCase {
     }
 
     func testShellCommands() throws {
-        var manifest = BuildManifest()
+        var manifest = LLBuildManifest()
 
         let root: AbsolutePath = .root
 
@@ -118,7 +118,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.file("/file.out"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter(fileSystem: fs).write(manifest, at: "/manifest.yaml")
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fileSystem: fs)
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
@@ -143,6 +143,77 @@ final class LLBuildManifestTests: XCTestCase {
                 allow-missing-inputs: true
 
 
+            """)
+    }
+
+    func testMutatedNodes() throws {
+        var manifest = LLBuildManifest()
+
+        let root: AbsolutePath = .root
+
+        manifest.addNode(.virtual("C.mutate"), toTarget: "")
+        let createTimestampNode = Node.virtual("C.create.timestamp", isCommandTimestamp: true)
+        let mutatedNode = Node.file(root.appending(components: "file.out"), isMutated: true)
+
+        manifest.addShellCmd(
+            name: "C.create",
+            description: "C.create",
+            inputs: [
+                .file(root.appending(components: "file.in"))
+            ],
+            outputs: [mutatedNode, createTimestampNode],
+            arguments: [
+                "cp", "file.in", "file.out"
+            ]
+        )
+
+        manifest.addShellCmd(
+            name: "C.mutate",
+            description: "C.mutate",
+            inputs: [
+                createTimestampNode
+            ],
+            outputs: [
+                .virtual("C.mutate")
+            ],
+            arguments: [
+                "touch", "file.out"
+            ]
+        )
+
+        let fs = InMemoryFileSystem()
+        try LLBuildManifestWriter.write(manifest, at: "/manifest.yaml", fileSystem: fs)
+
+        let contents: String = try fs.readFileContents("/manifest.yaml")
+
+        XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
+            client:
+              name: basic
+            tools: {}
+            targets:
+              "": ["<C.mutate>"]
+            default: ""
+            nodes:
+              "<C.create.timestamp>":
+                is-command-timestamp: true
+              "/file.out":
+                is-mutated: true
+            commands:
+              "C.create":
+                tool: shell
+                inputs: ["/file.in"]
+                outputs: ["/file.out","<C.create.timestamp>"]
+                description: "C.create"
+                args: ["cp","file.in","file.out"]
+
+              "C.mutate":
+                tool: shell
+                inputs: ["<C.create.timestamp>"]
+                outputs: ["<C.mutate>"]
+                description: "C.mutate"
+                args: ["touch","file.out"]
+
+            
             """)
     }
 }

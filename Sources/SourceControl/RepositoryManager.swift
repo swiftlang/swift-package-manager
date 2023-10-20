@@ -587,8 +587,9 @@ extension RepositorySpecifier {
 }
 
 extension RepositorySpecifier {
-    fileprivate var canonicalLocation: CanonicalPackageLocation {
-        .init(self.location.description)
+    fileprivate var canonicalLocation: String {
+        let canonicalPackageLocation: CanonicalPackageURL = .init(self.location.description)
+        return "\(canonicalPackageLocation.description)_\(canonicalPackageLocation.scheme ?? "")"
     }
 }
 

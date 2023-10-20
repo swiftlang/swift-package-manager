@@ -161,7 +161,7 @@ public enum WriteAuxiliary {
     }
 }
 
-public struct BuildManifest {
+public struct LLBuildManifest {
     public typealias TargetName = String
     public typealias CmdName = String
 

@@ -3628,7 +3628,8 @@ final class BuildPlanTests: XCTestCase {
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, [
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
-            "-resource-dir", "/fake/lib/swift",
+            .anySequence,
+            "-resource-dir", "\(AbsolutePath("/fake/lib/swift"))",
             .anySequence,
             "-swift-flag-from-json",
             .anySequence,
@@ -3640,7 +3641,13 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         let exeProduct = try result.buildProduct(for: "exe").linkArguments()
-        XCTAssertMatch(exeProduct, [.anySequence, "-resource-dir", "/fake/lib/swift", "-Xclang-linker", "-resource-dir", "-Xclang-linker", "/fake/lib/swift/clang", .anySequence])
+        XCTAssertMatch(exeProduct, [
+            .anySequence,
+            "-resource-dir", "\(AbsolutePath("/fake/lib/swift"))",
+            "-Xclang-linker", "-resource-dir",
+            "-Xclang-linker", "\(AbsolutePath("/fake/lib/swift/clang"))",
+            .anySequence
+        ])
 
         let staticBuildParameters = {
             var copy = extraBuildParameters
@@ -3657,10 +3664,19 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         let staticExe = try staticResult.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(staticExe, [.anySequence, "-resource-dir", "/fake/lib/swift_static", .anySequence])
+        XCTAssertMatch(staticExe, [
+            .anySequence,
+            "-resource-dir", "\(AbsolutePath("/fake/lib/swift_static"))",
+            .anySequence])
 
         let staticExeProduct = try staticResult.buildProduct(for: "exe").linkArguments()
-        XCTAssertMatch(staticExeProduct, [.anySequence, "-resource-dir", "/fake/lib/swift_static", "-Xclang-linker", "-resource-dir", "-Xclang-linker", "/fake/lib/swift/clang", .anySequence])
+        XCTAssertMatch(staticExeProduct, [
+            .anySequence,
+            "-resource-dir", "\(AbsolutePath("/fake/lib/swift_static"))",
+            "-Xclang-linker", "-resource-dir",
+            "-Xclang-linker", "\(AbsolutePath("/fake/lib/swift/clang"))",
+            .anySequence
+        ])
     }
 
     func testUserToolchainWithToolsetCompileFlags() throws {
