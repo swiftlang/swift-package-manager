@@ -616,7 +616,7 @@ final class BuildToolTests: CommandsTestCase {
             )
 
             XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
-            XCTAssertMatch(buildResult.stdout, .contains(SwiftTool.entitlementsMacOSWarning))
+            XCTAssertMatch(buildResult.stderr, .contains(SwiftTool.entitlementsMacOSWarning))
 
             buildResult = try self.build(
                 ["--enable-get-task-allow-entitlement", "-v"],
