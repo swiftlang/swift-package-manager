@@ -39,8 +39,8 @@ public struct Platform: Equatable, Hashable, Codable {
 
     public static let macOS: Platform = Platform(name: "macos", oldestSupportedVersion: "10.13")
     public static let macCatalyst: Platform = Platform(name: "maccatalyst", oldestSupportedVersion: "13.0")
-    public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "11.0")
-    public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "11.0")
+    public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "12.0")
+    public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "12.0")
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "4.0")
     public static let visionOS: Platform = Platform(name: "visionos", oldestSupportedVersion: "1.0")
     public static let driverKit: Platform = Platform(name: "driverkit", oldestSupportedVersion: "19.0")
