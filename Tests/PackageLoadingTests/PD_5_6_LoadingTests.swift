@@ -208,7 +208,9 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let name = parsedManifest.parentDirectory?.pathString ?? ""
+        XCTAssertNotNil(parsedManifest)
+        XCTAssertNotNil(parsedManifest.parentDirectory)
+        let name = try XCTUnwrap(parsedManifest.parentDirectory).pathString
         XCTAssertEqual(manifest.displayName, name)
     }
 
