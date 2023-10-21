@@ -3319,10 +3319,20 @@ final class BuildPlanTests: XCTestCase {
         let targetTriple = try Triple("arm64-apple-ios")
 
         let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
-        XCTAssertMatch(aTarget, [.equal("-target"), .equal(targetTriple.tripleString(forPlatformVersion: "11.0")), .anySequence])
+        let expectedVersion = Platform.iOS.oldestSupportedVersion.versionString
+
+        XCTAssertMatch(aTarget, [
+            .equal("-target"),
+            .equal(targetTriple.tripleString(forPlatformVersion: expectedVersion)),
+            .anySequence
+        ])
 
         let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
-        XCTAssertMatch(bTarget, [.equal("-target"), .equal(targetTriple.tripleString(forPlatformVersion: "11.0")), .anySequence])
+        XCTAssertMatch(bTarget, [
+            .equal("-target"),
+            .equal(targetTriple.tripleString(forPlatformVersion: expectedVersion)),
+            .anySequence
+        ])
     }
 
     func testPlatformsValidation() throws {
