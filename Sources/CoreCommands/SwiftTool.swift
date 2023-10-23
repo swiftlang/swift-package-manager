@@ -677,9 +677,7 @@ public final class SwiftTool {
             component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
         )
 
-        if !targetTriple.isMacOSX && (
-            options.build.disableGetTaskAllowEntitlement || options.build.enableGetTaskAllowEntitlement
-        ) {
+        if options.build.getTaskAllowEntitlement != nil && !targetTriple.isMacOSX {
             observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
         }
 
@@ -700,8 +698,7 @@ public final class SwiftTool {
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 targetTriple: targetTriple,
                 shouldEnableDebuggingEntitlement:
-                    (options.build.configuration == .debug && !options.build.disableGetTaskAllowEntitlement) ||
-                    (options.build.enableGetTaskAllowEntitlement && !options.build.disableGetTaskAllowEntitlement)
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug)
             ),
             driverParameters: .init(
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
