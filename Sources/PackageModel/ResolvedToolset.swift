@@ -28,7 +28,7 @@ public struct ResolvedToolset {
         public let extraCLIOptions: [String]
     }
 
-    public let effectiveTriple: Triple
+    public let targetTriple: Triple
 
     public let cCompiler: ToolProperties
     public let cxxCompiler: ToolProperties
@@ -95,7 +95,7 @@ public struct ResolvedToolset {
         )
 
         self.swiftCompiler = Self.applySwiftSDK(defaultPath: swiftCompilers.compile, knownTool: toolset.knownTools[.swiftCompiler])
-        self.effectiveTriple = triple! // TOOD: Get host triple if not specified.
+        self.targetTriple = triple! // TOOD: Get host triple if not specified.
 
         self.debugger = try Self.determineDebugger(
             knownTool: toolset.knownTools[.debugger],
@@ -106,7 +106,7 @@ public struct ResolvedToolset {
 
         self.librarian = try Self.determineLibrarian(
             knownTool: toolset.knownTools[.librarian],
-            effectiveTriple: self.effectiveTriple,
+            effectiveTriple: self.targetTriple,
             binDirectories: toolset.rootPaths,
             useXcrun: useXcrun,
             environment: environment,
@@ -126,7 +126,7 @@ public struct ResolvedToolset {
                 self.testRunner = nil
             }
         } else {
-            if let swiftPluginServerPath = try Self.derivePluginServerPath(triple: self.effectiveTriple) {
+            if let swiftPluginServerPath = try Self.derivePluginServerPath(triple: self.targetTriple) {
                 self.swiftPluginServer = .init(path: swiftPluginServerPath, extraCLIOptions: [])
             } else {
                 self.swiftPluginServer = nil
@@ -138,7 +138,7 @@ public struct ResolvedToolset {
             } else {
                 let defaultXCTestPath = try Self.deriveXCTestPath(
                     sdkRootPath: sdkRootPath,
-                    triple: self.effectiveTriple,
+                    triple: self.targetTriple,
                     environment: environment
                 )
 
