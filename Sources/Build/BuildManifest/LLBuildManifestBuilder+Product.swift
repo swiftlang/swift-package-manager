@@ -33,13 +33,19 @@ extension LLBuildManifestBuilder {
             testInputs = []
         }
 
+        // Create a phony node to represent the entire target.
+        let targetName = try buildProduct.product.getLLBuildTargetName(config: self.buildConfig)
+        let output: Node = .virtual(targetName)
+
+        let finalProductNode: Node
         switch buildProduct.product.type {
         case .library(.static):
+            finalProductNode = try .file(buildProduct.binaryPath)
             try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Archiving \(buildProduct.binaryPath.prettyPath())",
                 inputs: (buildProduct.objects + [buildProduct.linkFileListPath]).map(Node.file),
-                outputs: [.file(buildProduct.binaryPath)],
+                outputs: [finalProductNode],
                 arguments: try buildProduct.archiveArguments()
             )
 
@@ -49,23 +55,55 @@ extension LLBuildManifestBuilder {
                 + [buildProduct.linkFileListPath]
                 + testInputs
 
+            let shouldCodeSign: Bool
+            let linkedBinaryNode: Node
+            let linkedBinaryPath = try buildProduct.binaryPath
+            if case .executable = buildProduct.product.type,
+               buildParameters.targetTriple.isMacOSX,
+               buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
+                shouldCodeSign = true
+                linkedBinaryNode = try .file(buildProduct.binaryPath, isMutated: true)
+            } else {
+                shouldCodeSign = false
+                linkedBinaryNode = try .file(buildProduct.binaryPath)
+            }
+
             try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Linking \(buildProduct.binaryPath.prettyPath())",
                 inputs: inputs.map(Node.file),
-                outputs: [.file(buildProduct.binaryPath)],
+                outputs: [linkedBinaryNode],
                 arguments: try buildProduct.linkArguments()
             )
+
+            if shouldCodeSign {
+                let basename = try buildProduct.binaryPath.basename
+                let plistPath = try buildProduct.binaryPath.parentDirectory
+                    .appending(component: "\(basename)-entitlement.plist")
+                self.manifest.addEntitlementPlistCommand(
+                    entitlement: "com.apple.security.get-task-allow",
+                    outputPath: plistPath
+                )
+
+                let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
+                let codeSigningOutput = Node.virtual(targetName + "-CodeSigning")
+                try self.manifest.addShellCmd(
+                    name: "\(cmdName)-entitlements",
+                    description: "Applying debug entitlements to \(buildProduct.binaryPath.prettyPath())",
+                    inputs: [linkedBinaryNode, .file(plistPath)],
+                    outputs: [codeSigningOutput],
+                    arguments: buildProduct.codeSigningArguments(plistPath: plistPath, binaryPath: linkedBinaryPath)
+                )
+                finalProductNode = codeSigningOutput
+            } else {
+                finalProductNode = linkedBinaryNode
+            }
         }
 
-        // Create a phony node to represent the entire target.
-        let targetName = try buildProduct.product.getLLBuildTargetName(config: self.buildConfig)
-        let output: Node = .virtual(targetName)
-
         self.manifest.addNode(output, toTarget: targetName)
-        try self.manifest.addPhonyCmd(
+        self.manifest.addPhonyCmd(
             name: output.name,
-            inputs: [.file(buildProduct.binaryPath)],
+            inputs: [finalProductNode],
             outputs: [output]
         )
 

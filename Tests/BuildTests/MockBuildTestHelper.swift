@@ -118,7 +118,7 @@ func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug,     targetTriple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug, targetTriple: triple)
 }
 
 enum BuildError: Swift.Error {

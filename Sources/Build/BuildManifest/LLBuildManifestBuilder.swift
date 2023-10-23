@@ -22,6 +22,7 @@ import struct TSCBasic.ByteString
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
+/// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
 public class LLBuildManifestBuilder {
     public enum TargetKind {
         case main
@@ -42,7 +43,7 @@ public class LLBuildManifestBuilder {
     public let disableSandboxForPluginCommands: Bool
 
     /// File system reference.
-    let fileSystem: FileSystem
+    let fileSystem: any FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
     public let observabilityScope: ObservabilityScope
@@ -60,7 +61,7 @@ public class LLBuildManifestBuilder {
     public init(
         _ plan: BuildPlan,
         disableSandboxForPluginCommands: Bool = false,
-        fileSystem: FileSystem,
+        fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         self.plan = plan
