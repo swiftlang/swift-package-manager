@@ -9,6 +9,7 @@
 add_library(SPMBuildCore
   BinaryTarget+Extensions.swift
   BuildParameters/BuildParameters.swift
+  BuildParameters/BuildParameters+Debugging.swift
   BuildParameters/BuildParameters+Driver.swift
   BuildParameters/BuildParameters+Linking.swift
   BuildParameters/BuildParameters+Output.swift

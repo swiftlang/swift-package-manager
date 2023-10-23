@@ -26,31 +26,6 @@ public struct BuildParameters: Encodable {
         case auto
     }
 
-    /// Represents the debug information format.
-    ///
-    /// The debug information format controls the format of the debug information
-    /// that the compiler generates.  Some platforms support debug information
-    // formats other than DWARF.
-    public enum DebugInfoFormat: String, Encodable {
-        /// DWARF debug information format, the default format used by Swift.
-        case dwarf
-        /// CodeView debug information format, used on Windows.
-        case codeview
-        /// No debug information to be emitted.
-        case none
-    }
-
-    /// Represents the debugging strategy.
-    ///
-    /// Swift binaries requires the swiftmodule files in order for lldb to work.
-    /// On Darwin, linker can directly take the swiftmodule file path using the
-    /// -add_ast_path flag. On other platforms, we convert the swiftmodule into
-    /// an object file using Swift's modulewrap tool.
-    public enum DebuggingStrategy {
-        case swiftAST
-        case modulewrap
-    }
-
     /// The path to the data directory.
     public var dataPath: AbsolutePath
 
@@ -125,9 +100,10 @@ public struct BuildParameters: Encodable {
     /// Whether the Xcode build system is used.
     public var isXcodeBuildSystemEnabled: Bool
 
-    public var debugInfoFormat: DebugInfoFormat
-
     public var shouldSkipBuilding: Bool
+
+    /// Build parameters related to debugging.
+    public var debuggingParameters: Debugging
 
     /// Build parameters related to Swift Driver.
     public var driverParameters: Driver
@@ -155,21 +131,25 @@ public struct BuildParameters: Encodable {
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
-        debugInfoFormat: DebugInfoFormat = .dwarf,
         shouldSkipBuilding: Bool = false,
+        debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
         testingParameters: Testing? = nil
     ) throws {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        self.debuggingParameters = debuggingParameters ?? .init(
+            targetTriple: targetTriple,
+            shouldEnableDebuggingEntitlement: configuration == .debug
+        )
 
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = try hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.targetTriple = targetTriple
-        switch debugInfoFormat {
+        switch self.debuggingParameters.debugInfoFormat {
         case .dwarf:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
@@ -205,13 +185,11 @@ public struct BuildParameters: Encodable {
         self.sanitizers = sanitizers
         self.indexStoreMode = indexStoreMode
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
-        self.debugInfoFormat = debugInfoFormat
         self.shouldSkipBuilding = shouldSkipBuilding
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
         self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: targetTriple)
-
     }
 
     public func forTriple(_ targetTriple: Triple) throws -> BuildParameters {
@@ -280,19 +258,6 @@ public struct BuildParameters: Encodable {
     public var testOutputPath: AbsolutePath {
         return buildPath.appending(component: "testOutput.txt")
     }
-
-    /// The debugging strategy according to the current build parameters.
-    public var debuggingStrategy: DebuggingStrategy? {
-        guard configuration == .debug else {
-            return nil
-        }
-
-        if targetTriple.isApple() {
-            return .swiftAST
-        }
-        return .modulewrap
-    }
-
     /// Returns the path to the binary of a product for the current build parameters.
     public func binaryPath(for product: ResolvedProduct) throws -> AbsolutePath {
         return try buildPath.appending(binaryRelativePath(for: product))

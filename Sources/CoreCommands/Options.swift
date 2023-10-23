@@ -477,6 +477,12 @@ public struct BuildOptions: ParsableArguments {
     )
     public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
+    @Flag(help: .hidden)
+    public var enableGetTaskAllowEntitlement: Bool = false
+
+    @Flag(help: .hidden)
+    public var disableGetTaskAllowEntitlement: Bool = false
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
