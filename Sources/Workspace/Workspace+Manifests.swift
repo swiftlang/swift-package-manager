@@ -198,11 +198,11 @@ extension Workspace {
                 }
             }
 
-            let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map { $0.packageRef } }
+            let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map(\.packageRef) }
 
             var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
-                return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
+                node.manifest.dependenciesRequired(for: node.productFilter).compactMap { dependency in
                     let package = dependency.packageRef
                     let (inserted, index) = requiredIdentities.append(package)
                     if !inserted {
@@ -212,7 +212,9 @@ extension Workspace {
                             // same literal location is fine
                             if existing.locationString != package.locationString {
                                 // we prefer the top level dependencies
-                                if topLevelDependencies.contains(where: { $0.locationString ==  existing.locationString }) {
+                                if topLevelDependencies.contains(where: {
+                                    $0.locationString == existing.locationString
+                                }) {
                                     observabilityScope.emit(debug: """
                                     similar variants of package '\(package.identity)' \
                                     found at '\(package.locationString)' and '\(existing.locationString)'. \
@@ -480,7 +482,7 @@ extension Workspace {
                     // Since we are creating managed dependencies based on the resolved file in this mode, but local
                     // packages aren't part of that file, they will be missing from it. So we're eagerly adding them
                     // here, but explicitly don't add any that are overridden by a root with the same identity since
-                    // that would lead to loading the given package twice, once as a root and once as a dependency 
+                    // that would lead to loading the given package twice, once as a root and once as a dependency
                     // which violates various assumptions.
                     if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
                         try self.state.dependencies.add(.fileSystem(packageRef: ref))
