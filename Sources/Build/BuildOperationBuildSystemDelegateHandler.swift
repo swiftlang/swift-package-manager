@@ -231,13 +231,29 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
             import XCTest
             \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
+            #if canImport(Testing)
+            @_spi(SwiftPackageManagerSupport) import Testing
+            #endif
 
             @main
             @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
             struct Runner {
-                static func main() {
+                static func main() async {
+                    var exitCodes: [CInt] = []
+                    defer {
+                        for exitCode in exitCodes {
+                            if exitCode != 0 {
+                                exit(exitCode)
+                            }
+                        }
+                    }
+
+                    #if canImport(Testing)
+                    await exitCodes.append(Testing.__swiftPMEntryPoint())
+                    #endif
+
                     \#(testObservabilitySetup)
-                    XCTMain(__allDiscoveredTests())
+                    exitCodes.append(XCTMain(__allDiscoveredTests()))
                 }
             }
             """#
