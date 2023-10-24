@@ -859,8 +859,9 @@ extension Workspace {
             // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
+                let pin = pinsStore.pins[dependency.packageRef.identity]
                 // if pin not found, or location is different (it may have changed at this point) pin it
-                if pinsStore.pins[comparingLocation: dependency.packageRef] == .none {
+                if !(pin?.packageRef.equalsIncludingLocation(dependency.packageRef) ?? false) {
                     pinsStore.pin(dependency)
                 }
             } else if let pin = pinsStore.pins[dependency.packageRef.identity] {
