@@ -13,7 +13,7 @@
 import _Concurrency
 import Basics
 import Dispatch
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import class TSCBasic.BufferedOutputByteStream

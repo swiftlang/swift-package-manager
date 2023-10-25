@@ -216,7 +216,7 @@ public class RepositoryManager: Cancellable {
                     self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                 }
                 return handle
-            } else if self.provider.isValidDirectory(repositoryPath) {
+            } else if try self.provider.isValidDirectory(repositoryPath) {
                 return handle
             }
         }
@@ -334,7 +334,7 @@ public class RepositoryManager: Cancellable {
                 }
             } catch {
                 // If we are offline and have a valid cached repository, use the cache anyway.
-                if isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath) {
+                if try isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath) {
                     // For the first offline use in the lifetime of this repository manager, emit a warning.
                     if self.emitNoConnectivityWarning.get(default: false) {
                         self.emitNoConnectivityWarning.put(false)
@@ -422,13 +422,13 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Returns true if the directory is valid git location.
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
-        self.provider.isValidDirectory(directory)
+    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
+        try self.provider.isValidDirectory(directory)
     }
 
     /// Returns true if the git reference name is well formed.
-    public func isValidRefFormat(_ ref: String) -> Bool {
-        self.provider.isValidRefFormat(ref)
+    public func isValidRefFormat(_ ref: String) throws -> Bool {
+        try self.provider.isValidRefFormat(ref)
     }
 
     /// Reset the repository manager.

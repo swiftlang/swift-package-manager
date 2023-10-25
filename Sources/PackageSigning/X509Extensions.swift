@@ -12,13 +12,23 @@
 
 import struct Foundation.Data
 
+#if USE_IMPL_ONLY_IMPORTS
 #if canImport(Security)
 @_implementationOnly import Security
 #endif
 
-import Basics
 @_implementationOnly import SwiftASN1
 @_implementationOnly import X509
+#else
+#if canImport(Security)
+import Security
+#endif
+
+import SwiftASN1
+import X509
+#endif
+
+import Basics
 
 #if canImport(Security)
 extension Certificate {

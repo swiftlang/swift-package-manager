@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import struct Basics.AbsolutePath

@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
-@_implementationOnly import SwiftDriver
 import struct Basics.InternalError
 import struct Basics.AbsolutePath
 import struct Basics.RelativePath
@@ -23,6 +21,14 @@ import class PackageGraph.ResolvedTarget
 import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
+@_implementationOnly import SwiftDriver
+#else
+import class DriverSupport.SPMSwiftDriverExecutor
+import SwiftDriver
+#endif
 
 import PackageModel
 

@@ -12,10 +12,15 @@
 
 import ArgumentParser
 import Basics
-@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 import class TSCBasic.Process
 
