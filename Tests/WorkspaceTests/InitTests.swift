@@ -105,10 +105,13 @@ class InitTests: XCTestCase {
             let name = path.basename
             try fs.createDirectory(path)
 
+            let initPackageOptions = InitPackage.InitPackageOptions(packageType: .library,
+                                                                    withDocs: true)
+            
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
-                packageType: .library,
+                options: initPackageOptions,
                 destinationPath: path,
                 fileSystem: localFileSystem
             )
@@ -129,7 +132,7 @@ class InitTests: XCTestCase {
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift", "Foo.docc"])
 
             let tests = path.appending("Tests")
             XCTAssertEqual(try fs.getDirectoryContents(tests).sorted(), ["FooTests"])
@@ -141,7 +144,9 @@ class InitTests: XCTestCase {
                           \(testFileContents)
                           """)
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
-
+            
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo").appending("Foo.docc")), ["Foo.md", "Resources"])
+            
             // Try building it
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple

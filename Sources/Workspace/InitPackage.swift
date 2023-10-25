@@ -29,13 +29,18 @@ public final class InitPackage {
         ///
         /// Note: This should only contain Apple platforms right now.
         public var platforms: [SupportedPlatform]
+        
+        /// Value indicating if documentation should be included.
+        public var withDocs: Bool
 
         public init(
             packageType: PackageType,
-            platforms: [SupportedPlatform] = []
+            platforms: [SupportedPlatform] = [],
+            withDocs: Bool = false
         ) {
             self.packageType = packageType
             self.platforms = platforms
+            self.withDocs = withDocs
         }
     }
 
@@ -603,6 +608,10 @@ public final class InitPackage {
           try writeMacroPluginSources(sources.appending("\(pkgname)Macros"))
           try writeMacroClientSources(sources.appending("\(pkgname)Client"))
         }
+        
+        if packageType == .library, options.withDocs {
+            try writeLibraryDocumentation(moduleDir)
+        }
     }
 
     private func writeTests() throws {
@@ -617,6 +626,24 @@ public final class InitPackage {
         progressReporter?("Creating \(tests.relative(to: destinationPath))/")
         try makeDirectories(tests)
         try writeTestFileStubs(testsPath: tests)
+    }
+
+    private func writeLibraryDocumentation(_ path: AbsolutePath) throws {
+        let docc = path.appending("\(moduleName).docc")
+        guard fileSystem.exists(docc) == false else {
+            return
+        }
+        try makeDirectories(docc)
+
+        let content = "# ``\(moduleName)``\n\n"
+
+        let mdFile = docc.appending("\(moduleName).md")
+        try writePackageFile(mdFile) { stream in
+            stream.write(content)
+        }
+
+        let resources = docc.appending("Resources")
+        try makeDirectories(resources)
     }
 
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
