@@ -115,7 +115,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
             throw StringError("Invalid manifest version")
         }
 
-        let validator = ManifestValidator(manifest: manifest, sourceControlValidator: NOOPManifestSourceControlValidator(), fileSystem: fileSystem)
+        let validator = ManifestValidator(manifest: manifest, sourceControlValidator: NOOPManifestSourceControlValidator(), dependencyMapper: NOOPDependencyMapper(), rootPackageIdentities: [], fileSystem: fileSystem)
         let diagnostics = validator.validate()
         return (manifest: manifest, diagnostics: diagnostics)
     }
@@ -196,5 +196,19 @@ fileprivate struct NOOPManifestSourceControlValidator: ManifestSourceControlVali
 
     func isValidDirectory(_ path: AbsolutePath) -> Bool {
         true
+    }
+}
+
+fileprivate struct NOOPDependencyMapper: DependencyMapper {
+    func mappedDependency(for dependency: PackageDependency, fileSystem: FileSystem) throws -> PackageDependency {
+        return dependency
+    }
+    
+    func mappedDependency(packageKind: PackageReference.Kind?, at location: String, nameForTargetDependencyResolutionOnly: String?, requirement: PackageDependency.Registry.Requirement, productFilter: ProductFilter, fileSystem: FileSystem) throws -> PackageDependency {
+        fatalError("not implemented")
+    }
+    
+    func mappedDependency(packageKind: PackageReference.Kind?, at location: String, nameForTargetDependencyResolutionOnly: String?, requirement: PackageDependency.SourceControl.Requirement, productFilter: ProductFilter, fileSystem: FileSystem) throws -> PackageDependency {
+        fatalError("not implemented")
     }
 }

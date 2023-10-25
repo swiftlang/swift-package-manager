@@ -22,9 +22,9 @@ struct Example {
 
         let workspace = try Workspace(forRootPackage: packagePath)
 
-        let manifest = try await workspace.loadRootManifest(at: packagePath, observabilityScope: observability.topScope)
+        let manifest = try await workspace.loadRootManifest(at: packagePath, rootPackageIdentities: [], observabilityScope: observability.topScope)
 
-        let package = try await workspace.loadRootPackage(at: packagePath, observabilityScope: observability.topScope)
+        let package = try await workspace.loadRootPackage(at: packagePath, rootPackageIdentities: [], observabilityScope: observability.topScope)
 
         let graph = try workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
         

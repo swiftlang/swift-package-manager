@@ -18,6 +18,8 @@ import struct PackageGraph.PackageGraphRootInput
 import struct SourceControl.Revision
 import class TSCBasic.InMemoryFileSystem
 
+import PackageModel
+
 extension Workspace {
     /// Edit implementation.
     func _edit(
@@ -25,6 +27,7 @@ extension Workspace {
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope
     ) throws {
         // Look up the dependency and check if we can edit it.
@@ -70,6 +73,7 @@ extension Workspace {
                     packageKind: .fileSystem(destination),
                     packagePath: destination,
                     packageLocation: dependency.packageRef.locationString,
+                    rootPackageIdentities: rootPackageIdentities,
                     observabilityScope: observabilityScope,
                     completion: $0
                 )

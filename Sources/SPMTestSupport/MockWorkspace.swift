@@ -348,6 +348,7 @@ public final class MockWorkspace {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
+                rootPackageIdentities: [],
                 observabilityScope: observability.topScope
             )
         }
@@ -516,7 +517,7 @@ public final class MockWorkspace {
         let pinsStore = try workspace.pinsStore.load()
 
         let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
-        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
+        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, rootPackageIdentities: [], observabilityScope: observability.topScope, completion: $0) }
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
 
         let dependencyManifests = try workspace.loadDependencyManifests(root: root, observabilityScope: observability.topScope)
@@ -732,7 +733,7 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: try rootPaths(for: roots), dependencies: dependencies
         )
-        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
+        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, rootPackageIdentities: [], observabilityScope: observability.topScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests, observabilityScope: observability.topScope)
         let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
         result(manifests, observability.diagnostics)

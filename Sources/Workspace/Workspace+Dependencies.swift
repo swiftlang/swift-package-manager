@@ -70,6 +70,7 @@ extension Workspace {
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(
             packages: root.packages,
+            rootPackageIdentities: root.packages.map { PackageIdentity(path: $0) },
             observabilityScope: observabilityScope,
             completion: $0
         ) }
@@ -333,6 +334,7 @@ extension Workspace {
         // FIXME: this should not block
         let rootManifests = try temp_await { self.loadRootManifests(
             packages: root.packages,
+            rootPackageIdentities: root.packages.map { PackageIdentity(path: $0) },
             observabilityScope: observabilityScope,
             completion: $0
         ) }
@@ -481,6 +483,7 @@ extension Workspace {
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(
             packages: root.packages,
+            rootPackageIdentities: root.packages.map { PackageIdentity(path: $0) },
             observabilityScope: observabilityScope,
             completion: $0
         ) }

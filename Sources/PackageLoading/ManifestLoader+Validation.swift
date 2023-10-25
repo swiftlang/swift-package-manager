@@ -25,10 +25,14 @@ public struct ManifestValidator {
     private let manifest: Manifest
     private let sourceControlValidator: ManifestSourceControlValidator
     private let fileSystem: FileSystem
+    private let dependencyMapper: DependencyMapper
+    private let rootPackageIdentities: [PackageIdentity]
 
-    public init(manifest: Manifest, sourceControlValidator: ManifestSourceControlValidator, fileSystem: FileSystem) {
+    public init(manifest: Manifest, sourceControlValidator: ManifestSourceControlValidator, dependencyMapper: DependencyMapper, rootPackageIdentities: [PackageIdentity], fileSystem: FileSystem) {
         self.manifest = manifest
         self.sourceControlValidator = sourceControlValidator
+        self.dependencyMapper = dependencyMapper
+        self.rootPackageIdentities = rootPackageIdentities
         self.fileSystem = fileSystem
     }
 
@@ -96,7 +100,12 @@ public struct ManifestValidator {
 
         // validate dependency requirements
         for dependency in self.manifest.dependencies {
-            switch dependency {
+            guard !rootPackageIdentities.contains(dependency.identity) else {
+                // avoid validating dependencies which are overidden by a root
+                continue
+            }
+            let mappedDependency = try? dependencyMapper.mappedDependency(for: dependency, fileSystem: self.fileSystem)
+            switch mappedDependency {
             case .sourceControl(let sourceControl):
                 diagnostics += validateSourceControlDependency(sourceControl)
             default:

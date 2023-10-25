@@ -288,6 +288,7 @@ class PluginInvocationTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -678,6 +679,7 @@ class PluginInvocationTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -757,6 +759,7 @@ class PluginInvocationTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -867,6 +870,7 @@ class PluginInvocationTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -1051,6 +1055,7 @@ class PluginInvocationTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -1195,6 +1200,7 @@ class PluginInvocationTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )

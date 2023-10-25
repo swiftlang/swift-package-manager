@@ -51,6 +51,7 @@ extension SwiftPackageTool {
             let package = try temp_await {
                 workspace.loadRootPackage(
                     at: packagePath,
+                    rootPackageIdentities: [PackageIdentity(path: packagePath)],
                     observabilityScope: swiftTool.observabilityScope,
                     completion: $0
                 )

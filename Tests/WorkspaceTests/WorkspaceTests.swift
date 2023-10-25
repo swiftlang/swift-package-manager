@@ -246,6 +246,7 @@ final class WorkspaceTests: XCTestCase {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
+                    rootPackageIdentities: rootInput.packages.map { PackageIdentity(path: $0) },
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -5249,6 +5250,7 @@ final class WorkspaceTests: XCTestCase {
             let manifest = try temp_await {
                 workspace.loadRootManifest(
                     at: packagePath,
+                    rootPackageIdentities: [PackageIdentity(path: packagePath)],
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -5259,6 +5261,7 @@ final class WorkspaceTests: XCTestCase {
             let package = try temp_await {
                 workspace.loadRootPackage(
                     at: packagePath,
+                    rootPackageIdentities: [PackageIdentity(path: packagePath)],
                     observabilityScope: observability.topScope,
                     completion: $0
                 )
@@ -8803,8 +8806,10 @@ final class WorkspaceTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
         let wks = try workspace.getOrCreateWorkspace()
         XCTAssertNoThrow(try temp_await {
+            let path = workspace.rootsDir.appending("Root")
             wks.loadRootPackage(
-                at: workspace.rootsDir.appending("Root"),
+                at: path,
+                rootPackageIdentities: [PackageIdentity(path: path)],
                 observabilityScope: observability.topScope,
                 completion: $0
             )

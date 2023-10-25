@@ -585,12 +585,15 @@ extension Workspace {
     ///       should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be
     ///       created from the revision provided.
+    ///     - rootPackageIdentities: Identities of any root packages being used
+    ///       in the given package graph.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func edit(
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope
     ) {
         do {
@@ -599,6 +602,7 @@ extension Workspace {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
+                rootPackageIdentities: rootPackageIdentities,
                 observabilityScope: observabilityScope
             )
         } catch {
@@ -939,10 +943,11 @@ extension Workspace {
     /// Loads and returns manifests at the given paths.
     public func loadRootManifests(
         packages: [AbsolutePath],
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope
     ) async throws -> [AbsolutePath: Manifest] {
         try await withCheckedThrowingContinuation { continuation in
-            self.loadRootManifests(packages: packages, observabilityScope: observabilityScope) { result in
+            self.loadRootManifests(packages: packages, rootPackageIdentities: rootPackageIdentities, observabilityScope: observabilityScope) { result in
                 continuation.resume(with: result)
             }
         }
@@ -951,6 +956,7 @@ extension Workspace {
     /// Loads and returns manifests at the given paths.
     public func loadRootManifests(
         packages: [AbsolutePath],
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
@@ -965,6 +971,7 @@ extension Workspace {
                 packageKind: .root(package),
                 packagePath: package,
                 packageLocation: package.pathString,
+                rootPackageIdentities: rootPackageIdentities,
                 observabilityScope: observabilityScope
             ) { result in
                 defer { sync.leave() }
@@ -992,10 +999,11 @@ extension Workspace {
     /// Loads and returns manifest at the given path.
     public func loadRootManifest(
         at path: AbsolutePath,
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope
     ) async throws -> Manifest {
         try await withCheckedThrowingContinuation { continuation in
-            self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
+            self.loadRootManifest(at: path, rootPackageIdentities: rootPackageIdentities, observabilityScope: observabilityScope) { result in
                 continuation.resume(with: result)
             }
         }
@@ -1004,10 +1012,11 @@ extension Workspace {
     /// Loads and returns manifest at the given path.
     public func loadRootManifest(
         at path: AbsolutePath,
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
-        self.loadRootManifests(packages: [path], observabilityScope: observabilityScope) { result in
+        self.loadRootManifests(packages: [path], rootPackageIdentities: rootPackageIdentities, observabilityScope: observabilityScope) { result in
             completion(result.tryMap {
                 // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via
                 // diagnostics
@@ -1025,9 +1034,9 @@ extension Workspace {
     }
 
     /// Loads root package
-    public func loadRootPackage(at path: AbsolutePath, observabilityScope: ObservabilityScope) async throws -> Package {
+    public func loadRootPackage(at path: AbsolutePath, rootPackageIdentities: [PackageIdentity], observabilityScope: ObservabilityScope) async throws -> Package {
         try await withCheckedThrowingContinuation { continuation in
-            self.loadRootPackage(at: path, observabilityScope: observabilityScope) { result in
+            self.loadRootPackage(at: path, rootPackageIdentities: rootPackageIdentities, observabilityScope: observabilityScope) { result in
                 continuation.resume(with: result)
             }
         }
@@ -1036,10 +1045,11 @@ extension Workspace {
     /// Loads root package
     public func loadRootPackage(
         at path: AbsolutePath,
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Package, Error>) -> Void
     ) {
-        self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
+        self.loadRootManifest(at: path, rootPackageIdentities: rootPackageIdentities, observabilityScope: observabilityScope) { result in
             let result = result.tryMap { manifest -> Package in
                 let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind)
 
@@ -1140,6 +1150,7 @@ extension Workspace {
             packageKind: previousPackage.underlyingPackage.manifest.packageKind,
             packagePath: previousPackage.path,
             packageLocation: previousPackage.underlyingPackage.manifest.packageLocation,
+            rootPackageIdentities: packageGraph.rootPackages.map { $0.identity },
             observabilityScope: observabilityScope
         ) { result in
             let result = result.tryMap { manifest -> Package in

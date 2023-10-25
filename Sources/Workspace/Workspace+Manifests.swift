@@ -444,8 +444,10 @@ extension Workspace {
 
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map(\.packageRef)
+        let rootPackageIdentities = Array(root.packages.keys)
         let rootDependenciesManifests = try temp_await { self.loadManagedManifests(
             for: rootDependencies,
+            rootPackageIdentities: rootPackageIdentities,
             observabilityScope: observabilityScope,
             completion: $0
         ) }
@@ -458,6 +460,7 @@ extension Workspace {
         let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map(\.packageRef) }.flatMap { $0 }
         let firstLevelManifests = try temp_await { self.loadManagedManifests(
             for: firstLevelDependencies,
+            rootPackageIdentities: rootPackageIdentities,
             observabilityScope: observabilityScope,
             completion: $0
         ) } // FIXME: this should not block
@@ -492,6 +495,7 @@ extension Workspace {
             }
             let dependenciesManifests = try temp_await { self.loadManagedManifests(
                 for: dependenciesToLoad,
+                rootPackageIdentities: rootPackageIdentities,
                 observabilityScope: observabilityScope,
                 completion: $0
             ) }
@@ -591,6 +595,7 @@ extension Workspace {
     /// Loads the given manifests, if it is present in the managed dependencies.
     private func loadManagedManifests(
         for packages: [PackageReference],
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void
     ) {
@@ -598,7 +603,7 @@ extension Workspace {
         let manifests = ThreadSafeKeyValueStore<PackageIdentity, Manifest>()
         Set(packages).forEach { package in
             sync.enter()
-            self.loadManagedManifest(for: package, observabilityScope: observabilityScope) { manifest in
+            self.loadManagedManifest(for: package, rootPackageIdentities: rootPackageIdentities, observabilityScope: observabilityScope) { manifest in
                 defer { sync.leave() }
                 if let manifest {
                     manifests[package.identity] = manifest
@@ -614,6 +619,7 @@ extension Workspace {
     /// Loads the given manifest, if it is present in the managed dependencies.
     private func loadManagedManifest(
         for package: PackageReference,
+        rootPackageIdentities: [PackageIdentity],
         observabilityScope: ObservabilityScope,
         completion: @escaping (Manifest?) -> Void
     ) {
@@ -675,6 +681,7 @@ extension Workspace {
             packagePath: packagePath,
             packageLocation: managedDependency.packageRef.locationString,
             packageVersion: packageVersion,
+            rootPackageIdentities: rootPackageIdentities,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) { result in
@@ -692,6 +699,7 @@ extension Workspace {
         packagePath: AbsolutePath,
         packageLocation: String,
         packageVersion: Version? = nil,
+        rootPackageIdentities: [PackageIdentity],
         fileSystem: FileSystem? = nil,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Manifest, Error>) -> Void
@@ -747,6 +755,8 @@ extension Workspace {
                 let validator = ManifestValidator(
                     manifest: manifest,
                     sourceControlValidator: self.repositoryManager,
+                    dependencyMapper: self.dependencyMapper,
+                    rootPackageIdentities: rootPackageIdentities,
                     fileSystem: self.fileSystem
                 )
                 let validationIssues = validator.validate()

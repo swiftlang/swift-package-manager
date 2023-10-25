@@ -45,6 +45,7 @@ extension SwiftPackageTool {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
+                rootPackageIdentities: [],
                 observabilityScope: swiftTool.observabilityScope
             )
         }

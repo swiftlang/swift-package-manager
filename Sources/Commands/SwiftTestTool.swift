@@ -402,6 +402,7 @@ public struct SwiftTestTool: SwiftCommand {
         let rootManifests = try temp_await {
             workspace.loadRootManifests(
                 packages: root.packages,
+                rootPackageIdentities: root.packages.map { PackageIdentity(path: $0) },
                 observabilityScope: swiftTool.observabilityScope,
                 completion: $0
             )
@@ -517,6 +518,7 @@ extension SwiftTestTool {
              let rootManifests = try temp_await {
                  workspace.loadRootManifests(
                      packages: root.packages,
+                     rootPackageIdentities: root.packages.map { PackageIdentity(path: $0) },
                      observabilityScope: swiftTool.observabilityScope,
                      completion: $0
                  )
