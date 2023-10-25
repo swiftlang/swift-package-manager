@@ -62,14 +62,14 @@ final class ContainerProvider {
         completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
     ) {
         // Return the cached container, if available.
-        if let container = self.containersCache[comparingLocation: package] {
+        if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
             return completion(.success(container))
         }
 
         if let prefetchSync = self.prefetches[package] {
             // If this container is already being prefetched, wait for that to complete
             prefetchSync.notify(queue: .sharedConcurrent) {
-                if let container = self.containersCache[comparingLocation: package] {
+                if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
                     // should be in the cache once prefetch completed
                     return completion(.success(container))
                 } else {
@@ -123,14 +123,5 @@ final class ContainerProvider {
                 }
             }
         }
-    }
-}
-
-extension ThreadSafeKeyValueStore where Key == PackageReference, Value == PubGrubPackageContainer {
-    subscript(comparingLocation package: PackageReference) -> PubGrubPackageContainer? {
-        if let container = self[package], container.package.equalsIncludingLocation(package) {
-            return container
-        }
-        return .none
     }
 }
