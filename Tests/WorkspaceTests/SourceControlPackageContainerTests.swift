@@ -146,11 +146,11 @@ private class MockRepositories: RepositoryProvider {
         fatalError("unexpected API call")
     }
 
-    func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
         return true
     }
 
-    func isValidRefFormat(_ ref: String) -> Bool {
+    func isValidRefFormat(_ ref: String) throws -> Bool {
         return true
     }
 

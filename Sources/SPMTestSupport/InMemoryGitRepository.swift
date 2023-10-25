@@ -482,11 +482,11 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return checkout
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
         return true
     }
 
-    public func isValidRefFormat(_ ref: String) -> Bool {
+    public func isValidRefFormat(_ ref: String) throws -> Bool {
         return true
     }
 

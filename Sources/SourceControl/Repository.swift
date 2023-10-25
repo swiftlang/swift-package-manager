@@ -143,10 +143,10 @@ public protocol RepositoryProvider: Cancellable {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 
     /// Returns true if the directory is valid git location.
-    func isValidDirectory(_ directory: AbsolutePath) -> Bool
+    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool
 
     /// Returns true if the git reference name is well formed.
-    func isValidRefFormat(_ ref: String) -> Bool
+    func isValidRefFormat(_ ref: String) throws -> Bool
 }
 
 /// Abstract repository operations.
