@@ -13,13 +13,18 @@
 import Basics
 import Build
 import Commands
-@_implementationOnly import DriverSupport
 import Foundation
 import PackageModel
 import SourceControl
 import SPMTestSupport
 import Workspace
 import XCTest
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 import enum TSCBasic.ProcessEnv
 

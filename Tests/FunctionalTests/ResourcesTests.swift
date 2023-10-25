@@ -100,20 +100,6 @@ class ResourcesTests: XCTestCase {
         }
     }
 
-    func testFoundationlessClient() throws {
-        try fixture(name: "Resources/FoundationlessClient") { fixturePath in
-            #if os(Linux) && swift(>=5.8)
-            let pkgPath = fixturePath.appending(components: "AppPkg")
-            guard let failure = XCTAssertBuildFails(pkgPath) else {
-                XCTFail("missing expected command execution error")
-                return
-            }
-            // Check that the following code expectedly doesn't compile for lack of 'import Foundation'
-            XCTAssertMatch(failure.stdout, .contains("print(FooUtils.foo.trimmingCharacters(in: .whitespaces))"))
-            #endif
-        }
-    }
-
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
         try XCTSkipIf(!UserToolchain.default.supportsWarningsAsErrors(), "skipping because test environment doesn't support warnings as errors")
 

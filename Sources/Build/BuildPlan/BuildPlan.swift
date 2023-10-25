@@ -18,7 +18,12 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
+#else
+import SwiftDriver
+#endif
 
 import enum TSCBasic.ProcessEnv
 

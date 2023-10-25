@@ -13,7 +13,6 @@
 import ArgumentParser
 import Basics
 import Dispatch
-@_implementationOnly import DriverSupport
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
@@ -21,6 +20,12 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import Workspace
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 #if canImport(WinSDK)
 import WinSDK

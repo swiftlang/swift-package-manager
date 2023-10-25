@@ -25,9 +25,15 @@
 
 import Foundation
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import _CryptoExtras
 @_implementationOnly import Crypto
 @_implementationOnly import X509
+#else
+import _CryptoExtras
+import Crypto
+import X509
+#endif
 
 // The logic in this source file loosely follows https://www.rfc-editor.org/rfc/rfc7515.html
 // for JSON Web Signature (JWS).
