@@ -30,10 +30,16 @@ extension Workspace {
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
+            } else if let managedDependency = self.state.dependencies[dependency.identity] {
+                observabilityScope
+                    .emit(
+                        info: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies, using alternative location '\(managedDependency.packageRef.locationString)' instead"
+                    )
+                dependenciesToPin.append(ManagedDependency(packageRef: dependency, state: managedDependency.state, subpath: managedDependency.subpath))
             } else {
                 observabilityScope
                     .emit(
-                        warning: "required dependency \(dependency.identity) (\(dependency.locationString)) was not found in managed dependencies and will not be recorded in resolved file"
+                        warning: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies and will not be recorded in resolved file"
                     )
             }
         }
