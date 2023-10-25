@@ -221,13 +221,8 @@ public struct ManifestValidator {
         // validate source control ref
         switch dependency.requirement {
         case .branch(let name):
-            do {
-                if try !self.sourceControlValidator.isValidRefFormat(name) {
-                    diagnostics.append(.invalidSourceControlBranchName(name))
-                }
-            } catch {
-                diagnostics.append(.invalidSourceControlBranchName(name, underlyingError: error))
-            }
+            // FIXME: removed this validation because it is applied unconditionally, rdar://117442643 tracks restoring it once we can do it right
+            break
         case .revision(let revision):
             do {
                 if try !self.sourceControlValidator.isValidRefFormat(revision) {

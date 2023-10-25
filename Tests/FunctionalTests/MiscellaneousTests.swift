@@ -338,6 +338,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testInvalidRefsValidation() throws {
+        try XCTSkipIf(true, "skipping since we disabled the validation, see rdar://117442643")
+
         try fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { fixturePath in
             do {
                 XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidBranch"))) { error in
