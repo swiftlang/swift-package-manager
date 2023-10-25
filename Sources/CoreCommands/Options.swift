@@ -477,11 +477,8 @@ public struct BuildOptions: ParsableArguments {
     )
     public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
-    @Flag(help: .hidden)
-    public var enableGetTaskAllowEntitlement: Bool = false
-
-    @Flag(help: .hidden)
-    public var disableGetTaskAllowEntitlement: Bool = false
+    @Flag(inversion: .prefixedEnableDisable, help: .hidden)
+    public var getTaskAllowEntitlement: Bool? = nil
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
