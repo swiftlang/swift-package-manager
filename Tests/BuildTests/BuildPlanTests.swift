@@ -1189,6 +1189,8 @@ final class BuildPlanTests: XCTestCase {
 #endif
 
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        
+        args += ["-fno-omit-frame-pointer"]
 
         XCTAssertEqual(try ext.basicArguments(isCXX: false), args)
         XCTAssertEqual(try ext.objects, [buildPath.appending(components: "extlib.build", "extlib.c.o")])
@@ -1219,6 +1221,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
 #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += ["-fno-omit-frame-pointer"]
         XCTAssertEqual(try exe.basicArguments(isCXX: false), args)
         XCTAssertEqual(try exe.objects, [buildPath.appending(components: "exe.build", "main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
@@ -1514,6 +1517,9 @@ final class BuildPlanTests: XCTestCase {
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
 #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+
+        args += ["-fno-omit-frame-pointer"]
+
         XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.c.o")])
         XCTAssertEqual(lib.moduleMap, buildPath.appending(components: "lib.build", "module.modulemap"))
@@ -2509,6 +2515,9 @@ final class BuildPlanTests: XCTestCase {
 #endif
 
         expectedExeBasicArgs += [triple.isWindows() ? "-gdwarf" : "-g"]
+
+        expectedExeBasicArgs += ["-fno-omit-frame-pointer"]
+
         XCTAssertEqual(try exe.basicArguments(isCXX: false), expectedExeBasicArgs)
         XCTAssertEqual(try exe.objects, [buildPath.appending(components: "exe.build", "main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
@@ -2530,6 +2539,9 @@ final class BuildPlanTests: XCTestCase {
             triple.isWindows() ? "-gdwarf" : "-g",
             triple.isWindows() ? "-gdwarf" : "-g",
         ]
+
+        expectedLibBasicArgs += ["-fno-omit-frame-pointer"]
+
         XCTAssertEqual(try lib.basicArguments(isCXX: true), expectedLibBasicArgs)
 
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.cpp.o")])
@@ -2975,7 +2987,8 @@ final class BuildPlanTests: XCTestCase {
         let args = [
             "-target", "x86_64-unknown-windows-msvc", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-I", Pkg.appending(components: "Sources", "lib", "include").pathString,
-            "-gdwarf"
+            "-gdwarf",
+            "-fno-omit-frame-pointer"
         ]
         XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.c.o")])
@@ -2994,6 +3007,7 @@ final class BuildPlanTests: XCTestCase {
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
             .anySequence,
             "-g", "-use-ld=lld", "-Xcc", "-gdwarf",
+            "-Xcc", "-fno-omit-frame-pointer",
             .end
         ])
 
@@ -3060,6 +3074,7 @@ final class BuildPlanTests: XCTestCase {
             "-I", Pkg.appending(components: "Sources", "lib", "include").pathString,
             "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
             "-g",
+            "-fno-omit-frame-pointer"
         ]
         XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.c.o")])
@@ -3511,13 +3526,13 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .anySequence])
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
-            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", .end])
+            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", "-fno-omit-frame-pointer", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
@@ -3527,13 +3542,13 @@ final class BuildPlanTests: XCTestCase {
             let result = try createResult(for: .x86_64MacOS)
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
-            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", .end])
+            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", "-fno-omit-frame-pointer", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-framework", "best", "-Ilfoo", "-L", "lbar", .anySequence])

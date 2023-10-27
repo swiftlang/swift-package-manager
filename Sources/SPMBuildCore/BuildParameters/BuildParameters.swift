@@ -102,6 +102,9 @@ public struct BuildParameters: Encodable {
 
     public var shouldSkipBuilding: Bool
 
+    /// Whether to omit frame pointers
+    public var omitFramePointers: Bool
+
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
 
@@ -132,6 +135,7 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
+        omitFramePointers: Bool = false,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -186,6 +190,7 @@ public struct BuildParameters: Encodable {
         self.indexStoreMode = indexStoreMode
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
+        self.omitFramePointers = omitFramePointers
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
@@ -211,6 +216,7 @@ public struct BuildParameters: Encodable {
             indexStoreMode: self.indexStoreMode,
             isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
             shouldSkipBuilding: self.shouldSkipBuilding,
+            omitFramePointers: self.omitFramePointers,
             driverParameters: self.driverParameters,
             linkingParameters: self.linkingParameters,
             outputParameters: self.outputParameters,

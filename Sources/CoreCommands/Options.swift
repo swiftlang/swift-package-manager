@@ -480,6 +480,11 @@ public struct BuildOptions: ParsableArguments {
     @Flag(inversion: .prefixedEnableDisable, help: .hidden)
     public var getTaskAllowEntitlement: Bool? = nil
 
+    /// Whether to omit frame pointers
+    // this can be removed once the backtracer uses DWARF instead of frame pointers
+    @Flag(help: .hidden)
+    public var omitFramePointers: Bool = false
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum

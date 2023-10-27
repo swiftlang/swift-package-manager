@@ -699,6 +699,7 @@ public final class SwiftTool {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            omitFramePointers: options.build.omitFramePointers,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 targetTriple: targetTriple,

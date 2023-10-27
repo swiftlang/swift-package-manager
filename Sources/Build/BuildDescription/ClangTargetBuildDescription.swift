@@ -301,6 +301,13 @@ public final class ClangTargetBuildDescription {
             args += ["-flto=thin"]
         }
 
+        // rdar://117578677
+        // Pass -fno-omit-frame-pointer to support backtraces
+        // this can be removed once the backtracer uses DWARF instead of frame pointers
+        if !self.buildParameters.omitFramePointers {
+            args += ["-fno-omit-frame-pointer"]
+        }
+
         // Pass default include paths from the toolchain.
         for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
             args += ["-I", includeSearchPath.pathString]
