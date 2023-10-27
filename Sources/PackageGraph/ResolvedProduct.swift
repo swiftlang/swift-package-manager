@@ -66,11 +66,16 @@ public final class ResolvedProduct {
                                           dependencies: dependencies,
                                           packageAccess: true, // entry point target so treated as a part of the package
                                           testEntryPointPath: testEntryPointPath)
+            let (defaultLocalization, platforms) = if let firstTarget = targets.first {
+                (firstTarget.defaultLocalization, firstTarget.platforms)
+            } else {
+                (.none, .init(declared: [], derivedXCTestPlatformProvider: .none)) // safe since this is a derived product
+            }
             return ResolvedTarget(
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
-                defaultLocalization: targets[0].defaultLocalization,
-                platforms: targets[0].platforms
+                defaultLocalization: defaultLocalization,
+                platforms: platforms
             )
         }
 
