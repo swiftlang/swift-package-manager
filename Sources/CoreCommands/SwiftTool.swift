@@ -699,12 +699,12 @@ public final class SwiftTool {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            omitFramePointers: options.build.omitFramePointers,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 targetTriple: targetTriple,
                 shouldEnableDebuggingEntitlement:
-                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug)
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
+                omitFramePointers: options.build.omitFramePointers
             ),
             driverParameters: .init(
                 canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(

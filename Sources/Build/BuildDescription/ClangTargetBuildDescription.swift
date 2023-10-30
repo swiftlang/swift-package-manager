@@ -304,7 +304,7 @@ public final class ClangTargetBuildDescription {
         // rdar://117578677
         // Pass -fno-omit-frame-pointer to support backtraces
         // this can be removed once the backtracer uses DWARF instead of frame pointers
-        if !self.buildParameters.omitFramePointers {
+        if !self.buildParameters.debuggingParameters.omitFramePointers {
             args += ["-fno-omit-frame-pointer"]
         }
 
