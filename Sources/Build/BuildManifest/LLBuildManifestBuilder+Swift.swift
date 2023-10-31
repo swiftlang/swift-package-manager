@@ -431,6 +431,7 @@ extension LLBuildManifestBuilder {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
+                inputs.append(.virtual(target.target.getLLBuildModulesReadyCmdName(config: self.buildConfig)))
                 for object in try target.objects {
                     inputs.append(file: object)
                 }
@@ -487,15 +488,11 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: self.buildConfig)
-        let targetOutput: Node = .virtual(targetName)
-
-        self.manifest.addNode(targetOutput, toTarget: targetName)
-        self.manifest.addPhonyCmd(
-            name: targetOutput.name,
-            inputs: cmdOutputs,
-            outputs: [targetOutput]
+        let targetOutput = self.addPhonyCommand(
+            targetName: target.target.getLLBuildTargetName(config: self.buildConfig),
+            inputs: cmdOutputs
         )
+
         if self.plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
             if !target.isTestTarget {
                 self.addNode(targetOutput, toTarget: .main)

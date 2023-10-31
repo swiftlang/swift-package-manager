@@ -292,6 +292,10 @@ extension ResolvedTarget {
     public func getLLBuildResourcesCmdName(config: String) -> String {
         "\(name)-\(config).module-resources"
     }
+
+    public func getLLBuildModulesReadyCmdName(config: String) -> String {
+        "\(name)-\(config).modules-ready"
+    }
 }
 
 extension ResolvedProduct {
@@ -344,6 +348,18 @@ extension LLBuildManifestBuilder {
 
     func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
         self.plan.buildParameters.buildPath.appending(component: path.basename)
+    }
+
+    /// Adds a phony command and a corresponding virtual node as output.
+    func addPhonyCommand(targetName: String, inputs: [Node]) -> Node {
+        let output: Node = .virtual(targetName)
+        self.manifest.addNode(output, toTarget: targetName)
+        self.manifest.addPhonyCmd(
+            name: output.name,
+            inputs: inputs,
+            outputs: [output]
+        )
+        return output
     }
 }
 
