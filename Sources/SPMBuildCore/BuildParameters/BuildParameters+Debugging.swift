@@ -19,7 +19,7 @@ extension BuildParameters {
             debugInfoFormat: DebugInfoFormat = .dwarf,
             targetTriple: Triple,
             shouldEnableDebuggingEntitlement: Bool,
-            omitFramePointers: Bool
+            omitFramePointers: Bool?
         ) {
             self.debugInfoFormat = debugInfoFormat
 
@@ -36,7 +36,7 @@ extension BuildParameters {
         public var shouldEnableDebuggingEntitlement: Bool
 
         /// Whether to omit frame pointers
-        public var omitFramePointers: Bool
+        public var omitFramePointers: Bool?
     }
 
     /// Represents the debugging strategy.

@@ -142,7 +142,7 @@ public struct BuildParameters: Encodable {
         self.debuggingParameters = debuggingParameters ?? .init(
             targetTriple: targetTriple,
             shouldEnableDebuggingEntitlement: configuration == .debug,
-            omitFramePointers: false
+            omitFramePointers: nil
         )
 
         self.dataPath = dataPath

@@ -593,7 +593,15 @@ public final class SwiftTargetBuildDescription {
         // rdar://117578677
         // Pass -fno-omit-frame-pointer to support backtraces
         // this can be removed once the backtracer uses DWARF instead of frame pointers
-        if !self.buildParameters.debuggingParameters.omitFramePointers {
+        if let omitFramePointers = self.buildParameters.debuggingParameters.omitFramePointers {
+            // if set, we respect user's preference
+            if omitFramePointers {
+                args += ["-Xcc", "-fomit-frame-pointer"]
+            } else {
+                args += ["-Xcc", "-fno-omit-frame-pointer"]
+            }
+        } else if self.buildParameters.targetTriple.isLinux() {
+            // on Linux we omit frame pointers by default
             args += ["-Xcc", "-fno-omit-frame-pointer"]
         }
 
