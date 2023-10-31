@@ -59,6 +59,14 @@ public final class ResolvedProduct {
         self.underlyingProduct = product
         self.targets = targets
 
+        // defaultLocalization is currently shared across the entire package
+        // this may need to be enhanced if / when we support localization per target or product
+        let defaultLocalization = self.targets.first?.defaultLocalization
+        self.defaultLocalization = defaultLocalization
+
+        let platforms = Self.computePlatforms(targets: targets)
+        self.platforms = platforms
+
         self.testEntryPointTarget = underlyingProduct.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
@@ -66,24 +74,13 @@ public final class ResolvedProduct {
                                           dependencies: dependencies,
                                           packageAccess: true, // entry point target so treated as a part of the package
                                           testEntryPointPath: testEntryPointPath)
-            let (defaultLocalization, platforms) = if let firstTarget = targets.first {
-                (firstTarget.defaultLocalization, firstTarget.platforms)
-            } else {
-                (.none, .init(declared: [], derivedXCTestPlatformProvider: .none)) // safe since this is a derived product
-            }
             return ResolvedTarget(
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
-                defaultLocalization: defaultLocalization,
+                defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
                 platforms: platforms
             )
         }
-
-        // defaultLocalization is currently shared across the entire package
-        // this may need to be enhanced if / when we support localization per target or product
-        self.defaultLocalization = self.targets.first?.defaultLocalization
-
-        self.platforms = Self.computePlatforms(targets: targets)
     }
 
     /// True if this product contains Swift targets.
