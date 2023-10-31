@@ -173,8 +173,8 @@ public struct ModuleMapGenerator {
         return .umbrellaDirectory(publicHeadersDir)
     }
 
-    /// Generates a module map based of the specified type, throwing an error if anything goes wrong.
-    public func generateModuleMap(type: GeneratedModuleMapType) throws -> String {
+    /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any diagnostics are added to the receiver's diagnostics engine.
+    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath) throws {
         var moduleMap = "module \(moduleName) {\n"
         switch type {
         case .umbrellaHeader(let hdr):
@@ -189,7 +189,16 @@ public struct ModuleMapGenerator {
 
             """
         )
-        return moduleMap
+
+        // FIXME: This doesn't belong here.
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+
+        // If the file exists with the identical contents, we don't need to rewrite it.
+        // Otherwise, compiler will recompile even if nothing else has changed.
+        if let contents = try? fileSystem.readFileContents(path).validDescription, contents == moduleMap {
+            return
+        }
+        try fileSystem.writeFileContents(path, string: moduleMap)
     }
 }
 

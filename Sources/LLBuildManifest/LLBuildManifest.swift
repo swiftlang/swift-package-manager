@@ -12,7 +12,6 @@
 
 import Basics
 import Foundation
-import PackageLoading
 
 import class TSCBasic.Process
 
@@ -24,7 +23,6 @@ public protocol AuxiliaryFileType {
 
 public enum WriteAuxiliary {
     public static let fileTypes: [AuxiliaryFileType.Type] = [
-        ClangModuleMap.self,
         EntitlementPlist.self,
         LinkFileList.self,
         SourcesFileList.self,
@@ -53,58 +51,6 @@ public enum WriteAuxiliary {
 
         private enum Error: Swift.Error {
             case undefinedEntitlementName
-        }
-    }
-
-    public struct ClangModuleMap: AuxiliaryFileType {
-        public static let name = "modulemap"
-
-        private enum GeneratedModuleMapType: String {
-            case umbrellaDirectory
-            case umbrellaHeader
-        }
-
-        public static func computeInputs(
-            targetName: String, 
-            moduleName: String, 
-            publicHeadersDir: AbsolutePath, 
-            type: PackageLoading.GeneratedModuleMapType
-        ) -> [Node] {
-            let typeNodes: [Node]
-            switch type {
-            case .umbrellaDirectory(let path):
-                typeNodes = [.virtual(GeneratedModuleMapType.umbrellaDirectory.rawValue), .directory(path)]
-            case .umbrellaHeader(let path):
-                typeNodes = [.virtual(GeneratedModuleMapType.umbrellaHeader.rawValue), .file(path)]
-            }
-            return [.virtual(Self.name), .virtual(targetName), .virtual(moduleName), .directory(publicHeadersDir)] + typeNodes
-        }
-
-        public static func getFileContents(inputs: [Node]) throws -> String {
-            guard inputs.count == 5 else {
-                throw StringError("invalid module map generation task, inputs: \(inputs)")
-            }
-
-            let generator = ModuleMapGenerator(
-                targetName: inputs[0].extractedVirtualNodeName,
-                moduleName: inputs[1].extractedVirtualNodeName,
-                publicHeadersDir: try AbsolutePath(validating: inputs[2].name),
-                fileSystem: localFileSystem
-            )
-
-            let declaredType = inputs[3].extractedVirtualNodeName
-            let path = try AbsolutePath(validating: inputs[4].name)
-            let type: PackageLoading.GeneratedModuleMapType
-            switch declaredType {
-            case GeneratedModuleMapType.umbrellaDirectory.rawValue:
-                type = .umbrellaDirectory(path)
-            case GeneratedModuleMapType.umbrellaHeader.rawValue:
-                type = .umbrellaHeader(path)
-            default:
-                throw StringError("invalid module map type in generation task: \(declaredType)")
-            }
-
-            return try generator.generateModuleMap(type: type)
         }
     }
 
@@ -329,24 +275,6 @@ public struct LLBuildManifest {
 
     public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
         let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
-        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
-        let name = outputPath.pathString
-        commands[name] = Command(name: name, tool: tool)
-    }
-
-    public mutating func addWriteClangModuleMapCommand(
-        targetName: String,
-        moduleName: String,
-        publicHeadersDir: AbsolutePath,
-        type: GeneratedModuleMapType,
-        outputPath: AbsolutePath
-    ) {
-        let inputs = WriteAuxiliary.ClangModuleMap.computeInputs(
-            targetName: targetName,
-            moduleName: moduleName,
-            publicHeadersDir: publicHeadersDir,
-            type: type
-        )
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
