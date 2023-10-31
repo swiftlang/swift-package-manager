@@ -26,7 +26,18 @@ extension BuildParameters {
             // Per rdar://112065568 for backtraces to work on macOS a special entitlement needs to be granted on the final
             // executable.
             self.shouldEnableDebuggingEntitlement = targetTriple.isMacOSX && shouldEnableDebuggingEntitlement
-            self.omitFramePointers = omitFramePointers
+            // rdar://117578677: frame-pointer to support backtraces
+            // this can be removed once the backtracer uses DWARF instead of frame pointers
+            if let omitFramePointers {
+                // if set, we respect user's preference
+                self.omitFramePointers = omitFramePointers
+            } else if targetTriple.isLinux() {
+                // on Linux we preserve frame pointers by default
+                self.omitFramePointers = false
+            } else {
+                // otherwise, use the platform default
+                self.omitFramePointers = nil
+            }
         }
 
         public var debugInfoFormat: DebugInfoFormat
