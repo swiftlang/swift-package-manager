@@ -86,8 +86,8 @@ extension BuildPlan {
                 let discoveryResolvedTarget = ResolvedTarget(
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
-                    defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
+                    defaultLocalization: testProduct.defaultLocalization,
+                    platforms: testProduct.platforms
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -119,8 +119,8 @@ extension BuildPlan {
                 let entryPointResolvedTarget = ResolvedTarget(
                     target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
-                    defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
+                    defaultLocalization: testProduct.defaultLocalization,
+                    platforms: testProduct.platforms
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -148,8 +148,8 @@ extension BuildPlan {
                         let entryPointResolvedTarget = ResolvedTarget(
                             target: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
-                            defaultLocalization: .none, // safe since this is a derived target
-                            platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
+                            defaultLocalization: testProduct.defaultLocalization,
+                            platforms: testProduct.platforms
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,
