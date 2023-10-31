@@ -29,6 +29,7 @@ public enum WriteAuxiliary {
         LinkFileList.self,
         SourcesFileList.self,
         SwiftGetVersion.self,
+        SwiftModuleMap.self,
         XCTestInfoPlist.self
     ]
 
@@ -53,6 +54,39 @@ public enum WriteAuxiliary {
 
         private enum Error: Swift.Error {
             case undefinedEntitlementName
+        }
+    }
+
+    public struct SwiftModuleMap: AuxiliaryFileType {
+        public static let name = "swift-modulemap"
+
+        public static func computeInputs(
+            moduleName: String,
+            objCompatibilityHeaderPath: AbsolutePath
+        ) -> [Node] {
+            return [
+                .virtual(Self.name),
+                .virtual(moduleName),
+                // this can't be a path since we don't create any rule to generate this file, it's a byproduct of the compilation
+                .virtual(objCompatibilityHeaderPath.pathString)
+            ]
+        }
+
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            guard inputs.count == 2 else {
+                throw StringError("invalid module map generation task, inputs: \(inputs)")
+            }
+
+            let moduleName = inputs[0].extractedVirtualNodeName
+            let objCompatibilityHeaderPath = try AbsolutePath(validating: inputs[1].extractedVirtualNodeName)
+
+            return #"""
+                module \#(moduleName) {
+                    header "\#(objCompatibilityHeaderPath.pathString)"
+                    requires objc
+                }
+
+                """#
         }
     }
 
@@ -329,6 +363,20 @@ public struct LLBuildManifest {
 
     public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
         let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addWriteSwiftModuleMapCommand(
+        moduleName: String,
+        objCompatibilityHeaderPath: AbsolutePath,
+        outputPath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.SwiftModuleMap.computeInputs(
+            moduleName: moduleName,
+            objCompatibilityHeaderPath: objCompatibilityHeaderPath
+        )
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)

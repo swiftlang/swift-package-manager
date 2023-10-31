@@ -874,7 +874,7 @@ final class BuildPlanTests: XCTestCase {
             let contents: String = try fs.readFileContents(yaml)
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString)","<exe-release.modules-ready>","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
                 """))
 
         }
@@ -904,7 +904,7 @@ final class BuildPlanTests: XCTestCase {
             let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","<exe-debug.modules-ready>","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
                 """))
         }
     }
@@ -3972,7 +3972,7 @@ final class BuildPlanTests: XCTestCase {
         let suffix = ""
 #endif
         XCTAssertMatch(contents, .contains("""
-                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe\(suffix)").escapedPathString)","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString)"]
+                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe\(suffix)").escapedPathString)","<swiftlib-debug.modules-ready>","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString)"]
                 outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString)","\(buildPath.escapedPathString)
             """))
     }

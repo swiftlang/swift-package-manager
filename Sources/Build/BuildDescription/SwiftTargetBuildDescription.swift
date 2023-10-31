@@ -220,7 +220,13 @@ public final class SwiftTargetBuildDescription {
     let fileSystem: FileSystem
 
     /// The modulemap file for this target, if any.
-    private(set) var moduleMap: AbsolutePath?
+    var moduleMap: AbsolutePath? {
+        if self.shouldGenerateModuleMap {
+            return self.tempsPath.appending(component: moduleMapFilename)
+        } else {
+            return nil
+        }
+    }
 
     /// The results of applying any build tool plugins to this target.
     public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
@@ -236,6 +242,11 @@ public final class SwiftTargetBuildDescription {
 
     /// Whether or not to generate code for test observation.
     private let shouldGenerateTestObservation: Bool
+
+    /// Whether or not to generate a module map for this target.
+    var shouldGenerateModuleMap: Bool {
+        return self.shouldEmitObjCCompatibilityHeader
+    }
 
     /// Create a new target description with target and build parameters.
     init(
@@ -285,10 +296,6 @@ public final class SwiftTargetBuildDescription {
             prebuildCommandResults: prebuildCommandResults,
             observabilityScope: observabilityScope
         )
-
-        if self.shouldEmitObjCCompatibilityHeader {
-            self.moduleMap = try self.generateModuleMap()
-        }
 
         // Do nothing if we're not generating a bundle.
         if self.bundlePath != nil {
@@ -720,31 +727,6 @@ public final class SwiftTargetBuildDescription {
         content += "}\n"
 
         try self.fileSystem.writeFileContents(path, string: content)
-        return path
-    }
-
-    /// Generates the module map for the Swift target and returns its path.
-    private func generateModuleMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending(component: moduleMapFilename)
-
-        let bytes = ByteString(
-            #"""
-            module \#(self.target.c99name) {
-                header "\#(self.objCompatibilityHeaderPath.pathString)"
-                requires objc
-            }
-
-            """#.utf8
-        )
-
-        // Return early if the contents are identical.
-        if self.fileSystem.isFile(path), try self.fileSystem.readFileContents(path) == bytes {
-            return path
-        }
-
-        try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try self.fileSystem.writeFileContents(path, bytes: bytes)
-
         return path
     }
 

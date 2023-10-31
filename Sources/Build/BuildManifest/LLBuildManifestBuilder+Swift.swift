@@ -37,8 +37,26 @@ extension LLBuildManifestBuilder {
     func createSwiftCompileCommand(
         _ target: SwiftTargetBuildDescription
     ) throws {
+        var modulesReadyInputs = [Node]()
+
+        // If the given target needs a generated module map, set up the dependency and required task to write out the module map.
+        if target.shouldGenerateModuleMap, let moduleMapPath = target.moduleMap {
+            modulesReadyInputs.append(.file(moduleMapPath))
+
+            self.manifest.addWriteSwiftModuleMapCommand(
+                moduleName: target.target.c99name,
+                objCompatibilityHeaderPath: target.objCompatibilityHeaderPath,
+                outputPath: moduleMapPath
+            )
+        }
+
+        let modulesReady = self.addPhonyCommand(
+            targetName: target.target.getLLBuildModulesReadyCmdName(config: self.buildConfig),
+            inputs: modulesReadyInputs
+        )
+
         // Inputs.
-        let inputs = try self.computeSwiftCompileCmdInputs(target)
+        let inputs = try self.computeSwiftCompileCmdInputs(target) + [modulesReady]
 
         // Outputs.
         let objectNodes = try target.objects.map(Node.file)
