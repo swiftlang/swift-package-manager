@@ -36,30 +36,7 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        var modulesReadyInputs = [Node]()
-
-        // If the given target needs a generated module map, set up the dependency and required task to write out the module map.
-        if let type = target.clangTarget.moduleMapType.generatedModuleMapType, let moduleMapPath = target.moduleMap {
-            modulesReadyInputs.append(.file(moduleMapPath))
-
-            self.manifest.addWriteClangModuleMapCommand(
-                targetName: target.clangTarget.name,
-                moduleName: target.clangTarget.c99name,
-                publicHeadersDir: target.clangTarget.includeDir,
-                type: type,
-                outputPath: moduleMapPath
-            )
-        }
-
-        let modulesReady = self.addPhonyCommand(
-            targetName: target.target.getLLBuildModulesReadyCmdName(config: self.buildConfig),
-            inputs: modulesReadyInputs
-        )
-        inputs.append(modulesReady)
-
         func addStaticTargetInputs(_ target: ResolvedTarget) {
-            inputs.append(.virtual(target.getLLBuildModulesReadyCmdName(config: self.buildConfig)))
-
             if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
@@ -139,9 +116,14 @@ extension LLBuildManifestBuilder {
         try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let output = self.addPhonyCommand(
-            targetName: target.target.getLLBuildTargetName(config: self.buildConfig),
-            inputs: objectFileNodes
+        let targetName = target.target.getLLBuildTargetName(config: self.buildConfig)
+        let output: Node = .virtual(targetName)
+
+        self.manifest.addNode(output, toTarget: targetName)
+        self.manifest.addPhonyCmd(
+            name: output.name,
+            inputs: objectFileNodes,
+            outputs: [output]
         )
 
         if self.plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
