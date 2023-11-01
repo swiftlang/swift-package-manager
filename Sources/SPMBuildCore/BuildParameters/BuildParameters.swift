@@ -141,7 +141,8 @@ public struct BuildParameters: Encodable {
         let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
             targetTriple: targetTriple,
-            shouldEnableDebuggingEntitlement: configuration == .debug
+            shouldEnableDebuggingEntitlement: configuration == .debug,
+            omitFramePointers: nil
         )
 
         self.dataPath = dataPath
