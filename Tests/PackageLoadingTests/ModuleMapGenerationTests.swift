@@ -190,10 +190,11 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
     observability.topScope.trap {
         if let generatedModuleMapType = moduleMapType.generatedModuleMapType {
-            try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
+            let contents = try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType)
+            try fileSystem.writeIfChanged(path: generatedModuleMapPath, string: contents)
         }
     }
-    
+
     // Invoke the closure to check the results.
     let result = ModuleMapResult(diagnostics: observability.diagnostics, path: generatedModuleMapPath, fs: fileSystem)
     body(result)
