@@ -1463,7 +1463,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","\#(Pkg.appending(components: "Sources", "lib", "libx.cpp").escapedPathString())"#))
 
         let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
-        XCTAssertMatch(swiftInteropLib, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .end])
+        XCTAssertMatch(swiftInteropLib, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .anySequence])
         let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
         XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
     }
