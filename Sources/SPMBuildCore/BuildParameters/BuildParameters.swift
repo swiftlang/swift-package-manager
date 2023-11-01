@@ -143,6 +143,7 @@ public struct BuildParameters: Encodable {
             targetTriple: targetTriple,
             shouldEnableDebuggingEntitlement: configuration == .debug
         )
+        print("=============ES FOOBAR 3: ", toolchain.swiftCompilerPath.pathString)
 
         self.dataPath = dataPath
         self.configuration = configuration

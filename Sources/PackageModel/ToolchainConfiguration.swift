@@ -66,12 +66,21 @@ public struct ToolchainConfiguration {
         }()
 
         self.librarianPath = librarianPath
-        self.swiftCompilerPath = swiftCompilerPath
         self.swiftCompilerFlags = swiftCompilerFlags
         self.swiftCompilerEnvironment = swiftCompilerEnvironment
         self.swiftPMLibrariesLocation = swiftPMLibrariesLocation
         self.sdkRootPath = sdkRootPath
         self.xctestPath = xctestPath
+        self.swiftCompilerPath = swiftCompilerPath
+
+      do {
+        self.swiftCompilerPath = try AbsolutePath(validating: "/Users/ellie/srcdev/swift-dev/oss-src/build/Ninja-RelWithDebInfoAssert+swift-DebugAssert/swift-macosx-x86_64/bin/swiftc") // swiftCompilers.compile
+        //        self.swiftCompilerPath = swiftCompilerPath
+        print("=============ES FOOBAR 2: ", self.swiftCompilerPath.pathString)
+      } catch {
+        print("ES FOOBAR:", error.localizedDescription)
+      }
+
     }
 }
 

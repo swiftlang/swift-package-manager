@@ -502,7 +502,9 @@ public final class UserToolchain: Toolchain {
             environment: environment,
             searchPaths: envSearchPaths
         )
-        self.swiftCompilerPath = swiftCompilers.compile
+
+        self.swiftCompilerPath = try AbsolutePath(validating: "/Users/ellie/srcdev/swift-dev/oss-src/build/Ninja-RelWithDebInfoAssert+swift-DebugAssert/swift-macosx-x86_64/bin/swiftc") // swiftCompilers.compile
+
         self.architectures = swiftSDK.architectures
 
         #if canImport(Darwin)

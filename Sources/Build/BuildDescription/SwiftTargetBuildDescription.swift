@@ -598,7 +598,7 @@ public final class SwiftTargetBuildDescription {
     public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
         var result: [String] = []
         result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
-
+        print("=============ES FOOBAR: ", self.buildParameters.toolchain.swiftCompilerPath.pathString)
         result.append("-module-name")
         result.append(self.target.c99name)
         result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
