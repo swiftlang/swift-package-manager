@@ -210,12 +210,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return result == ".git" || result == "." || result == directory.pathString
     }
 
-    /// Returns true if the git reference name is well formed.
-    public func isValidRefFormat(_ ref: String) throws -> Bool {
-        _ = try self.git.run(["check-ref-format", "--allow-onelevel", ref])
-        return true
-    }
-
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
