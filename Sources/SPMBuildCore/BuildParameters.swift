@@ -215,6 +215,9 @@ public struct BuildParameters: Encodable {
     /// The style of test product to produce.
     public var testProductStyle: TestProductStyle
 
+    /// Whether to omit or preserver frame pointers
+    public var omitFramePointers: Bool?
+
     /// Whether to disable dead code stripping by the linker
     public var linkerDeadStrip: Bool
 
@@ -247,6 +250,7 @@ public struct BuildParameters: Encodable {
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
+        omitFramePointers: Bool? = nil,
         explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
@@ -287,6 +291,7 @@ public struct BuildParameters: Encodable {
             explicitlyEnabledDiscovery: forceTestDiscovery,
             explicitlySpecifiedPath: testEntryPointPath
         )
+        self.omitFramePointers = omitFramePointers ?? (triple.isLinux() ? false : nil)
         self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput
