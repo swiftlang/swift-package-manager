@@ -426,11 +426,6 @@ public class RepositoryManager: Cancellable {
         try self.provider.isValidDirectory(directory)
     }
 
-    /// Returns true if the git reference name is well formed.
-    public func isValidRefFormat(_ ref: String) throws -> Bool {
-        try self.provider.isValidRefFormat(ref)
-    }
-
     /// Reset the repository manager.
     ///
     /// Note: This also removes the cloned repositories from the disk.

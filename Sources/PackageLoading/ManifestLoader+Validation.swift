@@ -217,23 +217,6 @@ public struct ManifestValidator {
 
     func validateSourceControlDependency(_ dependency: PackageDependency.SourceControl) -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
-
-        // validate source control ref
-        switch dependency.requirement {
-        case .branch(let name):
-            // FIXME: removed this validation because it is applied unconditionally, rdar://117442643 tracks restoring it once we can do it right
-            break
-        case .revision(let revision):
-            do {
-                if try !self.sourceControlValidator.isValidRefFormat(revision) {
-                    diagnostics.append(.invalidSourceControlRevision(revision))
-                }
-            } catch {
-                diagnostics.append(.invalidSourceControlRevision(revision, underlyingError: error))
-            }
-        default:
-            break
-        }
         // if a location is on file system, validate it is in fact a git repo
         // there is a case to be made to throw early (here) if the path does not exists
         // but many of our tests assume they can pass a non existent path
@@ -254,7 +237,6 @@ public struct ManifestValidator {
 }
 
 public protocol ManifestSourceControlValidator {
-    func isValidRefFormat(_ revision: String) throws -> Bool
     func isValidDirectory(_ path: AbsolutePath) throws -> Bool
 }
 
@@ -317,14 +299,6 @@ extension Basics.Diagnostic {
         } else {
             return ""
         }
-    }
-
-    static func invalidSourceControlBranchName(_ name: String, underlyingError: Error? = nil) -> Self {
-        .error("invalid branch name: '\(name)'\(errorSuffix(underlyingError))")
-    }
-
-    static func invalidSourceControlRevision(_ revision: String, underlyingError: Error? = nil) -> Self {
-        .error("invalid revision: '\(revision)'\(errorSuffix(underlyingError))")
     }
 
     static func invalidSourceControlDirectory(_ path: AbsolutePath, underlyingError: Error? = nil) -> Self {

@@ -486,10 +486,6 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return true
     }
 
-    public func isValidRefFormat(_ ref: String) throws -> Bool {
-        return true
-    }
-
     public func cancel(deadline: DispatchTime) throws {
         // noop
     }

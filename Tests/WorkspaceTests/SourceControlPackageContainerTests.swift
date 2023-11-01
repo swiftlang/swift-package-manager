@@ -150,10 +150,6 @@ private class MockRepositories: RepositoryProvider {
         return true
     }
 
-    func isValidRefFormat(_ ref: String) throws -> Bool {
-        return true
-    }
-
     func cancel(deadline: DispatchTime) throws {
         // noop
     }
