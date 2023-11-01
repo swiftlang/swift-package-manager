@@ -78,7 +78,8 @@ func mockBuildParameters(
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
-    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil
+    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
+    omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     return try! BuildParameters(
         dataPath: buildPath,
@@ -90,6 +91,11 @@ func mockBuildParameters(
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
+        debuggingParameters: .init(
+            targetTriple: targetTriple,
+            shouldEnableDebuggingEntitlement: config == .debug,
+            omitFramePointers: omitFramePointers
+        ),
         driverParameters: .init(
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             useExplicitModuleBuild: useExplicitModuleBuild
