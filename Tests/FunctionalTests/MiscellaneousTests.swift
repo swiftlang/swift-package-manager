@@ -337,29 +337,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testInvalidRefsValidation() throws {
-        try XCTSkipIf(true, "skipping since we disabled the validation, see rdar://117442643")
-
-        try fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { fixturePath in
-            do {
-                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidBranch"))) { error in
-                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                        return XCTFail("invalid error \(error)")
-                    }
-                    XCTAssert(stderr.contains("invalid branch name: "), "Didn't find expected output: \(stderr)")
-                }
-            }
-            do {
-                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidRevision"))) { error in
-                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                        return XCTFail("invalid error \(error)")
-                    }
-                    XCTAssert(stderr.contains("invalid revision: "), "Didn't find expected output: \(stderr)")
-                }
-            }
-        }
-    }
-
     func testUnicode() throws {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         try fixture(name: "Miscellaneous/Unicode") { fixturePath in
