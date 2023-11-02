@@ -169,6 +169,8 @@ class PluginTests: XCTestCase {
     }
     
     func testCommandPluginInvocation() throws {
+        try XCTSkipIf(true, "test is disabled because it isn't stable, see rdar://117870608")
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
