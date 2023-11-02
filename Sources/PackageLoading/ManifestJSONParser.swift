@@ -53,6 +53,7 @@ enum ManifestJSONParser {
         v4 jsonString: String,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
@@ -77,11 +78,26 @@ enum ManifestJSONParser {
             throw ManifestParseError.runtimeManifestErrors(input.errors)
         }
 
+        var packagePath = packagePath
+        switch packageKind {
+        case .localSourceControl(let _packagePath):
+            // we have a more accurate path than the virtual one
+            packagePath = _packagePath
+        case .root(let _packagePath), .fileSystem(let _packagePath):
+            // we dont have a more accurate path, and they should be the same
+            // asserting (debug only) to make sure refactoring is correct 11/2023
+            assert(packagePath == _packagePath, "expecting package path '\(packagePath)' to be the same as '\(_packagePath)'")
+            break
+        case .remoteSourceControl, .registry:
+            // we dont have a more accurate path
+            break
+        }
+
         let dependencies = try input.package.dependencies.map {
             try Self.parseDependency(
                 dependency: $0,
                 toolsVersion: toolsVersion,
-                packageKind: packageKind,
+                parentPackagePath: packagePath,
                 identityResolver: identityResolver,
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem
@@ -146,58 +162,24 @@ enum ManifestJSONParser {
     private static func parseDependency(
         dependency: Serialization.PackageDependency,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
+        parentPackagePath: AbsolutePath,
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> PackageDependency {
-        switch dependency.kind {
-        case .registry(let identity, let requirement):
-            do {
-                return try dependencyMapper.mappedDependency(
-                    packageKind: .registry(.plain(identity)),
-                    at: identity,
-                    nameForTargetDependencyResolutionOnly: nil,
-                    requirement: .init(requirement),
-                    productFilter: .everything,
-                    fileSystem: fileSystem
-                )
-            } catch let error as TSCBasic.PathValidationError {
-                throw error
-            } catch {
-                throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
-            }
-        case .sourceControl(let name, let location, let requirement):
-            do {
-                return try dependencyMapper.mappedDependency(
-                    packageKind: packageKind,
-                    at: location,
-                    nameForTargetDependencyResolutionOnly: name,
-                    requirement: .init(requirement),
-                    productFilter: .everything,
-                    fileSystem: fileSystem
-                )
-            } catch let error as TSCBasic.PathValidationError {
-                throw error
-            } catch {
-                throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
-            }
-        case .fileSystem(let name, let path):
-            // FIXME: This case should really also be handled by `mappedDependency()` but that is currently impossible because `sanitizeDependencyLocation()` relies on the fact that we're calling it with an incorrect (file-system) `packageKind` for SCM-based dependencies, so we have no ability to distinguish between actual file-system dependencies and SCM-based ones without introducing some secondary package kind or other flag to pick the different behaviors. That seemed much worse than having this extra code path be here and `DefaultIdentityResolver.sanitizeDependencyLocation()` being public, but it should eventually be cleaned up. It seems to me as if that will mostly be a case of fixing the test suite to not rely on these fairly arbitrary behaviors.
-
-            // cleans up variants of path based location
-            let location = try DefaultDependencyMapper.sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: path)
-            let path: AbsolutePath
-            do {
-                path = try AbsolutePath(validating: location)
-            } catch PathValidationError.invalidAbsolutePath(let path) {
+        do {
+            return try dependencyMapper.mappedDependency(
+                MappablePackageDependency(dependency, parentPackagePath: parentPackagePath),
+                fileSystem: fileSystem
+            )
+        } catch let error as TSCBasic.PathValidationError {
+            if case .fileSystem(_, let path) = dependency.kind {
                 throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
+            } else {
+                throw error
             }
-            let identity = try identityResolver.resolveIdentity(for: path)
-            return .fileSystem(identity: identity,
-                               nameForTargetDependencyResolutionOnly: name,
-                               path: path,
-                               productFilter: .everything)
+        } catch {
+            throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
         }
     }
 
@@ -594,5 +576,30 @@ extension TargetBuildSettingDescription.Setting {
             kind: try .from(setting.data.name, values: setting.data.value),
             condition: setting.data.condition.map { .init($0) }
         )
+    }
+}
+
+extension MappablePackageDependency {
+    fileprivate init(_ seed: Serialization.PackageDependency, parentPackagePath: AbsolutePath) {
+        switch seed.kind {
+        case .fileSystem(let name, let path):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .fileSystem(name: name, path: path),
+                productFilter: .everything
+            )
+        case .sourceControl(let name, let location, let requirement):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .sourceControl(name: name, location: location, requirement: .init(requirement)),
+                productFilter: .everything
+            )
+        case .registry(let id, let requirement):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .registry(id: id, requirement: .init(requirement)),
+                productFilter: .everything
+            )
+        }
     }
 }
