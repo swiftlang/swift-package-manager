@@ -23,6 +23,17 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 public class LLBuildManifestBuilder {
+    enum Error: Swift.Error {
+        case ldPathDriverOptionUnavailable(option: String)
+
+        var description: String {
+            switch self {
+            case .ldPathDriverOptionUnavailable(let option):
+                return "Unable to pass \(option), used of version of Swift Driver doesn't support it."
+            }
+        }
+    }
+
     public enum TargetKind {
         case main
         case test
