@@ -342,7 +342,7 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 let output = try executeSwiftBuild(
                   fixturePath,
-                  extraArgs: ["--experimental-lto-mode=full"])
+                  extraArgs: ["--experimental-lto-mode=full", "--verbose"])
                 // FIXME: On macOS dsymutil cannot find temporary .o files? (#6890)
                 // Ensure warnings like the following are not present in build output
                 // warning: (arm64) /var/folders/ym/6l_0x8vj0b70sz_4h9d70p440000gn/T/main-e120de.o unable to open object file: No such file or directory
