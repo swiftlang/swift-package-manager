@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,8 +19,8 @@ import SPMTestSupport
 import Workspace
 import XCTest
 
-class PluginTests: XCTestCase {
-    
+final class PluginTests: XCTestCase {
+
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -243,6 +243,12 @@ class PluginTests: XCTestCase {
                         context: PluginContext,
                         arguments: [String]
                     ) throws {
+                        // Check the host triple.
+                        print("Host triple is \\(context.hostTriple.string).")
+
+                        // Check the target triple.
+                        print("Target triple is \\(context.targetTriple.string).")
+
                         // Check the identity of the root packages.
                         print("Root package is \\(context.package.displayName).")
 
@@ -496,8 +502,12 @@ class PluginTests: XCTestCase {
                 testDiagnostics(delegate.diagnostics, problemsOnly: false, file: file, line: line, handler: diagnosticsChecker)
             }
 
+            let triple = try UserToolchain.default.hostTriple
+
             // Invoke the command plugin that prints out various things it was given, and check them.
             testCommand(package: package, plugin: "PluginPrintingInfo", targets: ["MyLibrary"], arguments: ["veni", "vidi", "vici"]) { output in
+                output.check(diagnostic: .equal("Host triple is \(triple.tripleString)."), severity: .info)
+                output.check(diagnostic: .equal("Target triple is \(triple.tripleString)."), severity: .info)
                 output.check(diagnostic: .equal("Root package is MyPackage."), severity: .info)
                 output.check(diagnostic: .and(.prefix("Found the swiftc tool"), .suffix(".")), severity: .info)
             }

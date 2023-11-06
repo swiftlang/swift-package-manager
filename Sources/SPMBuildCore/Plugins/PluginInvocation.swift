@@ -97,32 +97,39 @@ extension PluginTarget {
                 guard let targetId = try serializer.serialize(target: target) else {
                     throw StringError("unexpectedly was unable to serialize target \(target)")
                 }
-                let wireInput = WireInput(
+                let wireInput = try WireInput(
                     paths: serializer.paths,
                     targets: serializer.targets,
                     products: serializer.products,
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    accessibleTools: accessibleTools)
+                    accessibleTools: accessibleTools,
+                    hostTriple: scriptRunner.hostTriple.tripleString,
+                    targetTriple: scriptRunner.targetTriple.tripleString
+                )
                 actionMessage = .createBuildToolCommands(
                     context: wireInput,
                     rootPackageId: rootPackageId,
                     targetId: targetId)
             case .performCommand(let package, let arguments):
                 let rootPackageId = try serializer.serialize(package: package)
-                let wireInput = WireInput(
+                let wireInput = try WireInput(
                     paths: serializer.paths,
                     targets: serializer.targets,
                     products: serializer.products,
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    accessibleTools: accessibleTools)
+                    accessibleTools: accessibleTools,
+                    hostTriple: scriptRunner.hostTriple.tripleString,
+                    targetTriple: scriptRunner.targetTriple.tripleString
+                )
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
-                    arguments: arguments)
+                    arguments: arguments
+                )
             }
             initialMessage = try actionMessage.toData()
         }

@@ -27,6 +27,8 @@ enum HostToPluginMessage: Codable {
             let pluginWorkDirId: Path.Id
             let toolSearchDirIds: [Path.Id]
             let accessibleTools: [String: Tool]
+            let hostTriple: String
+            let targetTriple: String
 
             // Wrapper struct for encoding information about a tool that's accessible to the plugin.
             struct Tool: Codable {

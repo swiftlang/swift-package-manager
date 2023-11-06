@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -32,6 +32,12 @@ public struct PluginContext {
     /// directories for cache files and other file system content that either
     /// it or the command will need.
     public let pluginWorkDirectory: Path
+
+    /// Triple of the machine that this plugin is running on.
+    public let hostTriple: Triple
+
+    /// Triple of the machine that compiled code from this package will be running on.
+    public let targetTriple: Triple
 
     /// Looks up and returns the path of a named command line executable tool.
     /// The executable must be provided by an executable target or a binary

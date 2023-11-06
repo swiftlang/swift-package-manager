@@ -68,7 +68,11 @@ public final class UserToolchain: Toolchain {
     /// The target triple that should be used for compilation.
     @available(*, deprecated, renamed: "targetTriple")
     public var triple: Triple { targetTriple }
+    
+    /// Triple of the machine that this toolchain is running on.
+    public let hostTriple: Triple
 
+    /// Triple of the machine that code compiled with this toolchain will be running on.
     public let targetTriple: Triple
 
     /// The list of CPU architectures to build for.
@@ -533,23 +537,24 @@ public final class UserToolchain: Toolchain {
             }
         }
 
+        self.hostTriple = try Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
         // Use the triple from Swift SDK or compute the host triple using swiftc.
-        var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var targetTriple = swiftSDK.targetTriple ?? self.hostTriple
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
         if let architectures = self.architectures, architectures.count == 1 {
-            let components = triple.tripleString.drop(while: { $0 != "-" })
-            triple = try Triple(architectures[0] + components)
+            let components = targetTriple.tripleString.drop(while: { $0 != "-" })
+            targetTriple = try Triple(architectures[0] + components)
         }
 
-        self.targetTriple = triple
+        self.targetTriple = targetTriple
 
         self.extraFlags = BuildFlags(
             cCompilerFlags: swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
             cxxCompilerFlags: swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
             swiftCompilerFlags: try Self.deriveSwiftCFlags(
-                triple: triple,
+                triple: targetTriple,
                 swiftSDK: swiftSDK,
                 environment: environment),
             linkerFlags: swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
@@ -559,7 +564,7 @@ public final class UserToolchain: Toolchain {
         self.librarySearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
 
         self.librarianPath = try swiftSDK.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
-            triple: triple,
+            triple: targetTriple,
             binDirectories: swiftSDK.toolset.rootPaths,
             useXcrun: useXcrun,
             environment: environment,
@@ -568,11 +573,11 @@ public final class UserToolchain: Toolchain {
         )
 
         if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
-            let sysrootFlags = [triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
+            let sysrootFlags = [targetTriple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
             self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags, at: 0)
         }
 
-        if triple.isWindows() {
+        if targetTriple.isWindows() {
             if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
@@ -622,7 +627,7 @@ public final class UserToolchain: Toolchain {
         } else {
             xctestPath = try Self.deriveXCTestPath(
                 swiftSDK: self.swiftSDK,
-                triple: triple,
+                triple: targetTriple,
                 environment: environment
             )
         }

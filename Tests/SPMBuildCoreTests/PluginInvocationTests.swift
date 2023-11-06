@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,7 +23,7 @@ import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.SerializedDiagnostics
 
-class PluginInvocationTests: XCTestCase {
+final class PluginInvocationTests: XCTestCase {
 
     func testBasics() throws {
         // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
@@ -91,10 +91,16 @@ class PluginInvocationTests: XCTestCase {
         struct MockPluginScriptRunner: PluginScriptRunner {
             var hostTriple: Triple {
                 get throws {
+                    return try UserToolchain.default.hostTriple
+                }
+            }
+
+            var targetTriple: Triple {
+                get throws {
                     return try UserToolchain.default.targetTriple
                 }
             }
-            
+
             func compilePluginScript(
                 sourceFiles: [AbsolutePath],
                 pluginName: String,

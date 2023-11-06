@@ -151,6 +151,8 @@ extension Plugin {
                 context = PluginContext(
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
+                    hostTriple: Triple(string: wireInput.hostTriple),
+                    targetTriple: Triple(string: wireInput.targetTriple),
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories)
                 target = try deserializer.target(for: targetId)
@@ -230,6 +232,8 @@ extension Plugin {
                 context = PluginContext(
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
+                    hostTriple: Triple(string: wireInput.hostTriple),
+                    targetTriple: Triple(string: wireInput.targetTriple),
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories)
             }
