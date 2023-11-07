@@ -19,6 +19,7 @@ public protocol DependencyMapper {
     func mappedDependency(_ dependency: MappablePackageDependency, fileSystem: FileSystem) throws -> PackageDependency
 }
 
+/// a utility for applying mirrors base mapping
 public struct DefaultDependencyMapper: DependencyMapper {
     let identityResolver: IdentityResolver
 
