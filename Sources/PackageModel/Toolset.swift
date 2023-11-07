@@ -157,7 +157,7 @@ extension Toolset {
         }
     }
 
-    init(toolchainBinDir: AbsolutePath, buildFlags: BuildFlags) {
+    public init(toolchainBinDir: AbsolutePath, buildFlags: BuildFlags = .init()) {
         self.rootPaths = [toolchainBinDir]
         self.knownTools = [
             .cCompiler: .init(extraCLIOptions: buildFlags.cCompilerFlags),
