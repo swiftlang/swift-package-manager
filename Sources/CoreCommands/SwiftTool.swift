@@ -807,6 +807,16 @@ public final class SwiftTool {
             swiftSDK.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
+            if !self.fileSystem.exists(binDir) {
+                self.observabilityScope.emit(
+                    warning: """
+                        Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
+                            binDir
+                        )`
+                        """
+                )
+            }
+
             swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
