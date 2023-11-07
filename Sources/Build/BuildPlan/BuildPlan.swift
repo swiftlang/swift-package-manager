@@ -21,8 +21,10 @@ import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
+@_implementationOnly import DriverSupport
 #else
 import SwiftDriver
+import DriverSupport
 #endif
 
 import enum TSCBasic.ProcessEnv
@@ -229,6 +231,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for  tools information.
     var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
+    /// driver support utility
+    let driverSupport: DriverSupport
+
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -239,9 +244,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        additionalFileRules: [FileRuleDescription],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]],
+        driverSupport: DriverSupport,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -249,6 +255,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
+        self.driverSupport = driverSupport
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
@@ -331,6 +338,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     requiredMacroProducts: requiredMacroProducts,
                     shouldGenerateTestObservation: generateTestObservation,
+                    driverSupport: driverSupport,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
@@ -374,7 +382,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Plan the derived test targets, if necessary.
         if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            let derivedTestTargets = try Self.makeDerivedTestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
+            let derivedTestTargets = try Self.makeDerivedTestTargets(
+                buildParameters,
+                graph,
+                self.driverSupport,
+                self.fileSystem,
+                self.observabilityScope
+            )
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 

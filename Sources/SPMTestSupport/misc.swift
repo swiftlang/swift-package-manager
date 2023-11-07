@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Build
 import struct Foundation.URL
 #if os(macOS)
 import class Foundation.Bundle
@@ -20,6 +21,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
@@ -404,6 +406,26 @@ extension InitPackage {
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem
+        )
+    }
+}
+
+extension BuildPlan {
+    public convenience init(
+        buildParameters: BuildParameters,
+        graph: PackageGraph,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.init(
+            buildParameters: buildParameters,
+            graph: graph,
+            additionalFileRules: [],
+            buildToolPluginInvocationResults: [:],
+            prebuildCommandResults: [:],
+            driverSupport: .init(),
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
         )
     }
 }

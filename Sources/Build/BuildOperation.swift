@@ -101,7 +101,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
-    private let driverSupport = DriverSupport()
+    private let driverSupport: DriverSupport
 
     public init(
         buildParameters: BuildParameters,
@@ -112,6 +112,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         pkgConfigDirectories: [AbsolutePath],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
+        driverSupport: DriverSupport,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
@@ -127,6 +128,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.pkgConfigDirectories = pkgConfigDirectories
         self.outputStream = outputStream
         self.logLevel = logLevel
+        self.driverSupport = driverSupport
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
@@ -439,6 +441,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
+                driverSupport: self.driverSupport,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
@@ -533,6 +536,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
+            driverSupport: self.driverSupport,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )

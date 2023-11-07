@@ -518,6 +518,7 @@ let package = Package(
             name: "SPMTestSupport",
             dependencies: [
                 "Basics",
+                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",

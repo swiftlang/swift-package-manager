@@ -240,6 +240,9 @@ public final class SwiftTool {
     // should use sandbox on external subcommands
     public var shouldDisableSandbox: Bool
 
+    /// The driver support utility
+    public let driverSupport = DriverSupport()
+
     /// The file system in use
     public let fileSystem: FileSystem
 
@@ -252,8 +255,6 @@ public final class SwiftTool {
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
-
-    private let driverSupport = DriverSupport()
 
     /// Create an instance of this tool.
     ///

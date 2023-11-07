@@ -55,7 +55,7 @@ public final class SwiftTargetBuildDescription {
     /// These are the resource files derived from plugins.
     private var pluginDerivedResources: [Resource]
 
-    private let driverSupport = DriverSupport()
+    private let driverSupport: DriverSupport
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -249,12 +249,14 @@ public final class SwiftTargetBuildDescription {
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
+        driverSupport: DriverSupport,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
+
         self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
@@ -267,13 +269,15 @@ public final class SwiftTargetBuildDescription {
         } else {
             self.testTargetRole = nil
         }
-        self.fileSystem = fileSystem
+
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.shouldGenerateTestObservation = shouldGenerateTestObservation
+        self.driverSupport = driverSupport
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
         (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
