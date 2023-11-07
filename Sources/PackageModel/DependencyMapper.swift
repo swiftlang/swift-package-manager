@@ -46,7 +46,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
             // mapped to registry
             return .registry(
                 identity: .plain(mappedLocationString),
-                requirement: try dependency.registryRequirement,
+                requirement: try dependency.registryRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter
             )
         } else if parseScheme(mappedLocationString) != nil {
@@ -57,7 +57,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
                 url: url,
-                requirement: try dependency.sourceControlRequirement,
+                requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter
             )
 
@@ -69,7 +69,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
                 path: localPath,
-                requirement: try dependency.sourceControlRequirement,
+                requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter
             )
         }
@@ -219,38 +219,34 @@ extension MappablePackageDependency {
         }
     }
 
-    fileprivate var sourceControlRequirement: PackageDependency.SourceControl.Requirement {
-        get throws {
-            switch self.kind {
-            case .fileSystem:
-                throw DependencyMappingError.invalidMapping("invalid mapping of file system to source control, requirement information mismatch")
-            case .sourceControl(_, _, let requirement):
-                return requirement
-            case .registry(_, let requirement):
-                return .init(requirement)
-            }
+    fileprivate func sourceControlRequirement(for location: String) throws -> PackageDependency.SourceControl.Requirement {
+        switch self.kind {
+        case .fileSystem(_, let path):
+            throw DependencyMappingError.invalidMapping("mapping of file system dependency (\(path)) to source control (\(location)) is invalid")
+        case .sourceControl(_, _, let requirement):
+            return requirement
+        case .registry(_, let requirement):
+            return .init(requirement)
         }
     }
 
-    fileprivate var registryRequirement: PackageDependency.Registry.Requirement {
-        get throws {
-            switch self.kind {
-            case .fileSystem:
-                throw DependencyMappingError.invalidMapping("invalid mapping of file system to registry, requirement information mismatch")
-            case .sourceControl(_, _, let requirement):
-                return try .init(requirement)
-            case .registry(_, let requirement):
-                return requirement
-            }
+    fileprivate func registryRequirement(for identity: String) throws -> PackageDependency.Registry.Requirement {
+        switch self.kind {
+        case .fileSystem(_, let path):
+            throw DependencyMappingError.invalidMapping("mapping of file system dependency (\(path)) to registry (\(identity)) is invalid")
+        case .sourceControl(_, let location, let requirement):
+            return try .init(requirement, from: location, to: identity)
+        case .registry(_, let requirement):
+            return requirement
         }
     }
 }
 
 fileprivate extension PackageDependency.Registry.Requirement {
-    init(_ requirement: PackageDependency.SourceControl.Requirement) throws {
+    init(_ requirement: PackageDependency.SourceControl.Requirement, from location: String, to identity: String) throws {
         switch requirement {
         case .branch, .revision:
-            throw DependencyMappingError.invalidMapping("invalid mapping of source control to registry, requirement information mismatch: cannot map branch or revision based dependencies to registry.")
+            throw DependencyMappingError.invalidMapping("mapping of source control (\(location)) to registry (\(identity)) is invalid due to requirement information mismatch: cannot map branch or revision based dependencies to registry.")
         case .exact(let value):
             self = .exact(value)
         case .range(let value):
