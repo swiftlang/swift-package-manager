@@ -423,7 +423,6 @@ extension BuildPlan {
             additionalFileRules: [],
             buildToolPluginInvocationResults: [:],
             prebuildCommandResults: [:],
-            driverSupport: .init(),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

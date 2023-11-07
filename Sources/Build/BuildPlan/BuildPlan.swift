@@ -241,7 +241,29 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     let observabilityScope: ObservabilityScope
 
     /// Create a build plan with build parameters and a package graph.
-    public init(
+    public convenience init(
+        buildParameters: BuildParameters,
+        graph: PackageGraph,
+        additionalFileRules: [FileRuleDescription],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]],
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.init(
+            buildParameters: buildParameters,
+            graph: graph,
+            additionalFileRules: additionalFileRules,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
+            driverSupport: DriverSupport(), // for external use cases
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    // internally we want to take DriverSupport to share across calls
+    internal init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription],
