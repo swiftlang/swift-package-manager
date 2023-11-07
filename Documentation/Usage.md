@@ -228,7 +228,8 @@ The header file should look like this:
 
 **Note:** Avoiding specifying an absolute path to `git2.h` provided
 by the library in the `module.modulemap`. Doing so will break compatibility of 
-your project between machines that may use a different file system layout.
+your project between machines that may use a different file system layout or
+install libraries to different paths.
 
 > The convention we hope the community will adopt is to prefix such modules
 > with `C` and to camelcase the modules as per Swift module name conventions.
