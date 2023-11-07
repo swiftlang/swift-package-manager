@@ -497,7 +497,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 manifestPath: path,
                 toolsVersion: toolsVersion,
-                env: ProcessEnv.vars,
+                env: ProcessEnv.cachableVars,
                 swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
@@ -1208,5 +1208,11 @@ extension ManifestLoader {
             action = nil
             return next
         }
+    }
+}
+
+extension ProcessEnv {
+    fileprivate static var cachableVars: EnvironmentVariables {
+        Self.vars.cachable
     }
 }
