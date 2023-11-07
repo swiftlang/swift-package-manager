@@ -83,6 +83,8 @@ extension LLBuildManifestBuilder {
             fileSystem: self.fileSystem,
             executor: executor
         )
+        try driver.checkLDPathOption(commandLine: commandLine)
+
         let jobs = try driver.planBuild()
         try self.addSwiftDriverJobs(
             for: target,
@@ -297,6 +299,8 @@ extension LLBuildManifestBuilder {
             externalTargetModuleDetailsMap: dependencyModuleDetailsMap,
             interModuleDependencyOracle: dependencyOracle
         )
+        try driver.checkLDPathOption(commandLine: commandLine)
+
         let jobs = try driver.planBuild()
         try self.addSwiftDriverJobs(
             for: targetDescription,
@@ -580,6 +584,16 @@ extension TypedVirtualPath {
             return Node.virtual(temporaryFileName.pathString)
         } else {
             throw InternalError("Cannot resolve VirtualPath: \(file)")
+        }
+    }
+}
+
+extension Driver {
+    func checkLDPathOption(commandLine: [String]) throws {
+        // `-ld-path` option is only available in recent versions of the compiler: rdar://117049947
+        if let option = commandLine.first(where: { $0.hasPrefix("-ld-path") }),
+           !self.supportedFrontendFeatures.contains("ld-path-driver-option") {
+            throw LLBuildManifestBuilder.Error.ldPathDriverOptionUnavailable(option: option)
         }
     }
 }

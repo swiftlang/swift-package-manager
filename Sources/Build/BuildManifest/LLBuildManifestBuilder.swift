@@ -30,6 +30,17 @@ import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
 public class LLBuildManifestBuilder {
+    enum Error: Swift.Error {
+        case ldPathDriverOptionUnavailable(option: String)
+
+        var description: String {
+            switch self {
+            case .ldPathDriverOptionUnavailable(let option):
+                return "Unable to pass \(option), currently used version of `swiftc` doesn't support it."
+            }
+        }
+    }
+
     public enum TargetKind {
         case main
         case test
