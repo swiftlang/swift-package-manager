@@ -17,10 +17,8 @@ import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
-
 public enum DriverSupport {
     private static var flagsMap = ThreadSafeBox<[String: Set<String>]>()
-    //public init() {}
 
     // This checks _frontend_ supported flags, which are not necessarily supported in the driver.
     public static func checkSupportedFrontendFlags(
