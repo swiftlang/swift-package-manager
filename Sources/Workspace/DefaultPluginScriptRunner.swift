@@ -270,7 +270,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
-            var environment: [String:String]
+            var environment: EnvironmentVariables
             var inputHash: String?
             var output: String
             var result: Result
@@ -364,7 +364,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 // Save the persisted compilation state for possible reuse next time.
                 let compilationState = PersistedCompilationState(
                     commandLine: commandLine,
-                    environment: toolchain.swiftCompilerEnvironment,
+                    environment: toolchain.swiftCompilerEnvironment.cachable,
                     inputHash: compilerInputHash,
                     output: compilerOutput,
                     result: .init(process.exitStatus))
