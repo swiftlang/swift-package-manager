@@ -12,6 +12,7 @@
 
 @testable import Basics
 @testable import Build
+import DriverSupport
 import PackageLoading
 @testable import PackageGraph
 @testable import PackageModel
@@ -21,12 +22,6 @@ import SwiftDriver
 import Workspace
 import XCTest
 
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-#else
-import DriverSupport
-#endif
-
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
@@ -34,7 +29,6 @@ import enum TSCUtility.Diagnostics
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
-    private let driverSupport = DriverSupport()
 
     /// The j argument.
     private var j: String {
@@ -533,7 +527,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testPackageNameFlag() throws {
-        let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
+        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-v"])
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
@@ -555,7 +549,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testTargetsWithPackageAccess() throws {
-        let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
+        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
             if isFlagSupportedInDriver {

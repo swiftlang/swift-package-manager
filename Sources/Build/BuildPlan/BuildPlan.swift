@@ -21,10 +21,8 @@ import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
-@_implementationOnly import DriverSupport
 #else
 import SwiftDriver
-import DriverSupport
 #endif
 
 import enum TSCBasic.ProcessEnv
@@ -231,9 +229,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for  tools information.
     var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
-    /// driver support utility
-    let driverSupport: DriverSupport
-
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -241,35 +236,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     let observabilityScope: ObservabilityScope
 
     /// Create a build plan with build parameters and a package graph.
-    public convenience init(
+    public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription],
         buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]],
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws {
-        try self.init(
-            buildParameters: buildParameters,
-            graph: graph,
-            additionalFileRules: additionalFileRules,
-            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
-            prebuildCommandResults: prebuildCommandResults,
-            driverSupport: DriverSupport(), // for external use cases
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
-    }
-
-    // internally we want to take DriverSupport to share across calls
-    internal init(
-        buildParameters: BuildParameters,
-        graph: PackageGraph,
-        additionalFileRules: [FileRuleDescription],
-        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]],
-        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]],
-        driverSupport: DriverSupport,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -277,7 +249,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
-        self.driverSupport = driverSupport
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
@@ -360,7 +331,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     requiredMacroProducts: requiredMacroProducts,
                     shouldGenerateTestObservation: generateTestObservation,
-                    driverSupport: driverSupport,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
@@ -407,7 +377,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             let derivedTestTargets = try Self.makeDerivedTestTargets(
                 buildParameters,
                 graph,
-                self.driverSupport,
                 self.fileSystem,
                 self.observabilityScope
             )

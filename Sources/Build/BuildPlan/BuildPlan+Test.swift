@@ -24,17 +24,10 @@ import class PackageModel.Target
 import struct SPMBuildCore.BuildParameters
 import protocol TSCBasic.FileSystem
 
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-#else
-import DriverSupport
-#endif
-
 extension BuildPlan {
     static func makeDerivedTestTargets(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph,
-        _ driverSupport: DriverSupport,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, entryPointTargetBuildDescription: SwiftTargetBuildDescription)] {
@@ -102,7 +95,6 @@ extension BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     testTargetRole: .discovery,
-                    driverSupport: driverSupport,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -136,7 +128,6 @@ extension BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
-                    driverSupport: driverSupport,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -166,7 +157,6 @@ extension BuildPlan {
                             toolsVersion: toolsVersion,
                             buildParameters: buildParameters,
                             testTargetRole: .entryPoint(isSynthesized: false),
-                            driverSupport: driverSupport,
                             fileSystem: fileSystem,
                             observabilityScope: observabilityScope
                         )
@@ -185,7 +175,6 @@ extension BuildPlan {
                         toolsVersion: toolsVersion,
                         buildParameters: buildParameters,
                         testTargetRole: .entryPoint(isSynthesized: false),
-                        driverSupport: driverSupport,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )

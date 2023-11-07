@@ -55,8 +55,6 @@ public final class SwiftTargetBuildDescription {
     /// These are the resource files derived from plugins.
     private var pluginDerivedResources: [Resource]
 
-    private let driverSupport: DriverSupport
-
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         if let bundleName = target.underlyingTarget.potentialBundleName, needsResourceBundle {
@@ -249,7 +247,6 @@ public final class SwiftTargetBuildDescription {
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
-        driverSupport: DriverSupport,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -276,7 +273,6 @@ public final class SwiftTargetBuildDescription {
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.shouldGenerateTestObservation = shouldGenerateTestObservation
-        self.driverSupport = driverSupport
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
@@ -415,7 +411,7 @@ public final class SwiftTargetBuildDescription {
     private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
         let flag = "-package-name"
         if pkg.manifest.usePackageNameFlag,
-           driverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
+           DriverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
             if packageAccess {
                 let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
                 return [flag, pkgID]
@@ -443,7 +439,7 @@ public final class SwiftTargetBuildDescription {
         #endif
 
         // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, driverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
+        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, DriverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
             let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
             let pluginPathComponents = ["lib", "swift", "host", "plugins"]
 

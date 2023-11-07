@@ -29,12 +29,6 @@ import var TSCBasic.stdoutStream
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-#else
-import DriverSupport
-#endif
-
 SwiftBootstrapBuildTool.main()
 
 struct SwiftBootstrapBuildTool: ParsableCommand {
@@ -211,7 +205,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         let dependencyMapper: DependencyMapper
         let hostToolchain: UserToolchain
         let targetToolchain: UserToolchain
-        let driverSupport: DriverSupport
         let fileSystem: FileSystem
         let observabilityScope: ObservabilityScope
         let logLevel: Basics.Diagnostic.Severity
@@ -230,7 +223,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
             self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(originalWorkingDirectory: cwd))
             self.targetToolchain = hostToolchain // TODO: support cross-compilation?
-            self.driverSupport = DriverSupport()
             self.fileSystem = fileSystem
             self.observabilityScope = observabilityScope
             self.logLevel = logLevel
@@ -323,7 +315,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     pkgConfigDirectories: [],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
-                    driverSupport: self.driverSupport,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope
                 )

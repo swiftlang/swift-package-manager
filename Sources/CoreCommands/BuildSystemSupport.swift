@@ -46,7 +46,6 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             pkgConfigDirectories: self.swiftTool.options.locations.pkgConfigDirectories,
             outputStream: customOutputStream ?? self.swiftTool.outputStream,
             logLevel: customLogLevel ?? self.swiftTool.logLevel,
-            driverSupport: self.swiftTool.driverSupport,
             fileSystem: self.swiftTool.fileSystem,
             observabilityScope: customObservabilityScope ?? self.swiftTool.observabilityScope)
     }

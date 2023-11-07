@@ -36,7 +36,6 @@ public struct SymbolGraphExtract {
     var includeSPISymbols = false
     var emitExtensionBlockSymbols = false
     var outputFormat = OutputFormat.json(pretty: false)
-    private let driverSupport = DriverSupport()
 
     /// Access control levels.
     public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
@@ -82,7 +81,7 @@ public struct SymbolGraphExtract {
         }
         
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
-        if driverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
+        if DriverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
             commandLine += [extensionBlockSymbolsFlag]
         } else {
             observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")
