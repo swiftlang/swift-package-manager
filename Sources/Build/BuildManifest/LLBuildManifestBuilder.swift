@@ -29,7 +29,7 @@ public class LLBuildManifestBuilder {
         var description: String {
             switch self {
             case .ldPathDriverOptionUnavailable(let option):
-                return "Unable to pass \(option), used of version of Swift Driver doesn't support it."
+                return "Unable to pass \(option), currently used version of `swiftc` doesn't support it."
             }
         }
     }
