@@ -695,6 +695,7 @@ public final class SwiftTool {
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
             forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
             testEntryPointPath: options.build.testEntryPointPath,
+            omitFramePointers: options.build.omitFramePointers,
             explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
             linkerDeadStrip: options.linker.linkerDeadStrip,
             verboseOutput: self.logLevel <= .info
