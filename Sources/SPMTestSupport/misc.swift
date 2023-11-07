@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Build
 import struct Foundation.URL
 #if os(macOS)
 import class Foundation.Bundle
@@ -406,25 +405,6 @@ extension InitPackage {
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem
-        )
-    }
-}
-
-extension BuildPlan {
-    public convenience init(
-        buildParameters: BuildParameters,
-        graph: PackageGraph,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws {
-        try self.init(
-            buildParameters: buildParameters,
-            graph: graph,
-            additionalFileRules: [],
-            buildToolPluginInvocationResults: [:],
-            prebuildCommandResults: [:],
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
         )
     }
 }

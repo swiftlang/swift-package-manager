@@ -239,9 +239,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        additionalFileRules: [FileRuleDescription],
-        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]],
-        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]],
+        additionalFileRules: [FileRuleDescription] = [],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
