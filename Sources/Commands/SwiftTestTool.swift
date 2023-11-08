@@ -237,32 +237,45 @@ public struct SwiftTestTool: SwiftCommand {
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
+            var testResults = [ParallelTestRunner.TestResult]()
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
                 swiftTool.observabilityScope.emit(.noMatchingTests)
-                return
+            } else {
+                // Clean out the code coverage directory that may contain stale
+                // profraw files from a previous run of the code coverage tool.
+                if self.options.enableCodeCoverage {
+                    try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
+                }
+
+                // Run the tests using the parallel runner.
+                let runner = ParallelTestRunner(
+                    bundlePaths: testProducts.map { $0.bundlePath },
+                    cancellator: swiftTool.cancellator,
+                    toolchain: toolchain,
+                    numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
+                    buildOptions: globalOptions.build,
+                    buildParameters: buildParameters,
+                    shouldOutputSuccess: swiftTool.logLevel <= .info,
+                    observabilityScope: swiftTool.observabilityScope
+                )
+
+                testResults = try runner.run(tests)
+
+                // process code Coverage if request
+                if self.options.enableCodeCoverage, runner.ranSuccessfully {
+                    try processCodeCoverage(testProducts, swiftTool: swiftTool, library: .xctest)
+                }
+
+                if !runner.ranSuccessfully {
+                    swiftTool.executionStatus = .failure
+                }
+
+                if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
+                    try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
+                }
             }
-
-            // Clean out the code coverage directory that may contain stale
-            // profraw files from a previous run of the code coverage tool.
-            if self.options.enableCodeCoverage {
-                try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
-            }
-
-            // Run the tests using the parallel runner.
-            let runner = ParallelTestRunner(
-                bundlePaths: testProducts.map { $0.bundlePath },
-                cancellator: swiftTool.cancellator,
-                toolchain: toolchain,
-                numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                buildOptions: globalOptions.build,
-                buildParameters: buildParameters,
-                shouldOutputSuccess: swiftTool.logLevel <= .info,
-                observabilityScope: swiftTool.observabilityScope
-            )
-
-            let testResults = try runner.run(tests)
 
             // Generate xUnit file if requested
             if let xUnitOutput = options.xUnitOutput {
@@ -271,19 +284,6 @@ public struct SwiftTestTool: SwiftCommand {
                     results: testResults
                 )
                 try generator.generate(at: xUnitOutput)
-            }
-
-            // process code Coverage if request
-            if self.options.enableCodeCoverage, runner.ranSuccessfully {
-                try processCodeCoverage(testProducts, swiftTool: swiftTool, library: .xctest)
-            }
-
-            if !runner.ranSuccessfully {
-                swiftTool.executionStatus = .failure
-            }
-
-            if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
-                try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
         }
     }
