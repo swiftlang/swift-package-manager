@@ -17,12 +17,11 @@ import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
-public class DriverSupport {
-    private var flagsMap = ThreadSafeBox<[String: Set<String>]>()
-    public init() {}
+public enum DriverSupport {
+    private static var flagsMap = ThreadSafeBox<[String: Set<String>]>()
 
     // This checks _frontend_ supported flags, which are not necessarily supported in the driver.
-    public func checkSupportedFrontendFlags(
+    public static func checkSupportedFrontendFlags(
         flags: Set<String>,
         toolchain: PackageModel.Toolchain,
         fileSystem: FileSystem
@@ -55,7 +54,7 @@ public class DriverSupport {
     // This checks if given flags are supported in the built-in toolchain driver. Currently
     // there's no good way to get the supported flags from it, so run `swiftc -h` directly
     // to get the flags and cache the result.
-    public func checkToolchainDriverFlags(
+    public static func checkToolchainDriverFlags(
         flags: Set<String>,
         toolchain: PackageModel.Toolchain,
         fileSystem: FileSystem
