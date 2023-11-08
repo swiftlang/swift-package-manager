@@ -16,12 +16,6 @@ import PackageModel
 import OrderedCollections
 import SPMBuildCore
 
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-#else
-import DriverSupport
-#endif
-
 import struct TSCBasic.SortedArray
 
 /// The build description for a product.

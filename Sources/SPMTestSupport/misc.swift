@@ -20,6 +20,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail

@@ -101,8 +101,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
-    private let driverSupport = DriverSupport()
-
     public init(
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
@@ -186,7 +184,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard driverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
+        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
             return
         }
 
