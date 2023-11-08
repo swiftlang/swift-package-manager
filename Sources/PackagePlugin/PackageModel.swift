@@ -400,7 +400,25 @@ public struct FileList {
         self.files = files
     }
 }
+extension FileList: Sequence {
+    public struct Iterator: IteratorProtocol {
+        private var files: ArraySlice<File>
+        fileprivate init(files: ArraySlice<File>) {
+            self.files = files
+        }
+        mutating public func next() -> File? {
+            guard let nextInfo = self.files.popFirst() else {
+                return nil
+            }
+            return nextInfo
+        }
+    }
+    public func makeIterator() -> Iterator {
+        return Iterator(files: ArraySlice(self.files))
+    }
+}
 
+@available(_PackageDescription, introduced: 999.0)
 extension FileList: RandomAccessCollection {
     public var startIndex: Int { 0 }
     public var endIndex: Int { files.endIndex }
