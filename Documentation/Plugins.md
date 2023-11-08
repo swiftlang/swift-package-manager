@@ -209,7 +209,7 @@ struct MyBuildToolPlugin: BuildToolPlugin {
 
 A prebuild command has no inputs, so it will never be re-run due to changes in source files. The only trigger for re-running a prebuild command is a change to declared dependencies, which can only be (prebuilt) binary targets, since these commands run before any other targets have been built.
 
-Any `.swift` files that are outputs of build commands or prebuild commands will be compiled into the target using the plugin. Currently, any other output files are treated as resources and processed as if they had been declared in the manifest with the `.process()` rule.  The intent is to eventually support any type of file that could have been included as a source file in the target, and to let the plugin provide greater controls over the downstream processing of generated files.
+Any `.swift` files that are outputs of build commands or prebuild commands will be treated as Swift source files and compiled into the target being built by the plugin. Currently, compilation of output files in other source langauges isn't supported, so any other output files are treated as resources and processed as if they had been declared in the manifest with the `.process()` rule.  The intent is to eventually support any type of file that could have been included as a source file in the target, and to let the plugin provide greater controls over the downstream processing of generated files.
 
 ### Command plugins
 
