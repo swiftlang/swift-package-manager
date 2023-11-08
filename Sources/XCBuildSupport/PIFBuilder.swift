@@ -1643,7 +1643,7 @@ extension PIF.PlatformFilter {
         .init(platform: "openbsd"),
     ]
 
-    /// Web Assembly platform filters.
+    /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
     ]
