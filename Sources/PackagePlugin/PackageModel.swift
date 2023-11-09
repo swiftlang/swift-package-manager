@@ -418,7 +418,7 @@ extension FileList: Sequence {
     }
 }
 
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 5.10)
 extension FileList: RandomAccessCollection {
     public var startIndex: Int { 0 }
     public var endIndex: Int { files.endIndex }
