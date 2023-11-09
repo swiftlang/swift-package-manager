@@ -127,8 +127,8 @@ and apply them automatically when making registry API requests.
 ## Dependency Resolution Using Registry
 
 Resolving a registry dependency involves these steps:
-1. Fetch a package's available versions by calling the [list package releases](https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#41-list-package-releases) API.
-2. Compute the dependency graph by [fetching manifest(s) for a package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#43-fetch-manifest-for-a-package-release).
+1. Fetch a package's available versions by calling the [list package releases](Registry.md#41-list-package-releases) API.
+2. Compute the dependency graph by [fetching manifest(s) for a package release](Registry.md#43-fetch-manifest-for-a-package-release).
 3. Pinpoint the package version to use.
 
 ### Using registry for source control dependencies 
@@ -151,7 +151,7 @@ they are considered different even though they are the same package,
 and would result in symbol clashes.
 
 SwiftPM can deduplicate packages by performing a 
-[lookup on the source control URL](https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#endpoint-5)
+[lookup on the source control URL](Registry.md#endpoint-5)
 (e.g., `https://github.com/mona/LinkedList`) to see if it is associated with 
 any package identifier (e.g., `mona.LinkedList`).
 
@@ -164,7 +164,7 @@ source control dependencies by setting one of these flags:
 ## Dependency Download From Registry
 
 After a registry dependency is resolved, SwiftPM can
-[download source archive](https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#endpoint-4)
+[download source archive](Registry.md#endpoint-4)
 of the computed package version from the registry.
 
 ### Checksum TOFU 
@@ -173,7 +173,7 @@ SwiftPM performs checksum TOFU
 ([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) 
 on the downloaded source archive. If the archive is downloaded
 for the first time, SwiftPM 
-[fetches metadata of the package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#endpoint-2)
+[fetches metadata of the package release](Registry.md#endpoint-2)
 to obtain the expected checksum. Otherwise, SwiftPM
 compares the checksum with that in local storage (`~/.swiftpm/security/fingerprints/`)
 saved from previous download.
@@ -273,7 +273,7 @@ OPTIONS:
  
 The command creates source archive for the package release,
 optionally signs the package release, and 
-[publishes the package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#endpoint-6)
+[publishes the package release](Registry.md#endpoint-6)
 to the registry.
 
 If authentication is required for package publication, 
