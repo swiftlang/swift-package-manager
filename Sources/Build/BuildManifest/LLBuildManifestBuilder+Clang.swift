@@ -37,6 +37,10 @@ extension LLBuildManifestBuilder {
         }
 
         var modulesReadyInputs = [Node]()
+        try target.target.processDependencies(buildEnvironment: self.buildEnvironment, { _ in }) { target in
+            let name = target.getLLBuildModulesReadyCmdName(config: self.buildConfig)
+            modulesReadyInputs.append(.virtual(name))
+        }
 
         // If the given target needs a generated module map, set up the dependency and required task to write out the module map.
         if let type = target.clangTarget.moduleMapType.generatedModuleMapType, let moduleMapPath = target.moduleMap {
@@ -57,36 +61,18 @@ extension LLBuildManifestBuilder {
         )
         inputs.append(modulesReady)
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) {
+        try target.target.processDependencies(buildEnvironment: self.buildEnvironment) { product in
+            guard let planProduct = plan.productMap[product] else {
+                throw InternalError("unknown product \(product)")
+            }
+            // Establish a dependency on binary of the product.
+            let binary = try planProduct.binaryPath
+            inputs.append(file: binary)
+        } _: { target in
             inputs.append(.virtual(target.getLLBuildModulesReadyCmdName(config: self.buildConfig)))
 
             if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
-            }
-        }
-
-        for dependency in target.target.dependencies(satisfying: self.buildEnvironment) {
-            switch dependency {
-            case .target(let target, _):
-                addStaticTargetInputs(target)
-
-            case .product(let product, _):
-                switch product.type {
-                case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
-                        throw InternalError("unknown product \(product)")
-                    }
-                    // Establish a dependency on binary of the product.
-                    let binary = try planProduct.binaryPath
-                    inputs.append(file: binary)
-
-                case .library(.automatic), .library(.static), .plugin:
-                    for target in product.targets {
-                        addStaticTargetInputs(target)
-                    }
-                case .test:
-                    break
-                }
             }
         }
 

@@ -370,3 +370,28 @@ extension Sequence where Element: Hashable {
         return filter { seen.insert($0).inserted }
     }
 }
+
+extension ResolvedTarget {
+    func processDependencies(buildEnvironment: BuildEnvironment, _ productVisitor: (ResolvedProduct) throws -> Void, _ staticTargetVisitor: (ResolvedTarget) throws -> Void) throws {
+        for dependency in self.dependencies(satisfying: buildEnvironment) {
+            switch dependency {
+            case .target(let target, _):
+                try staticTargetVisitor(target)
+
+            case .product(let product, _):
+                switch product.type {
+                case .executable, .snippet, .library(.dynamic), .macro:
+                    try productVisitor(product)
+
+                case .library(.automatic), .library(.static), .plugin:
+                    for target in product.targets {
+                        try staticTargetVisitor(target)
+                    }
+
+                case .test:
+                    break
+                }
+            }
+        }
+    }
+}
