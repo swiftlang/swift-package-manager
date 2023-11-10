@@ -527,10 +527,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testPackageNameFlag() throws {
-        try XCTSkipIfCI() // test is disabled because it isn't stable, see rdar://118239206
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-vv"])
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["--vv"])
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
             XCTAssertMatch(stdout, .contains("-module-name Bar"))
