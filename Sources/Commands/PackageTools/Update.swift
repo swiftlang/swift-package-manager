@@ -42,14 +42,6 @@ extension SwiftPackageTool {
                 observabilityScope: swiftTool.observabilityScope
             )
 
-            // try to load the graph which will emit any errors
-            if !swiftTool.observabilityScope.errorsReported {
-                _ = try workspace.loadPackageGraph(
-                    rootInput: swiftTool.getWorkspaceRoot(),
-                    observabilityScope: swiftTool.observabilityScope
-                )
-            }
-
             if self.dryRun, let changes = changes, let pinsStore = swiftTool.observabilityScope.trap({ try workspace.pinsStore.load() }){
                 self.logPackageChanges(changes: changes, pins: pinsStore)
             }
