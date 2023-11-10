@@ -561,6 +561,10 @@ class RepositoryManagerTests: XCTestCase {
                 fatalError("should not be called")
             }
 
+            public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+                fatalError("should not be called")
+            }
+
             func cancel(deadline: DispatchTime) throws {
                 print("cancel")
             }
@@ -637,6 +641,10 @@ private class DummyRepository: Repository {
     }
 
     func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
+        fatalError("unexpected API call")
+    }
+
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         fatalError("unexpected API call")
     }
 
@@ -717,6 +725,10 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 
     func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
+        return true
+    }
+
+    func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         return true
     }
 
