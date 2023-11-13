@@ -163,7 +163,7 @@ def add_test_args(parser):
         "--parallel",
         action="store_true",
         help="whether to run tests in parallel",
-        default=False)
+        default=True)
     parser.add_argument(
         "--filter",
         action="append",
