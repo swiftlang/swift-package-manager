@@ -39,7 +39,6 @@ private enum TestError: Swift.Error {
     case testProductNotFound(productName: String)
     case productIsNotTest(productName: String)
     case multipleTestProducts([String])
-    case staticLinkingNotSupported
     case xctestNotAvailable
 }
 
@@ -57,8 +56,6 @@ extension TestError: CustomStringConvertible {
             return "invalid list test JSON structure, produced by \(context)\(underlying)"
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
-        case .staticLinkingNotSupported:
-            return "static linking for Swift runtime and core libraries is currently not supported in test products"
         case .xctestNotAvailable:
             return "XCTest not available"
         }
@@ -195,10 +192,6 @@ public struct SwiftTestTool: SwiftCommand {
         do {
             // Validate commands arguments
             try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
-
-            guard !self.globalOptions.linker.shouldLinkStaticSwiftStdlib else {
-                throw TestError.staticLinkingNotSupported
-            }
 
             // validate XCTest available on darwin based systems
             let toolchain = try swiftTool.getTargetToolchain()

@@ -529,10 +529,6 @@ public struct LinkerOptions: ParsableArguments {
     )
     public var linkerDeadStrip: Bool = true
 
-    /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    public var shouldLinkStaticSwiftStdlib: Bool = false
-
     /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
     @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
     public var shouldDisableLocalRpath: Bool = false
