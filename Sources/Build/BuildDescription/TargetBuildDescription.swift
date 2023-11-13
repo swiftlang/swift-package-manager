@@ -16,6 +16,10 @@ import class PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 
+public enum BuildDescriptionError: Swift.Error {
+    case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
+}
+
 /// A target description which can either be for a Swift or Clang target.
 public enum TargetBuildDescription {
     /// Swift target description.
