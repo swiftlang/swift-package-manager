@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.8
 
 //===----------------------------------------------------------------------===//
 //
@@ -752,4 +752,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
     ]
+}
+
+for target in package.targets {
+    guard target.type != .system else { continue }
+
+    if target.swiftSettings == nil {
+        target.swiftSettings = [.enableExperimentalFeature("StrictConcurrency=complete")]
+    } else {
+        target.swiftSettings?.append(.enableExperimentalFeature("StrictConcurrency=complete"))
+    }
 }
