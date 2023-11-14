@@ -85,6 +85,10 @@ struct BuildToolOptions: ParsableArguments {
     /// Specific product to build.
     @Option(help: "Build the specified product")
     var product: String?
+
+    /// If should link the Swift stdlib statically.
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
+    public var shouldLinkStaticSwiftStdlib: Bool = false
 }
 
 /// swift-build tool namespace
@@ -127,6 +131,7 @@ public struct SwiftBuildTool: SwiftCommand {
         }
         let buildSystem = try swiftTool.createBuildSystem(
             explicitProduct: options.product,
+            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
             customOutputStream: TSCBasic.stdoutStream
