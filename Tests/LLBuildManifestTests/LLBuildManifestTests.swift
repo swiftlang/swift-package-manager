@@ -71,6 +71,7 @@ final class LLBuildManifestTests: XCTestCase {
         XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
             client:
               name: basic
+              file-system: device-agnostic
             tools: {}
             targets:
               "main": ["<Foo>"]
@@ -125,6 +126,7 @@ final class LLBuildManifestTests: XCTestCase {
         XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
             client:
               name: basic
+              file-system: device-agnostic
             tools: {}
             targets:
               "main": ["\(root.appending(components: "file.out"))"]
@@ -189,6 +191,7 @@ final class LLBuildManifestTests: XCTestCase {
         XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
             client:
               name: basic
+              file-system: device-agnostic
             tools: {}
             targets:
               "": ["<C.mutate>"]
