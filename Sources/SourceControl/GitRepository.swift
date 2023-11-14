@@ -917,8 +917,10 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Read a symbolic link.
     func readLink(hash: Hash) throws -> String {
-        return try callGit("cat-file", "-p", String(describing: hash.bytes),
-                           failureMessage: "Couldn't read '\(String(describing: hash.bytes))'")
+        return try callGit(
+            "cat-file", "-p", String(describing: hash.bytes),
+            failureMessage: "Couldn't read '\(String(describing: hash.bytes))'"
+        )
     }
 }
 
