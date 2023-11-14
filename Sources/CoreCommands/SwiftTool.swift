@@ -641,6 +641,7 @@ public final class SwiftTool {
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
+        shouldLinkStaticSwiftStdlib: Bool = false,
         customBuildParameters: BuildParameters? = .none,
         customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
         customOutputStream: OutputByteStream? = .none,
@@ -650,6 +651,9 @@ public final class SwiftTool {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
+
+        var buildParameters = try customBuildParameters ?? self.buildParameters()
+        buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
         let buildSystem = try buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
@@ -718,8 +722,7 @@ public final class SwiftTool {
             linkingParameters: .init(
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
-                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib
+                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
                 isVerbose: self.logLevel <= .info

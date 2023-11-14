@@ -131,6 +131,7 @@ public struct SwiftBuildTool: SwiftCommand {
         }
         let buildSystem = try swiftTool.createBuildSystem(
             explicitProduct: options.product,
+            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
             customOutputStream: TSCBasic.stdoutStream
