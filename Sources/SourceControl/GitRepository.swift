@@ -914,6 +914,14 @@ public final class GitRepository: Repository, WorkingCheckout {
             }
         }
     }
+
+    /// Read a symbolic link.
+    func readLink(hash: Hash) throws -> String {
+        return try callGit(
+            "cat-file", "-p", String(describing: hash.bytes),
+            failureMessage: "Couldn't read '\(String(describing: hash.bytes))'"
+        )
+    }
 }
 
 // MARK: - GitFileSystemView
@@ -1074,13 +1082,18 @@ private class GitFileSystemView: FileSystem {
         guard entry.type != .tree else {
             throw FileSystemError(.isDirectory, path)
         }
-        guard entry.type != .symlink else {
-            throw InternalError("symlinks not supported")
-        }
         guard case .hash(let hash) = entry.location else {
             throw InternalError("only hash locations supported")
         }
-        return try self.repository.readBlob(hash: hash)
+        switch entry.type {
+        case .symlink:
+            let path = try repository.readLink(hash: hash)
+            return try readFileContents(TSCAbsolutePath(validating: path))
+        case .blob:
+            return try self.repository.readBlob(hash: hash)
+        default:
+            fatalError()
+        }
     }
 
     // MARK: Unsupported methods.
