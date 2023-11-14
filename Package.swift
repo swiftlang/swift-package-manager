@@ -98,12 +98,10 @@ let package = Package(
         ),
         .library(
             name: "PackageDescription",
-            type: .dynamic,
             targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
         .library(
             name: "PackagePlugin",
-            type: .dynamic,
             targets: ["PackagePlugin"]
         ),
         .library(
