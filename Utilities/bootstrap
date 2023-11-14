@@ -238,8 +238,7 @@ def parse_build_args(args):
     args.bootstrap_dir = os.path.join(args.target_dir, "bootstrap")
     args.conf = 'release' if args.release else 'debug'
     args.bin_dir = os.path.join(args.target_dir, args.conf)
-    args.bootstrap = not args.skip_cmake_bootstrap or \
-                     not os.path.exists(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
+    args.bootstrap = not args.skip_cmake_bootstrap
 
 def parse_test_args(args):
     """Parses and cleans arguments necessary for the test action."""
@@ -635,7 +634,11 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
         swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-bootstrap"))
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")
-        swiftpm_args.append(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
+        toolchain_swift_build_path = os.path.join(os.path.split(args.swiftc_path)[0], "swift-build")
+        if os.path.exists(toolchain_swift_build_path):
+            swiftpm_args.append(toolchain_swift_build_path)
+        else:
+            swiftpm_args += ["swift", "build"]
         swiftpm_args.append("--disable-sandbox")
 
         # Enforce resolved versions to avoid stray dependencies that aren't local.
