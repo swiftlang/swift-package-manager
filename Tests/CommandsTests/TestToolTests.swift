@@ -255,4 +255,22 @@ final class TestToolTests: CommandsTestCase {
             }
         }
     }
+
+    func testBasicSwiftTestingIntegration() throws {
+        try XCTSkipUnless(
+            nil != ProcessInfo.processInfo.environment["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
+            "Skipping \(#function) because swift-testing tests are not explicitly enabled"
+        )
+
+        if #unavailable(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, visionOS 1.0) {
+            throw XCTSkip("swift-testing unavailable")
+        }
+
+        try fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+            do {
+                let (stdout, _) = try SwiftPM.Test.execute(["--enable-experimental-swift-testing", "--disable-xctest"], packagePath: fixturePath)
+                XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
+            }
+        }
+    }
 }
