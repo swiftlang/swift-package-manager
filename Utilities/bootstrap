@@ -814,7 +814,7 @@ def get_swiftpm_flags(args):
 
     # Ensure we are not sharing the module cache with concurrent builds in CI
     local_module_cache_path=os.path.join(args.build_dir, "module-cache")
-    for modifier in ["-Xswiftc", "-Xbuild-tools-swiftc"]:
+    for modifier in ["-Xswiftc"]:
         build_flags.extend([modifier, "-module-cache-path", modifier, local_module_cache_path])
 
     # Disabled, enable this again when it works
