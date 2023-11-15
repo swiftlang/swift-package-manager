@@ -692,6 +692,7 @@ def call_swiftpm(args, cmd, cwd=None):
     full_cmd = get_swiftpm_env_cmd(args) + cmd + get_swiftpm_flags(args)
     if cwd is None:
         cwd = args.project_root
+    print(full_cmd)
     call(full_cmd, cwd=cwd, verbose=True)
 
 # -----------------------------------------------------------
