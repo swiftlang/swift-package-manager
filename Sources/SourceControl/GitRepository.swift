@@ -1092,7 +1092,7 @@ private class GitFileSystemView: FileSystem {
         case .blob:
             return try self.repository.readBlob(hash: hash)
         default:
-            throw InternalError("unsupported git entry type \(entry.type)")
+            throw InternalError("unsupported git entry type \(entry.type) at path \(path)")
         }
     }
 
