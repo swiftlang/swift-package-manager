@@ -81,7 +81,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
         }
 
-        self.outputHandler("Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))", false)
+        self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", false)
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
