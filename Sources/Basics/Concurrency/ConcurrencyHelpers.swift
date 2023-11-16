@@ -46,6 +46,34 @@ extension DispatchQueue {
     )
 }
 
+/// Bridges between potentially blocking methods that take a result completion closure and async/await
+public func safe_async<T, ErrorType: Error>(_ body: @escaping (@escaping (Result<T, ErrorType>) -> Void) -> Void) async throws -> T {
+    try await withCheckedThrowingContinuation { continuation in
+        // It is possible that body make block indefinitely on a lock, sempahore,
+        // or similar then synchrously call the completion handler. For full safety
+        // it is essential to move the execution off the swift concurrency pool
+        DispatchQueue.sharedConcurrent.async {
+            body {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+}
+
+/// Bridges between potentially blocking methods that take a result completion closure and async/await
+public func safe_async<T>(_ body: @escaping (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
+    await withCheckedContinuation { continuation in
+        // It is possible that body make block indefinitely on a lock, sempahore,
+        // or similar then synchrously call the completion handler. For full safety
+        // it is essential to move the execution off the swift concurrency pool
+        DispatchQueue.sharedConcurrent.async {
+            body {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+}
+
 #if !canImport(Darwin)
 // As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
 extension URL: @unchecked Sendable {}
