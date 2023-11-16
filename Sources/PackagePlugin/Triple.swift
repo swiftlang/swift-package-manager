@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct Triple {
-    public let string: String
+/// A type of machine on which code is build and/or executed. Usually includes information such as CPU architecture,
+/// vendor name, operating system, ABI, and object file format among other possible features. Swift and SwiftPM use
+/// Clang conventions for triple components and their naming.
+public struct Triple: CustomStringConvertible {
+    public let description: String
 }
