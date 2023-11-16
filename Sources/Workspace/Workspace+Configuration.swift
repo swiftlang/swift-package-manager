@@ -145,6 +145,11 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
+        /// Path to the shared repositories cache.
+        public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
         /// Create a new workspace location.
         ///
         /// - Parameters:
