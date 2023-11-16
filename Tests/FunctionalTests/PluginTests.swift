@@ -247,7 +247,7 @@ final class PluginTests: XCTestCase {
                         print("Host triple is \\(context.hostTriple.string).")
 
                         // Check the target triple.
-                        print("Target triple is \\(context.targetTriple.string).")
+                        print("Target triples are \\(context.targetTriples.map(\\.string)).")
 
                         // Check the identity of the root packages.
                         print("Root package is \\(context.package.displayName).")
@@ -507,7 +507,7 @@ final class PluginTests: XCTestCase {
             // Invoke the command plugin that prints out various things it was given, and check them.
             testCommand(package: package, plugin: "PluginPrintingInfo", targets: ["MyLibrary"], arguments: ["veni", "vidi", "vici"]) { output in
                 output.check(diagnostic: .equal("Host triple is \(triple.tripleString)."), severity: .info)
-                output.check(diagnostic: .equal("Target triple is \(triple.tripleString)."), severity: .info)
+                output.check(diagnostic: .equal("Target triples are [\(triple.tripleString)]."), severity: .info)
                 output.check(diagnostic: .equal("Root package is MyPackage."), severity: .info)
                 output.check(diagnostic: .and(.prefix("Found the swiftc tool"), .suffix(".")), severity: .info)
             }
