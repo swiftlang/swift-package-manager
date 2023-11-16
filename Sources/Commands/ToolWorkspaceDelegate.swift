@@ -160,7 +160,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
 
         if fetchDetails.fromCache {
-            self.outputHandler("Fetched \(url) (\(duration.descriptionInSeconds))", false)
+            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", false)
         } else {
             self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
         }
