@@ -25,8 +25,8 @@ class ModuleAliasingFixtureTests: XCTestCase {
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
             XCTAssertFileExists(buildPath.appending(components: "App"))
-            XCTAssertFileExists(buildPath.appending(components: "GameUtils.swiftmodule"))
-            XCTAssertFileExists(buildPath.appending(components: "Utils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "GameUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "Utils.swiftmodule"))
             _ = try SwiftPM.Build.execute(packagePath: pkgPath)
         }
     }
@@ -37,8 +37,8 @@ class ModuleAliasingFixtureTests: XCTestCase {
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
             XCTAssertFileExists(buildPath.appending(components: "App"))
-            XCTAssertFileExists(buildPath.appending(components: "AUtils.swiftmodule"))
-            XCTAssertFileExists(buildPath.appending(components: "BUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "AUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "BUtils.swiftmodule"))
             _ = try SwiftPM.Build.execute(packagePath: pkgPath)
         }
     }
