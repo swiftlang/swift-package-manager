@@ -675,8 +675,6 @@ public protocol BinaryArtifactsManagerDelegate {
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
     /// The workspace finished downloading all binary artifacts.
     func didDownloadAllBinaryArtifacts()
-
-
 }
 
 extension Workspace.BinaryArtifactsManager {
