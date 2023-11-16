@@ -36,8 +36,12 @@ public struct PluginContext {
     /// Triple of the machine that this plugin is running on.
     public let hostTriple: Triple
 
-    /// Triple of the machine that compiled code from this package will be running on.
-    public let targetTriple: Triple
+    /// Array of triples of machines that compiled code from this package will be running on. The plugin should be
+    /// prepared to handle case when either no target triples passed, or multiple triples passed at the same time. This
+    /// is dictated by the flexibility of plugin scheduling in the build process. Specifically, command plugins are
+    /// built and run outside of build graphs of other package targets, while build tool plugins may be scheduled to run
+    /// for multiple targets for different platforms at the same time in the same build graph.
+    public let targetTriples: [Triple]
 
     /// Looks up and returns the path of a named command line executable tool.
     /// The executable must be provided by an executable target or a binary

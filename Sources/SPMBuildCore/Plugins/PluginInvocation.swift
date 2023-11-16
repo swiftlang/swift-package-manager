@@ -106,7 +106,7 @@ extension PluginTarget {
                     toolSearchDirIds: toolSearchDirIds,
                     accessibleTools: accessibleTools,
                     hostTriple: scriptRunner.hostTriple.tripleString,
-                    targetTriple: scriptRunner.targetTriple.tripleString
+                    targetTriples: [scriptRunner.targetTriple.tripleString]
                 )
                 actionMessage = .createBuildToolCommands(
                     context: wireInput,
@@ -123,7 +123,7 @@ extension PluginTarget {
                     toolSearchDirIds: toolSearchDirIds,
                     accessibleTools: accessibleTools,
                     hostTriple: scriptRunner.hostTriple.tripleString,
-                    targetTriple: scriptRunner.targetTriple.tripleString
+                    targetTriples: [scriptRunner.targetTriple.tripleString]
                 )
                 actionMessage = .performCommand(
                     context: wireInput,

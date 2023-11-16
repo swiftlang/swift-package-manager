@@ -152,7 +152,7 @@ extension Plugin {
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
                     hostTriple: Triple(string: wireInput.hostTriple),
-                    targetTriple: Triple(string: wireInput.targetTriple),
+                    targetTriples: wireInput.targetTriples.map(Triple.init(string:)),
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories)
                 target = try deserializer.target(for: targetId)
@@ -233,7 +233,7 @@ extension Plugin {
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
                     hostTriple: Triple(string: wireInput.hostTriple),
-                    targetTriple: Triple(string: wireInput.targetTriple),
+                    targetTriples: wireInput.targetTriples.map(Triple.init(string:)),
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories)
             }
