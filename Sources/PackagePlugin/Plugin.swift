@@ -26,6 +26,16 @@ internal func close(_ fd: CInt) -> CInt {
 internal func fileno(_ fh: UnsafeMutablePointer<FILE>?) -> CInt {
     return _fileno(fh)
 }
+
+internal func strerror(_ errno: CInt) -> String? {
+    // MSDN indicates that the returned string can have a maximum of 94
+    // characters, so allocate 95 characters.
+    return withUnsafeTemporaryAllocation(of: wchar_t.self, capacity: 95) {
+        let result = _wcserror_s($0.baseAddress, $0.count, errno)
+        guard result == 0, let baseAddress = $0.baseAddress else { return nil }
+        return String(decodingCString: baseAddress, as: UTF16.self)
+    }
+}
 #endif
 
 //
@@ -267,8 +277,12 @@ extension Plugin {
     
     // Private function to construct an error message from an `errno` code.
     fileprivate static func describe(errno: Int32) -> String {
+#if os(Windows)
+        return strerror(errno) ?? String(errno)
+#else
         if let cStr = strerror(errno) { return String(cString: cStr) }
         return String(describing: errno)
+#endif
     }
 }
 
