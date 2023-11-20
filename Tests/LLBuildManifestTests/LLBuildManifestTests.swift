@@ -199,13 +199,13 @@ final class LLBuildManifestTests: XCTestCase {
             nodes:
               "<C.create.timestamp>":
                 is-command-timestamp: true
-              "/file.out":
+              "\(AbsolutePath("/file.out"))":
                 is-mutated: true
             commands:
               "C.create":
                 tool: shell
-                inputs: ["/file.in"]
-                outputs: ["/file.out","<C.create.timestamp>"]
+                inputs: ["\(AbsolutePath("/file.in"))"]
+                outputs: ["\(AbsolutePath("/file.out"))","<C.create.timestamp>"]
                 description: "C.create"
                 args: ["cp","file.in","file.out"]
 
