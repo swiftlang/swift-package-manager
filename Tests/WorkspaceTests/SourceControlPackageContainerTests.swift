@@ -192,7 +192,7 @@ class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() throws {
         let fs = InMemoryFileSystem()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
@@ -234,7 +234,7 @@ class SourceControlPackageContainerTests: XCTestCase {
     func testVersions() throws {
         let fs = InMemoryFileSystem()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
@@ -327,7 +327,7 @@ class SourceControlPackageContainerTests: XCTestCase {
     func testPreReleaseVersions() throws {
         let fs = InMemoryFileSystem()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
@@ -371,7 +371,7 @@ class SourceControlPackageContainerTests: XCTestCase {
     func testSimultaneousVersions() throws {
         let fs = InMemoryFileSystem()
 
-        let repoPath = AbsolutePath.root
+        let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
