@@ -327,6 +327,9 @@ class SourceControlPackageContainerTests: XCTestCase {
     func testPreReleaseVersions() throws {
         let fs = InMemoryFileSystem()
 
+        // Insert an arc in the path prior to the repository root to prevent
+        // `\Package.swift` being the path that is used.  The
+        // intermediate arc allows processing the tools versions.
         let repoPath = AbsolutePath.root.appending("SourceCache")
         let filePath = repoPath.appending("Package.swift")
 
