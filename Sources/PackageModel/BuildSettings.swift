@@ -74,7 +74,7 @@ public enum BuildSettings {
 
     /// Build setting assignment table which maps a build setting to a list of assignments.
     public struct AssignmentTable: Codable {
-        public private(set) var assignments: [Declaration: Set<Assignment>]
+        public private(set) var assignments: [Declaration: [Assignment]]
 
         public init() {
             assignments = [:]
@@ -82,7 +82,7 @@ public enum BuildSettings {
 
         /// Add the given assignment to the table.
         mutating public func add(_ assignment: Assignment, for decl: Declaration) {
-            assignments[decl, default: []].insert(assignment)
+            assignments[decl, default: []].append(assignment)
         }
     }
 
