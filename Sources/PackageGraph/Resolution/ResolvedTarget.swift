@@ -17,7 +17,7 @@ import func TSCBasic.topologicalSort
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
 public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
-    public enum Dependency {
+    public enum Dependency: Hashable {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
         case target(_ target: ResolvedTarget, conditions: Set<PackageCondition>)
 
@@ -168,30 +168,6 @@ extension ResolvedTarget: Hashable {
 extension ResolvedTarget: CustomStringConvertible {
     public var description: String {
         return "<ResolvedTarget: \(name)>"
-    }
-}
-
-extension ResolvedTarget.Dependency: Equatable {
-    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
-        switch (lhs, rhs) {
-        case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
-            return lhsTarget == rhsTarget
-        case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
-            return lhsProduct == rhsProduct
-        case (.product, .target), (.target, .product):
-            return false
-        }
-    }
-}
-
-extension ResolvedTarget.Dependency: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        switch self {
-        case .target(let target, _):
-            hasher.combine(target)
-        case .product(let product, _):
-            hasher.combine(product)
-        }
     }
 }
 
