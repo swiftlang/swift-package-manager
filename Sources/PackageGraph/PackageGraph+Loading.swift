@@ -869,10 +869,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     enum Dependency {
 
         /// Dependency to another target, with conditions.
-        case target(_ target: ResolvedTargetBuilder, conditions: [PackageConditionProtocol])
+        case target(_ target: ResolvedTargetBuilder, conditions: Set<PackageCondition>)
 
         /// Dependency to a product, with conditions.
-        case product(_ product: ResolvedProductBuilder, conditions: [PackageConditionProtocol])
+        case product(_ product: ResolvedProductBuilder, conditions: Set<PackageCondition>)
     }
 
     /// The target reference.
@@ -918,7 +918,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
                 try self.target.validateDependency(target: targetBuilder.target)
                 return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
-                try self.target.validateDependency(product: productBuilder.product, productPackage: productBuilder.packageBuilder.package.identity)
+                try self.target.validateDependency(
+                    product: productBuilder.product,
+                    productPackage: productBuilder.packageBuilder.package.identity
+                )
                 let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
                     try self.diagnoseInvalidUseOfUnsafeFlags(product)

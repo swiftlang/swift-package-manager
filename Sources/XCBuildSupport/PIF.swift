@@ -1002,7 +1002,8 @@ public enum PIF {
             }
 
             public var conditions: [String] {
-                let filters = [PlatformsCondition(platforms: [packageModelPlatform])].toPlatformFilters().map { (filter: PIF.PlatformFilter) -> String in
+                let filters = Set([.init(platforms: [packageModelPlatform])])
+                    .toPlatformFilters().map { (filter: PIF.PlatformFilter) -> String in
                     if filter.environment.isEmpty {
                         return filter.platform
                     } else {

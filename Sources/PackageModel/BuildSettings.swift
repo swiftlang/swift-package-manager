@@ -43,14 +43,24 @@ public enum BuildSettings {
         /// The assignment value.
         public var values: [String]
 
-        // FIXME: This should be a set but we need Equatable existential (or AnyEquatable) for that.
         /// The condition associated with this assignment.
+        @available(*, deprecated, renamed: "uniqueConditions")
         public var conditions: [PackageConditionProtocol] {
             get {
                 return _conditions.map{ $0.condition }
             }
             set {
                 _conditions = newValue.map{ PackageConditionWrapper($0) }
+            }
+        }        
+
+        /// A set of unique conditions associated with this assignment.
+        public var uniqueConditions: Set<PackageCondition> {
+            get {
+                return Set(_conditions.map(\.underlying))
+            }
+            set {
+                _conditions = newValue.map { PackageConditionWrapper($0) }
             }
         }
 
@@ -64,7 +74,7 @@ public enum BuildSettings {
 
     /// Build setting assignment table which maps a build setting to a list of assignments.
     public struct AssignmentTable: Codable {
-        public private(set) var assignments: [Declaration: [Assignment]]
+        public private(set) var assignments: [Declaration: Set<Assignment>]
 
         public init() {
             assignments = [:]
@@ -72,8 +82,7 @@ public enum BuildSettings {
 
         /// Add the given assignment to the table.
         mutating public func add(_ assignment: Assignment, for decl: Declaration) {
-            // FIXME: We should check for duplicate assignments.
-            assignments[decl, default: []].append(assignment)
+            assignments[decl, default: []].insert(assignment)
         }
     }
 
@@ -102,7 +111,7 @@ public enum BuildSettings {
             // Add values from each assignment if it satisfies the build environment.
             let values = assignments
                 .lazy
-                .filter { $0.conditions.allSatisfy { $0.satisfies(self.environment) } }
+                .filter { $0.uniqueConditions.allSatisfy { $0.satisfies(self.environment) } }
                 .flatMap { $0.values }
 
             return Array(values)

@@ -584,7 +584,7 @@ public extension PluginTarget {
 }
 
 fileprivate extension Target.Dependency {
-    var conditions: [PackageConditionProtocol] {
+    var conditions: Set<PackageCondition> {
         switch self {
         case .target(_, let conditions): return conditions
         case .product(_, let conditions): return conditions

@@ -697,7 +697,7 @@ public final class PackageBuilder {
 
         // The created targets mapped to their name.
         var targets = [String: Target]()
-        // If a direcotry is empty, we don't create a target object for them.
+        // If a directory is empty, we don't create a target object for them.
         var emptyModules = Set<String>()
 
         // Start iterating the potential targets.
@@ -710,7 +710,7 @@ public final class PackageBuilder {
 
             // Get the dependencies of this target.
             let dependencies: [Target.Dependency] = try manifestTarget.map {
-                try $0.dependencies.compactMap { dependency in
+                try $0.dependencies.compactMap { dependency -> Target.Dependency? in
                     switch dependency {
                     case .target(let name, let condition):
                         // We don't create an object for targets which have no sources.
@@ -1136,7 +1136,7 @@ public final class PackageBuilder {
             // Create an assignment for this setting.
             var assignment = BuildSettings.Assignment()
             assignment.values = values
-            assignment.conditions = self.buildConditions(from: setting.condition)
+            assignment.uniqueConditions = self.buildConditions(from: setting.condition)
 
             // Finally, add the assignment to the assignment table.
             table.add(assignment, for: decl)
@@ -1145,12 +1145,12 @@ public final class PackageBuilder {
         return table
     }
 
-    func buildConditions(from condition: PackageConditionDescription?) -> [PackageConditionProtocol] {
-        var conditions: [PackageConditionProtocol] = []
+    func buildConditions(from condition: PackageConditionDescription?) -> Set<PackageCondition> {
+        var conditions: Set<PackageCondition> = []
 
         if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
             let condition = ConfigurationCondition(configuration: config)
-            conditions.append(condition)
+            conditions.insert(.configuration(condition))
         }
 
         if let platforms = condition?.platformNames.map({
@@ -1163,7 +1163,7 @@ public final class PackageBuilder {
            !platforms.isEmpty
         {
             let condition = PlatformsCondition(platforms: platforms)
-            conditions.append(condition)
+            conditions.insert(.platforms(condition))
         }
 
         return conditions
