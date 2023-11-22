@@ -75,6 +75,8 @@ struct PackageConditionWrapper: Codable, Equatable, Hashable {
     }
 }
 
+/// One of possible conditions used in package manifests to restrict targets from being built for certain platforms or
+/// build configurations.
 public enum PackageCondition: Hashable {
     case platforms(PlatformsCondition)
     case configuration(ConfigurationCondition)
