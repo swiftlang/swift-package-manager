@@ -57,10 +57,11 @@ public final class ResolvedProduct {
         }
     }
 
-    public init(product: Product, targets: [ResolvedTarget]) {
+    public init(product: Product, targets: [ResolvedTarget], buildTriple: BuildTriple = .buildProducts) {
         assert(product.targets.count == targets.count && product.targets.map({ $0.name }) == targets.map({ $0.name }))
         self.underlyingProduct = product
         self.targets = targets
+        self.buildTriple = buildTriple
 
         // defaultLocalization is currently shared across the entire package
         // this may need to be enhanced if / when we support localization per target or product

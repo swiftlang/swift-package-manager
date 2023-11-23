@@ -50,12 +50,12 @@ public final class ClangTargetBuildDescription {
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        guard !resources.isEmpty else {
+        guard !self.resources.isEmpty else {
             return .none
         }
 
         if let bundleName = target.underlyingTarget.potentialBundleName {
-            return self.buildParameters.bundlePath(named: bundleName)
+            return self.buildParameters.bundlePath(named: bundleName, target: self.target)
         } else {
             return .none
         }
@@ -103,6 +103,11 @@ public final class ClangTargetBuildDescription {
     /// If this target is a test target.
     public var isTestTarget: Bool {
         target.type == .test
+    }
+
+    /// Triple for which this target is compiled.
+    private var buildTriple: Triple {
+        self.buildParameters.buildTriple(for: self.target)
     }
 
     /// The results of applying any build tool plugins to this target.
@@ -219,7 +224,7 @@ public final class ClangTargetBuildDescription {
         if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try buildParameters.targetTripleArgs(for: target)
+        args += try self.buildParameters.buildTripleArgs(for: target)
 
         args += optimizationArguments
         args += activeCompilationConditions

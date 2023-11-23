@@ -68,6 +68,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         self.tempsPath.appending("Objects.LinkFileList")
     }
 
+    /// Triple for which this product is compiled.
+    var buildTriple: Triple {
+        self.buildParameters.buildTriple(for: self.product)
+    }
+
     /// File system reference.
     private let fileSystem: FileSystem
 
@@ -310,7 +315,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[0])
+        args += try self.buildParameters.buildTripleArgs(for: self.product.targets[0])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags

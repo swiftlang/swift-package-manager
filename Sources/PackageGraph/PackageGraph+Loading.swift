@@ -798,7 +798,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
 
     // Validate sources (Swift files only) for modules being aliased.
     // Needs to be done after `propagateAliases` since aliases defined
-    // upstream can be overriden.
+    // upstream can be overridden.
     for packageBuilder in packageBuilders {
         for product in packageBuilder.package.products {
             try aliasTracker.validateAndApplyAliases(product: product,
@@ -890,6 +890,8 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The platforms supported by this package.
     var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
 
+    private var buildTriple: BuildTriple
+
     init(
         target: Target,
         observabilityScope: ObservabilityScope
@@ -900,6 +902,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             metadata.targetName = target.name
             return metadata
         }
+        self.buildTriple = target.isBuildTool ? .buildTools : .buildProducts
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
@@ -916,6 +919,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             switch dependency {
             case .target(let targetBuilder, let conditions):
                 try self.target.validateDependency(target: targetBuilder.target)
+                targetBuilder.buildTriple = .buildTools
                 return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
                 try self.target.validateDependency(
@@ -934,23 +938,38 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             target: self.target,
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms
+            platforms: self.platforms,
+            buildTriple: self.buildTriple
         )
     }
 }
 
 extension Target {
+    var isBuildTool: Bool {
+        type == .macro || type == .plugin
+    }
 
-  func validateDependency(target: Target) throws {
-    if self.type == .plugin && target.type == .library {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
+    func validateDependency(target: Target) throws {
+        if self.type == .plugin && target.type == .library {
+            throw PackageGraphError.unsupportedPluginDependency(
+                targetName: self.name,
+                dependencyName: target.name,
+                dependencyType: target.type.rawValue,
+                dependencyPackage: nil
+            )
+        }
     }
-  }
-  func validateDependency(product: Product, productPackage: PackageIdentity) throws {
-    if self.type == .plugin && product.type.isLibrary {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
+
+    func validateDependency(product: Product, productPackage: PackageIdentity) throws {
+        if self.type == .plugin && product.type.isLibrary {
+            throw PackageGraphError.unsupportedPluginDependency(
+                targetName: self.name,
+                dependencyName: product.name,
+                dependencyType: product.type.description,
+                dependencyPackage: productPackage.description
+            )
+        }
     }
-  }
 }
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {

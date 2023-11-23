@@ -58,7 +58,7 @@ public final class SwiftTargetBuildDescription {
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         if let bundleName = target.underlyingTarget.potentialBundleName, needsResourceBundle {
-            return self.buildParameters.bundlePath(named: bundleName)
+            return self.buildParameters.bundlePath(named: bundleName, target: self.target)
         } else {
             return .none
         }
@@ -101,6 +101,11 @@ public final class SwiftTargetBuildDescription {
                     relativeTo: self.tempsPath)
             }
         }
+    }
+    
+    /// Triple for which this target is compiled.
+    private var buildTriple: Triple {
+        self.buildParameters.buildTriple(for: self.target)
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -457,7 +462,7 @@ public final class SwiftTargetBuildDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() throws -> [String] {
         var args = [String]()
-        args += try self.buildParameters.targetTripleArgs(for: self.target)
+        args += try self.buildParameters.buildTripleArgs(for: self.target)
         args += ["-swift-version", self.swiftVersion.rawValue]
 
         // pass `-v` during verbose builds.

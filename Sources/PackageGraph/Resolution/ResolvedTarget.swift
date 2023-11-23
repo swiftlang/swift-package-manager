@@ -70,6 +70,9 @@ public final class ResolvedTarget {
         }
     }
 
+    /// Triple for which this resolved target should be compiled for.
+    public let buildTriple: BuildTriple
+
     /// The underlying target represented in this resolved target.
     public let underlyingTarget: Target
 
@@ -149,13 +152,14 @@ public final class ResolvedTarget {
         target: Target,
         dependencies: [Dependency],
         defaultLocalization: String?,
-        platforms: SupportedPlatforms
+        platforms: SupportedPlatforms,
+        buildTriple: BuildTriple = .buildProducts
     ) {
         self.underlyingTarget = target
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
-        self.buildTriple = .buildProducts
+        self.buildTriple = buildTriple
     }
 }
 
