@@ -54,10 +54,17 @@ public final class ResolvedProduct {
         }
     }
 
-    public init(product: Product, targets: [ResolvedTarget]) {
+    public let derivedXCTestPlatformProvider: ((Platform) -> PlatformVersion?)?
+
+    public init(
+        product: Product,
+        targets: [ResolvedTarget],
+        derivedXCTestPlatformProvider: ((_ declared: Platform) -> PlatformVersion?)?
+    ) {
         assert(product.targets.count == targets.count && product.targets.map({ $0.name }) == targets.map({ $0.name }))
         self.underlyingProduct = product
         self.targets = targets
+        self.derivedXCTestPlatformProvider = derivedXCTestPlatformProvider
 
         // defaultLocalization is currently shared across the entire package
         // this may need to be enhanced if / when we support localization per target or product
@@ -78,7 +85,8 @@ public final class ResolvedProduct {
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
-                platforms: platforms
+                platforms: platforms,
+                derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
             )
         }
     }
@@ -102,31 +110,35 @@ public final class ResolvedProduct {
     }
 
     private static func computePlatforms(targets: [ResolvedTarget]) -> SupportedPlatforms {
-        // merging two sets of supported platforms, preferring the max constraint
-        func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {
-            for platformSupport in platforms {
-                if let existing = partial.firstIndex(where: { $0.platform == platformSupport.platform }) {
-                    if partial[existing].version < platformSupport.version {
-                        partial.remove(at: existing)
-                        partial.append(platformSupport)
-                    }
-                } else {
-                    partial.append(platformSupport)
-                }
-            }
-        }
-
-        let declared = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+        let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
             merge(into: &partial, platforms: item.platforms.declared)
         }
 
         return SupportedPlatforms(
-            declared: declared.sorted(by: { $0.platform.name < $1.platform.name })) { declared in
-                let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-                    merge(into: &partial, platforms: [item.platforms.getDerived(for: declared, usingXCTest: item.type == .test)])
+            declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
+        )
+    }
+
+    public func getSupportedPlatform(for declared: Platform) -> SupportedPlatform {
+        platforms.getDerived(
+            for: declared,
+            usingXCTest: self.isLinkingXCTest,
+            derivedXCTestPlatformProvider: { declared in
+                let platforms = self.targets.reduce(into: [SupportedPlatform]()) {
+                    platformsAccumulator,
+                    target in
+                    merge(
+                        into: &platformsAccumulator,
+                        platforms: [target.platforms.getDerived(
+                            for: declared,
+                            usingXCTest: self.isLinkingXCTest,
+                            derivedXCTestPlatformProvider: self.derivedXCTestPlatformProvider
+                        )]
+                    )
                 }
                 return platforms.first!.version
             }
+        )
     }
 }
 
@@ -150,5 +162,19 @@ extension ResolvedProduct {
     public var isLinkingXCTest: Bool {
         // To retain existing behavior, we have to check both the product type, as well as the types of all of its targets.
         return self.type == .test || self.targets.contains(where: { $0.type == .test })
+    }
+}
+
+// merging two sets of supported platforms, preferring the max constraint
+private func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {
+    for platformSupport in platforms {
+        if let existing = partial.firstIndex(where: { $0.platform == platformSupport.platform }) {
+            if partial[existing].version < platformSupport.version {
+                partial.remove(at: existing)
+                partial.append(platformSupport)
+            }
+        } else {
+            partial.append(platformSupport)
+        }
     }
 }

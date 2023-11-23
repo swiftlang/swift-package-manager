@@ -239,7 +239,7 @@ private func createResolvedPackages(
 ) throws -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap{ node in
+    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
@@ -356,8 +356,7 @@ private func createResolvedPackages(
 
         packageBuilder.platforms = computePlatforms(
             package: package,
-            platformRegistry: platformRegistry,
-            derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
+            platformRegistry: platformRegistry
         )
 
         // Create target builders for each target in the package.
@@ -384,12 +383,17 @@ private func createResolvedPackages(
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
         packageBuilder.products = try package.products.map{
-            try ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map {
-                guard let target = targetMap[$0] else {
-                    throw InternalError("unknown target \($0)")
-                }
-                return target
-            })
+            try ResolvedProductBuilder(
+                product: $0,
+                packageBuilder: packageBuilder,
+                targets: $0.targets.map {
+                    guard let target = targetMap[$0] else {
+                        throw InternalError("unknown target \($0)")
+                    }
+                    return target
+                },
+                derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
+            )
         }
 
         // add registry metadata if available
@@ -736,10 +740,8 @@ private class DuplicateProductsChecker {
 
 private func computePlatforms(
     package: Package,
-    platformRegistry: PlatformRegistry,
-    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?
+    platformRegistry: PlatformRegistry
 ) -> SupportedPlatforms {
-
     // the supported platforms as declared in the manifest
     let declaredPlatforms: [SupportedPlatform] = package.manifest.platforms.map { platform in
         let declaredPlatform = platformRegistry.platformByName[platform.platformName]
@@ -752,8 +754,7 @@ private func computePlatforms(
     }
 
     return SupportedPlatforms(
-        declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
-        derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
+        declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
     )
 }
 
@@ -840,17 +841,26 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 
     /// The target builders in the product.
     let targets: [ResolvedTargetBuilder]
+    
+    let derivedXCTestPlatformProvider: ((PackageModel.Platform) -> PlatformVersion?)?
 
-    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedTargetBuilder]) {
+    init(
+        product: Product,
+        packageBuilder: ResolvedPackageBuilder,
+        targets: [ResolvedTargetBuilder],
+        derivedXCTestPlatformProvider: ((PackageModel.Platform) -> PlatformVersion?)?
+    ) {
         self.product = product
         self.packageBuilder = packageBuilder
         self.targets = targets
+        self.derivedXCTestPlatformProvider = derivedXCTestPlatformProvider
     }
 
     override func constructImpl() throws -> ResolvedProduct {
         return ResolvedProduct(
             product: product,
-            targets: try targets.map{ try $0.construct() }
+            targets: try targets.map{ try $0.construct() },
+            derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
         )
     }
 }
@@ -881,7 +891,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
+    var platforms: SupportedPlatforms = .init(declared: [])
+
+    /// Deferred platform version computation for a given platform.
+    var derivedXCTestPlatformProvider: ((PackageModel.Platform) -> PlatformVersion?)?
 
     init(
         target: Target,
@@ -924,13 +937,13 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             target: self.target,
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms
+            platforms: self.platforms,
+            derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
         )
     }
 }
 
 extension Target {
-
   func validateDependency(target: Target) throws {
     if self.type == .plugin && target.type == .library {
       throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
@@ -944,7 +957,6 @@ extension Target {
 }
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
-
     /// The package reference.
     let package: Package
 
@@ -973,7 +985,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
+    var platforms: SupportedPlatforms = .init(declared: [])
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     var registryMetadata: RegistryReleaseMetadata?

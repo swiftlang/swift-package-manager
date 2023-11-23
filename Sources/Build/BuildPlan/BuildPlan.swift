@@ -133,7 +133,7 @@ extension BuildParameters {
         // Compute the triple string for Darwin platform using the platform version.
         if targetTriple.isDarwin() {
             let platform = buildEnvironment.platform
-            let supportedPlatform = target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
+            let supportedPlatform = target.getSupportedPlatform(for: platform)
             args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
             args += [targetTriple.tripleString]
@@ -409,8 +409,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     ) throws {
         // Supported platforms are defined at the package level.
         // This will need to become a bit complicated once we have target-level or product-level platform support.
-        let productPlatform = product.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
-        let targetPlatform = target.platforms.getDerived(for: .macOS, usingXCTest: target.type == .test)
+        let productPlatform = product.getSupportedPlatform(for: .macOS)
+        let targetPlatform = target.getSupportedPlatform(for: .macOS)
 
         // Check if the version requirement is satisfied.
         //

@@ -45,7 +45,7 @@ public final class ResolvedPackage {
     /// The default localization for resources.
     public let defaultLocalization: String?
 
-    /// The list of platforms that are supported by this target.
+    /// The list of platforms that are supported by this package.
     public let platforms: SupportedPlatforms
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
@@ -67,6 +67,10 @@ public final class ResolvedPackage {
         self.targets = targets
         self.products = products
         self.registryMetadata = registryMetadata
+    }
+
+    public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform {
+        self.platforms.getDerived(for: platform, usingXCTest: false, derivedXCTestPlatformProvider: nil)
     }
 }
 
