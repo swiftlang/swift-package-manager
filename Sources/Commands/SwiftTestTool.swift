@@ -390,7 +390,7 @@ public struct SwiftTestTool: SwiftCommand {
         let ranSuccessfully = runner.test(outputHandler: {
             // command's result output goes on stdout
             // ie "swift test" should output to stdout
-            print($0)
+            print($0, terminator: "")
         })
         if !ranSuccessfully {
             swiftTool.executionStatus = .failure
@@ -791,7 +791,7 @@ final class TestRunner {
 
         do {
             let outputHandler = { (bytes: [UInt8]) in
-                if let output = String(bytes: bytes, encoding: .utf8)?.spm_chuzzle() {
+                if let output = String(bytes: bytes, encoding: .utf8) {
                     outputHandler(output)
                 }
             }
