@@ -69,7 +69,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
                 switch resolver.solve(constraints: graph.constraints) {
                 case .success(let result):
                     let result: [(container: PackageReference, version: Version)] = result.compactMap {
-                        guard case .version(let version) = $0.binding else {
+                        guard case .version(let version) = $0.boundVersion else {
                             XCTFail("Unexpected result")
                             return nil
                         }

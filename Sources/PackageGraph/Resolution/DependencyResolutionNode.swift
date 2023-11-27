@@ -18,7 +18,7 @@ import struct TSCUtility.Version
 ///
 /// See the documentation of each case for more detailed descriptions of each kind and how they interact.
 ///
-/// - SeeAlso: `GraphLoadingNode`
+/// - SeeAlso: ``GraphLoadingNode``
 public enum DependencyResolutionNode {
 
     /// An empty package node.
