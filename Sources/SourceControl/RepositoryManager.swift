@@ -188,37 +188,42 @@ public class RepositoryManager: Cancellable {
     // sync func and roll the logic into the async version above
     private func lookup(
         package: PackageIdentity,
-        repository: RepositorySpecifier,
+        repository repositorySpecifier: RepositorySpecifier,
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
-        let relativePath = try repository.storagePath()
+        let relativePath = try repositorySpecifier.storagePath()
         let repositoryPath = self.path.appending(relativePath)
-        let handle = RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
+        let handle = RepositoryHandle(manager: self, repository: repositorySpecifier, subpath: relativePath)
 
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
+        quick: if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
             let repository = try handle.open()
+            
+            guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
+                observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
+                break quick
+            }
+
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
-                
+
                 delegateQueue.async {
                     self.delegate?.willUpdate(package: package, repository: handle.repository)
                 }
-                
+
                 try repository.fetch()
                 let duration = start.distance(to: .now())
                 delegateQueue.async {
                     self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                 }
-                return handle
-            } else if try self.provider.isValidDirectory(repositoryPath) {
-                return handle
             }
+
+            return handle
         }
 
         // inform delegate that we are starting to fetch
@@ -334,7 +339,7 @@ public class RepositoryManager: Cancellable {
                 }
             } catch {
                 // If we are offline and have a valid cached repository, use the cache anyway.
-                if try isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath) {
+                if try isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath, for: handle.repository) {
                     // For the first offline use in the lifetime of this repository manager, emit a warning.
                     if self.emitNoConnectivityWarning.get(default: false) {
                         self.emitNoConnectivityWarning.put(false)
@@ -424,6 +429,11 @@ public class RepositoryManager: Cancellable {
     /// Returns true if the directory is valid git location.
     public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
         try self.provider.isValidDirectory(directory)
+    }
+
+    /// Returns true if the directory is valid git location for the specified repository
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        try self.provider.isValidDirectory(directory, for: repository)
     }
 
     /// Reset the repository manager.

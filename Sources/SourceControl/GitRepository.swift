@@ -210,6 +210,11 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return result == ".git" || result == "." || result == directory.pathString
     }
 
+    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        let remoteURL = try self.git.run(["-C", directory.pathString, "remote", "get-url", "origin"])
+        return remoteURL == repository.url
+    }
+
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
