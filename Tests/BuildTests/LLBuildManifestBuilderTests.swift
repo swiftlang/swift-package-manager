@@ -67,14 +67,14 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         try llbuild.createProductCommand(buildProduct)
 
         let basicReleaseCommandNames = [
-            "/path/to/build/release/exe.product/Objects.LinkFileList",
+            AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList").pathString,
             "<exe-release.exe>",
             "C.exe-release.exe",
         ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
-            basicReleaseCommandNames
+            basicReleaseCommandNames.sorted()
         )
 
         // macOS, debug build
@@ -98,18 +98,17 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         let entitlementsCommandName = "C.exe-debug.exe-entitlements"
         let basicDebugCommandNames = [
-            "/path/to/build/debug/exe.product/Objects.LinkFileList",
+            AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList").pathString,
             "<exe-debug.exe>",
             "C.exe-debug.exe",
         ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
-            [
-                "/path/to/build/debug/exe-entitlement.plist",
-            ] + basicDebugCommandNames + [
+            (basicDebugCommandNames + [
+                AbsolutePath("/path/to/build/debug/exe-entitlement.plist").pathString,
                 entitlementsCommandName,
-            ]
+            ]).sorted()
         )
 
         guard let entitlementsCommand = llbuild.manifest.commands[entitlementsCommandName]?.tool as? ShellTool else {
@@ -152,7 +151,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
-            basicReleaseCommandNames
+            basicReleaseCommandNames.sorted()
         )
 
         // Linux, debug build
@@ -176,7 +175,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
-            basicDebugCommandNames
+            basicDebugCommandNames.sorted()
         )
     }
 }

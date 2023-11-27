@@ -33,6 +33,7 @@ struct ComputeChecksum: SwiftCommand {
             authorizationProvider: swiftTool.getAuthorizationProvider(),
             hostToolchain: swiftTool.getHostToolchain(),
             checksumAlgorithm: SHA256(),
+            cachePath: .none,
             customHTTPClient: .none,
             customArchiver: .none,
             delegate: .none

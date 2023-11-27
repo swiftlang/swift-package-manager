@@ -528,6 +528,7 @@ public class Workspace {
             authorizationProvider: authorizationProvider,
             hostToolchain: hostToolchain,
             checksumAlgorithm: checksumAlgorithm,
+            cachePath:  customBinaryArtifactsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
             customHTTPClient: customBinaryArtifactsManager?.httpClient,
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))

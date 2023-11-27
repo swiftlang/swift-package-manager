@@ -126,11 +126,11 @@ public protocol WorkspaceDelegate: AnyObject {
     func resolvedFileChanged()
 
     /// The workspace has started downloading a binary artifact.
-    func willDownloadBinaryArtifact(from url: String)
+    func willDownloadBinaryArtifact(from url: String, fromCache: Bool)
     /// The workspace has finished downloading a binary artifact.
     func didDownloadBinaryArtifact(
         from url: String,
-        result: Result<AbsolutePath, Error>,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     )
     /// The workspace is downloading a binary artifact.
@@ -399,13 +399,13 @@ struct WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func willDownloadBinaryArtifact(from url: String) {
-        self.workspaceDelegate?.willDownloadBinaryArtifact(from: url)
+    func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
+        self.workspaceDelegate?.willDownloadBinaryArtifact(from: url, fromCache: fromCache)
     }
 
     func didDownloadBinaryArtifact(
         from url: String,
-        result: Result<AbsolutePath, Error>,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     ) {
         self.workspaceDelegate?.didDownloadBinaryArtifact(from: url, result: result, duration: duration)

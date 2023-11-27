@@ -81,7 +81,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
         }
 
-        self.outputHandler("Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))", false)
+        self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", false)
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
@@ -135,12 +135,16 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", false)
     }
 
-    func willDownloadBinaryArtifact(from url: String) {
-        self.outputHandler("Downloading binary artifact \(url)", false)
+    func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
+        if fromCache {
+            self.outputHandler("Fetching binary artifact \(url) from cache", false)
+        } else {
+            self.outputHandler("Downloading binary artifact \(url)", false)
+        }
     }
 
-    func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
-        guard case .success = result, !self.observabilityScope.errorsReported else {
+    func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+        guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
 
@@ -155,7 +159,11 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
         }
 
-        self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
+        if fetchDetails.fromCache {
+            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", false)
+        } else {
+            self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
+        }
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
