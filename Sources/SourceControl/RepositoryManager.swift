@@ -441,7 +441,7 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Sets up the cache directories if they don't already exist.
-    public func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
+    private func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
         // Create the supplied cache directory.
         if !self.fileSystem.exists(cachePath) {
             try self.fileSystem.createDirectory(cachePath, recursive: true)
