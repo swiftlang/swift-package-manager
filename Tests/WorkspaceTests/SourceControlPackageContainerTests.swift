@@ -150,6 +150,10 @@ private class MockRepositories: RepositoryProvider {
         return true
     }
 
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        return true
+    }
+
     func cancel(deadline: DispatchTime) throws {
         // noop
     }
