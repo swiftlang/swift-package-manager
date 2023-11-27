@@ -893,11 +893,11 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func willDownloadBinaryArtifact(from url: String) {
+    public func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
         self.append("downloading binary artifact package: \(url)")
     }
 
-    public func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
+    public func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
         self.append("finished downloading binary artifact package: \(url)")
     }
 
