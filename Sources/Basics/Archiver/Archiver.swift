@@ -23,6 +23,7 @@ public protocol Archiver {
     ///   - archivePath: The `AbsolutePath` to the archive to extract.
     ///   - destinationPath: The `AbsolutePath` to the directory to extract to.
     ///   - completion: The completion handler that will be called when the operation finishes to notify of its success.
+    @available(*, noasync, message: "Use the async alternative")
     func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
@@ -35,6 +36,7 @@ public protocol Archiver {
     ///   - directory: The `AbsolutePath` to the archive to extract.
     ///   - destinationPath: The `AbsolutePath` to the directory to extract to.
     ///   - completion: The completion handler that will be called when the operation finishes to notify of its success.
+    @available(*, noasync, message: "Use the async alternative")
     func compress(
         directory: AbsolutePath,
         to destinationPath: AbsolutePath,
@@ -46,6 +48,7 @@ public protocol Archiver {
     /// - Parameters:
     ///   - path: The `AbsolutePath` to the archive to validate.
     ///   - completion: The completion handler that will be called when the operation finishes to notify of its success.
+    @available(*, noasync, message: "Use the async alternative")
     func validate(
         path: AbsolutePath,
         completion: @escaping (Result<Bool, Error>) -> Void
@@ -57,8 +60,25 @@ extension Archiver {
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-        try await withCheckedThrowingContinuation {
-            self.extract(from: archivePath, to: destinationPath, completion: $0.resume(with:))
+        try await safe_async {
+            self.extract(from: archivePath, to: destinationPath, completion: $0)
+        }
+    }
+
+    public func compress(
+        directory: AbsolutePath,
+        to: AbsolutePath
+    ) async throws {
+        try await safe_async {
+            self.compress(directory: directory, to: to, completion: $0)
+        }
+    }
+
+    public func validate(
+        path: AbsolutePath
+    ) async throws -> Bool {
+        try await safe_async {
+            self.validate(path: path, completion: $0)
         }
     }
 }
