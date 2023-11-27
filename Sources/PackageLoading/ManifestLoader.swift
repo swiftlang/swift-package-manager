@@ -322,7 +322,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue, 
                 callbackQueue: callbackQueue,
-                completion: $0)
+                completion: $0
+            )
         }
     }
     
