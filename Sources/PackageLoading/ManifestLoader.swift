@@ -300,40 +300,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
-    ) async throws -> Manifest {
-        try await safe_async {
-            self.load(
-                manifestPath: manifestPath,
-                manifestToolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue, 
-                callbackQueue: callbackQueue,
-                completion: $0
-            )
-        }
-    }
-    
-    @available(*, noasync, message: "Use the async alternative")
-    public func load(
-        manifestPath: AbsolutePath,
-        manifestToolsVersion: ToolsVersion,
-        packageIdentity: PackageIdentity,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        packageVersion: (version: Version?, revision: String?)?,
-        identityResolver: IdentityResolver,
-        dependencyMapper: DependencyMapper,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) async throws -> Manifest {
         // Inform the delegate.
