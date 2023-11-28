@@ -121,6 +121,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     }
 }
 
+@available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 final class ManifestTestDelegate: ManifestLoaderDelegate {
     private let loaded = ThreadSafeArrayStore<AbsolutePath>()
     private let parsed = ThreadSafeArrayStore<AbsolutePath>()
