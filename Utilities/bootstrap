@@ -131,7 +131,6 @@ def add_build_args(parser):
     parser.add_argument(
         "--skip-cmake-bootstrap",
         action="store_true",
-        default=True,
         help="build with prebuilt package manager in toolchain if it exists")
     parser.add_argument(
         "--libswiftpm-install-dir",
