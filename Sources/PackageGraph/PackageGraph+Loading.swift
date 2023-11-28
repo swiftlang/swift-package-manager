@@ -19,7 +19,6 @@ import func TSCBasic.topologicalSort
 import func TSCBasic.bestMatch
 
 extension PackageGraph {
-
     /// Load the package graph for the given package path.
     public static func load(
         root: PackageGraphRoot,
@@ -49,7 +48,12 @@ extension PackageGraph {
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies.compactMap{ dependency in
                 return manifestMap[dependency.identity].map { (manifest, fileSystem) in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: fileSystem)
+                    GraphLoadingNode(
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        productFilter: dependency.productFilter,
+                        fileSystem: fileSystem
+                    )
                 }
             }
         }
@@ -63,7 +67,12 @@ extension PackageGraph {
         }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
             manifestMap[dependency.identity].map {
-                GraphLoadingNode(identity: dependency.identity, manifest: $0.manifest, productFilter: dependency.productFilter, fileSystem: $0.fs)
+                GraphLoadingNode(
+                    identity: dependency.identity,
+                    manifest: $0.manifest,
+                    productFilter: dependency.productFilter,
+                    fileSystem: $0.fs
+                )
             }
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -203,7 +212,10 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             }
             
             // Make sure that any diagnostics we emit below are associated with the package.
-            let packageDiagnosticsScope = observabilityScope.makeChildScope(description: "Package Dependency Validation", metadata: package.underlyingPackage.diagnosticsMetadata)
+            let packageDiagnosticsScope = observabilityScope.makeChildScope(
+                description: "Package Dependency Validation",
+                metadata: package.underlyingPackage.diagnosticsMetadata
+            )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
@@ -237,16 +249,15 @@ private func createResolvedPackages(
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
-
-    // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap{ node in
+    // Create memoized packages from the input manifests.
+    let memoizedPackages: [MemoizedResolvedPackage] = nodes.compactMap{ node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.identity == package.identity }
         
         let allowedToOverride = rootManifests.values.contains(node.manifest)
-        return ResolvedPackageBuilder(
+        return MemoizedResolvedPackage(
             package,
             productFilter: node.productFilter,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
@@ -254,31 +265,34 @@ private func createResolvedPackages(
         )
     }
 
-    // Create a map of package builders keyed by the package identity.
+    // Create a map of memoized packages keyed by package identity.
     // This is guaranteed to be unique so we can use spm_createDictionary
-    let packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
+    let packagesByIdentity: [PackageIdentity: MemoizedResolvedPackage] = memoizedPackages.spm_createDictionary{
         return ($0.package.identity, $0)
     }
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders, observabilityScope: observabilityScope)
+    let moduleAliasingUsed = try resolveModuleAliases(
+        memoizedPackages: memoizedPackages,
+        observabilityScope: observabilityScope
+    )
 
     // Scan and validate the dependencies
-    for packageBuilder in packageBuilders {
-        let package = packageBuilder.package
+    for memoizedPackage in memoizedPackages {
+        let package = memoizedPackage.package
 
         let packageObservabilityScope = observabilityScope.makeChildScope(
             description: "Validating package dependencies",
             metadata: package.diagnosticsMetadata
         )
         
-        var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
-        var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
+        var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, MemoizedResolvedPackage>()
+        var dependenciesByNameForTargetDependencyResolution = [String: MemoizedResolvedPackage]()
         var dependencyNamesForTargetDependencyResolutionOnly = [PackageIdentity: String]()
 
         // Establish the manifest-declared package dependencies.
-        package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
+        package.manifest.dependenciesRequired(for: memoizedPackage.productFilter).forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
             // Otherwise, look it up by its identity.
@@ -349,42 +363,44 @@ private func createResolvedPackages(
             }
         }
 
-        packageBuilder.dependencies = Array(dependencies.values)
-        packageBuilder.dependencyNamesForTargetDependencyResolutionOnly = dependencyNamesForTargetDependencyResolutionOnly
+        memoizedPackage.dependencies = Array(dependencies.values)
+        memoizedPackage.dependencyNamesForTargetDependencyResolutionOnly = dependencyNamesForTargetDependencyResolutionOnly
 
-        packageBuilder.defaultLocalization = package.manifest.defaultLocalization
+        memoizedPackage.defaultLocalization = package.manifest.defaultLocalization
 
-        packageBuilder.platforms = computePlatforms(
+        memoizedPackage.platforms = computePlatforms(
             package: package,
             platformRegistry: platformRegistry,
             derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
         )
 
-        // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: packageObservabilityScope) }
-        packageBuilder.targets = targetBuilders
+        // Create memoized resolved targets for each target in the package.
+        let memoizedTargets = package.targets
+            .map { MemoizedResolvedTarget(target: $0, observabilityScope: packageObservabilityScope) }
+        memoizedPackage.targets = memoizedTargets
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
-        let targetMap = targetBuilders.spm_createDictionary({ ($0.target, $0) })
-        for targetBuilder in targetBuilders {
-            targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
+        let targetMap = memoizedTargets.spm_createDictionary({ ($0.target, $0) })
+        for memoizedTarget in memoizedTargets {
+            memoizedTarget.dependencies += try memoizedTarget.target.dependencies.compactMap { dependency in
                 switch dependency {
-                case .target(let target, let conditions):
-                    guard let targetBuilder = targetMap[target] else {
-                        throw InternalError("unknown target \(target.name)")
+                case .target(let targetDependency, let conditions):
+                    guard let memoizedTargetDependency = targetMap[targetDependency] else {
+                        throw InternalError("unknown target \(targetDependency.name)")
                     }
-                    return .target(targetBuilder, conditions: conditions)
+                    return .target(memoizedTargetDependency, conditions: conditions)
                 case .product:
                     return nil
                 }
             }
-            targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
-            targetBuilder.platforms = packageBuilder.platforms
+            memoizedTarget.defaultLocalization = memoizedPackage.defaultLocalization
+            memoizedTarget.platforms = memoizedPackage.platforms
         }
 
-        // Create product builders for each product in the package. A product can only contain a target present in the same package.
-        packageBuilder.products = try package.products.map{
-            try ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map {
+        // Create memoized resolved products for each product in the package. A product can only contain a target
+        // present in the same package.
+        memoizedPackage.products = try package.products.map {
+            try MemoizedResolvedProduct(product: $0, memoizedPackage: memoizedPackage, targets: $0.targets.map {
                 guard let target = targetMap[$0] else {
                     throw InternalError("unknown target \($0)")
                 }
@@ -394,19 +410,19 @@ private func createResolvedPackages(
 
         // add registry metadata if available
         if fileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
-            packageBuilder.registryMetadata = try RegistryReleaseMetadataStorage.load(
+            memoizedPackage.registryMetadata = try RegistryReleaseMetadataStorage.load(
                 from: package.path.appending(component: RegistryReleaseMetadataStorage.fileName),
                 fileSystem: fileSystem
             )
         }
     }
 
-    let dupProductsChecker = DuplicateProductsChecker(
-        packageBuilders: packageBuilders,
+    var duplicateProductsChecker = DuplicateProductsChecker(
+        memoizedPackages: memoizedPackages,
         moduleAliasingUsed: moduleAliasingUsed,
         observabilityScope: observabilityScope
     )
-    try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
+    try duplicateProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
     // The set of all target names.
     var allTargetNames = Set<String>()
@@ -415,8 +431,8 @@ private func createResolvedPackages(
     var foundDuplicateTarget = false
 
     // Do another pass and establish product dependencies of each target.
-    for packageBuilder in packageBuilders {
-        let package = packageBuilder.package
+    for memoizedPackage in memoizedPackages {
+        let package = memoizedPackage.package
 
         let packageObservabilityScope = observabilityScope.makeChildScope(
             description: "Validating package targets",
@@ -424,7 +440,7 @@ private func createResolvedPackages(
         )
 
         // Get all implicit system library dependencies in this package.
-        let implicitSystemTargetDeps = packageBuilder.dependencies
+        let implicitSystemTargetDeps = memoizedPackage.dependencies
             .flatMap({ $0.targets })
             .filter({
                 if case let systemLibrary as SystemLibraryTarget = $0.target {
@@ -433,25 +449,32 @@ private func createResolvedPackages(
                 return false
             })
 
-        let packageDoesNotSupportProductAliases = packageBuilder.package.doesNotSupportProductAliases
-        let lookupByProductIDs = !packageDoesNotSupportProductAliases && (packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed)
+        let packageDoesNotSupportProductAliases = memoizedPackage.package.doesNotSupportProductAliases
+        let lookupByProductIDs = !packageDoesNotSupportProductAliases && 
+            (memoizedPackage.package.manifest.disambiguateByProductIDs || moduleAliasingUsed)
 
         // Get all the products from dependencies of this package.
-        let productDependencies = packageBuilder.dependencies
-            .flatMap({ (dependency: ResolvedPackageBuilder) -> [ResolvedProductBuilder] in
+        let productDependencies = memoizedPackage.dependencies
+            .flatMap { (dependency: MemoizedResolvedPackage) -> [MemoizedResolvedProduct] in
                 // Filter out synthesized products such as tests and implicit executables.
                 // Check if a dependency product is explicitly declared as a product in its package manifest
                 let manifestProducts = dependency.package.manifest.products.lazy.map { $0.name }
                 let explicitProducts = dependency.package.products.filter { manifestProducts.contains($0.name) }
                 let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
-                return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
-            })
+                return dependency.products.filter {
+                    if lookupByProductIDs {
+                        return explicitIdsOrNames.contains($0.product.identity)
+                    } else {
+                        return explicitIdsOrNames.contains($0.product.name)
+                    }
+                }
+            }
 
-        let productDependencyMap: [String: ResolvedProductBuilder]
+        let productDependencyMap: [String: MemoizedResolvedProduct]
         if lookupByProductIDs {
             productDependencyMap = try Dictionary(uniqueKeysWithValues: productDependencies.map {
-                guard let packageName = packageBuilder.dependencyNamesForTargetDependencyResolutionOnly[$0.packageBuilder.package.identity] else {
-                    throw InternalError("could not determine name for dependency on package '\($0.packageBuilder.package.identity)' from package '\(packageBuilder.package.identity)'")
+                guard let packageName = memoizedPackage.dependencyNamesForTargetDependencyResolutionOnly[$0.memoizedPackage.package.identity] else {
+                    throw InternalError("could not determine name for dependency on package '\($0.memoizedPackage.package.identity)' from package '\(memoizedPackage.package.identity)'")
                 }
                 let key = "\(packageName.lowercased())_\($0.product.name)"
                 return (key, $0)
@@ -463,7 +486,7 @@ private func createResolvedPackages(
                     let duplicates = productDependencies.filter { $0.product.name == lhs.product.name }
                     throw emitDuplicateProductDiagnostic(
                         productName: lhs.product.name,
-                        packages: duplicates.map(\.packageBuilder.package),
+                        packages: duplicates.map(\.memoizedPackage.package),
                         moduleAliasingUsed: moduleAliasingUsed,
                         observabilityScope: observabilityScope
                     )
@@ -472,15 +495,15 @@ private func createResolvedPackages(
         }
 
         // Establish dependencies in each target.
-        for targetBuilder in packageBuilder.targets {
+        for memoizedTarget in memoizedPackage.targets {
             // Record if we see a duplicate target.
-            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
+            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(memoizedTarget.target.name).inserted
 
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
+            memoizedTarget.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
 
             // Establish product dependencies.
-            for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
+            for case .product(let productRef, let conditions) in memoizedTarget.target.dependencies {
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] : productDependencyMap[productRef.name]
@@ -501,7 +524,7 @@ private func createResolvedPackages(
                         let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
-                            targetName: targetBuilder.target.name,
+                            targetName: memoizedTarget.target.name,
                             dependencyProductName: productRef.name,
                             dependencyPackageName: productRef.package,
                             dependencyProductInDecl: !declProductsAsDependency.isEmpty,
@@ -516,25 +539,25 @@ private func createResolvedPackages(
                 // explicitly reference the package containing the product, or for the product, package and
                 // dependency to share the same name. We don't check this in manifest loading for root-packages so
                 // we can provide a more detailed diagnostic here.
-                if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil {
-                    let referencedPackageIdentity = product.packageBuilder.package.identity
-                    guard let referencedPackageDependency = (packageBuilder.package.manifest.dependencies.first { package in
+                if memoizedPackage.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil {
+                    let referencedPackageIdentity = product.memoizedPackage.package.identity
+                    guard let referencedPackageDependency = (memoizedPackage.package.manifest.dependencies.first { package in
                         return package.identity == referencedPackageIdentity
                     }) else {
-                        throw InternalError("dependency reference for \(product.packageBuilder.package.manifest.packageLocation) not found")
+                        throw InternalError("dependency reference for \(product.memoizedPackage.package.manifest.packageLocation) not found")
                     }
                     let referencedPackageName = referencedPackageDependency.nameForTargetDependencyResolutionOnly
                     if productRef.name != referencedPackageName {
                         let error = PackageGraphError.productDependencyMissingPackage(
                             productName: productRef.name,
-                            targetName: targetBuilder.target.name,
+                            targetName: memoizedTarget.target.name,
                             packageIdentifier: referencedPackageName
                         )
                         packageObservabilityScope.emit(error)
                     }
                 }
 
-                targetBuilder.dependencies.append(.product(product, conditions: conditions))
+                memoizedTarget.dependencies.append(.product(product, conditions: conditions))
             }
         }
     }
@@ -543,7 +566,7 @@ private func createResolvedPackages(
     if foundDuplicateTarget {
         var duplicateTargets = [String: [Package]]()
         for targetName in allTargetNames.sorted() {
-            let packages = packageBuilders
+            let packages = memoizedPackages
                 .filter({ $0.targets.contains(where: { $0.target.name == targetName }) })
                 .map{ $0.package }
             if packages.count > 1 {
@@ -606,10 +629,10 @@ private func createResolvedPackages(
         }
     }
 
-    return try packageBuilders.map{ try $0.construct() }
+    return try memoizedPackages.map { try $0.construct() }
 }
 
-private func emitDuplicateProductDiagnostic(
+func emitDuplicateProductDiagnostic(
     productName: String,
     packages: [Package],
     moduleAliasingUsed: Bool,
@@ -649,88 +672,9 @@ fileprivate struct Pair: Hashable {
     }
 }
 
-fileprivate extension Product {
+extension Product {
     var isDefaultLibrary: Bool {
         return type == .library(.automatic)
-    }
-}
-
-private class DuplicateProductsChecker {
-    var packageIDToBuilder = [PackageIdentity: ResolvedPackageBuilder]()
-    var checkedPkgIDs = [PackageIdentity]()
-
-    let moduleAliasingUsed: Bool
-    let observabilityScope: ObservabilityScope
-
-    init(packageBuilders: [ResolvedPackageBuilder], moduleAliasingUsed: Bool, observabilityScope: ObservabilityScope) {
-        for packageBuilder in packageBuilders {
-            let pkgID = packageBuilder.package.identity
-            self.packageIDToBuilder[pkgID] = packageBuilder
-        }
-        self.moduleAliasingUsed = moduleAliasingUsed
-        self.observabilityScope = observabilityScope
-    }
-
-    func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
-        var productToPkgMap = [String: Set<PackageIdentity>]()
-        for (pkgID, pkgBuilder) in packageIDToBuilder {
-            let useProductIDs = pkgBuilder.package.manifest.disambiguateByProductIDs || lookupByProductIDs
-            let depProductRefs = pkgBuilder.package.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.product}
-            for depRef in depProductRefs {
-                if let depPkg =  depRef.package.map(PackageIdentity.plain) {
-                    if !checkedPkgIDs.contains(depPkg) {
-                        checkedPkgIDs.append(depPkg)
-                    }
-                    let depProductIDs = packageIDToBuilder[depPkg]?.package.products.filter { $0.identity == depRef.identity }.map { useProductIDs && $0.isDefaultLibrary ? $0.identity : $0.name } ?? []
-                    for depID in depProductIDs {
-                        productToPkgMap[depID, default: .init()].insert(depPkg)
-                    }
-                } else {
-                    let depPkgs = pkgBuilder.dependencies.filter{ $0.products.contains{ $0.product.name == depRef.name }}.map{ $0.package.identity }
-                    productToPkgMap[depRef.name, default: .init()].formUnion(Set(depPkgs))
-                    checkedPkgIDs.append(contentsOf: depPkgs)
-                }
-                if !checkedPkgIDs.contains(pkgID) {
-                    checkedPkgIDs.append(pkgID)
-                }
-            }
-            for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
-                let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
-                throw emitDuplicateProductDiagnostic(
-                    productName: name.isEmpty ? depIDOrName : name,
-                    packages: depPkgs.compactMap{ packageIDToBuilder[$0]?.package },
-                    moduleAliasingUsed: self.moduleAliasingUsed,
-                    observabilityScope: self.observabilityScope
-                )
-            }
-        }
-
-        // Check packages that exist but are not in a dependency graph
-        let untrackedPkgs = packageIDToBuilder.filter{ !checkedPkgIDs.contains($0.key) }
-        for (pkgID, pkgBuilder) in untrackedPkgs {
-            for product in pkgBuilder.products {
-                // Check if checking product ID only is safe
-                let useIDOnly = lookupByProductIDs && product.product.isDefaultLibrary
-                if !useIDOnly {
-                    // This untracked pkg could have a product name conflicting with a
-                    // product name from another package, but since it's not depended on
-                    // by other packages, keep track of both this product's name and ID
-                    // just in case other packages are < .v5_8
-                    productToPkgMap[product.product.name, default: .init()].insert(pkgID)
-                }
-                productToPkgMap[product.product.identity, default: .init()].insert(pkgID)
-            }
-        }
-
-        let duplicates = productToPkgMap.filter{ $0.value.count > 1 }
-        for (productName, pkgs) in duplicates {
-            throw emitDuplicateProductDiagnostic(
-                productName: productName,
-                packages: pkgs.compactMap{ packageIDToBuilder[$0]?.package },
-                moduleAliasingUsed: self.moduleAliasingUsed,
-                observabilityScope: self.observabilityScope
-            )
-        }
     }
 }
 
@@ -758,10 +702,12 @@ private func computePlatforms(
 }
 
 // Track and override module aliases specified for targets in a package graph
-private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
-                                  observabilityScope: ObservabilityScope) throws -> Bool {
+private func resolveModuleAliases(
+    memoizedPackages: [MemoizedResolvedPackage],
+    observabilityScope: ObservabilityScope
+) throws -> Bool {
     // If there are no module aliases specified, return early
-    let hasAliases = packageBuilders.contains { $0.package.targets.contains {
+    let hasAliases = memoizedPackages.contains { $0.package.targets.contains {
             $0.dependencies.contains { dep in
                 if case let .product(prodRef, _) = dep {
                     return prodRef.moduleAliases != nil
@@ -773,16 +719,18 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
 
     guard hasAliases else { return false }
     let aliasTracker = ModuleAliasTracker()
-    for packageBuilder in packageBuilders {
-        try aliasTracker.addTargetAliases(targets: packageBuilder.package.targets,
-                                          package: packageBuilder.package.identity)
+    for memoizedPackage in memoizedPackages {
+        try aliasTracker.addTargetAliases(targets: memoizedPackage.package.targets,
+                                          package: memoizedPackage.package.identity)
     }
 
     // Track targets that need module aliases for each package
-    for packageBuilder in packageBuilders {
-        for product in packageBuilder.package.products {
-            aliasTracker.trackTargetsPerProduct(product: product,
-                                                package: packageBuilder.package.identity)
+    for memoizedPackage in memoizedPackages {
+        for product in memoizedPackage.package.products {
+            aliasTracker.trackTargetsPerProduct(
+                product: product,
+                package: memoizedPackage.package.identity
+            )
         }
     }
 
@@ -791,12 +739,14 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
 
     // Validate sources (Swift files only) for modules being aliased.
     // Needs to be done after `propagateAliases` since aliases defined
-    // upstream can be overriden.
-    for packageBuilder in packageBuilders {
-        for product in packageBuilder.package.products {
-            try aliasTracker.validateAndApplyAliases(product: product,
-                                                     package: packageBuilder.package.identity,
-                                                     observabilityScope: observabilityScope)
+    // upstream can be overridden.
+    for memoizedPackage in memoizedPackages {
+        for product in memoizedPackage.package.products {
+            try aliasTracker.validateAndApplyAliases(
+                product: product,
+                package: memoizedPackage.package.identity,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -806,201 +756,34 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
     return true
 }
 
-/// A generic builder for `Resolved` models.
-private class ResolvedBuilder<T> {
-    /// The constructed object, available after the first call to `construct()`.
-    private var _constructedObject: T?
-
-    /// Construct the object with the accumulated data.
-    ///
-    /// Note that once the object is constructed, future calls to
-    /// this method will return the same object.
-    final func construct() throws -> T {
-        if let _constructedObject {
-            return _constructedObject
-        }
-        let constructedObject = try self.constructImpl()
-        _constructedObject = constructedObject
-        return constructedObject
-    }
-
-    /// The object construction implementation.
-    func constructImpl() throws -> T {
-        fatalError("Should be implemented by subclasses")
-    }
-}
-
-/// Builder for resolved product.
-private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
-    /// The reference to its package.
-    unowned let packageBuilder: ResolvedPackageBuilder
-
-    /// The product reference.
-    let product: Product
-
-    /// The target builders in the product.
-    let targets: [ResolvedTargetBuilder]
-
-    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedTargetBuilder]) {
-        self.product = product
-        self.packageBuilder = packageBuilder
-        self.targets = targets
-    }
-
-    override func constructImpl() throws -> ResolvedProduct {
-        return ResolvedProduct(
-            product: product,
-            targets: try targets.map{ try $0.construct() }
-        )
-    }
-}
-
-/// Builder for resolved target.
-private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
-
-    /// Enumeration to represent target dependencies.
-    enum Dependency {
-
-        /// Dependency to another target, with conditions.
-        case target(_ target: ResolvedTargetBuilder, conditions: [PackageConditionProtocol])
-
-        /// Dependency to a product, with conditions.
-        case product(_ product: ResolvedProductBuilder, conditions: [PackageConditionProtocol])
-    }
-
-    /// The target reference.
-    let target: Target
-
-    /// DiagnosticsEmitter with which to emit diagnostics
-    let diagnosticsEmitter: DiagnosticsEmitter
-
-    /// The target dependencies of this target.
-    var dependencies: [Dependency] = []
-
-    /// The defaultLocalization for this package
-    var defaultLocalization: String? = nil
-
-    /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
-
-    init(
-        target: Target,
-        observabilityScope: ObservabilityScope
-    ) {
-        self.target = target
-        self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
-            var metadata = ObservabilityMetadata()
-            metadata.targetName = target.name
-            return metadata
-        }
-    }
-
-    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
-        // Diagnose if any target in this product uses an unsafe flag.
-        for target in try product.recursiveTargetDependencies() {
-            if target.underlyingTarget.usesUnsafeFlags {
-                self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
-            }
-        }
-    }
-
-    override func constructImpl() throws -> ResolvedTarget {
-        let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
-            switch dependency {
-            case .target(let targetBuilder, let conditions):
-                try self.target.validateDependency(target: targetBuilder.target)
-                return .target(try targetBuilder.construct(), conditions: conditions)
-            case .product(let productBuilder, let conditions):
-                try self.target.validateDependency(product: productBuilder.product, productPackage: productBuilder.packageBuilder.package.identity)
-                let product = try productBuilder.construct()
-                if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
-                    try self.diagnoseInvalidUseOfUnsafeFlags(product)
-                }
-                return .product(product, conditions: conditions)
-            }
-        }
-
-        return ResolvedTarget(
-            target: self.target,
-            dependencies: dependencies,
-            defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms
-        )
-    }
-}
-
 extension Target {
-
   func validateDependency(target: Target) throws {
     if self.type == .plugin && target.type == .library {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
-    }
-  }
-  func validateDependency(product: Product, productPackage: PackageIdentity) throws {
-    if self.type == .plugin && product.type.isLibrary {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
-    }
-  }
-}
-/// Builder for resolved package.
-private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
-
-    /// The package reference.
-    let package: Package
-
-    /// The product filter applied to the package.
-    let productFilter: ProductFilter
-
-    /// Package can vend unsafe products
-    let isAllowedToVendUnsafeProducts: Bool
-
-    /// Package can be overridden
-    let allowedToOverride: Bool
-
-    /// The targets in the package.
-    var targets: [ResolvedTargetBuilder] = []
-
-    /// The products in this package.
-    var products: [ResolvedProductBuilder] = []
-
-    /// The dependencies of this package.
-    var dependencies: [ResolvedPackageBuilder] = []
-
-    /// Map from package identity to the local name for target dependency resolution that has been given to that package through the dependency declaration.
-    var dependencyNamesForTargetDependencyResolutionOnly: [PackageIdentity: String] = [:]
-
-    /// The defaultLocalization for this package.
-    var defaultLocalization: String? = nil
-
-    /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
-
-    /// If the given package's source is a registry release, this provides additional metadata and signature information.
-    var registryMetadata: RegistryReleaseMetadata?
-
-    init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
-        self.package = package
-        self.productFilter = productFilter
-        self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
-        self.allowedToOverride = allowedToOverride
-    }
-
-    override func constructImpl() throws -> ResolvedPackage {
-        return ResolvedPackage(
-            package: self.package,
-            defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms,
-            dependencies: try self.dependencies.map{ try $0.construct() },
-            targets: try self.targets.map{ try $0.construct() },
-            products: try self.products.map{ try $0.construct() },
-            registryMetadata: self.registryMetadata
+        throw PackageGraphError.unsupportedPluginDependency(
+            targetName: self.name,
+            dependencyName: target.name,
+            dependencyType: target.type.rawValue,
+            dependencyPackage: nil
         )
     }
+  }
+
+  func validateDependency(product: Product, productPackage: PackageIdentity) throws {
+    if self.type == .plugin && product.type.isLibrary {
+        throw PackageGraphError.unsupportedPluginDependency(
+            targetName: self.name,
+            dependencyName: product.name,
+            dependencyType: product.type.description,
+            dependencyPackage: productPackage.description
+        )
+    }
+  }
 }
 
 /// Finds the first cycle encountered in a graph.
 ///
-/// This is different from the one in tools support core, in that it handles equality separately from node traversal. Nodes traverse product filters, but only the manifests must be equal for there to be a cycle.
+/// This is different from the one in tools support core, in that it handles equality separately from node traversal. 
+/// Nodes traverse product filters, but only the manifests must be equal for there to be a cycle.
 fileprivate func findCycle(
     _ nodes: [GraphLoadingNode],
     successors: (GraphLoadingNode) throws -> [GraphLoadingNode]

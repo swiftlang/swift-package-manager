@@ -19,6 +19,11 @@ add_library(PackageGraph
   PackageModel+Extensions.swift
   PackageRequirement.swift
   PinsStore.swift
+  Resolution/Memoization/DuplicateProductsChecker.swift
+  Resolution/Memoization/Memoized.swift
+  Resolution/Memoization/MemoizedResolvedPackage.swift
+  Resolution/Memoization/MemoizedResolvedProduct.swift
+  Resolution/Memoization/MemoizedResolvedTarget.swift
   Resolution/PubGrub/Assignment.swift
   Resolution/PubGrub/ContainerProvider.swift
   Resolution/PubGrub/DiagnosticReportBuilder.swift
