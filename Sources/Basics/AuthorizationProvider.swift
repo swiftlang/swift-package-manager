@@ -23,6 +23,7 @@ public protocol AuthorizationProvider {
 }
 
 public protocol AuthorizationWriter {
+    @available(*, noasync, message: "Use the async alternative")
     func addOrUpdate(
         for url: URL,
         user: String,
@@ -31,7 +32,32 @@ public protocol AuthorizationWriter {
         callback: @escaping (Result<Void, Error>) -> Void
     )
 
+    @available(*, noasync, message: "Use the async alternative")
     func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void)
+}
+
+public extension AuthorizationWriter {
+    func addOrUpdate(
+        for url: URL,
+        user: String,
+        password: String,
+        persist: Bool = true
+    ) async throws {
+        try await safe_async {
+            self.addOrUpdate(
+                for: url,
+                user: user,
+                password: password, 
+                persist: persist,
+                callback: $0)
+        }
+    }
+
+    func remove(for url: URL) async throws {
+        try await safe_async {
+            self.remove(for: url, callback: $0)
+        }
+    }
 }
 
 public enum AuthorizationProviderError: Error {

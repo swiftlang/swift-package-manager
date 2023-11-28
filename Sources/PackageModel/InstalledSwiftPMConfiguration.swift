@@ -25,7 +25,7 @@ public struct InstalledSwiftPMConfiguration: Codable {
         }
 
         public var description: String {
-            return "\(major).\(minor).\(patch).\(prereleaseIdentifier.map { "-\($0)" } ?? "")"
+            return "\(major).\(minor).\(patch)\(prereleaseIdentifier.map { "-\($0)" } ?? "")"
         }
     }
 

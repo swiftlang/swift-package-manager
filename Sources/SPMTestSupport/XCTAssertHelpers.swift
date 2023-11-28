@@ -49,6 +49,23 @@ public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) thro
     }
 }
 
+/// An `async`-friendly replacement for `XCTAssertThrowsError`.
+public func XCTAssertAsyncThrowsError<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ errorHandler: (_ error: any Error) -> Void = { _ in }
+) async {
+    do {
+        _ = try await expression()
+        XCTFail(message(), file: file, line: line)
+    } catch {
+        errorHandler(error)
+    }
+}
+
+
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
     configurations: Set<Configuration> = [.Debug, .Release],
@@ -131,6 +148,26 @@ public func XCTAssertEqual<T: CustomStringConvertible>(
         actual[identifier] = binding
     }
     XCTAssertEqual(actual, expected, file: file, line: line)
+}
+
+public func XCTAssertAsyncTrue(
+    _ expression: @autoclosure () async throws -> Bool,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async rethrows {
+    let result = try await expression()
+    XCTAssertTrue(result, message(), file: file, line: line)
+}
+
+public func XCTAssertAsyncFalse(
+    _ expression: @autoclosure () async throws -> Bool,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async rethrows {
+    let result = try await expression()
+    XCTAssertFalse(result, message(), file: file, line: line)
 }
 
 public func XCTAssertThrowsCommandExecutionError<T>(

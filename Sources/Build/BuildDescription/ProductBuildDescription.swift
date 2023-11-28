@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
 import OrderedCollections
@@ -366,6 +365,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         return flags
+    }
+
+    func codeSigningArguments(plistPath: AbsolutePath, binaryPath: AbsolutePath) -> [String] {
+        ["codesign", "--force", "--sign", "-", "--entitlements", plistPath.pathString, binaryPath.pathString]
     }
 }
 

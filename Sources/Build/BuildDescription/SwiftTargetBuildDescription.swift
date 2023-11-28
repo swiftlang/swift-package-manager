@@ -16,7 +16,12 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 import struct TSCBasic.ByteString
 
@@ -49,8 +54,6 @@ public final class SwiftTargetBuildDescription {
 
     /// These are the resource files derived from plugins.
     private var pluginDerivedResources: [Resource]
-
-    private let driverSupport = DriverSupport()
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -250,6 +253,7 @@ public final class SwiftTargetBuildDescription {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
+
         self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
@@ -262,13 +266,14 @@ public final class SwiftTargetBuildDescription {
         } else {
             self.testTargetRole = nil
         }
-        self.fileSystem = fileSystem
+
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.shouldGenerateTestObservation = shouldGenerateTestObservation
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
         (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
@@ -373,7 +378,7 @@ public final class SwiftTargetBuildDescription {
 
         let content =
             """
-            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") Foundation
+            import Foundation
 
             extension Foundation.Bundle {
                 static let module: Bundle = {
@@ -406,7 +411,7 @@ public final class SwiftTargetBuildDescription {
     private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
         let flag = "-package-name"
         if pkg.manifest.usePackageNameFlag,
-           driverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
+           DriverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
             if packageAccess {
                 let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
                 return [flag, pkgID]
@@ -434,7 +439,7 @@ public final class SwiftTargetBuildDescription {
         #endif
 
         // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, driverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
+        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, DriverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
             let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
             let pluginPathComponents = ["lib", "swift", "host", "plugins"]
 
@@ -584,6 +589,17 @@ public final class SwiftTargetBuildDescription {
 
         args += self.packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess)
         args += try self.macroArguments()
+        
+        // rdar://117578677
+        // Pass -fno-omit-frame-pointer to support backtraces
+        // this can be removed once the backtracer uses DWARF instead of frame pointers
+        if let omitFramePointers = self.buildParameters.debuggingParameters.omitFramePointers {
+            if omitFramePointers {
+                args += ["-Xcc", "-fomit-frame-pointer"]
+            } else {
+                args += ["-Xcc", "-fno-omit-frame-pointer"]
+            }
+        }
 
         return args
     }

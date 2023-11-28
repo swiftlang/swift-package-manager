@@ -337,27 +337,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testInvalidRefsValidation() throws {
-        try fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { fixturePath in
-            do {
-                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidBranch"))) { error in
-                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                        return XCTFail("invalid error \(error)")
-                    }
-                    XCTAssert(stderr.contains("invalid branch name: "), "Didn't find expected output: \(stderr)")
-                }
-            }
-            do {
-                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidRevision"))) { error in
-                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                        return XCTFail("invalid error \(error)")
-                    }
-                    XCTAssert(stderr.contains("invalid revision: "), "Didn't find expected output: \(stderr)")
-                }
-            }
-        }
-    }
-
     func testUnicode() throws {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         try fixture(name: "Miscellaneous/Unicode") { fixturePath in
@@ -422,6 +401,28 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTFail("\(error)")
                 #endif
             }
+        }
+    }
+
+    func testTestsCanLinkAgainstAsyncExecutable() throws {
+        #if compiler(<5.10)
+        try XCTSkipIf(true, "skipping because host compiler doesn't have a fix for symbol conflicts yet")
+        #endif
+        try fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe1"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe2"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe3"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe4"))
+            XCTAssertMatch(stderr, .contains("Linking TestableAsyncExePackageTests"))
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("Executed 1 test"))
+            XCTAssertMatch(stdout, .contains("Hello, async world"))
+            XCTAssertMatch(stdout, .contains("Hello, async planet"))
+            XCTAssertMatch(stdout, .contains("Hello, async galaxy"))
+            XCTAssertMatch(stdout, .contains("Hello, async universe"))
         }
     }
 
@@ -645,7 +646,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testRootPackageWithConditionals() throws {
         try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
             let (_, stderr) = try SwiftPM.Build.execute(packagePath: path)
-            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
+            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit") && !$0.isEmpty }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }
     }

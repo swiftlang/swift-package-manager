@@ -11,18 +11,34 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import DriverSupport
 import LLBuildManifest
 import PackageGraph
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
+#else
+import SwiftDriver
+#endif
 
 import struct TSCBasic.ByteString
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
+/// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
 public class LLBuildManifestBuilder {
+    enum Error: Swift.Error {
+        case ldPathDriverOptionUnavailable(option: String)
+
+        var description: String {
+            switch self {
+            case .ldPathDriverOptionUnavailable(let option):
+                return "Unable to pass \(option), currently used version of `swiftc` doesn't support it."
+            }
+        }
+    }
+
     public enum TargetKind {
         case main
         case test
@@ -42,12 +58,12 @@ public class LLBuildManifestBuilder {
     public let disableSandboxForPluginCommands: Bool
 
     /// File system reference.
-    let fileSystem: FileSystem
+    let fileSystem: any FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
     public let observabilityScope: ObservabilityScope
 
-    public internal(set) var manifest: BuildManifest = .init()
+    public internal(set) var manifest: LLBuildManifest = .init()
 
     var buildConfig: String { self.buildParameters.configuration.dirname }
     var buildParameters: BuildParameters { self.plan.buildParameters }
@@ -60,7 +76,7 @@ public class LLBuildManifestBuilder {
     public init(
         _ plan: BuildPlan,
         disableSandboxForPluginCommands: Bool = false,
-        fileSystem: FileSystem,
+        fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         self.plan = plan
@@ -73,7 +89,7 @@ public class LLBuildManifestBuilder {
 
     /// Generate manifest at the given path.
     @discardableResult
-    public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
+    public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
 
         self.manifest.createTarget(TargetKind.main.targetName)
@@ -109,7 +125,7 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        try ManifestWriter(fileSystem: self.fileSystem).write(self.manifest, at: path)
+        try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
         return self.manifest
     }
 

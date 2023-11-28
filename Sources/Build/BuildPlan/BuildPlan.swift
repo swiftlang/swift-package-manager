@@ -18,7 +18,12 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
+#else
+import SwiftDriver
+#endif
 
 import enum TSCBasic.ProcessEnv
 
@@ -369,7 +374,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Plan the derived test targets, if necessary.
         if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            let derivedTestTargets = try Self.makeDerivedTestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
+            let derivedTestTargets = try Self.makeDerivedTestTargets(
+                buildParameters,
+                graph,
+                self.fileSystem,
+                self.observabilityScope
+            )
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 

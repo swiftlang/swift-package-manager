@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import DriverSupport
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
@@ -31,7 +30,13 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
 @_implementationOnly import SwiftDriver
+#else
+import DriverSupport
+import SwiftDriver
+#endif
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
     /// The delegate used by the build system.
@@ -95,8 +100,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
-
-    private let driverSupport = DriverSupport()
 
     public init(
         buildParameters: BuildParameters,
@@ -164,7 +167,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
 
-    public func getBuildManifest() throws -> LLBuildManifest.BuildManifest {
+    public func getBuildManifest() throws -> LLBuildManifest {
         return try self.plan().manifest
     }
 
@@ -181,7 +184,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard driverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
+        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
             return
         }
 
@@ -418,7 +421,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest.BuildManifest) {
+    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
 
@@ -703,7 +706,7 @@ extension BuildOperation {
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest.BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)

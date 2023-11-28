@@ -13,7 +13,6 @@
 import ArgumentParser
 import Basics
 import Dispatch
-@_implementationOnly import DriverSupport
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
@@ -21,6 +20,12 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import Workspace
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 #if canImport(WinSDK)
 import WinSDK
@@ -247,8 +252,6 @@ public final class SwiftTool {
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
-
-    private let driverSupport = DriverSupport()
 
     /// Create an instance of this tool.
     ///
@@ -638,6 +641,7 @@ public final class SwiftTool {
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
+        shouldLinkStaticSwiftStdlib: Bool = false,
         customBuildParameters: BuildParameters? = .none,
         customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
         customOutputStream: OutputByteStream? = .none,
@@ -647,6 +651,9 @@ public final class SwiftTool {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
+
+        var buildParameters = try customBuildParameters ?? self.buildParameters()
+        buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
         let buildSystem = try buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
@@ -664,6 +671,11 @@ public final class SwiftTool {
         return buildSystem
     }
 
+    static let entitlementsMacOSWarning = """
+    `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
+    when building on macOS.
+    """
+
     private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
         let hostTriple = try self.getHostToolchain().targetTriple
         let targetTriple = toolchain.targetTriple
@@ -671,6 +683,10 @@ public final class SwiftTool {
         let dataPath = self.scratchDirectory.appending(
             component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
         )
+
+        if options.build.getTaskAllowEntitlement != nil && !targetTriple.isMacOSX {
+            observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
+        }
 
         return try BuildParameters(
             dataPath: dataPath,
@@ -685,9 +701,15 @@ public final class SwiftTool {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+            debuggingParameters: .init(
+                debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+                targetTriple: targetTriple,
+                shouldEnableDebuggingEntitlement:
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
+                omitFramePointers: options.build.omitFramePointers
+            ),
             driverParameters: .init(
-                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"],
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
@@ -700,8 +722,7 @@ public final class SwiftTool {
             linkingParameters: .init(
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
-                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib
+                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
                 isVerbose: self.logLevel <= .info
@@ -787,6 +808,16 @@ public final class SwiftTool {
             swiftSDK.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
+            if !self.fileSystem.exists(binDir) {
+                self.observabilityScope.emit(
+                    warning: """
+                        Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
+                            binDir
+                        )`
+                        """
+                )
+            }
+
             swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
@@ -829,11 +860,11 @@ public final class SwiftTool {
 
             var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
             // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
-            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
             }
 

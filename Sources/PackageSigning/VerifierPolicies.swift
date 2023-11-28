@@ -16,8 +16,14 @@ import struct Foundation.Date
 import struct Foundation.URL
 
 import Basics
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftASN1
 @_implementationOnly @_spi(DisableValidityCheck) import X509
+#else
+import SwiftASN1
+@_spi(DisableValidityCheck) import X509
+#endif
 
 extension SignatureProviderProtocol {
     @PolicyBuilder

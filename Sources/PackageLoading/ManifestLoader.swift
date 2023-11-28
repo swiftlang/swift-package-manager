@@ -13,7 +13,7 @@
 import _Concurrency
 import Basics
 import Dispatch
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import class TSCBasic.BufferedOutputByteStream
@@ -404,6 +404,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
         packageLocation: String,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
@@ -448,6 +449,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             v4: manifestJSON,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
+            packagePath: packagePath,
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem
@@ -526,6 +528,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     evaluationResult,
                     packageIdentity: packageIdentity,
                     packageKind: packageKind,
+                    packagePath: path.parentDirectory,
                     packageLocation: packageLocation,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
@@ -562,7 +565,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let parsedManifest = try self.parseManifest(
             evaluationResult,
             packageIdentity: packageIdentity,
-            packageKind: packageKind,
+            packageKind: packageKind, 
+            packagePath: path.parentDirectory,
             packageLocation: packageLocation,
             toolsVersion: toolsVersion,
             identityResolver: identityResolver,

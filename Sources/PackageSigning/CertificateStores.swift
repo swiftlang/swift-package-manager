@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import X509
+#else
+import X509
+#endif
 
 enum Certificates {
     static let appleRootsRaw = [

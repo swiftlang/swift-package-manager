@@ -145,6 +145,11 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
+        /// Path to the shared repositories cache.
+        public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
         /// Create a new workspace location.
         ///
         /// - Parameters:
@@ -179,14 +184,14 @@ extension Workspace {
         /// - Parameters:
         ///   - rootPath: Path to the root of the package, from which other locations can be derived.
         public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) throws {
-            self.init(
+            try self.init(
                 scratchDirectory: DefaultLocations.scratchDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
-                sharedConfigurationDirectory: try fileSystem.swiftPMConfigurationDirectory,
-                sharedSecurityDirectory: try fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: try fileSystem.swiftPMCacheDirectory
+                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory
             )
         }
     }
@@ -208,7 +213,7 @@ extension Workspace {
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending(Self.resolvedFileName)
+            rootPath.appending(self.resolvedFileName)
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -300,7 +305,7 @@ extension Workspace.Configuration {
                 guard fileSystem.exists(path) else {
                     throw StringError("Did not find netrc file at \(path).")
                 }
-                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+                try providers.append(NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 // user .netrc file (most typical)
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
@@ -360,7 +365,7 @@ extension Workspace.Configuration {
                 guard fileSystem.exists(path) else {
                     throw StringError("did not find netrc file at \(path)")
                 }
-                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+                try providers.append(NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
                 // Add user .netrc file unless we don't have access
@@ -523,7 +528,7 @@ extension Workspace.Configuration {
                 return try DependencyMirrors()
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
-                return try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                try DependencyMirrors(Self.load(self.path, fileSystem: self.fileSystem))
             }
         }
 
@@ -534,7 +539,7 @@ extension Workspace.Configuration {
                 try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
             return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
-                let mirrors = try DependencyMirrors(try Self.load(self.path, fileSystem: self.fileSystem))
+                let mirrors = try DependencyMirrors(Self.load(self.path, fileSystem: self.fileSystem))
                 var updatedMirrors = try DependencyMirrors(mirrors.mapping)
                 try handler(&updatedMirrors)
                 if updatedMirrors != mirrors {
