@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A generic builder for `Resolved` models.
+/// A generic memoization container for `Resolved` models.
 class Memoized<T> {
     /// The constructed object, available after the first call to `construct()`.
     private var _constructedObject: T?

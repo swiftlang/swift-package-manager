@@ -12,7 +12,7 @@
 
 import class PackageModel.Product
 
-/// Builder for resolved product.
+/// Memoization container for resolved products.
 final class MemoizedResolvedProduct: Memoized<ResolvedProduct> {
     /// The reference to its package.
     unowned let memoizedPackage: MemoizedResolvedPackage
@@ -20,7 +20,7 @@ final class MemoizedResolvedProduct: Memoized<ResolvedProduct> {
     /// The product reference.
     let product: Product
 
-    /// The target builders in the product.
+    /// The memoized resolved targets in the product.
     let targets: [MemoizedResolvedTarget]
 
     init(product: Product, memoizedPackage: MemoizedResolvedPackage, targets: [MemoizedResolvedTarget]) {

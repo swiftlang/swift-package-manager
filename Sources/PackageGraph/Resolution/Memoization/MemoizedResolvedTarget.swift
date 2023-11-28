@@ -67,16 +67,16 @@ final class MemoizedResolvedTarget: Memoized<ResolvedTarget> {
     override func constructImpl() throws -> ResolvedTarget {
         let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
-            case .target(let targetBuilder, let conditions):
-                try self.target.validateDependency(target: targetBuilder.target)
-                return try .target(targetBuilder.construct(), conditions: conditions)
-            case .product(let productBuilder, let conditions):
+            case .target(let memoizedTargetDependency, let conditions):
+                try self.target.validateDependency(target: memoizedTargetDependency.target)
+                return try .target(memoizedTargetDependency.construct(), conditions: conditions)
+            case .product(let memoizedProductDependency, let conditions):
                 try self.target.validateDependency(
-                    product: productBuilder.product,
-                    productPackage: productBuilder.memoizedPackage.package.identity
+                    product: memoizedProductDependency.product,
+                    productPackage: memoizedProductDependency.memoizedPackage.package.identity
                 )
-                let product = try productBuilder.construct()
-                if !productBuilder.memoizedPackage.isAllowedToVendUnsafeProducts {
+                let product = try memoizedProductDependency.construct()
+                if !memoizedProductDependency.memoizedPackage.isAllowedToVendUnsafeProducts {
                     try self.diagnoseInvalidUseOfUnsafeFlags(product)
                 }
                 return .product(product, conditions: conditions)
