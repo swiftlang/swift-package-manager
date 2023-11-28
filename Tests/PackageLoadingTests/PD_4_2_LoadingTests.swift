@@ -602,8 +602,8 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     // run this with TSAN/ASAN to detect concurrency issues
-    func testConcurrencyWithWarmup() throws {
-        try testWithTemporaryDirectory { path in
+    func testConcurrencyWithWarmup() async throws {
+        try await testWithTemporaryDirectory { path in
             let total = 1000
             let manifestPath = path.appending(components: "pkg", "Package.swift")
             try localFileSystem.createDirectory(manifestPath.parentDirectory)
@@ -629,32 +629,26 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             // warm up caches
-            let manifest = try temp_await {
-                manifestLoader.load(
-                    manifestPath: manifestPath,
-                    manifestToolsVersion: .v4_2,
-                    packageIdentity: .plain("Trivial"),
-                    packageKind: .fileSystem(manifestPath.parentDirectory),
-                    packageLocation: manifestPath.pathString,
-                    packageVersion: nil,
-                    identityResolver: identityResolver,
-                    dependencyMapper: dependencyMapper,
-                    fileSystem: localFileSystem,
-                    observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            let manifest = try await manifestLoader.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: .v4_2,
+                packageIdentity: .plain("Trivial"),
+                packageKind: .fileSystem(manifestPath.parentDirectory),
+                packageLocation: manifestPath.pathString,
+                packageVersion: nil,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope,
+                delegateQueue: .sharedConcurrent
+            )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
 
-            let sync = DispatchGroup()
             for _ in 0 ..< total {
-                sync.enter()
-                manifestLoader.load(
+                let manifest = try await manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: .v4_2,
                     packageIdentity: .plain("Trivial"),
@@ -665,36 +659,22 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent
-                ) { result in
-                    defer {
-                        sync.leave()
-                    }
+                    delegateQueue: .sharedConcurrent
+                )
 
-                    switch result {
-                    case .failure(let error):
-                        XCTFail("\(error)")
-                    case .success(let manifest):
-                        XCTAssertNoDiagnostics(observability.diagnostics)
-                        XCTAssertEqual(manifest.displayName, "Trivial")
-                        XCTAssertEqual(manifest.targets[0].name, "foo")
-                    }
-                }
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertEqual(manifest.displayName, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            if case .timedOut = sync.wait(timeout: .now() + 30) {
-                XCTFail("timeout")
-            }
-
-            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total+1)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total+1)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
     }
 
     // run this with TSAN/ASAN to detect concurrency issues
-    func testConcurrencyNoWarmUp() throws {
+    func testConcurrencyNoWarmUp() async throws {
 #if os(Windows)
         // FIXME: does this actually trigger only on Windows or are other
         // platforms just getting lucky?  I'm feeling lucky.
@@ -702,7 +682,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 #else
         try XCTSkipIfCI()
 
-        try testWithTemporaryDirectory { path in
+        try await testWithTemporaryDirectory { path in
             let total = 100
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
@@ -710,7 +690,6 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
-            let sync = DispatchGroup()
             for _ in 0 ..< total {
                 let random = Int.random(in: 0 ... total / 4)
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
@@ -732,8 +711,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     )
                 }
 
-                sync.enter()
-                manifestLoader.load(
+                let manifest = try await manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: .v4_2,
                     packageIdentity: .plain("Trivial-\(random)"),
@@ -744,28 +722,14 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent
-                ) { result in
-                    defer {
-                        sync.leave()
-                    }
+                    delegateQueue: .sharedConcurrent
+                )
 
-                    switch result {
-                    case .failure(let error):
-                        XCTFail("\(error)")
-                    case .success(let manifest):
-                        XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
-                        XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
-                    }
-                }
+                XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
+                XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
             }
 
-            if case .timedOut = sync.wait(timeout: .now() + 60) {
-                XCTFail("timeout")
-            }
-
-            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }

@@ -124,16 +124,6 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
 final class ManifestTestDelegate: ManifestLoaderDelegate {
     private let loaded = ThreadSafeArrayStore<AbsolutePath>()
     private let parsed = ThreadSafeArrayStore<AbsolutePath>()
-    private let loadingGroup = DispatchGroup()
-    private let parsingGroup = DispatchGroup()
-
-    @available(*, noasync, message: "No need to call this method from async code")
-    func prepare(expectParsing: Bool = true) {
-        self.loadingGroup.enter()
-        if expectParsing {
-            self.parsingGroup.enter()
-        }
-    }
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
         // noop
@@ -172,28 +162,12 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
         self.parsed.clear()
     }
 
-    @available(*, noasync, message: "Use the async alternative")
-    func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
-        guard case .success = self.loadingGroup.wait(timeout: timeout) else {
-            throw StringError("timeout waiting for loading")
-        }
-        return self.loaded.get()
-    }
-
-    @available(*, noasync, message: "Use the async alternative")
-    func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
-        guard case .success = self.parsingGroup.wait(timeout: timeout) else {
-            throw StringError("timeout waiting for parsing")
-        }
-        return self.parsed.get()
-    }
-
-    func loaded(timeout: ContinuousClock.Instant.Duration) async throws -> [AbsolutePath] {
+    func loaded(timeout: Duration) async throws -> [AbsolutePath] {
         try await Task.sleep(for: timeout)
         return self.loaded.get()
     }
 
-    func parsed(timeout: ContinuousClock.Instant.Duration) async throws -> [AbsolutePath] {
+    func parsed(timeout: Duration) async throws -> [AbsolutePath] {
         try await Task.sleep(for: timeout)
         return self.parsed.get()
     }
