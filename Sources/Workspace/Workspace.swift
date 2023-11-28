@@ -950,6 +950,7 @@ extension Workspace {
     }
 
     /// Loads and returns manifests at the given paths.
+    @available(*, noasync, message: "Use the async alternative")
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope,
@@ -1123,9 +1124,20 @@ extension Workspace {
         }
         return importList
     }
+    
+    public func loadPackage(
+        with identity: PackageIdentity,
+        packageGraph: PackageGraph,
+        observabilityScope: ObservabilityScope
+    ) async throws -> Package {
+        try await safe_async {
+            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0)
+        }
+    }
 
     /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading
     /// in a longer-lived program, like an IDE.
+    @available(*, noasync, message: "Use the async alternative")
     public func loadPackage(
         with identity: PackageIdentity,
         packageGraph: PackageGraph,
