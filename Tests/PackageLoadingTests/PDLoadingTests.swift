@@ -66,8 +66,8 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
-        try Self.loadAndValidateManifest(
+    ) async throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
+        try await Self.loadAndValidateManifest(
             content,
             toolsVersion: toolsVersion ?? self.toolsVersion,
             packageKind: packageKind ?? .fileSystem(.root),
@@ -86,7 +86,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
+    ) async throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
         let packagePath: AbsolutePath
         switch packageKind {
         case .root(let path):
@@ -103,7 +103,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, string: content)
-        let manifest = try manifestLoader.load(
+        let manifest = try await manifestLoader.load(
             manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,
@@ -127,6 +127,7 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
     private let loadingGroup = DispatchGroup()
     private let parsingGroup = DispatchGroup()
 
+    @available(*, noasync, message: "No need to call this method from async code")
     func prepare(expectParsing: Bool = true) {
         self.loadingGroup.enter()
         if expectParsing {
@@ -140,7 +141,6 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
 
     func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
         self.loaded.append(manifestPath)
-        self.loadingGroup.leave()
     }
 
     func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
@@ -165,15 +165,14 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
 
     func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
         self.parsed.append(manifestPath)
-        self.parsingGroup.leave()
     }
-
 
     func clear() {
         self.loaded.clear()
         self.parsed.clear()
     }
 
+    @available(*, noasync, message: "Use the async alternative")
     func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
         guard case .success = self.loadingGroup.wait(timeout: timeout) else {
             throw StringError("timeout waiting for loading")
@@ -181,10 +180,21 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
         return self.loaded.get()
     }
 
+    @available(*, noasync, message: "Use the async alternative")
     func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
         guard case .success = self.parsingGroup.wait(timeout: timeout) else {
             throw StringError("timeout waiting for parsing")
         }
+        return self.parsed.get()
+    }
+
+    func loaded(timeout: ContinuousClock.Instant.Duration) async throws -> [AbsolutePath] {
+        try await Task.sleep(for: timeout)
+        return self.loaded.get()
+    }
+
+    func parsed(timeout: ContinuousClock.Instant.Duration) async throws -> [AbsolutePath] {
+        try await Task.sleep(for: timeout)
         return self.parsed.get()
     }
 }

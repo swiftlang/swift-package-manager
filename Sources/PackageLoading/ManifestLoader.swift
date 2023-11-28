@@ -300,6 +300,103 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue
+    ) async throws -> Manifest {
+        // Inform the delegate.
+        let start = DispatchTime.now()
+        delegateQueue.async {
+            self.delegate?.willLoad(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestPath: manifestPath
+            )
+        }
+
+        // Validate that the file exists.
+        guard fileSystem.isFile(manifestPath) else {
+            throw PackageModel.Package.Error.noManifest(at: manifestPath, version: packageVersion?.version)
+        }
+
+        let parsedManifest = try await self.loadAndCacheManifest(
+            at: manifestPath,
+            toolsVersion: manifestToolsVersion,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: packageVersion?.version,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            delegate: delegate,
+            delegateQueue: delegateQueue
+        )
+
+        // Convert legacy system packages to the current target‐based model.
+        var products = parsedManifest.products
+        var targets = parsedManifest.targets
+        if products.isEmpty, targets.isEmpty,
+           fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
+            try products.append(ProductDescription(
+                name: parsedManifest.name,
+                type: .library(.automatic),
+                targets: [parsedManifest.name])
+            )
+            targets.append(try TargetDescription(
+                name: parsedManifest.name,
+                path: "",
+                type: .system,
+                packageAccess: false,
+                pkgConfig: parsedManifest.pkgConfig,
+                providers: parsedManifest.providers
+            ))
+        }
+
+        let manifest = Manifest(
+            displayName: parsedManifest.name,
+            path: manifestPath,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            defaultLocalization: parsedManifest.defaultLocalization,
+            platforms: parsedManifest.platforms,
+            version: packageVersion?.version,
+            revision: packageVersion?.revision,
+            toolsVersion: manifestToolsVersion,
+            pkgConfig: parsedManifest.pkgConfig,
+            providers: parsedManifest.providers,
+            cLanguageStandard: parsedManifest.cLanguageStandard,
+            cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
+            swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
+            dependencies: parsedManifest.dependencies,
+            products: products,
+            targets: targets
+        )
+
+        // Inform the delegate.
+        delegateQueue.async {
+            self.delegate?.didLoad(
+                packageIdentity: packageIdentity,
+                packageLocation: packageLocation,
+                manifestPath: manifestPath,
+                duration: start.distance(to: .now())
+            )
+        }
+
+        return manifest
+    }
+
+    @available(*, noasync, message: "Use the async alternative")
+    public func load(
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
