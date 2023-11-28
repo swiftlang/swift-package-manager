@@ -219,10 +219,10 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestParseError() throws {
+    func testManifestParseError() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
-        try testWithTemporaryDirectory { path in
+        try await testWithTemporaryDirectory { path in
             let pkgDir = path.appending("MyPkg")
             try localFileSystem.createDirectory(pkgDir)
             try localFileSystem.writeFileContents(
@@ -243,13 +243,10 @@ final class WorkspaceTests: XCTestCase {
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
 
             XCTAssert(rootManifests.count == 0, "\(rootManifests)")
 
@@ -5265,8 +5262,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     // This verifies that the simplest possible loading APIs are available for package clients.
-    func testSimpleAPI() throws {
-        try testWithTemporaryDirectory { path in
+    func testSimpleAPI() async throws {
+        try await testWithTemporaryDirectory { path in
             // Create a temporary package as a test case.
             let packagePath = path.appending("MyPkg")
             let initPackage = try InitPackage(
@@ -5285,23 +5282,17 @@ final class WorkspaceTests: XCTestCase {
             )
 
             // From here the API should be simple and straightforward:
-            let manifest = try temp_await {
-                workspace.loadRootManifest(
-                    at: packagePath,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let manifest = try await workspace.loadRootManifest(
+                at: packagePath,
+                observabilityScope: observability.topScope
+            )
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
-            let package = try temp_await {
-                workspace.loadRootPackage(
-                    at: packagePath,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let package = try await workspace.loadRootPackage(
+                at: packagePath,
+                observabilityScope: observability.topScope
+            )
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
@@ -5316,14 +5307,11 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(package.identity, .plain(manifest.displayName))
             XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
 
-            let reloadedPackage = try temp_await {
-                workspace.loadPackage(
-                    with: package.identity,
-                    packageGraph: graph,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let reloadedPackage = try await workspace.loadPackage(
+                with: package.identity,
+                packageGraph: graph,
+                observabilityScope: observability.topScope
+            )
 
             XCTAssertEqual(package.identity, reloadedPackage.identity)
             XCTAssertEqual(package.manifest.displayName, reloadedPackage.manifest.displayName)
@@ -9011,7 +8999,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLoadRootPackageWithBinaryDependencies() throws {
+    func testLoadRootPackageWithBinaryDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9048,13 +9036,10 @@ final class WorkspaceTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let wks = try workspace.getOrCreateWorkspace()
-        XCTAssertNoThrow(try temp_await {
-            wks.loadRootPackage(
-                at: workspace.rootsDir.appending("Root"),
-                observabilityScope: observability.topScope,
-                completion: $0
-            )
-        })
+        _ = try await wks.loadRootPackage(
+            at: workspace.rootsDir.appending("Root"),
+            observabilityScope: observability.topScope
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
