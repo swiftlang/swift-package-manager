@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A generic memoization container for `Resolved` models.
-class Memoized<T> {
+/// A generic caching container for `Resolved` models.
+class Cacheable<T> {
     /// The constructed object, available after the first call to `construct()`.
     private var _constructedObject: T?
 

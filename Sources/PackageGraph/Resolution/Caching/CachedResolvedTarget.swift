@@ -17,15 +17,15 @@ import protocol PackageModel.PackageConditionProtocol
 import struct PackageModel.SupportedPlatforms
 import class PackageModel.Target
 
-/// Memoization container for resolved targets.
-final class MemoizedResolvedTarget: Memoized<ResolvedTarget> {
+/// Caching container for resolved targets.
+final class CachedResolvedTarget: Cacheable<ResolvedTarget> {
     /// Enumeration to represent target dependencies.
     enum Dependency {
         /// Dependency to another target, with conditions.
-        case target(_ target: MemoizedResolvedTarget, conditions: [PackageConditionProtocol])
+        case target(_ target: CachedResolvedTarget, conditions: [PackageConditionProtocol])
 
         /// Dependency to a product, with conditions.
-        case product(_ product: MemoizedResolvedProduct, conditions: [PackageConditionProtocol])
+        case product(_ product: CachedResolvedProduct, conditions: [PackageConditionProtocol])
     }
 
     /// The target reference.
@@ -67,16 +67,16 @@ final class MemoizedResolvedTarget: Memoized<ResolvedTarget> {
     override func constructImpl() throws -> ResolvedTarget {
         let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
-            case .target(let memoizedTargetDependency, let conditions):
-                try self.target.validateDependency(target: memoizedTargetDependency.target)
-                return try .target(memoizedTargetDependency.construct(), conditions: conditions)
-            case .product(let memoizedProductDependency, let conditions):
+            case .target(let cachedTargetDependency, let conditions):
+                try self.target.validateDependency(target: cachedTargetDependency.target)
+                return try .target(cachedTargetDependency.construct(), conditions: conditions)
+            case .product(let cachedProductDependency, let conditions):
                 try self.target.validateDependency(
-                    product: memoizedProductDependency.product,
-                    productPackage: memoizedProductDependency.memoizedPackage.package.identity
+                    product: cachedProductDependency.product,
+                    productPackage: cachedProductDependency.cachedPackage.package.identity
                 )
-                let product = try memoizedProductDependency.construct()
-                if !memoizedProductDependency.memoizedPackage.isAllowedToVendUnsafeProducts {
+                let product = try cachedProductDependency.construct()
+                if !cachedProductDependency.cachedPackage.isAllowedToVendUnsafeProducts {
                     try self.diagnoseInvalidUseOfUnsafeFlags(product)
                 }
                 return .product(product, conditions: conditions)

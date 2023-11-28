@@ -12,20 +12,20 @@
 
 import class PackageModel.Product
 
-/// Memoization container for resolved products.
-final class MemoizedResolvedProduct: Memoized<ResolvedProduct> {
+/// Caching container for resolved products.
+final class CachedResolvedProduct: Cacheable<ResolvedProduct> {
     /// The reference to its package.
-    unowned let memoizedPackage: MemoizedResolvedPackage
+    unowned let cachedPackage: CachedResolvedPackage
 
     /// The product reference.
     let product: Product
 
-    /// The memoized resolved targets in the product.
-    let targets: [MemoizedResolvedTarget]
+    /// Cached resolved targets in the product.
+    let targets: [CachedResolvedTarget]
 
-    init(product: Product, memoizedPackage: MemoizedResolvedPackage, targets: [MemoizedResolvedTarget]) {
+    init(product: Product, cachedPackage: CachedResolvedPackage, targets: [CachedResolvedTarget]) {
         self.product = product
-        self.memoizedPackage = memoizedPackage
+        self.cachedPackage = cachedPackage
         self.targets = targets
     }
 

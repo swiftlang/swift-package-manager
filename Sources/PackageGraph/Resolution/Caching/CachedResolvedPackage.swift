@@ -16,8 +16,8 @@ import enum PackageModel.ProductFilter
 import struct PackageModel.RegistryReleaseMetadata
 import struct PackageModel.SupportedPlatforms
 
-/// Memoization container for resolved packages.
-final class MemoizedResolvedPackage: Memoized<ResolvedPackage> {
+/// Caching container for resolved packages.
+final class CachedResolvedPackage: Cacheable<ResolvedPackage> {
     /// The package reference.
     let package: Package
 
@@ -31,13 +31,13 @@ final class MemoizedResolvedPackage: Memoized<ResolvedPackage> {
     let allowedToOverride: Bool
 
     /// The targets in the package.
-    var targets: [MemoizedResolvedTarget] = []
+    var targets: [CachedResolvedTarget] = []
 
     /// The products in this package.
-    var products: [MemoizedResolvedProduct] = []
+    var products: [CachedResolvedProduct] = []
 
     /// The dependencies of this package.
-    var dependencies: [MemoizedResolvedPackage] = []
+    var dependencies: [CachedResolvedPackage] = []
 
     /// Map from package identity to the local name for target dependency resolution that has been given to that package
     /// through the dependency declaration.

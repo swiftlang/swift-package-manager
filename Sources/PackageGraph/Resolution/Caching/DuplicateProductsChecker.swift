@@ -14,16 +14,16 @@ import class Basics.ObservabilityScope
 import struct PackageModel.PackageIdentity
 
 struct DuplicateProductsChecker {
-    private var packageIDToMemoizedPackage = [PackageIdentity: MemoizedResolvedPackage]()
+    private var packageIDToCachedPackage = [PackageIdentity: CachedResolvedPackage]()
     private var checkedPkgIDs = [PackageIdentity]()
 
     private let moduleAliasingUsed: Bool
     private let observabilityScope: ObservabilityScope
 
-    init(memoizedPackages: [MemoizedResolvedPackage], moduleAliasingUsed: Bool, observabilityScope: ObservabilityScope) {
-        for memoizedPackage in memoizedPackages {
-            let pkgID = memoizedPackage.package.identity
-            self.packageIDToMemoizedPackage[pkgID] = memoizedPackage
+    init(cachedPackages: [CachedResolvedPackage], moduleAliasingUsed: Bool, observabilityScope: ObservabilityScope) {
+        for cachedPackage in cachedPackages {
+            let pkgID = cachedPackage.package.identity
+            self.packageIDToCachedPackage[pkgID] = cachedPackage
         }
         self.moduleAliasingUsed = moduleAliasingUsed
         self.observabilityScope = observabilityScope
@@ -31,22 +31,22 @@ struct DuplicateProductsChecker {
 
     mutating func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
         var productToPkgMap = [String: Set<PackageIdentity>]()
-        for (pkgID, memoizedPackage) in self.packageIDToMemoizedPackage {
-            let useProductIDs = memoizedPackage.package.manifest.disambiguateByProductIDs || lookupByProductIDs
-            let depProductRefs = memoizedPackage.package.targets.map(\.dependencies).flatMap { $0 }.compactMap(\.product)
+        for (pkgID, cachedPackage) in self.packageIDToCachedPackage {
+            let useProductIDs = cachedPackage.package.manifest.disambiguateByProductIDs || lookupByProductIDs
+            let depProductRefs = cachedPackage.package.targets.map(\.dependencies).flatMap { $0 }.compactMap(\.product)
             for depRef in depProductRefs {
                 if let depPkg = depRef.package.map(PackageIdentity.plain) {
                     if !self.checkedPkgIDs.contains(depPkg) {
                         self.checkedPkgIDs.append(depPkg)
                     }
-                    let depProductIDs = self.packageIDToMemoizedPackage[depPkg]?.package.products
+                    let depProductIDs = self.packageIDToCachedPackage[depPkg]?.package.products
                         .filter { $0.identity == depRef.identity }
                         .map { useProductIDs && $0.isDefaultLibrary ? $0.identity : $0.name } ?? []
                     for depID in depProductIDs {
                         productToPkgMap[depID, default: .init()].insert(depPkg)
                     }
                 } else {
-                    let depPkgs = memoizedPackage.dependencies
+                    let depPkgs = cachedPackage.dependencies
                         .filter { $0.products.contains { $0.product.name == depRef.name }}
                         .map(\.package.identity)
                     productToPkgMap[depRef.name, default: .init()].formUnion(Set(depPkgs))
@@ -60,7 +60,7 @@ struct DuplicateProductsChecker {
                 let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
                 throw emitDuplicateProductDiagnostic(
                     productName: name.isEmpty ? depIDOrName : name,
-                    packages: depPkgs.compactMap { self.packageIDToMemoizedPackage[$0]?.package },
+                    packages: depPkgs.compactMap { self.packageIDToCachedPackage[$0]?.package },
                     moduleAliasingUsed: self.moduleAliasingUsed,
                     observabilityScope: self.observabilityScope
                 )
@@ -68,9 +68,9 @@ struct DuplicateProductsChecker {
         }
 
         // Check packages that exist but are not in a dependency graph
-        let untrackedPkgs = self.packageIDToMemoizedPackage.filter { !self.checkedPkgIDs.contains($0.key) }
-        for (pkgID, memoizedPackage) in untrackedPkgs {
-            for product in memoizedPackage.products {
+        let untrackedPkgs = self.packageIDToCachedPackage.filter { !self.checkedPkgIDs.contains($0.key) }
+        for (pkgID, cachedPackage) in untrackedPkgs {
+            for product in cachedPackage.products {
                 // Check if checking product ID only is safe
                 let useIDOnly = lookupByProductIDs && product.product.isDefaultLibrary
                 if !useIDOnly {
@@ -88,7 +88,7 @@ struct DuplicateProductsChecker {
         for (productName, pkgs) in duplicates {
             throw emitDuplicateProductDiagnostic(
                 productName: productName,
-                packages: pkgs.compactMap { self.packageIDToMemoizedPackage[$0]?.package },
+                packages: pkgs.compactMap { self.packageIDToCachedPackage[$0]?.package },
                 moduleAliasingUsed: self.moduleAliasingUsed,
                 observabilityScope: self.observabilityScope
             )
