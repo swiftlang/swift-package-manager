@@ -946,13 +946,10 @@ final class PackageToolTests: CommandsTestCase {
     func testPinning() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
-            func build() throws -> String {
-                return try SwiftPM.Build.execute(packagePath: fooPath).stdout
-            }
             let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // Build and check.
-            _ = try build()
+            _ = try SwiftPM.Build.execute(packagePath: fooPath)
             XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to bar checkout.
