@@ -650,7 +650,7 @@ extension SwiftTestTool {
             let ranSuccessfully = runner.test(outputHandler: {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
-                print($0)
+                print($0, terminator: "")
             })
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
