@@ -219,13 +219,13 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             stream.send(
                 #"""
                 #if canImport(Testing)
-                @_spi(SwiftPackageManagerSupport) import Testing
+                import Testing
                 #endif
 
                 @main struct Runner {
                     static func main() async {
                 #if canImport(Testing)
-                        await Testing.swiftPMEntryPoint() as Never
+                        await Testing.__swiftPMEntryPoint() as Never
                 #endif
                     }
                 }
