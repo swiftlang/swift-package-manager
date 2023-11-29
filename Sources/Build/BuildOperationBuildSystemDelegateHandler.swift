@@ -790,10 +790,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.async {
             if let buffer = self.nonSwiftMessageBuffers[command.name] {
                 self.progressAnimation.clear()
-                if self.logLevel.isVerbose {
-                    self.outputStream.send(buffer)
-                    self.outputStream.flush()
-                }
+                self.outputStream.send(buffer)
+                self.outputStream.flush()
                 self.nonSwiftMessageBuffers[command.name] = nil
             }
         }
