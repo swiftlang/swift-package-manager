@@ -71,20 +71,37 @@ public struct PackageIndexAndCollections: Closable {
     
     // MARK: - Package collection specific APIs
     
+    public func listCollections(
+        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> [PackageCollectionsModel.Collection] {
+        try await self.collections.listCollections(identifiers: identifiers)
+    }
+
     /// - SeeAlso: `PackageCollectionsProtocol.listCollections`
+    @available(*, noasync, message: "Use the async alternative")
     public func listCollections(
         identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
     ) {
         self.collections.listCollections(identifiers: identifiers, callback: callback)
     }
+    
+    public func refreshCollections() async throws -> [PackageCollectionsModel.CollectionSource] {
+        try await self.collections.refreshCollections()
+    }
 
     /// - SeeAlso: `PackageCollectionsProtocol.refreshCollections`
+    @available(*, noasync, message: "Use the async alternative")
     public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
         self.collections.refreshCollections(callback: callback)
     }
 
+    public func refreshCollection(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
+        try await self.collections.refreshCollection(source)
+    }
+
     /// - SeeAlso: `PackageCollectionsProtocol.refreshCollection`
+    @available(*, noasync, message: "Use the async alternative")
     public func refreshCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
@@ -92,7 +109,20 @@ public struct PackageIndexAndCollections: Closable {
         self.collections.refreshCollection(source, callback: callback)
     }
 
+    public func addCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        order: Int? = nil,
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil
+    ) async throws -> PackageCollectionsModel.Collection {
+        try await self.collections.addCollection(
+            source,
+            order: order,
+            trustConfirmationProvider: trustConfirmationProvider
+        )
+    }
+
     /// - SeeAlso: `PackageCollectionsProtocol.addCollection`
+    @available(*, noasync, message: "Use the async alternative")
     public func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         order: Int? = nil,
@@ -101,8 +131,15 @@ public struct PackageIndexAndCollections: Closable {
     ) {
         self.collections.addCollection(source, order: order, trustConfirmationProvider: trustConfirmationProvider, callback: callback)
     }
+    
+    public func removeCollection(
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws {
+        try await self.collections.removeCollection(source)
+    }
 
     /// - SeeAlso: `PackageCollectionsProtocol.removeCollection`
+    @available(*, noasync, message: "Use the async alternative")
     public func removeCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<Void, Error>) -> Void
@@ -110,23 +147,44 @@ public struct PackageIndexAndCollections: Closable {
         self.collections.removeCollection(source, callback: callback)
     }
 
+    public func getCollection(
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws -> PackageCollectionsModel.Collection {
+        try await self.collections.getCollection(source)
+    }
+
     /// - SeeAlso: `PackageCollectionsProtocol.getCollection`
+    @available(*, noasync, message: "Use the async alternative")
     public func getCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     ) {
         self.collections.getCollection(source, callback: callback)
     }
+    
+    public func listPackages(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        try await self.collections.listPackages(collections: collections)
+    }
 
     /// - SeeAlso: `PackageCollectionsProtocol.listPackages`
+    @available(*, noasync, message: "Use the async alternative")
     public func listPackages(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
         self.collections.listPackages(collections: collections, callback: callback)
     }
+    
+    public func listTargets(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.TargetListResult {
+        try await self.collections.listTargets(collections: collections)
+    }
 
     /// - SeeAlso: `PackageCollectionsProtocol.listTargets`
+    @available(*, noasync, message: "Use the async alternative")
     public func listTargets(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
@@ -134,7 +192,20 @@ public struct PackageIndexAndCollections: Closable {
         self.collections.listTargets(collections: collections, callback: callback)
     }
     
+    public func findTargets(
+        _ query: String,
+        searchType: PackageCollectionsModel.TargetSearchType? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.TargetSearchResult {
+        try await self.collections.findTargets(
+            query,
+            searchType: searchType,
+            collections: collections
+        )
+    }
+
     /// - SeeAlso: `PackageCollectionsProtocol.findTargets`
+    @available(*, noasync, message: "Use the async alternative")
     public func findTargets(
         _ query: String,
         searchType: PackageCollectionsModel.TargetSearchType? = nil,
@@ -150,8 +221,16 @@ public struct PackageIndexAndCollections: Closable {
     public func isIndexEnabled() -> Bool {
         self.index.isEnabled
     }
+    
+    public func listPackagesInIndex(
+        offset: Int,
+        limit: Int
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
+        try await self.index.listPackages(offset: offset, limit: limit)
+    }
 
     /// - SeeAlso: `PackageIndexProtocol.listPackages`
+    @available(*, noasync, message: "Use the async alternative")
     public func listPackagesInIndex(
         offset: Int,
         limit: Int,
@@ -161,7 +240,20 @@ public struct PackageIndexAndCollections: Closable {
     }
     
     // MARK: - APIs that make use of both package index and collections
-    
+    public func getPackageMetadata(
+        identity: PackageIdentity,
+        location: String? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageMetadata {
+        try await safe_async {
+            self.getPackageMetadata(
+                identity: identity,
+                location: location,
+                collections: collections,
+                callback: $0
+            )
+        }
+    }
     /// Returns metadata for the package identified by the given `PackageIdentity`, using package index (if configured)
     /// and collections data.
     ///
@@ -172,6 +264,7 @@ public struct PackageIndexAndCollections: Closable {
     ///   - location: The package location (optional for deduplication)
     ///   - collections: Optional. If specified, only these collections are used to construct the result.
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     public func getPackageMetadata(
         identity: PackageIdentity,
         location: String? = nil,
@@ -231,7 +324,20 @@ public struct PackageIndexAndCollections: Closable {
             }
         }
     }
-    
+
+    public func findPackages(
+        _ query: String,
+        in searchIn: SearchIn = .both(collections: nil)
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        try await safe_async {
+            self.findPackages(
+                query,
+                in: searchIn,
+                callback: $0
+            )
+        }
+    }
+
     /// Finds and returns packages that match the query.
     ///
     /// - Parameters:
@@ -239,6 +345,7 @@ public struct PackageIndexAndCollections: Closable {
     ///   - in: Indicates whether to search in the index only, collections only, or both.
     ///         The optional `Set<CollectionIdentifier>` in some enum cases restricts search within those collections only.
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     public func findPackages(
         _ query: String,
         in searchIn: SearchIn = .both(collections: nil),
