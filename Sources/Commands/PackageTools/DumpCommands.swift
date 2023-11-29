@@ -69,12 +69,22 @@ struct DumpSymbolGraph: SwiftCommand {
         let targets = try buildSystem.getPackageGraph().rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library }
         for target in targets {
             print("-- Emitting symbol graph for", target.name)
-            try symbolGraphExtractor.extractSymbolGraph(
+            let result = try symbolGraphExtractor.extractSymbolGraph(
                 target: target,
                 buildPlan: buildPlan,
+                outputRedirection: .collect(redirectStderr: true),
                 outputDirectory: symbolGraphDirectory,
                 verboseOutput: swiftTool.logLevel <= .info
             )
+
+            if result.exitStatus != .terminated(code: 0) {
+                switch result.output {
+                case .success(let value):
+                    swiftTool.observabilityScope.emit(error: "Failed to emit symbol graph for '\(target.c99name)': \(String(decoding: value, as: UTF8.self))")
+                case .failure(let error):
+                    swiftTool.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(target.c99name)': \(error)")
+                }
+            }
         }
 
         print("Files written to", symbolGraphDirectory.pathString)

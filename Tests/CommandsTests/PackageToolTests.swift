@@ -497,7 +497,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
-        _ = try SwiftPM.Package.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
+        let result = try SwiftPM.Package.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
 
         var symbolGraphURL: URL?
@@ -506,7 +506,13 @@ final class PackageToolTests: CommandsTestCase {
             break
         }
 
-        let symbolGraphData = try Data(contentsOf: XCTUnwrap(symbolGraphURL, file: file, line: line))
+        let symbolGraphData: Data
+        if let symbolGraphURL {
+            symbolGraphData = try Data(contentsOf: symbolGraphURL)
+        } else {
+            XCTFail("Failed to extract symbol graph: \(result.stdout)\n\(result.stderr)")
+            return nil
+        }
 
         // Double check that it's a valid JSON
         XCTAssertNoThrow(try JSONSerialization.jsonObject(with: symbolGraphData), file: file, line: line)

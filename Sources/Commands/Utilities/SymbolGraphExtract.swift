@@ -23,6 +23,7 @@ import DriverSupport
 #endif
 
 import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
@@ -56,7 +57,7 @@ public struct SymbolGraphExtract {
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
-    ) throws {
+    ) throws -> ProcessResult {
         let buildParameters = buildPlan.buildParameters
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
@@ -101,6 +102,6 @@ public struct SymbolGraphExtract {
             outputRedirection: outputRedirection
         )
         try process.launch()
-        try process.waitUntilExit()
+        return try process.waitUntilExit()
     }
 }
