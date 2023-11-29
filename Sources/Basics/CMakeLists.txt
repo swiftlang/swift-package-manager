@@ -64,7 +64,6 @@ add_library(Basics
 target_link_libraries(Basics PUBLIC
   SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
-  SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE

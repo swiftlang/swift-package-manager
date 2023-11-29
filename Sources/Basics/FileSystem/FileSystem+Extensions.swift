@@ -13,7 +13,6 @@
 import struct Foundation.Data
 import class Foundation.FileManager
 import struct Foundation.UUID
-import SystemPackage
 
 import struct TSCBasic.ByteString
 import struct TSCBasic.FileInfo

@@ -159,7 +159,6 @@ let package = Package(
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-                .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt", "Vendor/README.md"]
         ),
@@ -738,7 +737,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
-        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
     ]
@@ -748,7 +746,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
-        .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
     ]

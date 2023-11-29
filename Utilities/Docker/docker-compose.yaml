@@ -39,7 +39,6 @@ services:
       - ../../../swift-crypto:/code/swift-crypto:z
       - ../../../swift-driver:/code/swift-driver:z
       - ../../../swift-llbuild:/code/llbuild:z
-      - ../../../swift-system:/code/swift-system:z
       - ../../../swift-collections:/code/swift-collections:z
       - ../../../swift-asn1:/code/swift-asn1:z
       - ../../../swift-certificates:/code/swift-certificates:z
