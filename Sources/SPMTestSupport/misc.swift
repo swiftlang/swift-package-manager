@@ -73,20 +73,20 @@ public func testWithTemporaryDirectory(
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-public func fixture(
+@discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
-    body: (AbsolutePath) throws -> Void
-) throws {
+    body: (AbsolutePath) throws -> T
+) throws -> T {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = try RelativePath(validating: name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
@@ -102,7 +102,7 @@ public func fixture(
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
                 XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
-                return
+                throw SwiftPMError.packagePathNotFound
             }
 
             // The fixture contains either a checkout or just a Git directory.
@@ -116,7 +116,7 @@ public func fixture(
 #endif
 
                 // Invoke the block, passing it the path of the copied fixture.
-                try body(dstDir)
+                return try body(dstDir)
             } else {
                 // Copy each of the package directories and construct a git repo in it.
                 for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
@@ -134,7 +134,7 @@ public func fixture(
                 }
 
                 // Invoke the block, passing it the path of the copied fixture.
-                try body(tmpDirPath)
+                return try body(tmpDirPath)
             }
         }
     } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
