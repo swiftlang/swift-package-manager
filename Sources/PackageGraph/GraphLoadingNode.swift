@@ -18,7 +18,7 @@ import PackageModel
 ///
 /// This node uses the product filter that was already finalized during resolution.
 ///
-/// - SeeAlso: DependencyResolutionNode
+/// - SeeAlso: ``DependencyResolutionNode``
 public struct GraphLoadingNode: Equatable, Hashable {
 
     /// The package identity.

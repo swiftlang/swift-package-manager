@@ -140,7 +140,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
+    public func solve(constraints: [Constraint]) -> Result<[DependencyResolverBinding], Error> {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
@@ -180,7 +180,7 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) throws -> (bindings: [DependencyResolver.Binding], state: State) {
+    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
         let inputs = try self.processInputs(root: root, with: constraints)
 
@@ -241,10 +241,10 @@ public struct PubGrubDependencyResolver {
                 flattenedAssignments[updatePackage] = (binding: boundVersion, products: products)
             }
         }
-        var finalAssignments: [DependencyResolver.Binding]
+        var finalAssignments: [DependencyResolverBinding]
             = flattenedAssignments.keys.sorted(by: { $0.deprecatedName < $1.deprecatedName }).map { package in
                 let details = flattenedAssignments[package]!
-                return (package: package, binding: details.binding, products: details.products)
+                return .init(package: package, boundVersion: details.binding, products: details.products)
             }
 
         // Add overridden packages to the result.
@@ -252,7 +252,11 @@ public struct PubGrubDependencyResolver {
             // TODO: replace with async/await when available
             let container = try temp_await { provider.getContainer(for: package, completion: $0) }
             let updatePackage = try container.underlying.loadPackageReference(at: override.version)
-            finalAssignments.append((updatePackage, override.version, override.products))
+            finalAssignments.append(.init(
+                    package: updatePackage,
+                    boundVersion: override.version,
+                    products: override.products
+            ))
         }
 
         self.delegate?.solved(result: finalAssignments)
