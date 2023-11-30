@@ -241,6 +241,7 @@ public struct SwiftTestTool: SwiftCommand {
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
                 swiftTool.observabilityScope.emit(.noMatchingTests)
+                try generateXUnitOutputIfRequested(for: [], swiftTool: swiftTool)
                 return
             }
 
@@ -264,14 +265,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             let testResults = try runner.run(tests)
 
-            // Generate xUnit file if requested
-            if let xUnitOutput = options.xUnitOutput {
-                let generator = XUnitGenerator(
-                    fileSystem: swiftTool.fileSystem,
-                    results: testResults
-                )
-                try generator.generate(at: xUnitOutput)
-            }
+            try generateXUnitOutputIfRequested(for: testResults, swiftTool: swiftTool)
 
             // process code Coverage if request
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
@@ -323,6 +317,19 @@ public struct SwiftTestTool: SwiftCommand {
 
             return TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier))
         }
+    }
+
+    /// Generate xUnit file if requested.
+    private func generateXUnitOutputIfRequested(for testResults: [ParallelTestRunner.TestResult], swiftTool: SwiftTool) throws {
+        guard let xUnitOutput = options.xUnitOutput else {
+            return
+        }
+
+        let generator = XUnitGenerator(
+            fileSystem: swiftTool.fileSystem,
+            results: testResults
+        )
+        try generator.generate(at: xUnitOutput)
     }
 
     // MARK: - swift-testing

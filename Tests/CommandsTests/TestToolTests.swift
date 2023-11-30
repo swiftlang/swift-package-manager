@@ -128,6 +128,22 @@ final class TestToolTests: CommandsTestCase {
         }
     }
 
+    func testSwiftTestXMLOutputWhenEmpty() throws {
+        try fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
+            let xUnitOutput = fixturePath.appending("result.xml")
+            // Run tests in parallel with verbose output.
+            let stdout = try SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
+            // in "swift test" test output goes to stdout
+            XCTAssertNoMatch(stdout, .contains("passed"))
+            XCTAssertNoMatch(stdout, .contains("failed"))
+
+            // Check the xUnit output.
+            XCTAssertFileExists(xUnitOutput)
+            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+            XCTAssertMatch(contents, .contains("tests=\"0\" failures=\"0\""))
+        }
+    }
+
     func testSwiftTestFilter() throws {
         try fixture(name: "Miscellaneous/SkipTests") { fixturePath in
             let (stdout, _) = try SwiftPM.Test.execute(["--filter", ".*1"], packagePath: fixturePath)
