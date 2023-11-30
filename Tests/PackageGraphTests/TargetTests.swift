@@ -12,12 +12,14 @@
 
 import XCTest
 
+import class Basics.ObservabilitySystem
+import class Basics.ObservabilityScope
 import PackageGraph
 import PackageModel
 
 private extension ResolvedTarget {
-    convenience init(name: String, deps: ResolvedTarget...) {
-        self.init(
+    convenience init(name: String, deps: ResolvedTarget..., observabilityScope: ObservabilityScope) throws {
+        try self.init(
             target: SwiftTarget(
                 name: name,
                 type: .library,
@@ -30,7 +32,8 @@ private extension ResolvedTarget {
             ),
             dependencies: deps.map { .target($0, conditions: []) },
             defaultLocalization: nil,
-            platforms: .init(declared: [], derivedXCTestPlatformProvider: .none)
+            platforms: .init(declared: [], derivedXCTestPlatformProvider: .none),
+            observabilityScope: observabilityScope
         )
     }
 }
@@ -44,12 +47,18 @@ func testTargets(file: StaticString = #file, line: UInt = #line, body: () throws
 }
 
 class TargetDependencyTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+    }
 
     func test1() throws {
+        let system = ObservabilitySystem.makeForTesting()
+        let observabilityScope = system.topScope
+
         testTargets {
-            let t1 = ResolvedTarget(name: "t1")
-            let t2 = ResolvedTarget(name: "t2", deps: t1)
-            let t3 = ResolvedTarget(name: "t3", deps: t2)
+            let t1 = try ResolvedTarget(name: "t1", observabilityScope: observabilityScope)
+            let t2 = try ResolvedTarget(name: "t2", deps: t1, observabilityScope: observabilityScope)
+            let t3 = try ResolvedTarget(name: "t3", deps: t2, observabilityScope: observabilityScope)
 
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
@@ -57,11 +66,14 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test2() throws {
+        let system = ObservabilitySystem.makeForTesting()
+        let observabilityScope = system.topScope
+
         testTargets {
-            let t1 = ResolvedTarget(name: "t1")
-            let t2 = ResolvedTarget(name: "t2", deps: t1)
-            let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
-            let t4 = ResolvedTarget(name: "t4", deps: t2, t3, t1)
+            let t1 = try ResolvedTarget(name: "t1", observabilityScope: observabilityScope)
+            let t2 = try ResolvedTarget(name: "t2", deps: t1, observabilityScope: observabilityScope)
+            let t3 = try ResolvedTarget(name: "t3", deps: t2, t1, observabilityScope: observabilityScope)
+            let t4 = try ResolvedTarget(name: "t4", deps: t2, t3, t1, observabilityScope: observabilityScope)
 
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
@@ -70,11 +82,14 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test3() throws {
+        let system = ObservabilitySystem.makeForTesting()
+        let observabilityScope = system.topScope
+
         testTargets {
-            let t1 = ResolvedTarget(name: "t1")
-            let t2 = ResolvedTarget(name: "t2", deps: t1)
-            let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
-            let t4 = ResolvedTarget(name: "t4", deps: t1, t2, t3)
+            let t1 = try ResolvedTarget(name: "t1", observabilityScope: observabilityScope)
+            let t2 = try ResolvedTarget(name: "t2", deps: t1, observabilityScope: observabilityScope)
+            let t3 = try ResolvedTarget(name: "t3", deps: t2, t1, observabilityScope: observabilityScope)
+            let t4 = try ResolvedTarget(name: "t4", deps: t1, t2, t3, observabilityScope: observabilityScope)
 
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
@@ -84,10 +99,13 @@ class TargetDependencyTests: XCTestCase {
 
     func test4() throws {
         testTargets {
-            let t1 = ResolvedTarget(name: "t1")
-            let t2 = ResolvedTarget(name: "t2", deps: t1)
-            let t3 = ResolvedTarget(name: "t3", deps: t2)
-            let t4 = ResolvedTarget(name: "t4", deps: t3)
+            let system = ObservabilitySystem.makeForTesting()
+            let observabilityScope = system.topScope
+
+            let t1 = try ResolvedTarget(name: "t1", observabilityScope: observabilityScope)
+            let t2 = try ResolvedTarget(name: "t2", deps: t1, observabilityScope: observabilityScope)
+            let t3 = try ResolvedTarget(name: "t3", deps: t2, observabilityScope: observabilityScope)
+            let t4 = try ResolvedTarget(name: "t4", deps: t3, observabilityScope: observabilityScope)
 
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
@@ -96,13 +114,16 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test5() throws {
+        let system = ObservabilitySystem.makeForTesting()
+        let observabilityScope = system.topScope
+
         testTargets {
-            let t1 = ResolvedTarget(name: "t1")
-            let t2 = ResolvedTarget(name: "t2", deps: t1)
-            let t3 = ResolvedTarget(name: "t3", deps: t2)
-            let t4 = ResolvedTarget(name: "t4", deps: t3)
-            let t5 = ResolvedTarget(name: "t5", deps: t2)
-            let t6 = ResolvedTarget(name: "t6", deps: t5, t4)
+            let t1 = try ResolvedTarget(name: "t1", observabilityScope: observabilityScope)
+            let t2 = try ResolvedTarget(name: "t2", deps: t1, observabilityScope: observabilityScope)
+            let t3 = try ResolvedTarget(name: "t3", deps: t2, observabilityScope: observabilityScope)
+            let t4 = try ResolvedTarget(name: "t4", deps: t3, observabilityScope: observabilityScope)
+            let t5 = try ResolvedTarget(name: "t5", deps: t2, observabilityScope: observabilityScope)
+            let t6 = try ResolvedTarget(name: "t6", deps: t5, t4, observabilityScope: observabilityScope)
 
             // precise order is not important, but it is important that the following are true
             let t6rd = try t6.recursiveTargetDependencies()
@@ -120,13 +141,17 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test6() throws {
+        let system = ObservabilitySystem.makeForTesting()
+        let observabilityScope = system.topScope
+
         testTargets {
-            let t1 = ResolvedTarget(name: "t1")
-            let t2 = ResolvedTarget(name: "t2", deps: t1)
-            let t3 = ResolvedTarget(name: "t3", deps: t2)
-            let t4 = ResolvedTarget(name: "t4", deps: t3)
-            let t5 = ResolvedTarget(name: "t5", deps: t2)
-            let t6 = ResolvedTarget(name: "t6", deps: t4, t5) // same as above, but these two swapped
+            let t1 = try ResolvedTarget(name: "t1", observabilityScope: observabilityScope)
+            let t2 = try ResolvedTarget(name: "t2", deps: t1, observabilityScope: observabilityScope)
+            let t3 = try ResolvedTarget(name: "t3", deps: t2, observabilityScope: observabilityScope)
+            let t4 = try ResolvedTarget(name: "t4", deps: t3, observabilityScope: observabilityScope)
+            let t5 = try ResolvedTarget(name: "t5", deps: t2, observabilityScope: observabilityScope)
+            // same as above, but these two swapped
+            let t6 = try ResolvedTarget(name: "t6", deps: t4, t5, observabilityScope: observabilityScope)
 
             // precise order is not important, but it is important that the following are true
             let t6rd = try t6.recursiveTargetDependencies()

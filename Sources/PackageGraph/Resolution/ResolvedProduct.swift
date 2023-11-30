@@ -14,6 +14,9 @@ import Basics
 import PackageModel
 
 public final class ResolvedProduct {
+    /// The reference to its package.
+    unowned let resolvedPackage: ResolvedPackage
+
     /// The underlying product.
     public let underlyingProduct: Product
 
@@ -54,8 +57,14 @@ public final class ResolvedProduct {
         }
     }
 
-    public init(product: Product, targets: [ResolvedTarget]) {
+    public init(
+        package: ResolvedPackage,
+        product: Product,
+        targets: [ResolvedTarget],
+        observabilityScope: ObservabilityScope
+    ) throws {
         assert(product.targets.count == targets.count && product.targets.map({ $0.name }) == targets.map({ $0.name }))
+        self.resolvedPackage = package
         self.underlyingProduct = product
         self.targets = targets
 
@@ -67,18 +76,19 @@ public final class ResolvedProduct {
         let platforms = Self.computePlatforms(targets: targets)
         self.platforms = platforms
 
-        self.testEntryPointTarget = underlyingProduct.testEntryPointPath.map { testEntryPointPath in
+        self.testEntryPointTarget = try underlyingProduct.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
             let swiftTarget = SwiftTarget(name: product.name,
                                           dependencies: dependencies,
                                           packageAccess: true, // entry point target so treated as a part of the package
                                           testEntryPointPath: testEntryPointPath)
-            return ResolvedTarget(
+            return try ResolvedTarget(
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
-                platforms: platforms
+                platforms: platforms,
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -99,6 +109,15 @@ public final class ResolvedProduct {
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(Set(targets).union(recursiveDependencies))
+    }
+
+    func diagnoseInvalidUseOfUnsafeFlags(_ diagnosticsEmitter: DiagnosticsEmitter) throws {
+        // Diagnose if any target in this product uses an unsafe flag.
+        for target in try self.recursiveTargetDependencies() {
+            if target.underlyingTarget.usesUnsafeFlags {
+                diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: target.name))
+            }
+        }
     }
 
     private static func computePlatforms(targets: [ResolvedTarget]) -> SupportedPlatforms {

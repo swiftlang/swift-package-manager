@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.DiagnosticsEmitter
+import struct Basics.ObservabilityMetadata
+import class Basics.ObservabilityScope
 import PackageModel
-
 import func TSCBasic.topologicalSort
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
@@ -19,12 +21,12 @@ public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
-        case target(_ target: ResolvedTarget, conditions: [PackageConditionProtocol])
+        case target(_ target: Target, conditions: [PackageConditionProtocol])
 
         /// The target depends on this product.
         case product(_ product: ResolvedProduct, conditions: [PackageConditionProtocol])
 
-        public var target: ResolvedTarget? {
+        public var target: Target? {
             switch self {
             case .target(let target, _): return target
             case .product: return nil
@@ -79,7 +81,7 @@ public final class ResolvedTarget {
     }
 
     /// The dependencies of this target.
-    public let dependencies: [Dependency]
+    public var dependencies: [Dependency]
 
     /// Returns dependencies which satisfy the input build environment, based on their conditions.
     /// - Parameters:
@@ -141,15 +143,34 @@ public final class ResolvedTarget {
     /// The list of platforms that are supported by this target.
     public let platforms: SupportedPlatforms
 
-    /// Create a target instance.
+    /// Create a resolved target instance.
     public init(
         target: Target,
         dependencies: [Dependency],
         defaultLocalization: String?,
-        platforms: SupportedPlatforms
-    ) {
+        platforms: SupportedPlatforms,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
+            var metadata = ObservabilityMetadata()
+            metadata.targetName = target.name
+            return metadata
+        }
+        self.dependencies = try dependencies.map { dependency -> ResolvedTarget.Dependency in
+            switch dependency {
+            case .target(let resolvedTarget, let conditions):
+                try target.validateDependency(target: resolvedTarget.underlyingTarget)
+                return .target(resolvedTarget, conditions: conditions)
+            case .product(let resolvedProduct, let conditions):
+                try target.validateDependency(product: resolvedProduct.underlyingProduct, productPackage: resolvedProduct.resolvedPackage.underlyingPackage.identity)
+                if !resolvedProduct.resolvedPackage.isAllowedToVendUnsafeProducts {
+                    try resolvedProduct.diagnoseInvalidUseOfUnsafeFlags(diagnosticsEmitter)
+                }
+                return .product(resolvedProduct, conditions: conditions)
+            }
+        }
+
         self.underlyingTarget = target
-        self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
     }

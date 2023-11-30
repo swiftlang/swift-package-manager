@@ -83,11 +83,12 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
-                let discoveryResolvedTarget = ResolvedTarget(
+                let discoveryResolvedTarget = try ResolvedTarget(
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: testProduct.defaultLocalization,
-                    platforms: testProduct.platforms
+                    platforms: testProduct.platforms,
+                    observabilityScope: observabilityScope
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -116,11 +117,12 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
-                let entryPointResolvedTarget = ResolvedTarget(
+                let entryPointResolvedTarget = try ResolvedTarget(
                     target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
                     defaultLocalization: testProduct.defaultLocalization,
-                    platforms: testProduct.platforms
+                    platforms: testProduct.platforms,
+                    observabilityScope: observabilityScope
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -145,11 +147,12 @@ extension BuildPlan {
                             packageAccess: entryPointResolvedTarget.packageAccess,
                             testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
                         )
-                        let entryPointResolvedTarget = ResolvedTarget(
+                        let entryPointResolvedTarget = try ResolvedTarget(
                             target: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
                             defaultLocalization: testProduct.defaultLocalization,
-                            platforms: testProduct.platforms
+                            platforms: testProduct.platforms,
+                            observabilityScope: observabilityScope
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,
