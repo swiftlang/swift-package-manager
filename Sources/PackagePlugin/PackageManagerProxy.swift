@@ -246,6 +246,27 @@ public struct PackageManager {
         /// The directory that contains the symbol graph files for the target.
         public var directoryPath: Path
     }
+
+    /// Return authorization information for the URL.
+    // FIXME: add a hashing key
+    public func getAuthorizationInfo(
+        for url: String
+    ) throws -> AuthorizationInfo? {
+        // Ask the plugin host for authorization information, and wait for a response.
+        // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
+        return try sendMessageAndWaitForReply(.authorizationInfoRequest(url: url)) {
+            guard case .authorizationInfoResponse(let result) = $0 else { return nil }
+            return result.map{ .init($0) }
+        }
+    }
+
+    /// Represents  authorization information
+    public struct AuthorizationInfo {
+        /// The username
+        public var username: String
+        /// The password
+        public var password: String
+    }
 }
 
 fileprivate extension PackageManager {
@@ -438,5 +459,12 @@ fileprivate extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
 fileprivate extension PackageManager.SymbolGraphResult {
     init(_ result: HostToPluginMessage.SymbolGraphResult) {
         self.directoryPath = .init(result.directoryPath)
+    }
+}
+
+fileprivate extension PackageManager.AuthorizationInfo {
+    init(_ result: HostToPluginMessage.AuthorizationInfo) {
+        self.username = result.username
+        self.password = result.password
     }
 }

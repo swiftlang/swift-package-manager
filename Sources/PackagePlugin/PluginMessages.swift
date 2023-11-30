@@ -246,7 +246,14 @@ enum HostToPluginMessage: Codable {
         struct SymbolGraphResult: Codable {
             var directoryPath: String
         }
-    
+
+    /// A response to a request for authorization info
+    case authorizationInfoResponse(result: AuthorizationInfo?)
+        struct AuthorizationInfo: Codable {
+            var username: String
+            var password: String
+        }
+
     /// A response of an error while trying to complete a request.
     case errorResponse(error: String)
 }
@@ -324,4 +331,7 @@ enum PluginToHostMessage: Codable {
             var includeSPI: Bool
             var emitExtensionBlocks: Bool
         }
+
+    /// the plugin requesting authorization information
+    case authorizationInfoRequest(url: String)
 }
