@@ -202,7 +202,7 @@ public class RepositoryManager: Cancellable {
         // and recoverable, and as such can be ignored
         quick: if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
             let repository = try handle.open()
-            
+
             guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
                 observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
                 break quick
