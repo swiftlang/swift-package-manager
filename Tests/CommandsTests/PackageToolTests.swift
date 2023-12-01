@@ -1933,12 +1933,12 @@ final class PackageToolTests: CommandsTestCase {
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: \"internet good\")]",
             permissionError: "all network connections on ports: 23, 42, 443, 8080",
             reason: "internet good",
-            remedy: ["--allow-network-connections", "all"])
+            remedy: ["--allow-network-connections", "all:23,42,443,8080"])
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: 1..<4), reason: \"internet good\")]",
             permissionError: "all network connections on ports: 1, 2, 3",
             reason: "internet good",
-            remedy: ["--allow-network-connections", "all"])
+            remedy: ["--allow-network-connections", "all:1,2,3"])
 
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(), reason: \"localhost good\")]",
@@ -1949,12 +1949,12 @@ final class PackageToolTests: CommandsTestCase {
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42, 443, 8080]), reason: \"localhost good\")]",
             permissionError: "local network connections on ports: 23, 42, 443, 8080",
             reason: "localhost good",
-            remedy: ["--allow-network-connections", "local"])
+            remedy: ["--allow-network-connections", "local:23,42,443,8080"])
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: 1..<4), reason: \"localhost good\")]",
             permissionError: "local network connections on ports: 1, 2, 3",
             reason: "localhost good",
-            remedy: ["--allow-network-connections", "local"])
+            remedy: ["--allow-network-connections", "local:1,2,3"])
 
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .docker, reason: \"docker good\")]",
