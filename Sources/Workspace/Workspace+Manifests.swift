@@ -181,8 +181,7 @@ extension Workspace {
                 let node = GraphLoadingNode(
                     identity: identity,
                     manifest: package.manifest,
-                    productFilter: .everything,
-                    fileSystem: workspace.fileSystem
+                    productFilter: .everything
                 )
                 return node
             } + root.dependencies.compactMap { dependency in
@@ -192,8 +191,7 @@ extension Workspace {
                     GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: manifest,
-                        productFilter: dependency.productFilter,
-                        fileSystem: workspace.fileSystem
+                        productFilter: dependency.productFilter
                     )
                 }
             }
@@ -247,8 +245,7 @@ extension Workspace {
                         GraphLoadingNode(
                             identity: dependency.identity,
                             manifest: manifest,
-                            productFilter: dependency.productFilter,
-                            fileSystem: workspace.fileSystem
+                            productFilter: dependency.productFilter
                         )
                     }
                 }
