@@ -254,6 +254,7 @@ public struct PackageIndexAndCollections: Closable {
             )
         }
     }
+
     /// Returns metadata for the package identified by the given `PackageIdentity`, using package index (if configured)
     /// and collections data.
     ///

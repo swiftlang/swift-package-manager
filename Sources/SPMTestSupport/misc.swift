@@ -110,6 +110,7 @@ public func testWithTemporaryDirectory(
         throw error
     }
 }
+
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
@@ -162,7 +163,6 @@ fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: Stat
 }
 
 fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
-
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
 #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)

@@ -433,7 +433,6 @@ public protocol PackageIndexProtocol {
 }
 
 public extension PackageIndexProtocol {
-
     func getPackageMetadata(
         identity: PackageIdentity,
         location: String?

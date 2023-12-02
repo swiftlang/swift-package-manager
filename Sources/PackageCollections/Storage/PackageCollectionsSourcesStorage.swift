@@ -73,7 +73,6 @@ public protocol PackageCollectionsSourcesStorage {
 }
 
 public extension PackageCollectionsSourcesStorage {
-
     func list() async throws -> [PackageCollectionsModel.CollectionSource] {
         try await safe_async {
             self.list(callback: $0)
