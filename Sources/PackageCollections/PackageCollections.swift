@@ -489,9 +489,11 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
 
     // Fetch the collection from the network and store it in local storage
     // This helps avoid network access in normal operations
-    private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
-                                             trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
-                                             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
+    private func refreshCollectionFromSource(
+        source: PackageCollectionsModel.CollectionSource,
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
+        callback: @escaping (Result<Model.Collection, Error>) -> Void
+    ) {
         guard let provider = self.collectionProviders[source.type] else {
             return callback(.failure(UnknownProvider(source.type)))
         }

@@ -543,7 +543,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         // User preference unknown - collection not saved to storage
-        _ = try await packageCollections.addCollection(mockCollections.first!.source, order: nil, trustConfirmationProvider: nil)
+        _ = try? await packageCollections.addCollection(mockCollections.first!.source, order: nil, trustConfirmationProvider: nil)
 
         do {
             let list = try await packageCollections.listCollections()

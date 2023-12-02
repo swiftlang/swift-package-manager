@@ -252,7 +252,8 @@ public extension PackageCollectionsProtocol {
                 source,
                 order: order,
                 trustConfirmationProvider:trustConfirmationProvider,
-                callback: $0)
+                callback: $0
+            )
         }
     }
 
