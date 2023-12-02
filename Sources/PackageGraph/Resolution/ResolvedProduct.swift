@@ -13,62 +13,33 @@
 import Basics
 import PackageModel
 
-public final class ResolvedProduct {
+public struct ResolvedProduct: Hashable {
     /// The name of this product.
     public var name: String {
-        self.storage.underlying.name
+        self.underlying.name
     }
 
     /// The type of this product.
     public var type: ProductType {
-        self.storage.underlying.type
+        self.underlying.type
     }
 
-    /// The underlying product model.
-    public var underlying: Product {
-        self.storage.underlying
-    }
+    /// The underlying product.
+    public let underlying: Product
 
     /// The top level targets contained in this product.
-    public var targets: [ResolvedTarget] {
-        self.storage.targets
-    }
+    public let targets: [ResolvedTarget]
 
     /// Executable target for test entry point file.
-    public var testEntryPointTarget: ResolvedTarget? {
-        self.storage.testEntryPointTarget
-    }
+    public let testEntryPointTarget: ResolvedTarget?
 
     /// The default localization for resources.
-    public var defaultLocalization: String? {
-        self.storage.defaultLocalization
-    }
+    public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this product.
-    public var platforms: [SupportedPlatform] {
-        self.storage.platforms
-    }
+    public let platforms: [SupportedPlatform]
 
     public let platformVersionProvider: PlatformVersionProvider
-
-    struct Storage: Hashable {
-        /// The underlying product.
-        let underlying: Product
-
-        /// The top level targets contained in this product.
-        let targets: [ResolvedTarget]
-
-        /// Executable target for test entry point file.
-        let testEntryPointTarget: ResolvedTarget?
-
-        /// The default localization for resources.
-        let defaultLocalization: String?
-
-        /// The list of platforms that are supported by this product.
-        let platforms: [SupportedPlatform]
-    }
-
-    private let storage: Storage
 
     /// The main executable target of product.
     ///
@@ -87,47 +58,37 @@ public final class ResolvedProduct {
         }
     }
 
-    public convenience init(product: Product, targets: [ResolvedTarget]) {
+    public init(product: Product, targets: [ResolvedTarget]) {
         assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
         let (platforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
         let defaultLocalization = targets.first?.defaultLocalization
         
-        self.init(
-            storage: .init(
-                underlying: product,
-                targets: targets,
-                testEntryPointTarget: product.testEntryPointPath.map { testEntryPointPath in
-                    // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
-                    let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-                    let swiftTarget = SwiftTarget(
-                        name: product.name,
-                        dependencies: dependencies,
-                        packageAccess: true, // entry point target so treated as a part of the package
-                        testEntryPointPath: testEntryPointPath
-                    )
-                    return ResolvedTarget(
-                        storage: .init(
-                            underlying: swiftTarget,
-                            dependencies: targets.map {
-                                .target($0, conditions: [])
-                            },
-                            defaultLocalization: defaultLocalization,
-                            supportedPlatforms: platforms
-                        ),
-                        platformVersionProvider: platformVersionProvider
-                    )
+        self.underlying = product
+        self.targets = targets
+        self.testEntryPointTarget = product.testEntryPointPath.map { testEntryPointPath in
+            // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
+            let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
+            let swiftTarget = SwiftTarget(
+                name: product.name,
+                dependencies: dependencies,
+                packageAccess: true, // entry point target so treated as a part of the package
+                testEntryPointPath: testEntryPointPath
+            )
+            return ResolvedTarget(
+                underlying: swiftTarget,
+                dependencies: targets.map {
+                    .target($0, conditions: [])
                 },
-                // defaultLocalization is currently shared across the entire package
-                // this may need to be enhanced if / when we support localization per target or product
                 defaultLocalization: defaultLocalization,
-                platforms: platforms
-            ),
-            platformVersionProvider: platformVersionProvider
-        )
-    }
+                supportedPlatforms: platforms,
+                platformVersionProvider: platformVersionProvider
+            )
+        }
 
-    init(storage: Storage, platformVersionProvider: PlatformVersionProvider) {
-        self.storage = storage
+        // defaultLocalization is currently shared across the entire package
+        // this may need to be enhanced if / when we support localization per target or product
+        self.defaultLocalization = defaultLocalization
+        self.platforms = platforms
         self.platformVersionProvider = platformVersionProvider
     }
 
@@ -150,32 +111,13 @@ public final class ResolvedProduct {
     }
 
     private static func computePlatforms(targets: [ResolvedTarget]) -> ([SupportedPlatform], PlatformVersionProvider) {
-        // merging two sets of supported platforms, preferring the max constraint
-        func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {
-            for platformSupport in platforms {
-                if let existing = partial.firstIndex(where: { $0.platform == platformSupport.platform }) {
-                    if partial[existing].version < platformSupport.version {
-                        partial.remove(at: existing)
-                        partial.append(platformSupport)
-                    }
-                } else {
-                    partial.append(platformSupport)
-                }
-            }
-        }
-
-        let declared = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-            merge(into: &partial, platforms: item.platforms)
+        let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+            merge(into: &partial, platforms: item.supportedPlatforms)
         }
 
         return (
-            declared.sorted(by: { $0.platform.name < $1.platform.name }),
-            .init(derivedXCTestPlatformProvider: { declared in
-                let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-                    merge(into: &partial, platforms: [item.getDerived(for: declared, usingXCTest: item.type == .test)])
-                }
-                return platforms.first!.version
-            })
+            declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
+            PlatformVersionProvider(implementation: .mergingFromTargets(targets))
         )
     }
 
@@ -194,16 +136,6 @@ public final class ResolvedProduct {
                 diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: target.name))
             }
         }
-    }
-}
-
-extension ResolvedProduct: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.storage)
-    }
-
-    public static func == (lhs: ResolvedProduct, rhs: ResolvedProduct) -> Bool {
-        lhs.storage == rhs.storage
     }
 }
 

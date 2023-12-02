@@ -13,7 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult

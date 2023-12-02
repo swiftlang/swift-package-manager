@@ -12,8 +12,8 @@
 
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
-import class PackageGraph.ResolvedProduct
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedProduct
+import struct PackageGraph.ResolvedTarget
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
 import class PackageModel.Target

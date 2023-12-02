@@ -17,7 +17,7 @@ import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
 import struct LLBuildManifest.LLBuildManifest
 import struct SPMBuildCore.BuildParameters
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort

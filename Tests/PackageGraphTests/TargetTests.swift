@@ -16,9 +16,9 @@ import PackageGraph
 import PackageModel
 
 private extension ResolvedTarget {
-    convenience init(name: String, deps: ResolvedTarget...) {
+    init(name: String, deps: ResolvedTarget...) {
         self.init(
-            target: SwiftTarget(
+            underlying: SwiftTarget(
                 name: name,
                 type: .library,
                 path: .root,

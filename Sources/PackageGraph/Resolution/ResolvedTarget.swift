@@ -15,7 +15,7 @@ import PackageModel
 import func TSCBasic.topologicalSort
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
-public final class ResolvedTarget {
+public struct ResolvedTarget: Hashable {
     /// Represents dependency of a resolved target.
     public enum Dependency: Hashable {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
@@ -129,87 +129,41 @@ public final class ResolvedTarget {
         return underlying.sources
     }
 
-    /// The dependencies of this target.
-    public var dependencies: [Dependency] {
-        self.storage.dependencies
-    }
+    /// The underlying target represented in this resolved target.
+    public let underlying: Target
 
-    /// The underlying target model represented in this resolved target.
-    public var underlying: Target {
-        self.storage.underlying
-    }
+    /// The dependencies of this target.
+    public let dependencies: [Dependency]
 
     /// The default localization for resources.
-    public var defaultLocalization: String? {
-        self.storage.defaultLocalization
-    }
+    public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public var platforms: [SupportedPlatform] {
-        self.storage.supportedPlatforms
-    }
-
-    struct Storage: Hashable {
-        /// The underlying target represented in this resolved target.
-        let underlying: Target
-
-        /// The dependencies of this target.
-        let dependencies: [Dependency]
-
-        /// The default localization for resources.
-        let defaultLocalization: String?
-
-        /// The list of platforms that are supported by this target.
-        let supportedPlatforms: [SupportedPlatform]
-    }
-
-    private let storage: Storage
+    public let supportedPlatforms: [SupportedPlatform]
 
     private let platformVersionProvider: PlatformVersionProvider
 
-    /// Create a target instance.
-    public convenience init(
-        target: Target,
-        dependencies: [Dependency],
-        defaultLocalization: String?,
-        platforms: [SupportedPlatform],
+    public init(
+        underlying: Target,
+        dependencies: [ResolvedTarget.Dependency],
+        defaultLocalization: String? = nil,
+        supportedPlatforms: [SupportedPlatform],
         platformVersionProvider: PlatformVersionProvider
     ) {
-        self.init(
-            storage: .init(
-                underlying: target,
-                dependencies: dependencies,
-                defaultLocalization: defaultLocalization,
-                supportedPlatforms: platforms
-            ),
-            platformVersionProvider: platformVersionProvider
-        )
-    }
-
-    init(
-        storage: Storage,
-        platformVersionProvider: PlatformVersionProvider
-    ) {
-        self.storage = storage
+        self.underlying = underlying
+        self.dependencies = dependencies
+        self.defaultLocalization = defaultLocalization
+        self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
     }
 
+
     public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
-            declared: self.storage.supportedPlatforms,
+            declared: self.supportedPlatforms,
             for: platform,
             usingXCTest: usingXCTest
         )
-    }
-}
-
-extension ResolvedTarget: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.storage)
-    }
-
-    public static func == (lhs: ResolvedTarget, rhs: ResolvedTarget) -> Bool {
-        lhs.storage == rhs.storage
     }
 }
 

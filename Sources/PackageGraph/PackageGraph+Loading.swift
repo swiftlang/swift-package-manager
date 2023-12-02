@@ -924,12 +924,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         }
 
         return ResolvedTarget(
-            storage: .init(
-                underlying: self.target,
-                dependencies: dependencies,
-                defaultLocalization: self.defaultLocalization,
-                supportedPlatforms: self.platforms
-            ),
+            underlying: self.target,
+            dependencies: dependencies,
+            defaultLocalization: self.defaultLocalization,
+            supportedPlatforms: self.platforms,
             platformVersionProvider: self.platformVersionProvider
         )
     }

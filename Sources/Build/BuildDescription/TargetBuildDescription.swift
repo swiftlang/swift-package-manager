@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 
