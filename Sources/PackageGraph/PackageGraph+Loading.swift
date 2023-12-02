@@ -19,7 +19,6 @@ import func TSCBasic.topologicalSort
 import func TSCBasic.bestMatch
 
 extension PackageGraph {
-
     /// Load the package graph for the given package path.
     public static func load(
         root: PackageGraphRoot,
@@ -206,7 +205,10 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             }
             
             // Make sure that any diagnostics we emit below are associated with the package.
-            let packageDiagnosticsScope = observabilityScope.makeChildScope(description: "Package Dependency Validation", metadata: package.underlyingPackage.diagnosticsMetadata)
+            let packageDiagnosticsScope = observabilityScope.makeChildScope(
+                description: "Package Dependency Validation",
+                metadata: package.underlying.diagnosticsMetadata
+            )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
@@ -221,7 +223,7 @@ fileprivate extension ResolvedProduct {
     /// Returns true if and only if the product represents a command plugin target.
     var isCommandPlugin: Bool {
         guard type == .plugin else { return false }
-        guard let target = underlyingProduct.targets.compactMap({ $0 as? PluginTarget }).first else { return false }
+        guard let target = underlying.targets.compactMap({ $0 as? PluginTarget }).first else { return false }
         guard case .command = target.capability else { return false }
         return true
     }
@@ -776,7 +778,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
     }
 
     guard hasAliases else { return false }
-    let aliasTracker = ModuleAliasTracker()
+    var aliasTracker = ModuleAliasTracker()
     for packageBuilder in packageBuilders {
         try aliasTracker.addTargetAliases(targets: packageBuilder.package.targets,
                                           package: packageBuilder.package.identity)
@@ -861,7 +863,6 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 
 /// Builder for resolved target.
 private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
-
     /// Enumeration to represent target dependencies.
     enum Dependency {
 
@@ -875,9 +876,6 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The target reference.
     let target: Target
 
-    /// DiagnosticsEmitter with which to emit diagnostics
-    let diagnosticsEmitter: DiagnosticsEmitter
-
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
@@ -887,6 +885,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The platforms supported by this package.
     var supportedPlatforms: [SupportedPlatform] = []
 
+    let observabilityScope: ObservabilityScope
     let platformVersionProvider: PlatformVersionProvider
 
     init(
@@ -895,24 +894,17 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.target = target
-        self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
+        self.observabilityScope = observabilityScope
+        self.platformVersionProvider = platformVersionProvider
+    }
+
+    override func constructImpl() throws -> ResolvedTarget {
+        let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
             metadata.targetName = target.name
             return metadata
         }
-        self.platformVersionProvider = platformVersionProvider
-    }
 
-    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
-        // Diagnose if any target in this product uses an unsafe flag.
-        for target in try product.recursiveTargetDependencies() {
-            if target.underlyingTarget.usesUnsafeFlags {
-                self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
-            }
-        }
-    }
-
-    override func constructImpl() throws -> ResolvedTarget {
         let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
@@ -925,17 +917,19 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
                 )
                 let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
-                    try self.diagnoseInvalidUseOfUnsafeFlags(product)
+                    try product.diagnoseInvalidUseOfUnsafeFlags(diagnosticsEmitter)
                 }
                 return .product(product, conditions: conditions)
             }
         }
 
         return ResolvedTarget(
-            target: self.target,
-            dependencies: dependencies,
-            defaultLocalization: self.defaultLocalization,
-            supportedPlatforms: self.supportedPlatforms,
+            storage: .init(
+                underlying: self.target,
+                dependencies: dependencies,
+                defaultLocalization: self.defaultLocalization,
+                supportedPlatforms: self.platforms
+            ),
             platformVersionProvider: self.platformVersionProvider
         )
     }

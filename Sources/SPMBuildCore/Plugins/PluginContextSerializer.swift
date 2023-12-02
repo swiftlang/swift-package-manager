@@ -61,26 +61,25 @@ internal struct PluginContextSerializer {
         
         // Construct the FileList
         var targetFiles: [WireInput.Target.TargetInfo.File] = []
-        targetFiles.append(contentsOf: try target.underlyingTarget.sources.paths.map {
+        targetFiles.append(contentsOf: try target.underlying.sources.paths.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
         })
-        targetFiles.append(contentsOf: try target.underlyingTarget.resources.map {
+        targetFiles.append(contentsOf: try target.underlying.resources.map {
             .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
         })
-        targetFiles.append(contentsOf: try target.underlyingTarget.ignored.map {
+        targetFiles.append(contentsOf: try target.underlying.ignored.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
-        targetFiles.append(contentsOf: try target.underlyingTarget.others.map {
+        targetFiles.append(contentsOf: try target.underlying.others.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
         
         // Create a scope for evaluating build settings.
-        let scope = BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
+        let scope = BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
         
         // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
         let targetInfo: WireInput.Target.TargetInfo
-        switch target.underlyingTarget {
-            
+        switch target.underlying {
         case let target as SwiftTarget:
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,

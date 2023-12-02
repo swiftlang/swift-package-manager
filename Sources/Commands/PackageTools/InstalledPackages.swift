@@ -62,7 +62,7 @@ extension SwiftPackageTool {
             case 0:
                 throw StringError("No Executable Products in Package.swift.")
             case 1:
-                productToInstall = possibleCandidates[0].underlyingProduct
+                productToInstall = possibleCandidates[0].underlying
             default:
                 guard let product, let first = possibleCandidates.first(where: { $0.name == product }) else {
                     throw StringError(
@@ -73,7 +73,7 @@ extension SwiftPackageTool {
                     )
                 }
 
-                productToInstall = first.underlyingProduct
+                productToInstall = first.underlying
             }
 
             if let existingPkg = alreadyExisting.first(where: { $0.name == productToInstall.name }) {

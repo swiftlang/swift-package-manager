@@ -311,7 +311,7 @@ extension PackageGraph {
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
             .flatMap(\.targets)
-            .filter { $0.underlyingTarget is SwiftTarget }
+            .filter { $0.underlying is SwiftTarget }
             .map { $0.c99name }
     }
 }

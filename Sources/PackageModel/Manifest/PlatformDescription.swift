@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct PlatformDescription: Codable, Equatable, Sendable {
+public struct PlatformDescription: Codable, Hashable, Sendable {
     public let platformName: String
     public let version: String
     public let options: [String]

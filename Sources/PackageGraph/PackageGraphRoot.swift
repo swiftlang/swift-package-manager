@@ -102,6 +102,7 @@ public struct PackageGraphRoot {
         // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies
         if let explicitProduct {
+            // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }

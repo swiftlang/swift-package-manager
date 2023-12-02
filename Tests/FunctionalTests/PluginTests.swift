@@ -383,7 +383,7 @@ class PluginTests: XCTestCase {
             let package = try XCTUnwrap(packageGraph.rootPackages.first)
             
             // Find the regular target in our test package.
-            let libraryTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyLibrary" } as? SwiftTarget)
+            let libraryTarget = try XCTUnwrap(package.targets.map(\.underlying).first{ $0.name == "MyLibrary" } as? SwiftTarget)
             XCTAssertEqual(libraryTarget.type, .library)
             
             // Set up a delegate to handle callbacks from the command plugin.
@@ -436,7 +436,7 @@ class PluginTests: XCTestCase {
                 diagnosticsChecker: (DiagnosticsTestResult) throws -> Void
             ) {
                 // Find the named plugin.
-                let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
+                let plugins = package.targets.compactMap{ $0.underlying as? PluginTarget }
                 guard let plugin = plugins.first(where: { $0.name == pluginName }) else {
                     return XCTFail("There is no plugin target named ‘\(pluginName)’")
                 }
@@ -445,7 +445,7 @@ class PluginTests: XCTestCase {
                 // Find the named input targets to the plugin.
                 var targets: [ResolvedTarget] = []
                 for targetName in targetNames {
-                    guard let target = package.targets.first(where: { $0.underlyingTarget.name == targetName }) else {
+                    guard let target = package.targets.first(where: { $0.underlying.name == targetName }) else {
                         return XCTFail("There is no target named ‘\(targetName)’")
                     }
                     XCTAssertTrue(target.type != .plugin, "Target \(target) is a plugin")
@@ -665,7 +665,7 @@ class PluginTests: XCTestCase {
             // Find the regular target in our test package.
             let libraryTarget = try XCTUnwrap(
                 package.targets
-                    .map(\.underlyingTarget)
+                    .map(\.underlying)
                     .first{ $0.name == "MyLibrary" } as? SwiftTarget
             )
             XCTAssertEqual(libraryTarget.type, .library)
@@ -718,7 +718,7 @@ class PluginTests: XCTestCase {
             }
 
             // Find the relevant plugin.
-            let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
+            let plugins = package.targets.compactMap { $0.underlying as? PluginTarget }
             guard let plugin = plugins.first(where: { $0.name == "NeverendingPlugin" }) else {
                 return XCTFail("There is no plugin target named ‘NeverendingPlugin’")
             }

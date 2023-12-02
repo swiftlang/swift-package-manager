@@ -15,67 +15,105 @@ import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.
 public final class ResolvedPackage {
-    /// The underlying package reference.
-    public let underlyingPackage: Package
-
     // The identity of the package.
     public var identity: PackageIdentity {
-        return self.underlyingPackage.identity
+        return self.storage.underlying.identity
     }
 
     /// The manifest describing the package.
     public var manifest: Manifest {
-        return self.underlyingPackage.manifest
+        return self.storage.underlying.manifest
     }
 
     /// The local path of the package.
     public var path: AbsolutePath {
-        return self.underlyingPackage.path
+        return self.storage.underlying.path
+    }
+
+    /// The underlying package model.
+    public var underlying: Package {
+        self.storage.underlying
     }
 
     /// The targets contained in the package.
-    public let targets: [ResolvedTarget]
+    public var targets: [ResolvedTarget] {
+        self.storage.targets
+    }
 
     /// The products produced by the package.
-    public let products: [ResolvedProduct]
+    public var products: [ResolvedProduct] {
+        self.storage.products
+    }
 
     /// The dependencies of the package.
-    public let dependencies: [ResolvedPackage]
-
-    /// The default localization for resources.
-    public let defaultLocalization: String?
-
-    /// The list of platforms that are supported by this target.
-    public let supportedPlatforms: [SupportedPlatform]
+    public var dependencies: [ResolvedPackage] {
+        self.storage.dependencies
+    }
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
-    public let registryMetadata: RegistryReleaseMetadata?
+    public var registryMetadata: RegistryReleaseMetadata? {
+        self.storage.registryMetadata
+    }
+
+    struct Storage: Hashable {
+        /// The underlying package reference.
+        public let underlying: Package
+        
+        /// The targets contained in the package.
+        public let targets: [ResolvedTarget]
+        
+        /// The products produced by the package.
+        public let products: [ResolvedProduct]
+        
+        /// The dependencies of the package.
+        public let dependencies: [ResolvedPackage]
+        
+        /// The default localization for resources.
+        public let defaultLocalization: String?
+        
+        /// The list of platforms that are supported by this target.
+        public let platforms: [SupportedPlatform]
+        
+        /// If the given package's source is a registry release, this provides additional metadata and signature information.
+        public let registryMetadata: RegistryReleaseMetadata?
+    }
+
+    private let storage: Storage
 
     private let platformVersionProvider: PlatformVersionProvider
 
-    public init(
+    public convenience init(
         package: Package,
         defaultLocalization: String?,
-        supportedPlatforms: [SupportedPlatform],
+        platforms: [SupportedPlatform],
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
-        self.underlyingPackage = package
-        self.defaultLocalization = defaultLocalization
-        self.supportedPlatforms = supportedPlatforms
-        self.dependencies = dependencies
-        self.targets = targets
-        self.products = products
-        self.registryMetadata = registryMetadata
+        self.init(
+            storage: .init(
+                underlying: package,
+                targets: targets,
+                products: products,
+                dependencies: dependencies,
+                defaultLocalization: defaultLocalization,
+                platforms: platforms,
+                registryMetadata: registryMetadata
+            ),
+            platformVersionProvider: platformVersionProvider
+        )
+    }
+
+    init(storage: Storage, platformVersionProvider: PlatformVersionProvider) {
+        self.storage = storage
         self.platformVersionProvider = platformVersionProvider
-    }    
+    }
 
     public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
-            declared: self.supportedPlatforms,
+            declared: self.storage.platforms,
             for: platform,
             usingXCTest: usingXCTest
         )
@@ -84,11 +122,11 @@ public final class ResolvedPackage {
 
 extension ResolvedPackage: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(self.storage)
     }
 
     public static func == (lhs: ResolvedPackage, rhs: ResolvedPackage) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+        lhs.storage == rhs.storage
     }
 }
 

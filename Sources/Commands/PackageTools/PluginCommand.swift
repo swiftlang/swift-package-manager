@@ -312,7 +312,7 @@ struct PluginCommand: SwiftCommand {
         let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
         // As well as any plugin targets in root packages.
         let rootPackageTargets = graph.rootPackages.filter { $0.matching(identity: packageIdentity) }.flatMap { $0.targets }
-        return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlyingTarget as? PluginTarget }.filter {
+        return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlying as? PluginTarget }.filter {
             switch $0.capability {
             case .buildTool: return false
             case .command: return true

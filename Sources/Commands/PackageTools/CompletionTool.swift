@@ -69,14 +69,14 @@ extension SwiftPackageTool {
                 ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: TSCBasic.stdoutStream)
             case .listExecutables:
                 let graph = try swiftTool.loadPackageGraph()
-                let package = graph.rootPackages[0].underlyingPackage
+                let package = graph.rootPackages[0].underlying
                 let executables = package.targets.filter { $0.type == .executable }
                 for executable in executables {
                     print(executable.name)
                 }
             case .listSnippets:
                 let graph = try swiftTool.loadPackageGraph()
-                let package = graph.rootPackages[0].underlyingPackage
+                let package = graph.rootPackages[0].underlying
                 let executables = package.targets.filter { $0.type == .snippet }
                 for executable in executables {
                     print(executable.name)

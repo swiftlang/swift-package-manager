@@ -57,7 +57,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        if let bundleName = target.underlyingTarget.potentialBundleName, needsResourceBundle {
+        if let bundleName = target.underlying.potentialBundleName, needsResourceBundle {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
@@ -83,7 +83,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
-        self.target.underlyingTarget.resources + self.pluginDerivedResources
+        self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// The objects in this target, containing either machine code or bitcode
@@ -136,7 +136,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The swift version for this target.
     var swiftVersion: SwiftLanguageVersion {
-        (self.target.underlyingTarget as! SwiftTarget).swiftVersion
+        (self.target.underlying as! SwiftTarget).swiftVersion
     }
 
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
@@ -250,7 +250,7 @@ public final class SwiftTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlyingTarget is SwiftTarget else {
+        guard target.underlying is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
@@ -494,7 +494,7 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if (self.target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true
+        if (self.target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true
             && !self.isTestTarget && self.toolsVersion >= .v5_5
         {
             // We only do this if the linker supports it, as indicated by whether we

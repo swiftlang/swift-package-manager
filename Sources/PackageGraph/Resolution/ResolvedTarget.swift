@@ -17,7 +17,7 @@ import func TSCBasic.topologicalSort
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
 public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
-    public enum Dependency {
+    public enum Dependency: Hashable {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
         case target(_ target: ResolvedTarget, conditions: [PackageCondition])
 
@@ -70,16 +70,10 @@ public final class ResolvedTarget {
         }
     }
 
-    /// The underlying target represented in this resolved target.
-    public let underlyingTarget: Target
-
     /// The name of this target.
     public var name: String {
-        return underlyingTarget.name
+        return underlying.name
     }
-
-    /// The dependencies of this target.
-    public let dependencies: [Dependency]
 
     /// Returns dependencies which satisfy the input build environment, based on their conditions.
     /// - Parameters:
@@ -110,57 +104,99 @@ public final class ResolvedTarget {
 
     /// The language-level target name.
     public var c99name: String {
-        return underlyingTarget.c99name
+        return underlying.c99name
     }
 
     /// Module aliases for dependencies of this target. The key is an
     /// original target name and the value is a new unique name mapped
     /// to the name of its .swiftmodule binary.
     public var moduleAliases: [String: String]? {
-      return underlyingTarget.moduleAliases
+      return underlying.moduleAliases
     }
 
     /// Allows access to package symbols from other targets in the package
     public var packageAccess: Bool {
-        return underlyingTarget.packageAccess
+        return underlying.packageAccess
     }
 
     /// The "type" of target.
     public var type: Target.Kind {
-        return underlyingTarget.type
+        return underlying.type
     }
 
     /// The sources for the target.
     public var sources: Sources {
-        return underlyingTarget.sources
+        return underlying.sources
+    }
+
+    /// The dependencies of this target.
+    public var dependencies: [Dependency] {
+        self.storage.dependencies
+    }
+
+    /// The underlying target model represented in this resolved target.
+    public var underlying: Target {
+        self.storage.underlying
     }
 
     /// The default localization for resources.
-    public let defaultLocalization: String?
+    public var defaultLocalization: String? {
+        self.storage.defaultLocalization
+    }
 
     /// The list of platforms that are supported by this target.
-    public let supportedPlatforms: [SupportedPlatform]
+    public var platforms: [SupportedPlatform] {
+        self.storage.supportedPlatforms
+    }
+
+    struct Storage: Hashable {
+        /// The underlying target represented in this resolved target.
+        let underlying: Target
+
+        /// The dependencies of this target.
+        let dependencies: [Dependency]
+
+        /// The default localization for resources.
+        let defaultLocalization: String?
+
+        /// The list of platforms that are supported by this target.
+        let supportedPlatforms: [SupportedPlatform]
+    }
+
+    private let storage: Storage
 
     private let platformVersionProvider: PlatformVersionProvider
 
-    /// Create a resolved target instance.
-    public init(
+    /// Create a target instance.
+    public convenience init(
         target: Target,
         dependencies: [Dependency],
         defaultLocalization: String?,
-        supportedPlatforms: [SupportedPlatform],
+        platforms: [SupportedPlatform],
         platformVersionProvider: PlatformVersionProvider
     ) {
-        self.underlyingTarget = target
-        self.dependencies = dependencies
-        self.defaultLocalization = defaultLocalization
-        self.supportedPlatforms = supportedPlatforms
+        self.init(
+            storage: .init(
+                underlying: target,
+                dependencies: dependencies,
+                defaultLocalization: defaultLocalization,
+                supportedPlatforms: platforms
+            ),
+            platformVersionProvider: platformVersionProvider
+        )
+    }
+
+    init(
+        storage: Storage,
+        platformVersionProvider: PlatformVersionProvider
+    ) {
+        self.storage = storage
         self.platformVersionProvider = platformVersionProvider
     }
 
     public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
-            declared: self.supportedPlatforms,
+            declared: self.storage.supportedPlatforms,
             for: platform,
             usingXCTest: usingXCTest
         )
@@ -169,41 +205,17 @@ public final class ResolvedTarget {
 
 extension ResolvedTarget: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(self.storage)
     }
 
     public static func == (lhs: ResolvedTarget, rhs: ResolvedTarget) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+        lhs.storage == rhs.storage
     }
 }
 
 extension ResolvedTarget: CustomStringConvertible {
     public var description: String {
         return "<ResolvedTarget: \(name)>"
-    }
-}
-
-extension ResolvedTarget.Dependency: Equatable {
-    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
-        switch (lhs, rhs) {
-        case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
-            return lhsTarget == rhsTarget
-        case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
-            return lhsProduct == rhsProduct
-        case (.product, .target), (.target, .product):
-            return false
-        }
-    }
-}
-
-extension ResolvedTarget.Dependency: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        switch self {
-        case .target(let target, _):
-            hasher.combine(target)
-        case .product(let product, _):
-            hasher.combine(product)
-        }
     }
 }
 

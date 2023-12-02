@@ -27,7 +27,7 @@ public final class ClangTargetBuildDescription {
 
     /// The underlying clang target.
     public var clangTarget: ClangTarget {
-        target.underlyingTarget as! ClangTarget
+        target.underlying as! ClangTarget
     }
 
     /// The tools version of the package that declared the target.  This can
@@ -45,7 +45,7 @@ public final class ClangTargetBuildDescription {
 
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
-        self.target.underlyingTarget.resources + self.pluginDerivedResources
+        self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// Path to the bundle generated for this module (if any).
@@ -54,7 +54,7 @@ public final class ClangTargetBuildDescription {
             return .none
         }
 
-        if let bundleName = target.underlyingTarget.potentialBundleName {
+        if let bundleName = target.underlying.potentialBundleName {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
@@ -119,7 +119,7 @@ public final class ClangTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlyingTarget is ClangTarget else {
+        guard target.underlying is ClangTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 

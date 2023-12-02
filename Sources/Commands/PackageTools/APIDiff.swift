@@ -176,7 +176,7 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(productName)' is not a library product")
                     continue
                 }
-                modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
+                modulesToDiff.formUnion(product.targets.filter { $0.underlying is SwiftTarget }.map(\.c99name))
             }
             for targetName in targets {
                 guard let target = packageGraph
@@ -190,7 +190,7 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(targetName)' is not a library target")
                     continue
                 }
-                guard target.underlyingTarget is SwiftTarget else {
+                guard target.underlying is SwiftTarget else {
                     observabilityScope.emit(error: "'\(targetName)' is not a Swift language target")
                     continue
                 }

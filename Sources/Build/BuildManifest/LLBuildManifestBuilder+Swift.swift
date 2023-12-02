@@ -212,8 +212,8 @@ extension LLBuildManifestBuilder {
                 // product into its constituent targets.
                 continue
             }
-            guard target.underlyingTarget.type != .systemModule,
-                  target.underlyingTarget.type != .binary
+            guard target.underlying.type != .systemModule,
+                  target.underlying.type != .binary
             else {
                 // Much like non-Swift targets, system modules will consist of a modulemap
                 // somewhere in the filesystem, with the path to that module being either
@@ -410,11 +410,11 @@ extension LLBuildManifestBuilder {
 
         func addStaticTargetInputs(_ target: ResolvedTarget) throws {
             // Ignore C Modules.
-            if target.underlyingTarget is SystemLibraryTarget { return }
+            if target.underlying is SystemLibraryTarget { return }
             // Ignore Binary Modules.
-            if target.underlyingTarget is BinaryTarget { return }
+            if target.underlying is BinaryTarget { return }
             // Ignore Plugin Targets.
-            if target.underlyingTarget is PluginTarget { return }
+            if target.underlying is PluginTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {

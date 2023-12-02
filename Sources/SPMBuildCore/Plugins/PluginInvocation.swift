@@ -348,15 +348,15 @@ extension PackageGraph {
             for dependency in target.dependencies(satisfying: buildEnvironment) {
                 switch dependency {
                 case .target(let target, _):
-                    if let pluginTarget = target.underlyingTarget as? PluginTarget {
+                    if let pluginTarget = target.underlying as? PluginTarget {
                         assert(pluginTarget.capability == .buildTool)
                         pluginTargets.append(pluginTarget)
                     }
                     else {
-                        dependencyTargets.append(target.underlyingTarget)
+                        dependencyTargets.append(target.underlying)
                     }
                 case .product(let product, _):
-                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? PluginTarget })
+                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlying as? PluginTarget })
                 }
             }
 
@@ -537,7 +537,10 @@ public extension PluginTarget {
                 builtToolName = target.name
                 executableOrBinaryTarget = target
             case .product(let productRef, _):
-                guard let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }), let executableTarget = product.targets.map({ $0.underlyingTarget }).executables.spm_only else {
+                guard
+                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
+                else {
                     throw StringError("no product named \(productRef.name)")
                 }
                 builtToolName = productRef.name

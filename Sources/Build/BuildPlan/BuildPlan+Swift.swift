@@ -20,7 +20,7 @@ extension BuildPlan {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
         for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
-            switch dependency.underlyingTarget {
+            switch dependency.underlying {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {
                     throw InternalError("unexpected clang target \(underlyingTarget)")

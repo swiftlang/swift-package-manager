@@ -30,7 +30,7 @@ extension BuildPlan {
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
-            guard case let target as SystemLibraryTarget = systemModule.underlyingTarget else {
+            guard case let target as SystemLibraryTarget = systemModule.underlying else {
                 throw InternalError("This should not be possible.")
             }
             // Add pkgConfig libs arguments.
@@ -51,7 +51,7 @@ extension BuildPlan {
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
+            if case let target as ClangTarget = target.underlying, target.isCXX {
                 if buildParameters.targetTriple.isDarwin() {
                     buildProduct.additionalFlags += ["-lc++"]
                 } else if buildParameters.targetTriple.isWindows() {
@@ -64,7 +64,7 @@ extension BuildPlan {
         }
 
         for target in dependencies.staticTargets {
-            switch target.underlyingTarget {
+            switch target.underlying {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
                 guard case .swift(let description) = targetMap[target] else {
@@ -127,7 +127,7 @@ extension BuildPlan {
         // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
         let topLevelDependencies: [PackageModel.Target]
         if product.type == .test {
-            topLevelDependencies = product.targets.flatMap { $0.underlyingTarget.dependencies }.compactMap {
+            topLevelDependencies = product.targets.flatMap { $0.underlying.dependencies }.compactMap {
                 switch $0 {
                 case .product:
                     return nil
@@ -145,7 +145,7 @@ extension BuildPlan {
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
-                let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
                 let topLevelIsMacro = isTopLevel && product.type == .macro
                 let topLevelIsPlugin = isTopLevel && product.type == .plugin
                 let topLevelIsTest = isTopLevel && product.type == .test
@@ -196,9 +196,9 @@ extension BuildPlan {
                 case .executable, .snippet, .macro:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
-                    } else if product.type == .test && (target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
+                    } else if product.type == .test && (target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
                         // Only "top-level" targets should really be considered here, not transitive ones.
-                        let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
+                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
                         if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
                             staticTargets.append(target)
                         }
@@ -216,7 +216,7 @@ extension BuildPlan {
                     systemModules.append(target)
                 // Add binary to binary paths set.
                 case .binary:
-                    guard let binaryTarget = target.underlyingTarget as? BinaryTarget else {
+                    guard let binaryTarget = target.underlying as? BinaryTarget else {
                         throw InternalError("invalid binary target '\(target.name)'")
                     }
                     switch binaryTarget.kind {

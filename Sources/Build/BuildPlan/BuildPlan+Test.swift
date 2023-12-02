@@ -58,7 +58,7 @@ extension BuildPlan {
             // tests into a separate target/module named "<PackageName>PackageDiscoveredTests". Then, that entry point file may import that module and
             // obtain that list to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
             if testProduct.testEntryPointTarget != nil && explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly {
-                let testEntryPointName = testProduct.underlyingProduct.testEntryPointPath?.basename ?? SwiftTarget.defaultTestEntryPointName
+                let testEntryPointName = testProduct.underlying.testEntryPointPath?.basename ?? SwiftTarget.defaultTestEntryPointName
                 observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testEntryPointName)' entry point file for '\(testProduct.name)' will be ignored and an entry point will be generated automatically. To use test discovery with a custom entry point file, pass '--experimental-test-entry-point-path <file>'.")
             } else if testProduct.testEntryPointTarget == nil, let testEntryPointPath = explicitlySpecifiedPath, !fileSystem.exists(testEntryPointPath) {
                 observabilityScope.emit(error: "'--experimental-test-entry-point-path' was specified but the file '\(testEntryPointPath)' could not be found.")
@@ -79,7 +79,7 @@ extension BuildPlan {
 
                 let discoveryTarget = SwiftTarget(
                     name: discoveryTargetName,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
+                    dependencies: testProduct.underlying.targets.map { .target($0, conditions: []) },
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
@@ -113,7 +113,7 @@ extension BuildPlan {
                 let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
                     type: .library,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
+                    dependencies: testProduct.underlying.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
@@ -142,10 +142,10 @@ extension BuildPlan {
                     if isEntryPointPathSpecifiedExplicitly {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let entryPointTarget = SwiftTarget(
-                            name: entryPointResolvedTarget.underlyingTarget.name,
-                            dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
+                            name: entryPointResolvedTarget.underlying.name,
+                            dependencies: entryPointResolvedTarget.underlying.dependencies + [.target(discoveryTargets.target, conditions: [])],
                             packageAccess: entryPointResolvedTarget.packageAccess,
-                            testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
+                            testEntryPointSources: entryPointResolvedTarget.underlying.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
                             target: entryPointTarget,
