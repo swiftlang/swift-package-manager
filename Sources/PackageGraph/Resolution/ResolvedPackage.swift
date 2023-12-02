@@ -35,34 +35,36 @@ public final class ResolvedPackage {
         return self.underlyingPackage.path
     }
 
-    /// The targets contained in the package.
+    /// Resolved targets contained in the package.
     public let targets: [ResolvedTarget]
 
-    /// The products produced by the package.
+    /// Resolved products produced by the package.
     public private(set) var products: [ResolvedProduct]
 
-    /// The dependencies of the package.
+    /// Resolved packages that this package depends on.
     public let dependencies: [ResolvedPackage]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
 
-    /// The list of platforms that are supported by this target.
+    /// The list of platforms that are supported by this package.
     public let platforms: SupportedPlatforms
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     public let registryMetadata: RegistryReleaseMetadata?
 
-    /// Package can vend unsafe products
+    /// Whether this resolved package can vend unsafe products.
     let isAllowedToVendUnsafeProducts: Bool
 
-    /// Map from package identity to the local name for target dependency resolution that has been given to that package through the dependency declaration.
+    /// Map from package identity to the local name for target dependency resolution that has been given to that
+    /// package through the dependency declaration.
     var dependencyNamesForTargetDependencyResolutionOnly: [PackageIdentity: String] = [:]
 
-    public init(
+    init(
         package: Package,
         packagesByIdentity: [PackageIdentity: Package],
         rootManifests: [PackageIdentity: Manifest],
+        dependencies: inout OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackage>,
         unsafeAllowedPackages: Set<PackageReference>,
         /// The product filter applied to the package.
         productFilter: ProductFilter,
@@ -76,7 +78,6 @@ public final class ResolvedPackage {
         self.platforms = platforms
 
         self.isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains { $0.identity == package.identity }
-
 
         // add registry metadata if available
         if fileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
@@ -93,7 +94,6 @@ public final class ResolvedPackage {
             metadata: package.diagnosticsMetadata
         )
 
-        var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackage>()
         var dependenciesByNameForTargetDependencyResolution = [String: Package]()
         var dependencyNamesForTargetDependencyResolutionOnly = [PackageIdentity: String]()
 
@@ -106,15 +106,15 @@ public final class ResolvedPackage {
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
-                guard dependencies[resolvedPackage.identity] == nil else {
-                    let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
-                        package: package.identity.description,
-                        dependencyLocation: dependencyPackageRef.locationString,
-                        otherDependencyURL: resolvedPackage.manifest.packageLocation,
-                        identity: dependency.identity)
-                    packageObservabilityScope.emit(error)
-                    break
-                }
+//                guard dependencies[resolvedPackage.identity] == nil else {
+//                    let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
+//                        package: package.identity.description,
+//                        dependencyLocation: dependencyPackageRef.locationString,
+//                        otherDependencyURL: resolvedPackage.manifest.packageLocation,
+//                        identity: dependency.identity)
+//                    packageObservabilityScope.emit(error)
+//                    break
+//                }
 
                 let allowedToOverride = rootManifests.values.contains(resolvedPackage.manifest)
 
@@ -175,6 +175,7 @@ public final class ResolvedPackage {
                     package: resolvedPackage,
                     packagesByIdentity: packagesByIdentity,
                     rootManifests: rootManifests,
+                    dependencies: &dependencies,
                     unsafeAllowedPackages: unsafeAllowedPackages,
                     productFilter: productFilter,
                     defaultLocalization: defaultLocalization,
@@ -193,27 +194,39 @@ public final class ResolvedPackage {
         for target in package.targets {
             targetMap[target] = try ResolvedTarget(
                 target: target,
-                // Establish dependencies between the targets. A target can only depend on another target present in the same package.
-                dependencies: target.dependencies.compactMap { dependency in
-                    switch dependency {
-                    case .target(let target, let conditions):
-                        guard let targetBuilder = targetMap[target] else {
-                            throw InternalError("unknown target \(target.name)")
-                        }
-                        return .target(targetBuilder, conditions: conditions)
-                    case .product:
-                        return nil
-                    }
-                },
+                dependencies: [],
                 defaultLocalization: defaultLocalization,
                 platforms: platforms,
                 observabilityScope: packageObservabilityScope
             )
         }
 
-        // Create target builders for each target in the package.
-        self.targets = package.targets.compactMap { targetMap[$0] }
+        // Second pass to establish dependencies between the targets. A target can only depend on another target present
+        // in the same package.
+        var resolvedTargets = [ResolvedTarget]()
+        for target in package.targets {
+            guard let resolvedTarget = targetMap[target] else {
+                throw InternalError(
+                    "Unknown target \(target.name) while resolving target dependencies in package \(package.identity)"
+                )
+            }
+            resolvedTarget.dependencies = try target.dependencies.compactMap { dependency in
+                switch dependency {
+                case .target(let target, let conditions):
+                    guard let targetBuilder = targetMap[target] else {
+                        throw InternalError("unknown target \(target.name)")
+                    }
+                    return .target(targetBuilder, conditions: conditions)
+                case .product:
+                    return nil
+                }
+            }
+            resolvedTargets.append(resolvedTarget)
+        }
 
+        self.targets = resolvedTargets
+
+        // Initialize the property to get access to `self` in subsequent `self.products` update in this initializer.
         self.products = []
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -235,11 +248,11 @@ public final class ResolvedPackage {
 
 extension ResolvedPackage: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(self.underlyingPackage)
     }
 
     public static func == (lhs: ResolvedPackage, rhs: ResolvedPackage) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+        lhs.underlyingPackage == rhs.underlyingPackage
     }
 }
 

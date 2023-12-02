@@ -21,12 +21,12 @@ public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
-        case target(_ target: Target, conditions: [PackageConditionProtocol])
+        case target(_ target: ResolvedTarget, conditions: [PackageConditionProtocol])
 
         /// The target depends on this product.
         case product(_ product: ResolvedProduct, conditions: [PackageConditionProtocol])
 
-        public var target: Target? {
+        public var target: ResolvedTarget? {
             switch self {
             case .target(let target, _): return target
             case .product: return nil
@@ -162,7 +162,10 @@ public final class ResolvedTarget {
                 try target.validateDependency(target: resolvedTarget.underlyingTarget)
                 return .target(resolvedTarget, conditions: conditions)
             case .product(let resolvedProduct, let conditions):
-                try target.validateDependency(product: resolvedProduct.underlyingProduct, productPackage: resolvedProduct.resolvedPackage.underlyingPackage.identity)
+                try target.validateDependency(
+                    product: resolvedProduct.underlyingProduct,
+                    productPackage: resolvedProduct.resolvedPackage.underlyingPackage.identity
+                )
                 if !resolvedProduct.resolvedPackage.isAllowedToVendUnsafeProducts {
                     try resolvedProduct.diagnoseInvalidUseOfUnsafeFlags(diagnosticsEmitter)
                 }

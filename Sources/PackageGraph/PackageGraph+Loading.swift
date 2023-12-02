@@ -61,8 +61,14 @@ extension PackageGraph {
         let rootDependencies = Set(root.dependencies.compactMap{
             manifestMap[$0.identity]?.manifest
         })
-        let rootManifestNodes = root.packages.map { identity, package in
-            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
+        let rootManifestNodes = root.packages.map {
+            identity,
+            package in
+            GraphLoadingNode(
+                identity: identity,
+                manifest: package.manifest,
+                productFilter: .everything
+            )
         }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { dependency in
             manifestMap[dependency.identity].map {
@@ -168,7 +174,7 @@ extension PackageGraph {
 
         return try PackageGraph(
             rootPackages: rootPackages,
-            rootDependencies: resolvedPackages.filter{ rootDependencies.contains($0.manifest) },
+            rootDependencies: resolvedPackages.filter { rootDependencies.contains($0.manifest) },
             dependencies: requiredDependencies,
             binaryArtifacts: binaryArtifacts
         )
@@ -249,17 +255,18 @@ private func createResolvedPackages(
         return ($0.identity, $0)
     }
 
+    var packagesMap = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackage>()
     // Create package builder objects from the input manifests.
     let packageBuilders: [ResolvedPackage] = try nodes.compactMap { node -> ResolvedPackage? in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
 
-
-        return try ResolvedPackage(
+        let result = try ResolvedPackage(
             package: package,
             packagesByIdentity: packagesByIdentity,
             rootManifests: rootManifests,
+            dependencies: &packagesMap,
             unsafeAllowedPackages: unsafeAllowedPackages,
             productFilter: node.productFilter,
             defaultLocalization: package.manifest.defaultLocalization,
@@ -271,6 +278,10 @@ private func createResolvedPackages(
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
+
+//        packagesMap[package.identity] = result
+
+        return result
     }
 
     // Resolve module aliases, if specified, for targets and their dependencies
@@ -301,27 +312,32 @@ private func createResolvedPackages(
 
         // Get all implicit system library dependencies in this package.
         let implicitSystemTargetDeps = packageBuilder.dependencies
-            .flatMap({ $0.targets })
-            .filter({
+            .flatMap { $0.targets }
+            .filter {
                 if case let systemLibrary as SystemLibraryTarget = $0.underlyingTarget {
                     return systemLibrary.isImplicit
                 }
                 return false
-            })
+            }
 
         let packageDoesNotSupportProductAliases = packageBuilder.underlyingPackage.doesNotSupportProductAliases
         let lookupByProductIDs = !packageDoesNotSupportProductAliases && (packageBuilder.underlyingPackage.manifest.disambiguateByProductIDs || moduleAliasingUsed)
 
         // Get all the products from dependencies of this package.
-        let productDependencies = packageBuilder.dependencies
-            .flatMap({ (dependency: ResolvedPackage) -> [ResolvedProduct] in
-                // Filter out synthesized products such as tests and implicit executables.
-                // Check if a dependency product is explicitly declared as a product in its package manifest
-                let manifestProducts = dependency.underlyingPackage.manifest.products.lazy.map { $0.name }
-                let explicitProducts = dependency.underlyingPackage.products.filter { manifestProducts.contains($0.name) }
-                let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
-                return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.underlyingProduct.identity) : explicitIdsOrNames.contains($0.underlyingProduct.name) })
-            })
+        let productDependencies = packageBuilder.dependencies.flatMap { (dependency: ResolvedPackage) -> [ResolvedProduct] in
+            // Filter out synthesized products such as tests and implicit executables.
+            // Check if a dependency product is explicitly declared as a product in its package manifest
+            let manifestProducts = dependency.underlyingPackage.manifest.products.lazy.map { $0.name }
+            let explicitProducts = dependency.underlyingPackage.products.filter { manifestProducts.contains($0.name) }
+            let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
+            return dependency.products.filter {
+                if lookupByProductIDs {
+                    return explicitIdsOrNames.contains($0.underlyingProduct.identity)
+                } else {
+                    return explicitIdsOrNames.contains($0.underlyingProduct.name)
+                }
+            }
+        }
 
         let productDependencyMap: [String: ResolvedProduct]
         if lookupByProductIDs {
@@ -615,7 +631,6 @@ private func computePlatforms(
     platformRegistry: PlatformRegistry,
     derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?
 ) -> SupportedPlatforms {
-
     // the supported platforms as declared in the manifest
     let declaredPlatforms: [SupportedPlatform] = package.manifest.platforms.map { platform in
         let declaredPlatform = platformRegistry.platformByName[platform.platformName]

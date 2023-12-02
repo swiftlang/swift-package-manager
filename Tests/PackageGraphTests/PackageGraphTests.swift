@@ -20,7 +20,6 @@ import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
 class PackageGraphTests: XCTestCase {
-
     func testBasic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",

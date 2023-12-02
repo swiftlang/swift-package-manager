@@ -34,6 +34,8 @@ public class Product: Codable {
     /// The path to test entry point file.
     public let testEntryPointPath: AbsolutePath?
 
+    public let packageIdentity: PackageIdentity
+
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
@@ -56,6 +58,7 @@ public class Product: Codable {
         self.identity = package.description.lowercased() + "_" + name
         self._targets = .init(wrappedValue: targets)
         self.testEntryPointPath = testEntryPointPath
+        self.packageIdentity = package
     }
 }
 

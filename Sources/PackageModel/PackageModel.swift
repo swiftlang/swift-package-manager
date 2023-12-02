@@ -14,6 +14,7 @@ import Basics
 import struct Foundation.URL
 
 import enum TSCUtility.PackageLocation
+import struct TSCUtility.PolymorphicCodable
 import struct TSCUtility.PolymorphicCodableArray
 import struct TSCUtility.Version
 
@@ -92,6 +93,16 @@ public final class Package: Encodable {
 
     public enum Error: Swift.Error, Equatable {
         case noManifest(at: AbsolutePath, version: Version?)
+    }
+}
+
+extension Package: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: Package, rhs: Package) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 

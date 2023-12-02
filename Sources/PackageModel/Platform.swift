@@ -107,8 +107,18 @@ public struct SupportedPlatforms {
     }
 }
 
+extension SupportedPlatforms: Equatable, Hashable {
+    public static func ==(lhs: Self, rhs: Self) -> Bool {
+        lhs.declared == rhs.declared
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.declared)
+    }
+}
+
 /// Represents a platform supported by a target.
-public struct SupportedPlatform: Equatable, Codable {
+public struct SupportedPlatform: Equatable, Hashable, Codable {
     /// The platform.
     public let platform: Platform
 
