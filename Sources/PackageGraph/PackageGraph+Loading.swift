@@ -381,6 +381,7 @@ private func createResolvedPackages(
             targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
                 switch dependency {
                 case .target(let target, let conditions):
+                    try targetBuilder.target.validateDependency(target: target)
                     guard let targetBuilder = targetMap[target] else {
                         throw InternalError("unknown target \(target.name)")
                     }
@@ -908,7 +909,6 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
-                try self.target.validateDependency(target: targetBuilder.target)
                 return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
                 try self.target.validateDependency(
@@ -948,7 +948,6 @@ extension Target {
 }
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
-
     /// The package reference.
     let package: Package
 

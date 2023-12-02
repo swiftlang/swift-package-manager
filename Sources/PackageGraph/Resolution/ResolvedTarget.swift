@@ -14,7 +14,7 @@ import PackageModel
 
 import func TSCBasic.topologicalSort
 
-/// Represents a fully resolved target. All the dependencies for the target are resolved.
+/// Represents a fully resolved target. All the dependencies for this target are also stored as resolved.
 public struct ResolvedTarget: Hashable {
     /// Represents dependency of a resolved target.
     public enum Dependency: Hashable {
