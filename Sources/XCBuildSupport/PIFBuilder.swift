@@ -781,7 +781,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(
         to target: ResolvedTarget,
         in pifTarget: PIFTargetBuilder,
-        conditions: Set<PackageCondition>,
+        conditions: [PackageCondition],
         linkProduct: Bool
     ) {
         // Only add the binary target as a library when we want to link against the product.
@@ -803,7 +803,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(
         to product: ResolvedProduct,
         in pifTarget: PIFTargetBuilder,
-        conditions: Set<PackageCondition>,
+        conditions: [PackageCondition],
         linkProduct: Bool
     ) {
         pifTarget.addDependency(
@@ -1498,7 +1498,7 @@ private extension BuildSettings.AssignmentTable {
 
 private extension BuildSettings.Assignment {
     var configurations: [BuildConfiguration] {
-        if let configurationCondition = uniqueConditions.lazy.compactMap(\.configurationCondition).first {
+        if let configurationCondition = conditions.lazy.compactMap(\.configurationCondition).first {
             return [configurationCondition.configuration]
         } else {
             return BuildConfiguration.allCases
@@ -1506,7 +1506,7 @@ private extension BuildSettings.Assignment {
     }
 
     var pifPlatforms: [PIF.BuildSettings.Platform]? {
-        if let platformsCondition = uniqueConditions.lazy.compactMap(\.platformsCondition).first {
+        if let platformsCondition = conditions.lazy.compactMap(\.platformsCondition).first {
             return platformsCondition.platforms.compactMap { PIF.BuildSettings.Platform(rawValue: $0.name) }
         } else {
             return nil
@@ -1537,7 +1537,7 @@ public struct DelayedImmutable<Value> {
     }
 }
 
-extension Set<PackageCondition> {
+extension [PackageCondition] {
     func toPlatformFilters() -> [PIF.PlatformFilter] {
         var result: [PIF.PlatformFilter] = []
         let platformConditions = self.compactMap(\.platformsCondition).flatMap { $0.platforms }

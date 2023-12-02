@@ -44,20 +44,9 @@ public enum BuildSettings {
         public var values: [String]
 
         /// The condition associated with this assignment.
-        @available(*, deprecated, renamed: "uniqueConditions")
-        public var conditions: [PackageConditionProtocol] {
+        public var conditions: [PackageCondition] {
             get {
-                return _conditions.map{ $0.condition }
-            }
-            set {
-                _conditions = newValue.map{ PackageConditionWrapper($0) }
-            }
-        }        
-
-        /// A set of unique conditions associated with this assignment.
-        public var uniqueConditions: Set<PackageCondition> {
-            get {
-                return Set(_conditions.map(\.underlying))
+                return _conditions.map { $0.underlying }
             }
             set {
                 _conditions = newValue.map { PackageConditionWrapper($0) }
@@ -111,7 +100,7 @@ public enum BuildSettings {
             // Add values from each assignment if it satisfies the build environment.
             let values = assignments
                 .lazy
-                .filter { $0.uniqueConditions.allSatisfy { $0.satisfies(self.environment) } }
+                .filter { $0.conditions.allSatisfy { $0.satisfies(self.environment) } }
                 .flatMap { $0.values }
 
             return Array(values)

@@ -869,10 +869,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     enum Dependency {
 
         /// Dependency to another target, with conditions.
-        case target(_ target: ResolvedTargetBuilder, conditions: Set<PackageCondition>)
+        case target(_ target: ResolvedTargetBuilder, conditions: [PackageCondition])
 
         /// Dependency to a product, with conditions.
-        case product(_ product: ResolvedProductBuilder, conditions: Set<PackageCondition>)
+        case product(_ product: ResolvedProductBuilder, conditions: [PackageCondition])
     }
 
     /// The target reference.

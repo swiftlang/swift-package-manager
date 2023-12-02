@@ -19,10 +19,10 @@ public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency: Hashable {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
-        case target(_ target: ResolvedTarget, conditions: Set<PackageCondition>)
+        case target(_ target: ResolvedTarget, conditions: [PackageCondition])
 
         /// The target depends on this product.
-        case product(_ product: ResolvedProduct, conditions: Set<PackageCondition>)
+        case product(_ product: ResolvedProduct, conditions: [PackageCondition])
 
         public var target: ResolvedTarget? {
             switch self {
@@ -38,7 +38,7 @@ public final class ResolvedTarget {
             }
         }
 
-        public var conditions: Set<PackageCondition> {
+        public var conditions: [PackageCondition] {
             switch self {
             case .target(_, let conditions): return conditions
             case .product(_, let conditions): return conditions

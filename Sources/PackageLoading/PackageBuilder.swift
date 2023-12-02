@@ -1136,7 +1136,7 @@ public final class PackageBuilder {
             // Create an assignment for this setting.
             var assignment = BuildSettings.Assignment()
             assignment.values = values
-            assignment.uniqueConditions = self.buildConditions(from: setting.condition)
+            assignment.conditions = self.buildConditions(from: setting.condition)
 
             // Finally, add the assignment to the assignment table.
             table.add(assignment, for: decl)
@@ -1145,12 +1145,12 @@ public final class PackageBuilder {
         return table
     }
 
-    func buildConditions(from condition: PackageConditionDescription?) -> Set<PackageCondition> {
-        var conditions: Set<PackageCondition> = []
+    func buildConditions(from condition: PackageConditionDescription?) -> [PackageCondition] {
+        var conditions = [PackageCondition]()
 
         if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
             let condition = ConfigurationCondition(configuration: config)
-            conditions.insert(.configuration(condition))
+            conditions.append(.configuration(condition))
         }
 
         if let platforms = condition?.platformNames.map({
@@ -1163,7 +1163,7 @@ public final class PackageBuilder {
            !platforms.isEmpty
         {
             let condition = PlatformsCondition(platforms: platforms)
-            conditions.insert(.platforms(condition))
+            conditions.append(.platforms(condition))
         }
 
         return conditions
