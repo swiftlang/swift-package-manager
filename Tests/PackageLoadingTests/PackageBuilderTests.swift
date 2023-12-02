@@ -2989,7 +2989,7 @@ final class PackageBuilderTests: XCTestCase {
 
         var assignment = BuildSettings.Assignment()
         assignment.values = ["YOLO"]
-        assignment.conditions = [.init(platforms: [PackageModel.Platform.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
+        assignment.conditions = [PackageCondition(platforms: [.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
 
         var settings = BuildSettings.AssignmentTable()
         settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
