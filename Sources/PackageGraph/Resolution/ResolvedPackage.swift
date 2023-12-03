@@ -46,27 +46,39 @@ public final class ResolvedPackage {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public let platforms: SupportedPlatforms
+    public let supportedPlatforms: [SupportedPlatform]
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     public let registryMetadata: RegistryReleaseMetadata?
 
+    private let platformVersionProvider: PlatformVersionProvider
+
     public init(
         package: Package,
         defaultLocalization: String?,
-        platforms: SupportedPlatforms,
+        supportedPlatforms: [SupportedPlatform],
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
         products: [ResolvedProduct],
-        registryMetadata: RegistryReleaseMetadata?
+        registryMetadata: RegistryReleaseMetadata?,
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlyingPackage = package
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
+        self.supportedPlatforms = supportedPlatforms
         self.dependencies = dependencies
         self.targets = targets
         self.products = products
         self.registryMetadata = registryMetadata
+        self.platformVersionProvider = platformVersionProvider
+    }    
+
+    public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        self.platformVersionProvider.getDerived(
+            declared: self.supportedPlatforms,
+            for: platform,
+            usingXCTest: usingXCTest
+        )
     }
 }
 

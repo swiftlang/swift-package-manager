@@ -139,19 +139,31 @@ public final class ResolvedTarget {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public let platforms: SupportedPlatforms
+    public let supportedPlatforms: [SupportedPlatform]
+
+    private let platformVersionProvider: PlatformVersionProvider
 
     /// Create a resolved target instance.
     public init(
         target: Target,
         dependencies: [Dependency],
         defaultLocalization: String?,
-        platforms: SupportedPlatforms
+        supportedPlatforms: [SupportedPlatform],
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlyingTarget = target
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
+        self.supportedPlatforms = supportedPlatforms
+        self.platformVersionProvider = platformVersionProvider
+    }
+
+    public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        self.platformVersionProvider.getDerived(
+            declared: self.supportedPlatforms,
+            for: platform,
+            usingXCTest: usingXCTest
+        )
     }
 }
 

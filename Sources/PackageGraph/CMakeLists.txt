@@ -31,6 +31,7 @@ add_library(PackageGraph
   Resolution/DependencyResolverBinding.swift
   Resolution/DependencyResolverDelegate.swift
   Resolution/DependencyResolverError.swift
+  Resolution/PlatformVersionProvider.swift
   Resolution/ResolvedPackage.swift
   Resolution/ResolvedProduct.swift
   Resolution/ResolvedTarget.swift
