@@ -46,7 +46,7 @@ public struct ResolvedPackage: Hashable {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public let platforms: [SupportedPlatform]
+    public let supportedPlatforms: [SupportedPlatform]
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     public let registryMetadata: RegistryReleaseMetadata?
@@ -55,28 +55,28 @@ public struct ResolvedPackage: Hashable {
     private let platformVersionProvider: PlatformVersionProvider
 
     public init(
-        package: Package,
+        underlying: Package,
         defaultLocalization: String?,
-        platforms: [SupportedPlatform],
+        supportedPlatforms: [SupportedPlatform],
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
-        self.underlying = package
+        self.underlying = underlying
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
+        self.supportedPlatforms = supportedPlatforms
         self.registryMetadata = registryMetadata
         self.platformVersionProvider = platformVersionProvider
     }
 
     public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
-            declared: self.platforms,
+            declared: self.supportedPlatforms,
             for: platform,
             usingXCTest: usingXCTest
         )

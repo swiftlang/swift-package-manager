@@ -927,24 +927,34 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             underlying: self.target,
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,
-            supportedPlatforms: self.platforms,
+            supportedPlatforms: self.supportedPlatforms,
             platformVersionProvider: self.platformVersionProvider
         )
     }
 }
 
 extension Target {
+    func validateDependency(target: Target) throws {
+        if self.type == .plugin && target.type == .library {
+            throw PackageGraphError.unsupportedPluginDependency(
+                targetName: self.name,
+                dependencyName: target.name,
+                dependencyType: target.type.rawValue,
+                dependencyPackage: nil
+            )
+        }
+    }
 
-  func validateDependency(target: Target) throws {
-    if self.type == .plugin && target.type == .library {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
+    func validateDependency(product: Product, productPackage: PackageIdentity) throws {
+        if self.type == .plugin && product.type.isLibrary {
+            throw PackageGraphError.unsupportedPluginDependency(
+                targetName: self.name,
+                dependencyName: product.name,
+                dependencyType: product.type.description,
+                dependencyPackage: productPackage.description
+            )
+        }
     }
-  }
-  func validateDependency(product: Product, productPackage: PackageIdentity) throws {
-    if self.type == .plugin && product.type.isLibrary {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
-    }
-  }
 }
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
@@ -999,7 +1009,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     override func constructImpl() throws -> ResolvedPackage {
         return ResolvedPackage(
-            package: self.package,
+            underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: try self.dependencies.map{ try $0.construct() },

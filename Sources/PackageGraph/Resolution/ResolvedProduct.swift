@@ -37,7 +37,7 @@ public struct ResolvedProduct: Hashable {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this product.
-    public let platforms: [SupportedPlatform]
+    public let supportedPlatforms: [SupportedPlatform]
 
     public let platformVersionProvider: PlatformVersionProvider
 
@@ -60,7 +60,7 @@ public struct ResolvedProduct: Hashable {
 
     public init(product: Product, targets: [ResolvedTarget]) {
         assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
-        let (platforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
+        let (supportedPlatforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
         let defaultLocalization = targets.first?.defaultLocalization
         
         self.underlying = product
@@ -80,7 +80,7 @@ public struct ResolvedProduct: Hashable {
                     .target($0, conditions: [])
                 },
                 defaultLocalization: defaultLocalization,
-                supportedPlatforms: platforms,
+                supportedPlatforms: supportedPlatforms,
                 platformVersionProvider: platformVersionProvider
             )
         }
@@ -88,7 +88,7 @@ public struct ResolvedProduct: Hashable {
         // defaultLocalization is currently shared across the entire package
         // this may need to be enhanced if / when we support localization per target or product
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
+        self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
     }
 
@@ -123,7 +123,7 @@ public struct ResolvedProduct: Hashable {
 
     public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
-            declared: self.platforms,
+            declared: self.supportedPlatforms,
             for: platform,
             usingXCTest: usingXCTest
         )
