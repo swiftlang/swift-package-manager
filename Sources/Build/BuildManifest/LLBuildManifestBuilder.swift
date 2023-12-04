@@ -117,7 +117,9 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        try self.addTestDiscoveryGenerationCommand()
+        if self.buildParameters.testingParameters.library == .xctest {
+            try self.addTestDiscoveryGenerationCommand()
+        }
         try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
