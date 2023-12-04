@@ -268,8 +268,9 @@ extension LLBuildManifestBuilder {
 
             let outputs = testEntryPointTarget.target.sources.paths
 
-            guard let mainOutput = (outputs.first { $0.basename == TestEntryPointTool.mainFileName }) else {
-                throw InternalError("main output (\(TestEntryPointTool.mainFileName)) not found")
+            let mainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+            guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
+                throw InternalError("main output (\(mainFileName)) not found")
             }
             let cmdName = mainOutput.pathString
             self.manifest.addTestEntryPointCmd(
