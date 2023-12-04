@@ -109,7 +109,8 @@ extension BuildPlan {
                 resolvedTargetDependencies: [ResolvedTarget.Dependency]
             ) throws -> SwiftTargetBuildDescription {
                 let entryPointDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let entryPointMainFile = entryPointDerivedDir.appending(component: TestEntryPointTool.mainFileName)
+                let entryPointMainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+                let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
                 let entryPointTarget = SwiftTarget(
