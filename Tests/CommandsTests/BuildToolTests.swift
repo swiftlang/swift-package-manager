@@ -506,7 +506,7 @@ final class BuildToolTests: CommandsTestCase {
                 return buildArenaPath.appending(component: filename)
             }
 
-            let dummySwiftcPath = SwiftPM.testBinaryPath(for: "dummy-swiftc")
+            let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
 
             var environment = [

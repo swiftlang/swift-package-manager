@@ -200,15 +200,22 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     }
 }
 
+extension TestEntryPointTool {
+    public static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
+        "runner-\(library).swift"
+    }
+}
+
 final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
     private func execute(fileSystem: Basics.FileSystem, tool: TestEntryPointTool) throws {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
         // Find the main output file
+        let mainFileName = TestEntryPointTool.mainFileName(for: self.context.buildParameters.testingParameters.library)
         guard let mainFile = outputs.first(where: { path in
-            path.basename == TestEntryPointTool.mainFileName
+            path.basename == mainFileName
         }) else {
-            throw InternalError("main file output (\(TestEntryPointTool.mainFileName)) not found")
+            throw InternalError("main file output (\(mainFileName)) not found")
         }
 
         // Write the main file.
@@ -393,7 +400,8 @@ public struct BuildDescription: Codable {
             return try BuiltTestProduct(
                 productName: desc.product.name,
                 binaryPath: desc.binaryPath,
-                packagePath: desc.package.path
+                packagePath: desc.package.path,
+                library: desc.buildParameters.testingParameters.library
             )
         }
         self.pluginDescriptions = pluginDescriptions

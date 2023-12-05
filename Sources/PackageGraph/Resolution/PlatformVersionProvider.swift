@@ -46,7 +46,7 @@ public struct PlatformVersionProvider: Hashable {
         switch implementation {
         case .mergingFromTargets(let targets):
             let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-                merge(into: &partial, platforms: [item.getDerived(for: declared, usingXCTest: item.type == .test)])
+                merge(into: &partial, platforms: [item.getSupportedPlatform(for: declared, usingXCTest: item.type == .test)])
             }
             return platforms.first!.version
 

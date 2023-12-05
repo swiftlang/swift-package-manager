@@ -74,7 +74,7 @@ public struct ResolvedPackage: Hashable {
         self.platformVersionProvider = platformVersionProvider
     }
 
-    public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+    public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
             declared: self.supportedPlatforms,
             for: platform,
