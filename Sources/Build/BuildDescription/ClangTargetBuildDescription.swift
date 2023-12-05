@@ -26,9 +26,7 @@ public final class ClangTargetBuildDescription {
     public let target: ResolvedTarget
 
     /// The underlying clang target.
-    public var clangTarget: ClangTarget {
-        target.underlying as! ClangTarget
-    }
+    public let clangTarget: ClangTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
@@ -119,10 +117,11 @@ public final class ClangTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlying is ClangTarget else {
+        guard let clangTarget = target.underlying as? ClangTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target
         self.toolsVersion = toolsVersion

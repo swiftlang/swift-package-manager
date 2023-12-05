@@ -33,6 +33,8 @@ public final class SwiftTargetBuildDescription {
     /// The target described by this target.
     public let target: ResolvedTarget
 
+    private let swiftTarget: SwiftTarget
+
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
@@ -250,10 +252,11 @@ public final class SwiftTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlying is SwiftTarget else {
+        guard let swiftTarget = target.underlying as? SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.swiftTarget = swiftTarget
         self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
