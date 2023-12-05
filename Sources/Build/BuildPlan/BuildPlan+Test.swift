@@ -122,7 +122,7 @@ extension BuildPlan {
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(
-                    target: entryPointTarget,
+                    underlying: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
                     defaultLocalization: testProduct.defaultLocalization,
                     supportedPlatforms: testProduct.supportedPlatforms,
@@ -150,7 +150,7 @@ extension BuildPlan {
                 resolvedTargetDependencies = [.target(discoveryTargets!.resolved, conditions: [])]
             case .swiftTesting:
                 discoveryTargets = nil
-                swiftTargetDependencies = testProduct.targets.map { .target($0.underlyingTarget, conditions: []) }
+                swiftTargetDependencies = testProduct.targets.map { .target($0.underlying, conditions: []) }
                 resolvedTargetDependencies = testProduct.targets.map { .target($0, conditions: []) }
             }
 
@@ -165,7 +165,7 @@ extension BuildPlan {
                             testEntryPointSources: entryPointResolvedTarget.underlying.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
-                            target: entryPointTarget,
+                            underlying: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
                             defaultLocalization: testProduct.defaultLocalization,
                             supportedPlatforms: testProduct.supportedPlatforms,
