@@ -301,7 +301,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         PlatformRegistry.default.knownPlatforms.forEach {
             guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
-            let supportedPlatform = package.getDerived(for: $0, usingXCTest: false)
+            let supportedPlatform = package.getSupportedPlatform(for: $0, usingXCTest: false)
             if !supportedPlatform.options.isEmpty {
                 settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
             }
@@ -1419,13 +1419,13 @@ extension Array where Element == ResolvedTarget.Dependency {
 
 extension ResolvedPackage {
     func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
-        return self.getDerived(for: platform, usingXCTest: usingXCTest).version.versionString
+        return self.getSupportedPlatform(for: platform, usingXCTest: usingXCTest).version.versionString
     }
 }
 
 extension ResolvedTarget {
     func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
-        return self.getDerived(for: platform, usingXCTest: usingXCTest).version.versionString
+        return self.getSupportedPlatform(for: platform, usingXCTest: usingXCTest).version.versionString
     }
 }
 
