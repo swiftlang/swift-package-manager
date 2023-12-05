@@ -138,7 +138,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The swift version for this target.
     var swiftVersion: SwiftLanguageVersion {
-        (self.target.underlying as! SwiftTarget).swiftVersion
+        self.swiftTarget.swiftVersion
     }
 
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
