@@ -25,18 +25,24 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
-        customBuildParameters: BuildParameters?,
-        customPackageGraphLoader: (() throws -> PackageGraph)?,
-        customOutputStream: OutputByteStream?,
-        customLogLevel: Diagnostic.Severity?,
-        customObservabilityScope: ObservabilityScope?
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> PackageGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem {
-        let testEntryPointPath = customBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
-        let graphLoader = { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
+        let testEntryPointPath = productsBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
         return try BuildOperation(
-            buildParameters: customBuildParameters ?? self.swiftTool.buildParameters(),
+            productsBuildParameters: try productsBuildParameters ?? self.swiftTool.productsBuildParameters,
+            toolsBuildParameters: try toolsBuildParameters ?? self.swiftTool.toolsBuildParameters,
             cacheBuildManifest: cacheBuildManifest && self.swiftTool.canUseCachedBuildManifest(),
-            packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+            packageGraphLoader: packageGraphLoader ?? {
+                try self.swiftTool.loadPackageGraph(
+                    explicitProduct: explicitProduct,
+                    testEntryPointPath: testEntryPointPath
+                )
+            },
             pluginConfiguration: .init(
                 scriptRunner: self.swiftTool.getPluginScriptRunner(),
                 workDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
@@ -44,10 +50,10 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             ),
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftTool.options.locations.pkgConfigDirectories,
-            outputStream: customOutputStream ?? self.swiftTool.outputStream,
-            logLevel: customLogLevel ?? self.swiftTool.logLevel,
+            outputStream: outputStream ?? self.swiftTool.outputStream,
+            logLevel: logLevel ?? self.swiftTool.logLevel,
             fileSystem: self.swiftTool.fileSystem,
-            observabilityScope: customObservabilityScope ?? self.swiftTool.observabilityScope)
+            observabilityScope: observabilityScope ?? self.swiftTool.observabilityScope)
     }
 }
 
@@ -57,20 +63,24 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
-        customBuildParameters: BuildParameters?,
-        customPackageGraphLoader: (() throws -> PackageGraph)?,
-        customOutputStream: OutputByteStream?,
-        customLogLevel: Diagnostic.Severity?,
-        customObservabilityScope: ObservabilityScope?
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> PackageGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem {
-        let graphLoader = { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct) }
         return try XcodeBuildSystem(
-            buildParameters: customBuildParameters ?? self.swiftTool.buildParameters(),
-            packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-            outputStream: customOutputStream ?? self.swiftTool.outputStream,
-            logLevel: customLogLevel ?? self.swiftTool.logLevel,
+            buildParameters: productsBuildParameters ?? self.swiftTool.productsBuildParameters,
+            packageGraphLoader: packageGraphLoader ?? {
+                try self.swiftTool.loadPackageGraph(
+                    explicitProduct: explicitProduct
+                )
+            },
+            outputStream: outputStream ?? self.swiftTool.outputStream,
+            logLevel: logLevel ?? self.swiftTool.logLevel,
             fileSystem: self.swiftTool.fileSystem,
-            observabilityScope: customObservabilityScope ?? self.swiftTool.observabilityScope
+            observabilityScope: observabilityScope ?? self.swiftTool.observabilityScope
         )
     }
 }

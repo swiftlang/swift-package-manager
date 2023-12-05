@@ -71,7 +71,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         parameters: PluginInvocationBuildParameters
     ) throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
-        var buildParameters = try self.swiftTool.buildParameters()
+        var buildParameters = try self.swiftTool.toolsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
@@ -171,7 +171,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know
         // which ones they are until we've built them and can examine the binaries.
         let toolchain = try swiftTool.getTargetToolchain()
-        var buildParameters = try swiftTool.buildParameters()
+        var buildParameters = try swiftTool.toolsBuildParameters
         buildParameters.testingParameters.enableTestability = true
         buildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)

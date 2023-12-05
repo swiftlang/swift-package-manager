@@ -109,7 +109,7 @@ public struct SwiftBuildTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
-            return try print(swiftTool.buildParameters().buildPath.description)
+            return try print(swiftTool.productsBuildParameters.buildPath.description)
         }
 
         if options.printManifestGraphviz {

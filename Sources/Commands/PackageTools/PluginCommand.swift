@@ -255,16 +255,17 @@ struct PluginCommand: SwiftCommand {
         let toolSearchDirs = [try swiftTool.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
 
+        let buildParameters = try swiftTool.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try swiftTool.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
-            customBuildParameters: swiftTool.hostBuildParameters()
+            customBuildParameters: buildParameters
         )
         let accessibleTools = try plugin.processAccessibleTools(
             packageGraph: packageGraph,
             fileSystem: swiftTool.fileSystem,
-            environment: try swiftTool.buildParameters().buildEnvironment,
+            environment: buildParameters.buildEnvironment,
             for: try pluginScriptRunner.hostTriple
         ) { name, _ in
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
@@ -281,7 +282,6 @@ struct PluginCommand: SwiftCommand {
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.
-        let buildParameters = try swiftTool.buildParameters()
         let buildEnvironment = buildParameters.buildEnvironment
         let _ = try temp_await { plugin.invoke(
             action: .performCommand(package: package, arguments: arguments),

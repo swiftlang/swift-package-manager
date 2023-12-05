@@ -613,7 +613,7 @@ public final class SwiftTool {
             return false
         }
 
-        let buildParameters = try self.buildParameters()
+        let buildParameters = try self.productsBuildParameters
         let haveBuildManifestAndDescription =
             self.fileSystem.exists(buildParameters.llbuildManifest) &&
             self.fileSystem.exists(buildParameters.buildDescriptionPath)
@@ -659,11 +659,11 @@ public final class SwiftTool {
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
-            customBuildParameters: customBuildParameters,
-            customPackageGraphLoader: customPackageGraphLoader,
-            customOutputStream: customOutputStream,
-            customLogLevel: customLogLevel,
-            customObservabilityScope: customObservabilityScope
+            productsBuildParameters: customBuildParameters,
+            packageGraphLoader: customPackageGraphLoader,
+            outputStream: customOutputStream,
+            logLevel: customLogLevel,
+            observabilityScope: customObservabilityScope
         )
 
         // register the build system with the cancellation handler
@@ -677,14 +677,13 @@ public final class SwiftTool {
     """
 
     private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
-        let hostTriple = try self.getHostToolchain().targetTriple
-        let targetTriple = toolchain.targetTriple
+        let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
-            component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+            component: triple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
         )
 
-        if options.build.getTaskAllowEntitlement != nil && !targetTriple.isMacOSX {
+        if options.build.getTaskAllowEntitlement != nil && !triple.isMacOSX {
             observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
         }
 
@@ -692,8 +691,7 @@ public final class SwiftTool {
             dataPath: dataPath,
             configuration: options.build.configuration,
             toolchain: toolchain,
-            hostTriple: hostTriple,
-            targetTriple: targetTriple,
+            triple: triple,
             flags: options.build.buildFlags,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
@@ -703,7 +701,7 @@ public final class SwiftTool {
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
-                targetTriple: targetTriple,
+                triple: triple,
                 shouldEnableDebuggingEntitlement:
                     options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
                 omitFramePointers: options.build.omitFramePointers
@@ -729,7 +727,7 @@ public final class SwiftTool {
             ),
             testingParameters: .init(
                 configuration: options.build.configuration,
-                targetTriple: targetTriple,
+                targetTriple: triple,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath
             )
@@ -737,28 +735,37 @@ public final class SwiftTool {
     }
 
     /// Return the build parameters for the host toolchain.
-    public func hostBuildParameters() throws -> BuildParameters {
-        return try _hostBuildParameters.get()
+    public var toolsBuildParameters: BuildParameters {
+        get throws {
+            try _toolsBuildParameters.get()
+        }
     }
 
-    private lazy var _hostBuildParameters: Result<BuildParameters, Swift.Error> = {
-        return Result(catching: {
+    private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
+        Result(catching: {
             try _buildParams(toolchain: self.getHostToolchain())
         })
     }()
 
-    /// Return the build parameters.
-    public func buildParameters() throws -> BuildParameters {
-        return try _buildParameters.get()
+    public var productsBuildParameters: BuildParameters {
+        get throws {
+            try _productsBuildParameters.get()
+        }
     }
 
-    private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
+    /// Return the build parameters.
+    @available(*, deprecated, renamed: "productsBuildParameters")
+    public func buildParameters() throws -> BuildParameters {
+        try _productsBuildParameters.get()
+    }
+
+    private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
             try _buildParams(toolchain: self.getTargetToolchain())
         })
     }()
 
-    /// Lazily compute the target toolchain.
+    /// Lazily compute the target toolchain.z
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         var swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK

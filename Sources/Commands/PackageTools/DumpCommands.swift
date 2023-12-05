@@ -140,7 +140,7 @@ struct DumpPIF: SwiftCommand {
     func run(_ swiftTool: SwiftTool) throws {
         let graph = try swiftTool.loadPackageGraph()
         let pif = try PIFBuilder.generatePIF(
-            buildParameters: swiftTool.buildParameters(),
+            buildParameters: swiftTool.productsBuildParameters,
             packageGraph: graph,
             fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope,

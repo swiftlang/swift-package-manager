@@ -91,11 +91,12 @@ public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
-        customBuildParameters: BuildParameters?,
-        customPackageGraphLoader: (() throws -> PackageGraph)?,
-        customOutputStream: OutputByteStream?,
-        customLogLevel: Diagnostic.Severity?,
-        customObservabilityScope: ObservabilityScope?
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> PackageGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem
 }
 
@@ -116,11 +117,12 @@ public struct BuildSystemProvider {
         kind: Kind,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
-        customBuildParameters: BuildParameters? = .none,
-        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
-        customOutputStream: OutputByteStream? = .none,
-        customLogLevel: Diagnostic.Severity? = .none,
-        customObservabilityScope: ObservabilityScope? = .none
+        productsBuildParameters: BuildParameters? = .none,
+        toolsBuildParameters: BuildParameters? = .none,
+        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        outputStream: OutputByteStream? = .none,
+        logLevel: Diagnostic.Severity? = .none,
+        observabilityScope: ObservabilityScope? = .none
     ) throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
@@ -128,11 +130,12 @@ public struct BuildSystemProvider {
         return try buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
-            customBuildParameters: customBuildParameters,
-            customPackageGraphLoader: customPackageGraphLoader,
-            customOutputStream: customOutputStream,
-            customLogLevel: customLogLevel,
-            customObservabilityScope: customObservabilityScope
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            packageGraphLoader: packageGraphLoader,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            observabilityScope: observabilityScope
         )
     }
 }

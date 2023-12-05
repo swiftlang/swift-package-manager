@@ -3740,7 +3740,7 @@ final class BuildPlanTests: XCTestCase {
             var copy = extraBuildParameters
             copy.linkingParameters.shouldLinkStaticSwiftStdlib = true
             // pick a triple with support for static linking
-            copy.targetTriple = .x86_64Linux
+            copy.triple = .x86_64Linux
             return copy
         }()
         let staticResult = try BuildPlanResult(plan: BuildPlan(

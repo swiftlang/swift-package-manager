@@ -85,9 +85,9 @@ public class LLBuildManifestBuilder {
         self.observabilityScope = observabilityScope
     }
 
-    // MARK: - Generate Manifest
+    // MARK: - Generate Build Manifest
 
-    /// Generate manifest at the given path.
+    /// Generate build manifest at the given path.
     @discardableResult
     public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
