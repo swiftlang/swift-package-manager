@@ -18,6 +18,7 @@ import SPMBuildCore
 
 import class TSCBasic.BufferedOutputByteStream
 import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftTool: SwiftTool
@@ -376,13 +377,17 @@ final class PluginDelegate: PluginInvocationDelegate {
         try swiftTool.fileSystem.removeFileTree(outputDir)
 
         // Run the symbol graph extractor on the target.
-        try symbolGraphExtractor.extractSymbolGraph(
+        let result = try symbolGraphExtractor.extractSymbolGraph(
             target: target,
             buildPlan: try buildSystem.buildPlan,
             outputRedirection: .collect,
             outputDirectory: outputDir,
             verboseOutput: self.swiftTool.logLevel <= .info
         )
+
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
 
         // Return the results to the plugin.
         return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)
