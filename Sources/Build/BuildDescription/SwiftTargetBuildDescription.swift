@@ -16,7 +16,12 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 import struct TSCBasic.ByteString
 
@@ -49,8 +54,6 @@ public final class SwiftTargetBuildDescription {
 
     /// These are the resource files derived from plugins.
     private var pluginDerivedResources: [Resource]
-
-    private let driverSupport = DriverSupport()
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -90,7 +93,7 @@ public final class SwiftTargetBuildDescription {
             let relativeSources = self.target.sources.relativePaths
                 + self.derivedSources.relativePaths
                 + self.pluginDerivedSources.relativePaths
-            let ltoEnabled = self.buildParameters.linkTimeOptimizationMode != nil
+            let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
             let objectFileExtension = ltoEnabled ? "bc" : "o"
             return try relativeSources.map {
                 try AbsolutePath(
@@ -234,6 +237,9 @@ public final class SwiftTargetBuildDescription {
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
+    /// Whether or not to generate code for test observation.
+    private let shouldGenerateTestObservation: Bool
+
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -245,6 +251,7 @@ public final class SwiftTargetBuildDescription {
         prebuildCommandResults: [PrebuildCommandResult] = [],
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
+        shouldGenerateTestObservation: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         isWithinMixedTarget: Bool = false
@@ -252,6 +259,7 @@ public final class SwiftTargetBuildDescription {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
+
         self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
@@ -264,12 +272,14 @@ public final class SwiftTargetBuildDescription {
         } else {
             self.testTargetRole = nil
         }
-        self.fileSystem = fileSystem
+
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
+        self.shouldGenerateTestObservation = shouldGenerateTestObservation
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.isWithinMixedTarget = isWithinMixedTarget
 
@@ -301,6 +311,31 @@ public final class SwiftTargetBuildDescription {
         }
 
         try self.generateResourceEmbeddingCode()
+        try self.generateTestObservation()
+    }
+
+    private func generateTestObservation() throws {
+        guard target.type == .test else {
+            return
+        }
+
+        let subpath = try RelativePath(validating: "test_observation.swift")
+        let path = self.derivedSources.root.appending(subpath)
+
+        guard shouldGenerateTestObservation else {
+            _ = try? fileSystem.removeFileTree(path)
+            return
+        }
+
+        guard buildParameters.targetTriple.isDarwin(), buildParameters.testingParameters.experimentalTestOutput else {
+            return
+        }
+
+        let content = generateTestObservationCode(buildParameters: self.buildParameters)
+
+        // FIXME: We should generate this file during the actual build.
+        self.derivedSources.relativePaths.append(subpath)
+        try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
     // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array representation in memory and also `writeIfChanged()` will read the entire generated file again.
@@ -353,7 +388,7 @@ public final class SwiftTargetBuildDescription {
 
         let content =
             """
-            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") Foundation
+            import Foundation
 
             extension Foundation.Bundle {
                 static let module: Bundle = {
@@ -363,7 +398,8 @@ public final class SwiftTargetBuildDescription {
                     let preferredBundle = Bundle(path: mainPath)
 
                     guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
-                        fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
+                        // Users can write a function called fatalError themselves, we should be resilient against that.
+                        Swift.fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
                     }
 
                     return bundle
@@ -385,7 +421,7 @@ public final class SwiftTargetBuildDescription {
     private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
         let flag = "-package-name"
         if pkg.manifest.usePackageNameFlag,
-           driverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
+           DriverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
             if packageAccess {
                 let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
                 return [flag, pkgID]
@@ -413,7 +449,7 @@ public final class SwiftTargetBuildDescription {
         #endif
 
         // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, driverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = self.buildParameters.toolchain.swiftPluginServerPath {
+        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, DriverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
             let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
             let pluginPathComponents = ["lib", "swift", "host", "plugins"]
 
@@ -434,7 +470,7 @@ public final class SwiftTargetBuildDescription {
         args += ["-swift-version", self.swiftVersion.rawValue]
 
         // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -477,7 +513,7 @@ public final class SwiftTargetBuildDescription {
             // we can rename the symbol unconditionally.
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
-            if self.buildParameters.canRenameEntrypointFunctionName,
+            if self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
                self.buildParameters.linkerFlagsForRenamingMainFunction(of: self.target) != nil
             {
                 args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(self.target.c99name)_main"]
@@ -500,12 +536,12 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments needed for code coverage if it is enabled.
-        if self.buildParameters.enableCodeCoverage {
+        if self.buildParameters.testingParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
 
         // Add arguments to colorize output if stdout is tty
-        if self.buildParameters.colorizedOutput {
+        if self.buildParameters.outputParameters.isColorized {
             args += ["-color-diagnostics"]
         }
 
@@ -514,7 +550,7 @@ public final class SwiftTargetBuildDescription {
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
         // way.
-        if self.buildParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
+        if self.buildParameters.driverParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
             args += ["-emit-module-interface-path", self.parseableModuleInterfaceOutputPath.pathString]
         }
 
@@ -532,8 +568,8 @@ public final class SwiftTargetBuildDescription {
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
 
-        // Enable the correct lto mode if requested.
-        switch self.buildParameters.linkTimeOptimizationMode {
+        // Enable the correct LTO mode if requested.
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
         case nil:
             break
         case .full:
@@ -563,6 +599,17 @@ public final class SwiftTargetBuildDescription {
 
         args += self.packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess)
         args += try self.macroArguments()
+        
+        // rdar://117578677
+        // Pass -fno-omit-frame-pointer to support backtraces
+        // this can be removed once the backtracer uses DWARF instead of frame pointers
+        if let omitFramePointers = self.buildParameters.debuggingParameters.omitFramePointers {
+            if omitFramePointers {
+                args += ["-Xcc", "-fomit-frame-pointer"]
+            } else {
+                args += ["-Xcc", "-fno-omit-frame-pointer"]
+            }
+        }
 
         return args
     }
@@ -664,7 +711,7 @@ public final class SwiftTargetBuildDescription {
         // Write out the entries for each source file.
         let sources = self.sources
         let objects = try self.objects
-        let ltoEnabled = self.buildParameters.linkTimeOptimizationMode != nil
+        let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
         let objectKey = ltoEnabled ? "llvm-bc" : "object"
 
         for idx in 0..<sources.count {
@@ -805,7 +852,7 @@ public final class SwiftTargetBuildDescription {
             // test targets must be built with -enable-testing
             // since its required for test discovery (the non objective-c reflection kind)
             return ["-enable-testing"]
-        } else if self.buildParameters.enableTestability {
+        } else if self.buildParameters.testingParameters.enableTestability {
             return ["-enable-testing"]
         } else {
             return []
@@ -820,12 +867,18 @@ public final class SwiftTargetBuildDescription {
     }
 
     private var stdlibArguments: [String] {
-        if self.buildParameters.shouldLinkStaticSwiftStdlib,
-           self.buildParameters.targetTriple.isSupportingStaticStdlib
-        {
-            return ["-static-stdlib"]
-        } else {
-            return []
+        var arguments: [String] = []
+
+        let isLinkingStaticStdlib = self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib
+            && self.buildParameters.targetTriple.isSupportingStaticStdlib
+        if isLinkingStaticStdlib {
+            arguments += ["-static-stdlib"]
         }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: isLinkingStaticStdlib) {
+            arguments += ["-resource-dir", "\(resourcesPath)"]
+        }
+
+        return arguments
     }
 }

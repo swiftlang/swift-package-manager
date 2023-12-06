@@ -21,7 +21,7 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
         commandName: "list",
         abstract:
         """
-        Print a list of IDs of available cross-compilation destinations available on the filesystem.
+        Print a list of IDs of available Swift SDKs available on the filesystem.
         """
     )
 
@@ -32,22 +32,24 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
-        _ destinationsDirectory: AbsolutePath,
+        _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        let validBundles = try SwiftSDKBundle.getAllValidBundles(
-            swiftSDKsDirectory: destinationsDirectory,
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            outputHandler: { print($0.description) }
         )
+        let validBundles = try store.allValidBundles
 
         guard !validBundles.isEmpty else {
-            print("No cross-compilation destinations are currently installed.")
+            print("No Swift SDKs are currently installed.")
             return
         }
 
-        for bundle in validBundles {
-            bundle.artifacts.keys.forEach { print($0) }
+        for artifactID in validBundles.sortedArtifactIDs {
+            print(artifactID)
         }
     }
 }

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import class Foundation.ProcessInfo
 
 public typealias EnvironmentVariables = [String: String]
 
@@ -56,5 +56,32 @@ extension EnvironmentVariables {
         let pathArg = "PATH"
         #endif
         return self[pathArg]
+    }
+}
+
+// filter env variable that should not be included in a cache as they change
+// often and should not be considered in business logic
+// rdar://107029374
+extension EnvironmentVariables {
+    // internal for testing
+    internal static let nonCachableKeys: Set<String> = [
+        "TERM",
+        "TERM_PROGRAM",
+        "TERM_PROGRAM_VERSION",
+        "TERM_SESSION_ID",
+        "ITERM_PROFILE",
+        "ITERM_SESSION_ID",
+        "SECURITYSESSIONID",
+        "LaunchInstanceID",
+        "LC_TERMINAL",
+        "LC_TERMINAL_VERSION",
+        "CLICOLOR",
+        "LS_COLORS",
+        "VSCODE_IPC_HOOK_CLI",
+        "HYPERFINE_RANDOMIZED_ENVIRONMENT_OFFSET",
+    ]
+
+    public var cachable: EnvironmentVariables {
+        return self.filter { !Self.nonCachableKeys.contains($0.key) }
     }
 }

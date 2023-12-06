@@ -18,23 +18,27 @@ final class SerializedJSONTests: XCTestCase {
         var path = try AbsolutePath(validating: #"/test\backslashes"#)
         var json: SerializedJSON = "\(path)"
 
+#if os(Windows)
+        XCTAssertEqual(json.underlying, #"\\test\\backslashes"#)
+#else
         XCTAssertEqual(json.underlying, #"/test\\backslashes"#)
+#endif
 
         #if os(Windows)
         path = try AbsolutePath(validating: #"\\?\C:\Users"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\\\?\\C:\\Users"#)
+        XCTAssertEqual(json.underlying, #"C:\\Users"#)
 
-        path = try AbsolutePath(validating: #"\\.\UNC\server\share\n\"#)
+        path = try AbsolutePath(validating: #"\\.\UNC\server\share\"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\\\.\\UNC\\server\\share\\"#)
+        XCTAssertEqual(json.underlying, #"\\.\\UNC\\server\\share"#)
 
         path = try AbsolutePath(validating: #"\??\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
+        XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
         #endif
     }
 }

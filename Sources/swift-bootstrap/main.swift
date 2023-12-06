@@ -118,6 +118,10 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         case error
     }
 
+    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
+    public var shouldDisableLocalRpath: Bool = false
+
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
@@ -188,7 +192,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 buildFlags: self.buildFlags,
                 manifestBuildFlags: self.manifestFlags,
                 useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
-                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck
+                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: self.shouldDisableLocalRpath
             )
         } catch _ as Diagnostics {
             throw ExitCode.failure
@@ -197,6 +202,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     struct Builder {
         let identityResolver: IdentityResolver
+        let dependencyMapper: DependencyMapper
         let hostToolchain: UserToolchain
         let targetToolchain: UserToolchain
         let fileSystem: FileSystem
@@ -214,6 +220,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             }
 
             self.identityResolver = DefaultIdentityResolver()
+            self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
             self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(originalWorkingDirectory: cwd))
             self.targetToolchain = hostToolchain // TODO: support cross-compilation?
             self.fileSystem = fileSystem
@@ -230,7 +237,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
-            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool
         ) throws {
             let buildSystem = try createBuildSystem(
                 packagePath: packagePath,
@@ -242,6 +250,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 explicitTargetDependencyImportCheck: explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
             try buildSystem.build(subset: .allExcludingTests)
@@ -257,6 +266,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
             explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
 
@@ -275,10 +285,17 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 targetTriple: self.targetToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
-                explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
-                verboseOutput: logLevel <= .info
+                driverParameters: .init(
+                    explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
+                    useIntegratedSwiftDriver: useIntegratedSwiftDriver
+                ),
+                linkingParameters: .init(
+                    shouldDisableLocalRpath: shouldDisableLocalRpath
+                ),
+                outputParameters: .init(
+                    isVerbose: logLevel <= .info
+                )
             )
 
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
@@ -337,7 +354,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
             _ = try topologicalSort(input) { pair in
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
-                let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
+                let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try temp_await { self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0) }
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in
@@ -349,7 +366,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
             let packageGraphRoot = PackageGraphRoot(
                 input: .init(packages: [packagePath]),
-                manifests: [packagePath: rootPackageManifest]
+                manifests: [packagePath: rootPackageManifest],
+                observabilityScope: observabilityScope
             )
 
             return try PackageGraph.load(
@@ -409,6 +427,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     packageLocation: package.locationString,
                     packageVersion: .none,
                     identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     delegateQueue: .sharedConcurrent,

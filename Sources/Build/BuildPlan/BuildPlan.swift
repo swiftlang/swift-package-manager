@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2015-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2015-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -18,10 +18,14 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
+#else
+import SwiftDriver
+#endif
 
 import enum TSCBasic.ProcessEnv
-import func TSCBasic.topologicalSort
 
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
@@ -128,10 +132,9 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if targetTriple.isDarwin() {
-            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
-                throw StringError("the target \(target) doesn't support building for macOS")
-            }
-            args += [targetTriple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
+            let platform = buildEnvironment.platform
+            let supportedPlatform = target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
+            args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
             args += [targetTriple.tripleString]
         }
@@ -181,7 +184,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public let buildParameters: BuildParameters
 
     /// The build environment.
-    private var buildEnvironment: BuildEnvironment {
+    var buildEnvironment: BuildEnvironment {
         buildParameters.buildEnvironment
     }
 
@@ -215,7 +218,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
     public let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
 
-    private var derivedTestTargetsMap: [ResolvedProduct: [ResolvedTarget]] = [:]
+    private(set) var derivedTestTargetsMap: [ResolvedProduct: [ResolvedTarget]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
@@ -224,182 +227,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     private var externalLibrariesCache = [BinaryTarget: [LibraryInfo]]()
 
     /// Cache for  tools information.
-    private var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
+    var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
     /// The filesystem to operate on.
-    private let fileSystem: FileSystem
+    let fileSystem: FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
-    private let observabilityScope: ObservabilityScope
-
-    private static func makeDerivedTestTargets(
-        _ buildParameters: BuildParameters,
-        _ graph: PackageGraph,
-        _ fileSystem: FileSystem,
-        _ observabilityScope: ObservabilityScope
-    ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, entryPointTargetBuildDescription: SwiftTargetBuildDescription)] {
-        guard buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
-              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) = buildParameters.testProductStyle
-        else {
-            throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
-        }
-
-        let isEntryPointPathSpecifiedExplicitly = explicitlySpecifiedPath != nil
-
-        var isDiscoveryEnabledRedundantly = explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly
-        var result: [(ResolvedProduct, SwiftTargetBuildDescription?, SwiftTargetBuildDescription)] = []
-        for testProduct in graph.allProducts where testProduct.type == .test {
-            guard let package = graph.package(for: testProduct) else {
-                throw InternalError("package not found for \(testProduct)")
-            }
-            isDiscoveryEnabledRedundantly = isDiscoveryEnabledRedundantly && nil == testProduct.testEntryPointTarget
-            // If a non-explicitly specified test entry point file exists, prefer that over test discovery.
-            // This is designed as an escape hatch when test discovery is not appropriate and for backwards
-            // compatibility for projects that have existing test entry point files (e.g. XCTMain.swift, LinuxMain.swift).
-            let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
-
-            // If `testProduct.testEntryPointTarget` is non-nil, it may either represent an `XCTMain.swift` (formerly `LinuxMain.swift`) file
-            // if such a file is located in the package, or it may represent a test entry point file at a path specified by the option
-            // `--experimental-test-entry-point-path <file>`. The latter is useful because it still performs test discovery and places the discovered
-            // tests into a separate target/module named "<PackageName>PackageDiscoveredTests". Then, that entry point file may import that module and
-            // obtain that list to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
-            if testProduct.testEntryPointTarget != nil && explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly {
-                let testEntryPointName = testProduct.underlyingProduct.testEntryPointPath?.basename ?? SwiftTarget.defaultTestEntryPointName
-                observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testEntryPointName)' entry point file for '\(testProduct.name)' will be ignored and an entry point will be generated automatically. To use test discovery with a custom entry point file, pass '--experimental-test-entry-point-path <file>'.")
-            } else if testProduct.testEntryPointTarget == nil, let testEntryPointPath = explicitlySpecifiedPath, !fileSystem.exists(testEntryPointPath) {
-                observabilityScope.emit(error: "'--experimental-test-entry-point-path' was specified but the file '\(testEntryPointPath)' could not be found.")
-            }
-
-            /// Generates test discovery targets, which contain derived sources listing the discovered tests.
-            func generateDiscoveryTargets() throws -> (target: SwiftTarget, resolved: ResolvedTarget, buildDescription: SwiftTargetBuildDescription) {
-                let discoveryTargetName = "\(package.manifest.displayName)PackageDiscoveredTests"
-                let discoveryDerivedDir = buildParameters.buildPath.appending(components: "\(discoveryTargetName).derived")
-                let discoveryMainFile = discoveryDerivedDir.appending(component: LLBuildManifest.TestDiscoveryTool.mainFileName)
-
-                var discoveryPaths: [AbsolutePath] = []
-                discoveryPaths.append(discoveryMainFile)
-                for testTarget in testProduct.targets {
-                    let path = discoveryDerivedDir.appending(components: testTarget.name + ".swift")
-                    discoveryPaths.append(path)
-                }
-
-                let discoveryTarget = SwiftTarget(
-                    name: discoveryTargetName,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
-                    packageAccess: true, // test target is allowed access to package decls by default
-                    testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
-                )
-                let discoveryResolvedTarget = ResolvedTarget(
-                    target: discoveryTarget,
-                    dependencies: testProduct.targets.map { .target($0, conditions: []) },
-                    defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
-                )
-                let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
-                    package: package,
-                    target: discoveryResolvedTarget,
-                    toolsVersion: toolsVersion,
-                    buildParameters: buildParameters,
-                    testTargetRole: .discovery,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
-                )
-
-                return (discoveryTarget, discoveryResolvedTarget, discoveryTargetBuildDescription)
-            }
-
-            /// Generates a synthesized test entry point target, consisting of a single "main" file which calls the test entry
-            /// point API and leverages the test discovery target to reference which tests to run.
-            func generateSynthesizedEntryPointTarget(discoveryTarget: SwiftTarget, discoveryResolvedTarget: ResolvedTarget) throws -> SwiftTargetBuildDescription {
-                let entryPointDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let entryPointMainFile = entryPointDerivedDir.appending(component: LLBuildManifest.TestEntryPointTool.mainFileName)
-                let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
-
-                let entryPointTarget = SwiftTarget(
-                    name: testProduct.name,
-                    type: .library,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
-                    packageAccess: true, // test target is allowed access to package decls
-                    testEntryPointSources: entryPointSources
-                )
-                let entryPointResolvedTarget = ResolvedTarget(
-                    target: entryPointTarget,
-                    dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
-                    defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
-                )
-                return try SwiftTargetBuildDescription(
-                    package: package,
-                    target: entryPointResolvedTarget,
-                    toolsVersion: toolsVersion,
-                    buildParameters: buildParameters,
-                    testTargetRole: .entryPoint(isSynthesized: true),
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
-                )
-            }
-
-            if let entryPointResolvedTarget = testProduct.testEntryPointTarget {
-                if isEntryPointPathSpecifiedExplicitly || explicitlyEnabledDiscovery {
-                    let discoveryTargets = try generateDiscoveryTargets()
-
-                    if isEntryPointPathSpecifiedExplicitly {
-                        // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
-                        let entryPointTarget = SwiftTarget(
-                            name: entryPointResolvedTarget.underlyingTarget.name,
-                            dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
-                            packageAccess: entryPointResolvedTarget.packageAccess,
-                            testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
-                        )
-                        let entryPointResolvedTarget = ResolvedTarget(
-                            target: entryPointTarget,
-                            dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
-                            defaultLocalization: .none, // safe since this is a derived target
-                            platforms: .init(declared: [], derived: []) // safe since this is a derived target
-                        )
-                        let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
-                            package: package,
-                            target: entryPointResolvedTarget,
-                            toolsVersion: toolsVersion,
-                            buildParameters: buildParameters,
-                            testTargetRole: .entryPoint(isSynthesized: false),
-                            fileSystem: fileSystem,
-                            observabilityScope: observabilityScope
-                        )
-
-                        result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
-                    } else {
-                        // Ignore test entry point and synthesize one, declaring a dependency on the test discovery targets created above.
-                        let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
-                        result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
-                    }
-                } else {
-                    // Use the test entry point as-is, without performing test discovery.
-                    let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
-                        package: package,
-                        target: entryPointResolvedTarget,
-                        toolsVersion: toolsVersion,
-                        buildParameters: buildParameters,
-                        testTargetRole: .entryPoint(isSynthesized: false),
-                        fileSystem: fileSystem,
-                        observabilityScope: observabilityScope
-                    )
-                    result.append((testProduct, nil, entryPointTargetBuildDescription))
-                }
-            } else {
-                // Synthesize a test entry point target, declaring a dependency on the test discovery targets.
-                let discoveryTargets = try generateDiscoveryTargets()
-                let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
-                result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
-            }
-        }
-
-        if isDiscoveryEnabledRedundantly {
-            observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
-        }
-
-        return result
-    }
+    let observabilityScope: ObservabilityScope
 
     /// Create a build plan with build parameters and a package graph.
     public init(
@@ -448,6 +282,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // given to LLBuild.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
+        var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
@@ -480,6 +315,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlyingTarget.type == .macro }.compactMap { macroProductsByTarget[$0] }
 
+                var generateTestObservation = false
+                if target.type == .test && shouldGenerateTestObservation {
+                    generateTestObservation = true
+                    shouldGenerateTestObservation = false // Only generate the code once.
+                }
+
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     package: package,
                     target: target,
@@ -489,6 +330,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     requiredMacroProducts: requiredMacroProducts,
+                    shouldGenerateTestObservation: generateTestObservation,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
@@ -503,6 +345,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
+            // TODO(ncooke3): I guess pass in `shouldGenerateTestObservation: generateTestObservation`?
             case is MixedTarget:
                 guard let package = graph.package(for: target) else {
                     throw InternalError("package not found for \(target)")
@@ -542,8 +385,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan the derived test targets, if necessary.
-        if buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            let derivedTestTargets = try Self.makeDerivedTestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
+        if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
+            let derivedTestTargets = try Self.makeDerivedTestTargets(
+                buildParameters,
+                graph,
+                self.fileSystem,
+                self.observabilityScope
+            )
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
@@ -573,12 +421,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     ) throws {
         // Supported platforms are defined at the package level.
         // This will need to become a bit complicated once we have target-level or product-level platform support.
-        guard let productPlatform = product.platforms.getDerived(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in product \(product)")
-        }
-        guard let targetPlatform = target.platforms.getDerived(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in target \(target)")
-        }
+        let productPlatform = product.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
+        let targetPlatform = target.platforms.getDerived(for: .macOS, usingXCTest: target.type == .test)
 
         // Check if the version requirement is satisfied.
         //
@@ -609,351 +453,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Plan products.
         for buildProduct in buildProducts {
-            try plan(buildProduct as! ProductBuildDescription)
+            try plan(buildProduct: buildProduct as! ProductBuildDescription)
         }
         // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto
         // handle that situation.
     }
 
-    /// Plan a product.
-    private func plan(_ buildProduct: ProductBuildDescription) throws {
-        // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product)
-
-        // Add flags for system targets.
-        for systemModule in dependencies.systemModules {
-            guard case let target as SystemLibraryTarget = systemModule.underlyingTarget else {
-                throw InternalError("This should not be possible.")
-            }
-            // Add pkgConfig libs arguments.
-            buildProduct.additionalFlags += try pkgConfig(for: target).libs
-        }
-
-        // Add flags for binary dependencies.
-        for binaryPath in dependencies.libraryBinaryPaths {
-            if binaryPath.extension == "framework" {
-                buildProduct.additionalFlags += ["-framework", binaryPath.basenameWithoutExt]
-            } else if binaryPath.basename.starts(with: "lib") {
-                buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
-            } else {
-                self.observabilityScope.emit(error: "unexpected binary framework")
-            }
-        }
-
-        // Link C++ if needed.
-        // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                if buildParameters.targetTriple.isDarwin() {
-                    buildProduct.additionalFlags += ["-lc++"]
-                } else if buildParameters.targetTriple.isWindows() {
-                    // Don't link any C++ library.
-                } else {
-                    buildProduct.additionalFlags += ["-lstdc++"]
-                }
-                break
-            }
-        }
-
-        for target in dependencies.staticTargets {
-            switch target.underlyingTarget {
-            case is SwiftTarget:
-                // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = targetMap[target] else {
-                    throw InternalError("unknown target \(target)")
-                }
-
-                // Based on the debugging strategy, we either need to pass swiftmodule paths to the
-                // product or link in the wrapped module object. This is required for properly debugging
-                // Swift products. Debugging strategy is computed based on the current platform we're
-                // building for and is nil for the release configuration.
-                switch buildParameters.debuggingStrategy {
-                case .swiftAST:
-                    buildProduct.swiftASTs.insert(description.moduleOutputPath)
-                case .modulewrap:
-                    buildProduct.objects += [description.wrappedModuleOutputPath]
-                case nil:
-                    break
-                }
-            default: break
-            }
-        }
-
-        buildProduct.staticTargets = dependencies.staticTargets
-        buildProduct.dylibs = try dependencies.dylibs.map{
-            guard let product = productMap[$0] else {
-                throw InternalError("unknown product \($0)")
-            }
-            return product
-        }
-        buildProduct.objects += try dependencies.staticTargets.flatMap{ targetName -> [AbsolutePath] in
-            guard let target = targetMap[targetName] else {
-                throw InternalError("unknown target \(targetName)")
-            }
-            return try target.objects
-        }
-        buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
-
-        buildProduct.availableTools = dependencies.availableTools
-    }
-
-    /// Computes the dependencies of a product.
-    private func computeDependencies(
-        of product: ResolvedProduct
-    ) throws -> (
-        dylibs: [ResolvedProduct],
-        staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget],
-        libraryBinaryPaths: Set<AbsolutePath>,
-        availableTools: [String: AbsolutePath]
-    ) {
-        /* Prior to tools-version 5.9, we used to errorneously recursively traverse executable/plugin dependencies and statically include their
-         targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
-        let shouldExcludeExecutablesAndPlugins: Bool
-        if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
-            shouldExcludeExecutablesAndPlugins = toolsVersion >= .v5_9
-        } else {
-            shouldExcludeExecutablesAndPlugins = false
-        }
-
-        // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
-        let topLevelDependencies: [PackageModel.Target]
-        if product.type == .test {
-            topLevelDependencies = product.targets.flatMap { $0.underlyingTarget.dependencies }.compactMap {
-                switch $0 {
-                case .product:
-                    return nil
-                case .target(let target, _):
-                    return target
-                }
-            }
-        } else {
-            topLevelDependencies = []
-        }
-
-        // Sort the product targets in topological order.
-        let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
-        let allTargets = try topologicalSort(nodes, successors: { dependency in
-            switch dependency {
-            // Include all the dependencies of a target.
-            case .target(let target, _):
-                let isTopLevel = topLevelDependencies.contains(target.underlyingTarget) || product.targets.contains(target)
-                let topLevelIsExecutable = isTopLevel && product.type == .executable
-                let topLevelIsMacro = isTopLevel && product.type == .macro
-                let topLevelIsPlugin = isTopLevel && product.type == .plugin
-                let topLevelIsTest = isTopLevel && product.type == .test
-
-                if !topLevelIsMacro && !topLevelIsTest && target.type == .macro {
-                    return []
-                }
-                if shouldExcludeExecutablesAndPlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
-                    return []
-                }
-                if shouldExcludeExecutablesAndPlugins, !topLevelIsExecutable && topLevelIsTest && target.type == .executable {
-                    return []
-                }
-                return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
-
-            // For a product dependency, we only include its content only if we
-            // need to statically link it.
-            case .product(let product, _):
-                guard dependency.satisfies(self.buildEnvironment) else {
-                    return []
-                }
-
-                let productDependencies: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
-                switch product.type {
-                case .library(.automatic), .library(.static):
-                    return productDependencies
-                case .plugin:
-                    return shouldExcludeExecutablesAndPlugins ? [] : productDependencies
-                case .library(.dynamic), .test, .executable, .snippet, .macro:
-                    return []
-                }
-            }
-        })
-
-        // Create empty arrays to collect our results.
-        var linkLibraries = [ResolvedProduct]()
-        var staticTargets = [ResolvedTarget]()
-        var systemModules = [ResolvedTarget]()
-        var libraryBinaryPaths: Set<AbsolutePath> = []
-        var availableTools = [String: AbsolutePath]()
-
-        for dependency in allTargets {
-            switch dependency {
-            case .target(let target, _):
-                switch target.type {
-                // Executable target have historically only been included if they are directly in the product's
-                // target list.  Otherwise they have always been just build-time dependencies.
-                // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
-                // any test products... this is to allow testing of executables.  Note that they are also still
-                // built as separate products that the test can invoke as subprocesses.
-                case .executable, .snippet, .macro:
-                    if product.targets.contains(target) {
-                        staticTargets.append(target)
-                    } else if product.type == .test && (target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
-                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5 {
-                            staticTargets.append(target)
-                        }
-                    }
-                // Test targets should be included only if they are directly in the product's target list.
-                case .test:
-                    if product.targets.contains(target) {
-                        staticTargets.append(target)
-                    }
-                // Library targets should always be included.
-                case .library:
-                    staticTargets.append(target)
-                // Add system target to system targets array.
-                case .systemModule:
-                    systemModules.append(target)
-                // Add binary to binary paths set.
-                case .binary:
-                    guard let binaryTarget = target.underlyingTarget as? BinaryTarget else {
-                        throw InternalError("invalid binary target '\(target.name)'")
-                    }
-                    switch binaryTarget.kind {
-                    case .xcframework:
-                        let libraries = try self.parseXCFramework(for: binaryTarget)
-                        for library in libraries {
-                            libraryBinaryPaths.insert(library.libraryPath)
-                        }
-                    case .artifactsArchive:
-                        let tools = try self.parseArtifactsArchive(for: binaryTarget)
-                        tools.forEach { availableTools[$0.name] = $0.executablePath  }
-                    case.unknown:
-                        throw InternalError("unknown binary target '\(target.name)' type")
-                    }
-                case .plugin:
-                    continue
-                }
-
-            case .product(let product, _):
-                // Add the dynamic products to array of libraries to link.
-                if product.type == .library(.dynamic) {
-                    linkLibraries.append(product)
-                }
-            }
-        }
-
-        // Add derived test targets, if necessary
-        if buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product] {
-                staticTargets.append(contentsOf: derivedTestTargets)
-            }
-        }
-
-        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)
-    }
-
-    /// Plan a Clang target.
-    private func plan(clangTarget: ClangTargetBuildDescription) throws {
-        for case .target(let dependency, _) in try clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
-            switch dependency.underlyingTarget {
-            case is SwiftTarget:
-                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
-                    if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
-                    }
-                }
-
-            case let target as ClangTarget where target.type == .library:
-                // Setup search paths for C dependencies:
-                clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
-
-                // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
-                    if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
-                    }
-                }
-            case let target as MixedTarget where target.type == .library:
-                // Add the modulemap of the dependency.
-                if case let .mixed(dependencyTargetDescription)? = targetMap[dependency] {
-                    // Add the dependency's modulemap.
-                    clangTarget.additionalFlags.append(
-                        "-fmodule-map-file=\(dependencyTargetDescription.moduleMap.pathString)"
-                    )
-
-                    // Add the dependency's public headers.
-                    clangTarget.additionalFlags += [ "-I", dependencyTargetDescription.publicHeadersDir.pathString ]
-
-                    // Add the dependency's public VFS overlay.
-                    clangTarget.additionalFlags += [
-                        "-ivfsoverlay", dependencyTargetDescription.allProductHeadersOverlay.pathString
-                    ]
-                }
-            case let target as SystemLibraryTarget:
-                clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
-                clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
-            case let target as BinaryTarget:
-                if case .xcframework = target.kind {
-                    let libraries = try self.parseXCFramework(for: target)
-                    for library in libraries {
-                        library.headersPaths.forEach {
-                            clangTarget.additionalFlags += ["-I", $0.pathString]
-                        }
-                        clangTarget.libraryBinaryPaths.insert(library.libraryPath)
-                    }
-                }
-            default: continue
-            }
-        }
-    }
-
-    /// Plan a Swift target.
-    private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
-        // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
-        // depends on.
-        for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
-            switch dependency.underlyingTarget {
-            case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
-                guard case let .clang(target)? = targetMap[dependency] else {
-                    throw InternalError("unexpected clang target \(underlyingTarget)")
-                }
-                // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a
-                // modulemap but we may want to remove that requirement since it is valid for a target to exist without
-                // one. However, in that case it will not be importable in Swift targets. We may want to emit a warning
-                // in that case from here.
-                guard let moduleMap = target.moduleMap else { break }
-                swiftTarget.appendClangFlags(
-                    "-fmodule-map-file=\(moduleMap.pathString)",
-                    "-I", target.clangTarget.includeDir.pathString
-                )
-            case let target as SystemLibraryTarget:
-                swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
-                swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
-            case let target as BinaryTarget:
-                if case .xcframework = target.kind {
-                    let libraries = try self.parseXCFramework(for: target)
-                    for library in libraries {
-                        library.headersPaths.forEach {
-                            swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]
-                        }
-                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
-                    }
-                }
-            case let underlyingTarget as MixedTarget where underlyingTarget.type == .library:
-                guard case let .mixed(target)? = targetMap[dependency] else {
-                    throw InternalError("unexpected mixed target \(underlyingTarget)")
-                }
-
-                // Add the dependency's modulemap.
-                swiftTarget.appendClangFlags(
-                    "-fmodule-map-file=\(target.moduleMap.pathString)"
-                )
-
-                // Add the dependency's public headers.
-                swiftTarget.appendClangFlags("-I", target.publicHeadersDir.pathString)
-
-            default:
-                break
-            }
-        }
-    }
-
+    // TODO(ncooke3): Post-merge–– move to own file.
     /// Plan a Mixed target.
     private func plan(mixedTarget: MixedTargetBuildDescription) throws {
         try plan(swiftTarget: mixedTarget.swiftTargetBuildDescription)
@@ -1045,7 +552,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Get pkgConfig arguments for a system library target.
-    private func pkgConfig(for target: SystemLibraryTarget) throws -> (cFlags: [String], libs: [String]) {
+    func pkgConfig(for target: SystemLibraryTarget) throws -> (cFlags: [String], libs: [String]) {
         // If we already have these flags, we're done.
         if let flags = pkgConfigCache[target] {
             return flags
@@ -1056,6 +563,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         let results = try pkgConfigArgs(
             for: target,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -1081,40 +589,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Extracts the library information from an XCFramework.
-    private func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
+    func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: target) {
             return try target.parseXCFrameworks(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
         }
-    }
-
-    /// Extracts the artifacts  from an artifactsArchive
-    private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
-        try self.externalExecutablesCache.memoize(key: target) {
-            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
-            return execInfos.filter{!$0.supportedTriples.isEmpty}
-        }
-    }
-}
-
-private extension PackageModel.SwiftTarget {
-    /// Initialize a SwiftTarget representing a test entry point.
-    convenience init(
-        name: String,
-        type: PackageModel.Target.Kind? = nil,
-        dependencies: [PackageModel.Target.Dependency],
-        packageAccess: Bool,
-        testEntryPointSources sources: Sources
-    ) {
-        self.init(
-            name: name,
-            type: type ?? .executable,
-            path: .root,
-            sources: sources,
-            dependencies: dependencies,
-            packageAccess: packageAccess,
-            swiftVersion: .v5,
-            usesUnsafeFlags: false
-        )
     }
 }
 

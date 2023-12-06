@@ -482,6 +482,13 @@ extension FileList: Sequence {
     }
 }
 
+@available(_PackageDescription, introduced: 5.10)
+extension FileList: RandomAccessCollection {
+    public var startIndex: Int { 0 }
+    public var endIndex: Int { files.endIndex }
+    public subscript(i: Int) -> File { files[i] }
+}
+
 /// Provides information about a single file in a FileList.
 public struct File {
     /// The path of the file.

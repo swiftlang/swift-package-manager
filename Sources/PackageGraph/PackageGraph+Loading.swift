@@ -16,6 +16,7 @@ import PackageLoading
 import PackageModel
 
 import func TSCBasic.topologicalSort
+import func TSCBasic.bestMatch
 
 extension PackageGraph {
 
@@ -25,7 +26,7 @@ extension PackageGraph {
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
         externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
-        requiredDependencies: Set<PackageReference> = [],
+        requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
         shouldCreateMultipleTestProducts: Bool = false,
@@ -45,10 +46,14 @@ extension PackageGraph {
         root.manifests.forEach {
             manifestMap[$0.key] = ($0.value, fileSystem)
         }
-        let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
-            node.requiredDependencies().compactMap{ dependency in
-                return manifestMap[dependency.identity].map { (manifest, fileSystem) in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: fileSystem)
+        func nodeSuccessorsProvider(node: GraphLoadingNode) -> [GraphLoadingNode] {
+            node.requiredDependencies.compactMap { dependency in
+                manifestMap[dependency.identity].map { (manifest, fileSystem) in
+                    GraphLoadingNode(
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        productFilter: dependency.productFilter
+                    )
                 }
             }
         }
@@ -58,11 +63,15 @@ extension PackageGraph {
             manifestMap[$0.identity]?.manifest
         })
         let rootManifestNodes = root.packages.map { identity, package in
-            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: fileSystem)
+            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
         }
-        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
+        let rootDependencyNodes = root.dependencies.lazy.compactMap { dependency in
             manifestMap[dependency.identity].map {
-                GraphLoadingNode(identity: dependency.identity, manifest: $0.manifest, productFilter: dependency.productFilter, fileSystem: $0.fs)
+                GraphLoadingNode(
+                    identity: dependency.identity,
+                    manifest: $0.manifest,
+                    productFilter: dependency.productFilter
+                )
             }
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -71,13 +80,13 @@ extension PackageGraph {
         var allNodes: [GraphLoadingNode]
 
         // Detect cycles in manifest dependencies.
-        if let cycle = findCycle(inputManifests, successors: successors) {
+        if let cycle = findCycle(inputManifests, successors: nodeSuccessorsProvider) {
             observabilityScope.emit(PackageGraphError.cycleDetected(cycle))
             // Break the cycle so we can build a partial package graph.
             allNodes = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
         } else {
-            // Sort all manifests toplogically.
-            allNodes = try topologicalSort(inputManifests, successors: successors)
+            // Sort all manifests topologically.
+            allNodes = try topologicalSort(inputManifests, successors: nodeSuccessorsProvider)
         }
 
         var flattenedManifests: [PackageIdentity: GraphLoadingNode] = [:]
@@ -86,8 +95,7 @@ extension PackageGraph {
                 let merged = GraphLoadingNode(
                     identity: node.identity,
                     manifest: node.manifest,
-                    productFilter: existing.productFilter.union(node.productFilter),
-                    fileSystem: node.fileSystem
+                    productFilter: existing.productFilter.union(node.productFilter)
                 )
                 flattenedManifests[node.identity] = merged
             } else {
@@ -122,7 +130,7 @@ extension PackageGraph {
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
-                    fileSystem: node.fileSystem,
+                    fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope
                 )
                 let package = try builder.construct()
@@ -145,7 +153,13 @@ extension PackageGraph {
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
-            xcTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+            derivedXCTestPlatformProvider: { declared in
+                if let customXCTestMinimumDeploymentTargets {
+                    return customXCTestMinimumDeploymentTargets[declared]
+                } else {
+                    return MinimumDeploymentTarget.default.computeXCTestMinimumDeploymentTarget(for: declared)
+                }
+            },
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -226,7 +240,7 @@ private func createResolvedPackages(
     rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
-    xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion],
+    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -272,7 +286,7 @@ private func createResolvedPackages(
 
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
-            let dependencyPackageRef = dependency.createPackageRef()
+            let dependencyPackageRef = dependency.packageRef
 
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.identity] {
@@ -349,16 +363,8 @@ private func createResolvedPackages(
 
         packageBuilder.platforms = computePlatforms(
             package: package,
-            usingXCTest: false,
             platformRegistry: platformRegistry,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets
-        )
-
-        let testPlatforms = computePlatforms(
-            package: package,
-            usingXCTest: true,
-            platformRegistry: platformRegistry,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets
+            derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
         )
 
         // Create target builders for each target in the package.
@@ -380,7 +386,7 @@ private func createResolvedPackages(
                 }
             }
             targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
-            targetBuilder.platforms = targetBuilder.target.type == .test ? testPlatforms : packageBuilder.platforms
+            targetBuilder.platforms = packageBuilder.platforms
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -402,7 +408,11 @@ private func createResolvedPackages(
         }
     }
 
-    let dupProductsChecker = DuplicateProductsChecker(packageBuilders: packageBuilders)
+    let dupProductsChecker = DuplicateProductsChecker(
+        packageBuilders: packageBuilders,
+        moduleAliasingUsed: moduleAliasingUsed,
+        observabilityScope: observabilityScope
+    )
     try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
     // The set of all target names.
@@ -430,7 +440,8 @@ private func createResolvedPackages(
                 return false
             })
 
-        let lookupByProductIDs = packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed
+        let packageDoesNotSupportProductAliases = packageBuilder.package.doesNotSupportProductAliases
+        let lookupByProductIDs = !packageDoesNotSupportProductAliases && (packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed)
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
@@ -457,9 +468,11 @@ private func createResolvedPackages(
                 productDependencies.map { ($0.product.name, $0) },
                 uniquingKeysWith: { lhs, _ in
                     let duplicates = productDependencies.filter { $0.product.name == lhs.product.name }
-                    throw PackageGraphError.duplicateProduct(
-                        product: lhs.product.name,
-                        packages: duplicates.map(\.packageBuilder.package)
+                    throw emitDuplicateProductDiagnostic(
+                        productName: lhs.product.name,
+                        packages: duplicates.map(\.packageBuilder.package),
+                        moduleAliasingUsed: moduleAliasingUsed,
+                        observabilityScope: observabilityScope
                     )
                 }
             )
@@ -490,13 +503,16 @@ private func createResolvedPackages(
                         }.map {$0.targets}.flatMap{$0}.filter { t in
                             t.name != productRef.name
                         }
-
+                        
+                        // Find a product name from the available product dependencies that is most similar to the required product name.
+                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             targetName: targetBuilder.target.name,
                             dependencyProductName: productRef.name,
                             dependencyPackageName: productRef.package,
-                            dependencyProductInDecl: !declProductsAsDependency.isEmpty
+                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
+                            similarProductName: bestMatchedProductName
                         )
                         packageObservabilityScope.emit(error)
                     }
@@ -600,6 +616,31 @@ private func createResolvedPackages(
     return try packageBuilders.map{ try $0.construct() }
 }
 
+private func emitDuplicateProductDiagnostic(
+    productName: String,
+    packages: [Package],
+    moduleAliasingUsed: Bool,
+    observabilityScope: ObservabilityScope
+) -> PackageGraphError {
+    if moduleAliasingUsed {
+        packages.filter { $0.doesNotSupportProductAliases }.forEach {
+            // Emit an additional warning about product aliasing in case of older tools-versions.
+            observabilityScope.emit(warning: "product aliasing requires tools-version 5.2 or later, so it is not supported by '\($0.identity.description)'")
+        }
+    }
+    return PackageGraphError.duplicateProduct(
+        product: productName,
+        packages: packages
+    )
+}
+
+fileprivate extension Package {
+    var doesNotSupportProductAliases: Bool {
+        // We can never use the identity based lookup for older packages because they lack the necessary information.
+        return self.manifest.toolsVersion < .v5_2
+    }
+}
+
 fileprivate struct Pair: Hashable {
     let package1: Package
     let package2: Package
@@ -625,11 +666,16 @@ private class DuplicateProductsChecker {
     var packageIDToBuilder = [PackageIdentity: ResolvedPackageBuilder]()
     var checkedPkgIDs = [PackageIdentity]()
 
-    init(packageBuilders: [ResolvedPackageBuilder]) {
+    let moduleAliasingUsed: Bool
+    let observabilityScope: ObservabilityScope
+
+    init(packageBuilders: [ResolvedPackageBuilder], moduleAliasingUsed: Bool, observabilityScope: ObservabilityScope) {
         for packageBuilder in packageBuilders {
             let pkgID = packageBuilder.package.identity
             self.packageIDToBuilder[pkgID] = packageBuilder
         }
+        self.moduleAliasingUsed = moduleAliasingUsed
+        self.observabilityScope = observabilityScope
     }
 
     func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
@@ -657,9 +703,11 @@ private class DuplicateProductsChecker {
             }
             for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
                 let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
-                throw PackageGraphError.duplicateProduct(
-                    product: name.isEmpty ? depIDOrName : name,
-                    packages: depPkgs.compactMap{ packageIDToBuilder[$0]?.package }
+                throw emitDuplicateProductDiagnostic(
+                    productName: name.isEmpty ? depIDOrName : name,
+                    packages: depPkgs.compactMap{ packageIDToBuilder[$0]?.package },
+                    moduleAliasingUsed: self.moduleAliasingUsed,
+                    observabilityScope: self.observabilityScope
                 )
             }
         }
@@ -683,9 +731,11 @@ private class DuplicateProductsChecker {
 
         let duplicates = productToPkgMap.filter{ $0.value.count > 1 }
         for (productName, pkgs) in duplicates {
-            throw PackageGraphError.duplicateProduct(
-                product: productName,
-                packages: pkgs.compactMap{ packageIDToBuilder[$0]?.package }
+            throw emitDuplicateProductDiagnostic(
+                productName: productName,
+                packages: pkgs.compactMap{ packageIDToBuilder[$0]?.package },
+                moduleAliasingUsed: self.moduleAliasingUsed,
+                observabilityScope: self.observabilityScope
             )
         }
     }
@@ -693,9 +743,8 @@ private class DuplicateProductsChecker {
 
 private func computePlatforms(
     package: Package,
-    usingXCTest: Bool,
     platformRegistry: PlatformRegistry,
-    xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]
+    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?
 ) -> SupportedPlatforms {
 
     // the supported platforms as declared in the manifest
@@ -709,67 +758,9 @@ private func computePlatforms(
         )
     }
 
-    // the derived platforms based on known minimum deployment target logic
-    var derivedPlatforms = [SupportedPlatform]()
-
-    /// Add each declared platform to the supported platforms list.
-    for platform in package.manifest.platforms {
-        let declaredPlatform = platformRegistry.platformByName[platform.platformName]
-            ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
-        var version = PlatformVersion(platform.version)
-
-        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], version < xcTestMinimumDeploymentTarget {
-            version = xcTestMinimumDeploymentTarget
-        }
-
-        // If the declared version is smaller than the oldest supported one, we raise the derived version to that.
-        if version < declaredPlatform.oldestSupportedVersion {
-            version = declaredPlatform.oldestSupportedVersion
-        }
-
-        let supportedPlatform = SupportedPlatform(
-            platform: declaredPlatform,
-            version: version,
-            options: platform.options
-        )
-
-        derivedPlatforms.append(supportedPlatform)
-    }
-
-    // Find the undeclared platforms.
-    let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(derivedPlatforms.map({ $0.platform.name }))
-
-    /// Start synthesizing for each undeclared platform.
-    for platformName in remainingPlatforms.sorted() {
-        let platform = platformRegistry.platformByName[platformName]!
-
-        let minimumSupportedVersion: PlatformVersion
-        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
-            minimumSupportedVersion = xcTestMinimumDeploymentTarget
-        } else {
-            minimumSupportedVersion = platform.oldestSupportedVersion
-        }
-
-        let oldestSupportedVersion: PlatformVersion
-        if platform == .macCatalyst, let iOS = derivedPlatforms.first(where: { $0.platform == .iOS }) {
-            // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
-            oldestSupportedVersion = max(minimumSupportedVersion, iOS.version)
-        } else {
-            oldestSupportedVersion = minimumSupportedVersion
-        }
-
-        let supportedPlatform = SupportedPlatform(
-            platform: platform,
-            version: oldestSupportedVersion,
-            options: []
-        )
-
-        derivedPlatforms.append(supportedPlatform)
-    }
-
     return SupportedPlatforms(
         declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
-        derived: derivedPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
+        derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
     )
 }
 
@@ -815,6 +806,10 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
                                                      observabilityScope: observabilityScope)
         }
     }
+
+    // Emit diagnostics for any module aliases that did not end up being applied.
+    aliasTracker.diagnoseUnappliedAliases(observabilityScope: observabilityScope)
+
     return true
 }
 
@@ -893,7 +888,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
+    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
 
     init(
         target: Target,
@@ -985,7 +980,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
+    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     var registryMetadata: RegistryReleaseMetadata?

@@ -67,6 +67,7 @@ enum TestingSupport {
         swiftTool: SwiftTool,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
@@ -77,6 +78,7 @@ enum TestingSupport {
                     swiftTool: swiftTool,
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
                     sanitizers: sanitizers
                 )
             )}
@@ -98,26 +100,24 @@ enum TestingSupport {
         swiftTool: SwiftTool,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [TestSuite] {
         // Run the correct tool.
+        var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try Self.constructTestEnvironment(
+            args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            let env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getTargetToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    experimentalTestOutput: experimentalTestOutput,
+                    library: .xctest
                 ),
                 sanitizers: sanitizers
             )
-
-            // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-            let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths()
-            // appending since we prefer the user setting (if set) to the one we inject
-            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
@@ -128,15 +128,16 @@ enum TestingSupport {
             toolchain: try swiftTool.getTargetToolchain(),
             buildParameters: swiftTool.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
-                shouldSkipBuilding: shouldSkipBuilding
+                shouldSkipBuilding: shouldSkipBuilding,
+                library: .xctest
             ),
             sanitizers: sanitizers
         )
-        let args = [path.description, "--dump-tests-json"]
+        args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
         // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+        return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
     }
 
     /// Creates the environment needed to test related tools.
@@ -156,7 +157,7 @@ enum TestingSupport {
         }
 
         // Add the code coverage related variables.
-        if buildParameters.enableCodeCoverage {
+        if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
             // `%m` will create a pool of profraw files and append the data from
@@ -175,6 +176,12 @@ enum TestingSupport {
         #endif
         return env
         #else
+        // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
+        let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths()
+        // appending since we prefer the user setting (if set) to the one we inject
+        env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
+        env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+
         // Fast path when no sanitizers are enabled.
         if sanitizers.isEmpty {
             return env
@@ -200,14 +207,35 @@ extension SwiftTool {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
         enableTestability: Bool? = nil,
-        shouldSkipBuilding: Bool = false
+        shouldSkipBuilding: Bool = false,
+        experimentalTestOutput: Bool = false,
+        library: BuildParameters.Testing.Library
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
-        parameters.enableCodeCoverage = enableCodeCoverage
+
+        var explicitlyEnabledDiscovery = false
+        var explicitlySpecifiedPath: AbsolutePath?
+        if case let .entryPointExecutable(
+            explicitlyEnabledDiscoveryValue,
+            explicitlySpecifiedPathValue
+        ) = parameters.testingParameters.testProductStyle {
+            explicitlyEnabledDiscovery = explicitlyEnabledDiscoveryValue
+            explicitlySpecifiedPath = explicitlySpecifiedPathValue
+        }
+        parameters.testingParameters = .init(
+            configuration: parameters.configuration,
+            targetTriple: parameters.targetTriple,
+            forceTestDiscovery: explicitlyEnabledDiscovery,
+            testEntryPointPath: explicitlySpecifiedPath,
+            library: library
+        )
+
+        parameters.testingParameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, we normally enable building with testability
         // but we let users override this with a flag
-        parameters.enableTestability = enableTestability ?? true
+        parameters.testingParameters.enableTestability = enableTestability ?? true
         parameters.shouldSkipBuilding = shouldSkipBuilding
+        parameters.testingParameters.experimentalTestOutput = experimentalTestOutput
         return parameters
     }
 }

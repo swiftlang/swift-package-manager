@@ -9,8 +9,6 @@
 add_library(PackageGraph
   BoundVersion.swift
   DependencyMirrors.swift
-  DependencyResolutionNode.swift
-  DependencyResolver.swift
   Diagnostics.swift
   GraphLoadingNode.swift
   ModuleAliasTracker.swift
@@ -21,17 +19,21 @@ add_library(PackageGraph
   PackageModel+Extensions.swift
   PackageRequirement.swift
   PinsStore.swift
-  PubGrub/Assignment.swift
-  PubGrub/ContainerProvider.swift
-  PubGrub/DiagnosticReportBuilder.swift
-  PubGrub/Incompatibility.swift
-  PubGrub/PartialSolution.swift
-  PubGrub/PubGrubDependencyResolver.swift
-  PubGrub/PubGrubPackageContainer.swift
-  PubGrub/Term.swift  
-  ResolvedPackage.swift
-  ResolvedProduct.swift
-  ResolvedTarget.swift
+  Resolution/PubGrub/Assignment.swift
+  Resolution/PubGrub/ContainerProvider.swift
+  Resolution/PubGrub/DiagnosticReportBuilder.swift
+  Resolution/PubGrub/Incompatibility.swift
+  Resolution/PubGrub/PartialSolution.swift
+  Resolution/PubGrub/PubGrubDependencyResolver.swift
+  Resolution/PubGrub/PubGrubPackageContainer.swift
+  Resolution/PubGrub/Term.swift
+  Resolution/DependencyResolutionNode.swift
+  Resolution/DependencyResolverBinding.swift
+  Resolution/DependencyResolverDelegate.swift
+  Resolution/DependencyResolverError.swift
+  Resolution/ResolvedPackage.swift
+  Resolution/ResolvedProduct.swift
+  Resolution/ResolvedTarget.swift
   Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC

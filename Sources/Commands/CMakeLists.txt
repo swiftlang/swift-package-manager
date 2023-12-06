@@ -44,7 +44,8 @@ add_library(Commands
   Utilities/MultiRootSupport.swift
   Utilities/PluginDelegate.swift
   Utilities/SymbolGraphExtract.swift
-  Utilities/TestingSupport.swift)
+  Utilities/TestingSupport.swift
+  Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics

@@ -22,17 +22,19 @@ struct MockToolchain: PackageModel.Toolchain {
     let librarianPath = AbsolutePath("/fake/path/to/link.exe")
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
     let librarianPath = AbsolutePath("/fake/path/to/libtool")
-#elseif os(Android)
-    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
 #else
-    let librarianPath = AbsolutePath("/fake/path/to/ar")
+    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
 #endif
     let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let includeSearchPaths = [AbsolutePath]()
     let librarySearchPaths = [AbsolutePath]()
+    let swiftResourcesPath: AbsolutePath? = nil
+    let swiftStaticResourcesPath: AbsolutePath? = nil
     let isSwiftDevelopmentToolchain = false
+    let sdkRootPath: AbsolutePath? = nil
     let swiftPluginServerPath: AbsolutePath? = nil
     let extraFlags = PackageModel.BuildFlags()
+    let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
 
     func getClangCompiler() throws -> AbsolutePath {
         return "/fake/path/to/clang"
@@ -70,12 +72,14 @@ func mockBuildParameters(
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
+    shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     targetTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
-    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil
+    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
+    omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     return try! BuildParameters(
         dataPath: buildPath,
@@ -86,12 +90,22 @@ func mockBuildParameters(
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
-        shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
-        canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
         indexStoreMode: indexStoreMode,
-        useExplicitModuleBuild: useExplicitModuleBuild,
-        linkerDeadStrip: linkerDeadStrip,
-        linkTimeOptimizationMode: linkTimeOptimizationMode
+        debuggingParameters: .init(
+            targetTriple: targetTriple,
+            shouldEnableDebuggingEntitlement: config == .debug,
+            omitFramePointers: omitFramePointers
+        ),
+        driverParameters: .init(
+            canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
+            useExplicitModuleBuild: useExplicitModuleBuild
+        ),
+        linkingParameters: .init(
+            linkerDeadStrip: linkerDeadStrip,
+            linkTimeOptimizationMode: linkTimeOptimizationMode,
+            shouldDisableLocalRpath: shouldDisableLocalRpath,
+            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
+        )
     )
 }
 
@@ -110,7 +124,7 @@ func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug,     targetTriple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug, targetTriple: triple)
 }
 
 enum BuildError: Swift.Error {

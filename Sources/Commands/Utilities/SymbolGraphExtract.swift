@@ -12,12 +12,18 @@
 
 import ArgumentParser
 import Basics
-@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
 import SPMBuildCore
 
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
+
 import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
@@ -31,7 +37,6 @@ public struct SymbolGraphExtract {
     var includeSPISymbols = false
     var emitExtensionBlockSymbols = false
     var outputFormat = OutputFormat.json(pretty: false)
-    private let driverSupport = DriverSupport()
 
     /// Access control levels.
     public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
@@ -52,7 +57,7 @@ public struct SymbolGraphExtract {
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
-    ) throws {
+    ) throws -> ProcessResult {
         let buildParameters = buildPlan.buildParameters
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
@@ -77,7 +82,7 @@ public struct SymbolGraphExtract {
         }
         
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
-        if driverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
+        if DriverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
             commandLine += [extensionBlockSymbolsFlag]
         } else {
             observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")
@@ -97,6 +102,6 @@ public struct SymbolGraphExtract {
             outputRedirection: outputRedirection
         )
         try process.launch()
-        try process.waitUntilExit()
+        return try process.waitUntilExit()
     }
 }

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 public struct ManifestValidator {
@@ -217,29 +217,19 @@ public struct ManifestValidator {
 
     func validateSourceControlDependency(_ dependency: PackageDependency.SourceControl) -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
-
-        // validate source control ref
-        switch dependency.requirement {
-        case .branch(let name):
-            if !self.sourceControlValidator.isValidRefFormat(name) {
-                diagnostics.append(.invalidSourceControlBranchName(name))
-            }
-        case .revision(let revision):
-            if !self.sourceControlValidator.isValidRefFormat(revision) {
-                diagnostics.append(.invalidSourceControlRevision(revision))
-            }
-        default:
-            break
-        }
         // if a location is on file system, validate it is in fact a git repo
         // there is a case to be made to throw early (here) if the path does not exists
         // but many of our tests assume they can pass a non existent path
         if case .local(let localPath) = dependency.location, self.fileSystem.exists(localPath) {
-            if !self.sourceControlValidator.isValidDirectory(localPath) {
-                // Provides better feedback when mistakingly using url: for a dependency that
-                // is a local package. Still allows for using url with a local package that has
-                // also been initialized by git
-                diagnostics.append(.invalidSourceControlDirectory(localPath))
+            do {
+                if try !self.sourceControlValidator.isValidDirectory(localPath) {
+                    // Provides better feedback when mistakingly using url: for a dependency that
+                    // is a local package. Still allows for using url with a local package that has
+                    // also been initialized by git
+                    diagnostics.append(.invalidSourceControlDirectory(localPath))
+                }
+            } catch {
+                diagnostics.append(.invalidSourceControlDirectory(localPath, underlyingError: error))
             }
         }
         return diagnostics
@@ -247,8 +237,7 @@ public struct ManifestValidator {
 }
 
 public protocol ManifestSourceControlValidator {
-    func isValidRefFormat(_ revision: String) -> Bool
-    func isValidDirectory(_ path: AbsolutePath) -> Bool
+    func isValidDirectory(_ path: AbsolutePath) throws -> Bool
 }
 
 extension Basics.Diagnostic {
@@ -304,16 +293,16 @@ extension Basics.Diagnostic {
             """)
     }
 
-    static func invalidSourceControlBranchName(_ name: String) -> Self {
-        .error("invalid branch name: '\(name)'")
+    static func errorSuffix(_ error: Error?) -> String {
+        if let error {
+            return ": \(error.interpolationDescription)"
+        } else {
+            return ""
+        }
     }
 
-    static func invalidSourceControlRevision(_ revision: String) -> Self {
-        .error("invalid revision: '\(revision)'")
-    }
-
-    static func invalidSourceControlDirectory(_ path: AbsolutePath) -> Self {
-        .error("cannot clone from local directory \(path)\nPlease git init or use \"path:\" for \(path)")
+    static func invalidSourceControlDirectory(_ path: AbsolutePath, underlyingError: Error? = nil) -> Self {
+        .error("cannot clone from local directory \(path)\nPlease git init or use \"path:\" for \(path)\(errorSuffix(underlyingError))")
     }
 }
 

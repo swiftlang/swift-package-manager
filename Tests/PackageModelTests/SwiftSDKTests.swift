@@ -408,12 +408,13 @@ final class DestinationTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/asdf.json"
             XCTAssertEqual(
                 $0 as? StringError,
                 StringError(
                     """
-                    Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
-                    system
+                    Couldn't parse toolset configuration at `\(toolsetDefinition)`: \
+                    \(toolsetDefinition) doesn't exist in file system
                     """
                 )
             )
@@ -429,9 +430,10 @@ final class DestinationTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/invalidToolset.json"
             XCTAssertTrue(
                 ($0 as? StringError)?.description
-                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: ") ?? false
+                    .hasPrefix("Couldn't parse toolset configuration at `\(toolsetDefinition)`: ") ?? false
             )
         }
 
@@ -456,12 +458,13 @@ final class DestinationTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/asdf.json"
             XCTAssertEqual(
                 $0 as? StringError,
                 StringError(
                     """
-                    Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
-                    system
+                    Couldn't parse toolset configuration at `\(toolsetDefinition)`: \
+                    \(toolsetDefinition) doesn't exist in file system
                     """
                 )
             )
@@ -477,9 +480,10 @@ final class DestinationTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability
         )) {
+            let toolsetDefinition: AbsolutePath = "/tools/invalidToolset.json"
             XCTAssertTrue(
                 ($0 as? StringError)?.description
-                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: ") ?? false
+                    .hasPrefix("Couldn't parse toolset configuration at `\(toolsetDefinition)`: ") ?? false
             )
         }
     }
@@ -523,7 +527,7 @@ final class DestinationTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
 
         XCTAssertEqual(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id1",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
@@ -534,7 +538,7 @@ final class DestinationTests: XCTestCase {
         // Expecting `nil` because no host triple is specified for this destination
         // in the fake destination bundle.
         XCTAssertNil(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id2",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope
@@ -542,7 +546,7 @@ final class DestinationTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            bundles.selectDestination(
+            bundles.selectSwiftSDK(
                 matching: "id3",
                 hostTriple: hostTriple,
                 observabilityScope: system.topScope

@@ -69,6 +69,9 @@ public final class InitPackage {
     /// The options for package to create.
     let options: InitPackageOptions
 
+    /// Configuration from the used toolchain.
+    let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
+
     /// The name of the package to create.
     let pkgname: String
 
@@ -85,12 +88,14 @@ public final class InitPackage {
         name: String,
         packageType: PackageType,
         destinationPath: AbsolutePath,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
             options: InitPackageOptions(packageType: packageType),
             destinationPath: destinationPath,
+            installedSwiftPMConfiguration: installedSwiftPMConfiguration,
             fileSystem: fileSystem
         )
     }
@@ -100,12 +105,14 @@ public final class InitPackage {
         name: String,
         options: InitPackageOptions,
         destinationPath: AbsolutePath,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         self.options = options
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
         self.destinationPath = destinationPath
+        self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
     }
 
@@ -259,8 +266,7 @@ public final class InitPackage {
             } else if packageType == .macro {
                 pkgParams.append("""
                     dependencies: [
-                        // Depend on the Swift 5.9 release of SwiftSyntax
-                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0"),
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "\(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)"),
                     ]
                 """)
             }
@@ -567,6 +573,7 @@ public final class InitPackage {
                     print("Hello, world!")
                 }
             }
+
             """
         case .macro:
             content = """
@@ -581,6 +588,7 @@ public final class InitPackage {
             /// produces a tuple `(x + y, "x + y")`.
             @freestanding(expression)
             public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
+
             """
 
         case .empty, .buildToolPlugin, .commandPlugin:

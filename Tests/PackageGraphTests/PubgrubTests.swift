@@ -1460,34 +1460,6 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testMissingPin() throws {
-        // This checks that we can drop pins that are no longer available but still keep the ones
-        // which fit the constraints.
-        try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
-        try builder.serve("a", at: v1_1)
-        try builder.serve("b", at: v1)
-        try builder.serve("b", at: v1_1)
-
-        let dependencies = try builder.create(dependencies: [
-            "a": (.versionSet(v1Range), .specific(["a"])),
-        ])
-
-        // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
-        // to v1.
-        let pinsStore = try builder.create(pinsStore: [
-            "a": (.version(v1), .specific(["a"])),
-            "b": (.version("1.2.0"), .specific(["b"])),
-        ])
-
-        let resolver = builder.create(pins: pinsStore.pins)
-        let result = resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("a", .version(v1)),
-            ("b", .version(v1_1)),
-        ])
-    }
-
     func testBranchedBasedPin() throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
@@ -1592,8 +1564,8 @@ final class PubgrubTests: XCTestCase {
 
             func failedToResolve(incompatibility: Incompatibility) {}
 
-            func solved(result: [DependencyResolver.Binding]) {
-                let decisions = result.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity)' at '\($0.binding)'" }
+            func solved(result: [DependencyResolverBinding]) {
+                let decisions = result.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity)' at '\($0.boundVersion)'" }
                 self.lock.withLock {
                     self.events.append("solved: \(decisions.joined(separator: ", "))")
                 }
@@ -2899,7 +2871,7 @@ fileprivate extension PinsStore.PinState {
 /// Asserts that the listed packages are present in the bindings with their
 /// specified versions.
 private func AssertBindings(
-    _ bindings: [DependencyResolver.Binding],
+    _ bindings: [DependencyResolverBinding],
     _ packages: [(identity: PackageIdentity, version: BoundVersion)],
     file: StaticString = #file,
     line: UInt = #line
@@ -2921,15 +2893,15 @@ private func AssertBindings(
             continue
         }
 
-        if binding.binding != package.version {
-            XCTFail("Expected \(package.version) for \(package.identity), found \(binding.binding) instead.", file: file, line: line)
+        if binding.boundVersion != package.version {
+            XCTFail("Expected \(package.version) for \(package.identity), found \(binding.boundVersion) instead.", file: file, line: line)
         }
     }
 }
 
 /// Asserts that a result succeeded and contains the specified bindings.
 private func AssertResult(
-    _ result: Result<[DependencyResolver.Binding], Error>,
+    _ result: Result<[DependencyResolverBinding], Error>,
     _ packages: [(identifier: String, version: BoundVersion)],
     file: StaticString = #file,
     line: UInt = #line
@@ -2944,14 +2916,14 @@ private func AssertResult(
 
 /// Asserts that a result failed with specified error.
 private func AssertError(
-    _ result: Result<[DependencyResolver.Binding], Error>,
+    _ result: Result<[DependencyResolverBinding], Error>,
     _ expectedError: Error,
     file: StaticString = #file,
     line: UInt = #line
 ) {
     switch result {
     case .success(let bindings):
-        let bindingsDesc = bindings.map { "\($0.package)@\($0.binding)" }.joined(separator: ", ")
+        let bindingsDesc = bindings.map { "\($0.package)@\($0.boundVersion)" }.joined(separator: ", ")
         XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
     case .failure(let foundError):
         XCTAssertEqual(String(describing: foundError), String(describing: expectedError), file: file, line: line)
@@ -3319,7 +3291,7 @@ extension PackageReference: ExpressibleByStringLiteral {
         self = ref
     }
 }
-extension Result where Success == [DependencyResolver.Binding] {
+extension Result where Success == [DependencyResolverBinding] {
     var errorMsg: String? {
         switch self {
         case .failure(let error):

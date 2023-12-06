@@ -20,6 +20,9 @@ public struct BuiltTestProduct: Codable {
     /// The path of the test binary.
     public let binaryPath: AbsolutePath
 
+    /// The path to the package this product was declared in.
+    public let packagePath: AbsolutePath
+
     /// The path of the test bundle.
     public var bundlePath: AbsolutePath {
         // Go up the folder hierarchy until we find the .xctest bundle.
@@ -35,8 +38,10 @@ public struct BuiltTestProduct: Codable {
     /// - Parameters:
     ///   - productName: The test product name.
     ///   - binaryPath: The path of the test binary.
-    public init(productName: String, binaryPath: AbsolutePath) {
+    ///   - packagePath: The path to the package this product was declared in.
+    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath) {
         self.productName = productName
         self.binaryPath = binaryPath
+        self.packagePath = packagePath
     }
 }

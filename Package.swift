@@ -128,6 +128,7 @@ let package = Package(
             name: "PackageDescription",
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .define("USE_IMPL_ONLY_IMPORTS"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
@@ -548,7 +549,11 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "SPMTestSupport"]
+            dependencies: ["Build", "PackageModel", "SPMTestSupport"]
+        ),
+        .testTarget(
+            name: "LLBuildManifestTests",
+            dependencies: ["Basics", "LLBuildManifest", "SPMTestSupport"]
         ),
         .testTarget(
             name: "WorkspaceTests",
@@ -666,6 +671,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             ]
         ),
 
+        .executableTarget(
+            name: "dummy-swiftc",
+            dependencies: [
+                "Basics",
+            ]
+        ),
+
         .testTarget(
             name: "CommandsTests",
             dependencies: [
@@ -681,6 +693,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",
+                "dummy-swiftc",
             ]
         ),
     ])
@@ -713,7 +726,6 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     }
     package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [
         .product(name: "llbuildSwift", package: "swift-llbuild"),
-        .product(name: "llbuild", package: "swift-llbuild"),
     ]
 }
 
@@ -725,10 +737,10 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.5.0")),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "0.6.0")),
+        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
     ]
 } else {
     package.dependencies += [

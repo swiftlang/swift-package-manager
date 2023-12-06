@@ -12,9 +12,9 @@
 
 import Basics
 import Foundation
+import PackageLoading
 import PackageModel
 import SPMBuildCore
-import PackageLoading
 
 import struct TSCBasic.ByteString
 import protocol TSCBasic.HashAlgorithm
@@ -26,10 +26,16 @@ extension Workspace {
     public struct CustomBinaryArtifactsManager {
         let httpClient: LegacyHTTPClient?
         let archiver: Archiver?
+        let useCache: Bool?
 
-        public init(httpClient: LegacyHTTPClient? = .none, archiver: Archiver? = .none) {
+        public init(
+            httpClient: LegacyHTTPClient? = .none,
+            archiver: Archiver? = .none,
+            useCache: Bool? = .none
+        ) {
             self.httpClient = httpClient
             self.archiver = archiver
+            self.useCache = useCache
         }
     }
 
@@ -43,6 +49,7 @@ extension Workspace {
         private let httpClient: LegacyHTTPClient
         private let archiver: Archiver
         private let checksumAlgorithm: HashAlgorithm
+        private let cachePath: AbsolutePath?
         private let delegate: Delegate?
 
         public init(
@@ -50,6 +57,7 @@ extension Workspace {
             authorizationProvider: AuthorizationProvider?,
             hostToolchain: UserToolchain,
             checksumAlgorithm: HashAlgorithm,
+            cachePath: AbsolutePath?,
             customHTTPClient: LegacyHTTPClient?,
             customArchiver: Archiver?,
             delegate: Delegate?
@@ -60,6 +68,7 @@ extension Workspace {
             self.checksumAlgorithm = checksumAlgorithm
             self.httpClient = customHTTPClient ?? LegacyHTTPClient()
             self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
+            self.cachePath = cachePath
             self.delegate = delegate
         }
 
@@ -126,7 +135,7 @@ extension Workspace {
             return (local: localArtifacts, remote: remoteArtifacts)
         }
 
-        func download(
+        func fetch(
             _ artifacts: [RemoteArtifact],
             artifactsDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
@@ -229,23 +238,11 @@ extension Workspace {
                 }
 
                 group.enter()
-                var headers = HTTPClientHeaders()
-                headers.add(name: "Accept", value: "application/octet-stream")
-                var request = LegacyHTTPClient.Request.download(
-                    url: artifact.url,
-                    headers: headers,
-                    fileSystem: self.fileSystem,
-                    destination: archivePath
-                )
-                request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-                request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-                request.options.validResponseCodes = [200]
-
-                let downloadStart: DispatchTime = .now()
-                self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString)
-                observabilityScope.emit(debug: "downloading \(artifact.url) to \(archivePath)")
-                self.httpClient.execute(
-                    request,
+                let fetchStart: DispatchTime = .now()
+                self.fetch(
+                    artifact: artifact,
+                    destination: archivePath,
+                    observabilityScope: observabilityScope,
                     progress: { bytesDownloaded, totalBytesToDownload in
                         self.delegate?.downloadingBinaryArtifact(
                             from: artifact.url.absoluteString,
@@ -253,13 +250,12 @@ extension Workspace {
                             totalBytesToDownload: totalBytesToDownload
                         )
                     },
-                    completion: { downloadResult in
+                    completion: { fetchResult in
                         defer { group.leave() }
 
-                        // TODO: Use the same extraction logic for both remote and local archived artifacts.
-                        switch downloadResult {
-                        case .success:
-
+                        switch fetchResult {
+                        case .success(let cached):
+                            // TODO: Use the same extraction logic for both remote and local archived artifacts.
                             group.enter()
                             observabilityScope.emit(debug: "validating \(archivePath)")
                             self.archiver.validate(path: archivePath, completion: { validationResult in
@@ -381,8 +377,8 @@ extension Workspace {
                                                 )
                                                 self.delegate?.didDownloadBinaryArtifact(
                                                     from: artifact.url.absoluteString,
-                                                    result: .success(artifactPath),
-                                                    duration: downloadStart.distance(to: .now())
+                                                    result: .success((path: artifactPath, fromCache: cached)),
+                                                    duration: fetchStart.distance(to: .now())
                                                 )
                                             case .failure(let error):
                                                 observabilityScope.emit(.remoteArtifactFailedExtraction(
@@ -393,7 +389,7 @@ extension Workspace {
                                                 self.delegate?.didDownloadBinaryArtifact(
                                                     from: artifact.url.absoluteString,
                                                     result: .failure(error),
-                                                    duration: downloadStart.distance(to: .now())
+                                                    duration: fetchStart.distance(to: .now())
                                                 )
                                             }
 
@@ -409,7 +405,7 @@ extension Workspace {
                                     self.delegate?.didDownloadBinaryArtifact(
                                         from: artifact.url.absoluteString,
                                         result: .failure(error),
-                                        duration: downloadStart.distance(to: .now())
+                                        duration: fetchStart.distance(to: .now())
                                     )
                                 }
                             })
@@ -423,7 +419,7 @@ extension Workspace {
                             self.delegate?.didDownloadBinaryArtifact(
                                 from: artifact.url.absoluteString,
                                 result: .failure(error),
-                                duration: downloadStart.distance(to: .now())
+                                duration: fetchStart.distance(to: .now())
                             )
                         }
                     }
@@ -563,17 +559,116 @@ extension Workspace {
                 try cancellableArchiver.cancel(deadline: deadline)
             }
         }
+
+        private func fetch(
+            artifact: RemoteArtifact,
+            destination: AbsolutePath,
+            observabilityScope: ObservabilityScope,
+            progress: @escaping (Int64, Optional<Int64>) -> Void,
+            completion: @escaping (Result<Bool, Error>) -> Void
+        ) {
+            // not using cache, download directly
+            guard let cachePath = self.cachePath else {
+                self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
+                return self.download(
+                    artifact: artifact,
+                    destination: destination,
+                    observabilityScope: observabilityScope,
+                    progress: progress,
+                    completion: { result in
+                        // not fetched from cache
+                        completion(result.map{ _ in false })
+                    }
+                )
+            }
+
+            // initialize cache if necessary
+            do {
+                if !self.fileSystem.exists(cachePath) {
+                    try self.fileSystem.createDirectory(cachePath, recursive: true)
+                }
+            } catch {
+                return completion(.failure(error))
+            }
+
+
+            // try to fetch from cache, or download and cache
+            // / FIXME: use better escaping of URL
+            let cacheKey = artifact.url.absoluteString.spm_mangledToC99ExtendedIdentifier()
+            let cachedArtifactPath = cachePath.appending(cacheKey)
+
+            if self.fileSystem.exists(cachedArtifactPath) {
+                observabilityScope.emit(debug: "copying cached binary artifact for \(artifact.url) from \(cachedArtifactPath)")
+                self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: true)
+                return completion(
+                    Result.init(catching: {
+                        // copy from cache to destination
+                        try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
+                        return true // fetched from cache
+                    })
+                )
+            }
+
+            // download to the cache
+            observabilityScope.emit(debug: "downloading binary artifact for \(artifact.url) to cached at \(cachedArtifactPath)")
+            self.download(
+                artifact: artifact,
+                destination: cachedArtifactPath,
+                observabilityScope: observabilityScope,
+                progress: progress,
+                completion: { result in
+                    self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
+                    completion(result.flatMap {
+                        Result.init(catching: {
+                            // copy from cache to destination
+                            try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
+                            return false // not fetched from cache
+                        })
+                    })
+                }
+            )
+        }
+
+        private func download(
+            artifact: RemoteArtifact,
+            destination: AbsolutePath,
+            observabilityScope: ObservabilityScope,
+            progress: @escaping (Int64, Optional<Int64>) -> Void,
+            completion: @escaping (Result<Void, Error>) -> Void
+        ) {
+            observabilityScope.emit(debug: "downloading \(artifact.url) to \(destination)")
+
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Accept", value: "application/octet-stream")
+            var request = LegacyHTTPClient.Request.download(
+                url: artifact.url,
+                headers: headers,
+                fileSystem: self.fileSystem,
+                destination: destination
+            )
+            request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+            request.options.validResponseCodes = [200]
+
+            self.httpClient.execute(
+                request,
+                progress: progress,
+                completion: { result in
+                    completion(result.map{ _ in Void() })
+                }
+            )
+        }
     }
 }
 
 /// Delegate to notify clients about actions being performed by BinaryArtifactsDownloadsManage.
 public protocol BinaryArtifactsManagerDelegate {
     /// The workspace has started downloading a binary artifact.
-    func willDownloadBinaryArtifact(from url: String)
+    func willDownloadBinaryArtifact(from url: String, fromCache: Bool)
     /// The workspace has finished downloading a binary artifact.
     func didDownloadBinaryArtifact(
         from url: String,
-        result: Result<AbsolutePath, Error>,
+        result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     )
     /// The workspace is downloading a binary artifact.
@@ -696,7 +791,8 @@ extension Workspace.BinaryArtifactsManager {
                 _ = try decoder.decode(XCFrameworkMetadata.self, from: fileSystem.readFileContents(infoPlist))
                 return .xcframework
             } catch {
-                observabilityScope.emit(debug: "info.plist found in '\(path)' but failed to parse: \(error.interpolationDescription)")
+                observabilityScope
+                    .emit(debug: "info.plist found in '\(path)' but failed to parse: \(error.interpolationDescription)")
             }
         }
 
@@ -713,6 +809,156 @@ extension Workspace.BinaryArtifactsManager {
         }
 
         return .none
+    }
+}
+
+extension Workspace {
+    func updateBinaryArtifacts(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) throws {
+        let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(
+            from: manifests,
+            observabilityScope: observabilityScope
+        )
+
+        var artifactsToRemove: [ManagedArtifact] = []
+        var artifactsToAdd: [ManagedArtifact] = []
+        var artifactsToDownload: [BinaryArtifactsManager.RemoteArtifact] = []
+        var artifactsToExtract: [ManagedArtifact] = []
+
+        for artifact in state.artifacts {
+            if !manifestArtifacts.local
+                .contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
+                !manifestArtifacts.remote
+                .contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName })
+            {
+                artifactsToRemove.append(artifact)
+            }
+        }
+
+        for artifact in manifestArtifacts.local {
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
+                targetName: artifact.targetName
+            ]
+
+            if artifact.path.extension?.lowercased() == "zip" {
+                // If we already have an artifact that was extracted from an archive with the same checksum,
+                // we don't need to extract the artifact again.
+                if case .local(let existingChecksum) = existingArtifact?.source,
+                   try existingChecksum == (self.binaryArtifactsManager.checksum(forBinaryArtifactAt: artifact.path))
+                {
+                    continue
+                }
+
+                artifactsToExtract.append(artifact)
+            } else {
+                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(
+                    fileSystem: self.fileSystem,
+                    path: artifact.path,
+                    observabilityScope: observabilityScope
+                ) else {
+                    observabilityScope.emit(.localArtifactNotFound(
+                        artifactPath: artifact.path,
+                        targetName: artifact.targetName
+                    ))
+                    continue
+                }
+                artifactsToAdd.append(artifact)
+            }
+
+            if let existingArtifact, isAtArtifactsDirectory(existingArtifact) {
+                // Remove the old extracted artifact, be it local archived or remote one.
+                artifactsToRemove.append(existingArtifact)
+            }
+        }
+
+        for artifact in manifestArtifacts.remote {
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
+                targetName: artifact.targetName
+            ]
+
+            if let existingArtifact {
+                if case .remote(let existingURL, let existingChecksum) = existingArtifact.source {
+                    // If we already have an artifact with the same checksum, we don't need to download it again.
+                    if artifact.checksum == existingChecksum {
+                        continue
+                    }
+
+                    let urlChanged = artifact.url != URL(string: existingURL)
+                    // If the checksum is different but the package wasn't updated, this is a security risk.
+                    if !urlChanged && !addedOrUpdatedPackages.contains(artifact.packageRef) {
+                        observabilityScope.emit(.artifactChecksumChanged(targetName: artifact.targetName))
+                        continue
+                    }
+                }
+
+                if isAtArtifactsDirectory(existingArtifact) {
+                    // Remove the old extracted artifact, be it local archived or remote one.
+                    artifactsToRemove.append(existingArtifact)
+                }
+            }
+
+            artifactsToDownload.append(artifact)
+        }
+
+        // Remove the artifacts and directories which are not needed anymore.
+        observabilityScope.trap {
+            for artifact in artifactsToRemove {
+                state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
+
+                if isAtArtifactsDirectory(artifact) {
+                    try fileSystem.removeFileTree(artifact.path)
+                }
+            }
+
+            for directory in try fileSystem.getDirectoryContents(self.location.artifactsDirectory) {
+                let directoryPath = self.location.artifactsDirectory.appending(component: directory)
+                if try fileSystem.isDirectory(directoryPath) && fileSystem.getDirectoryContents(directoryPath).isEmpty {
+                    try fileSystem.removeFileTree(directoryPath)
+                }
+            }
+        }
+
+        guard !observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
+        // Download the artifacts
+        let downloadedArtifacts = try self.binaryArtifactsManager.fetch(
+            artifactsToDownload,
+            artifactsDirectory: self.location.artifactsDirectory,
+            observabilityScope: observabilityScope
+        )
+        artifactsToAdd.append(contentsOf: downloadedArtifacts)
+
+        // Extract the local archived artifacts
+        let extractedLocalArtifacts = try self.binaryArtifactsManager.extract(
+            artifactsToExtract,
+            artifactsDirectory: self.location.artifactsDirectory,
+            observabilityScope: observabilityScope
+        )
+        artifactsToAdd.append(contentsOf: extractedLocalArtifacts)
+
+        // Add the new artifacts
+        for artifact in artifactsToAdd {
+            self.state.artifacts.add(artifact)
+        }
+
+        guard !observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
+        observabilityScope.trap {
+            try self.state.save()
+        }
+
+        func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
+            artifact.path.isDescendant(of: self.location.artifactsDirectory)
+        }
     }
 }
 

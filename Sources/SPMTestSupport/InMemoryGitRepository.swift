@@ -383,7 +383,7 @@ extension InMemoryGitRepository: WorkingCheckout {
         }
     }
 
-    public func isAlternateObjectStoreValid() -> Bool {
+    public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
         return true
     }
 
@@ -451,10 +451,10 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        guard let repo = fetchedMap[path] else {
-            throw InternalError("unknown repo at \(path)")
+        guard let repository = self.fetchedMap[path] else {
+            throw InternalError("unknown repository at \(path)")
         }
-        return repo
+        return repository
     }
 
     public func createWorkingCopy(
@@ -482,11 +482,11 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return checkout
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
         return true
     }
 
-    public func isValidRefFormat(_ ref: String) -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         return true
     }
 

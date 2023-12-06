@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -241,7 +241,7 @@ public class Target: PolymorphicCodableProtocol {
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
-    fileprivate init(
+    init(
         name: String,
         potentialBundleName: String? = nil,
         type: Kind,
@@ -332,5 +332,20 @@ extension Target: Hashable {
 extension Target: CustomStringConvertible {
     public var description: String {
         return "<\(Swift.type(of: self)): \(name)>"
+    }
+}
+
+public extension Sequence where Iterator.Element == Target {
+    var executables: [Target] {
+        return filter {
+            switch $0.type {
+            case .binary:
+                return ($0 as? BinaryTarget)?.containsExecutable == true
+            case .executable, .snippet, .macro:
+                return true
+            default:
+                return false
+            }
+        }
     }
 }

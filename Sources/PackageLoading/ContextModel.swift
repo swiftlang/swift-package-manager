@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import Foundation
+#else
+import Foundation
+#endif
 
 struct ContextModel {
     let packageDirectory : String
@@ -28,7 +32,7 @@ extension ContextModel : Codable {
     func encode() throws -> String {
         let encoder = JSONEncoder()
         let data = try encoder.encode(self)
-        return String(data: data, encoding: .utf8)!
+        return String(decoding: data, as: UTF8.self)
     }
 
     static func decode() throws -> ContextModel {
@@ -36,9 +40,7 @@ extension ContextModel : Codable {
         while let arg = args.next() {
             if arg == "-context", let json = args.next() {
                 let decoder = JSONDecoder()
-                guard let data = json.data(using: .utf8) else {
-                    throw StringError(description: "Failed decoding context json as UTF8")
-                }
+                let data = Data(json.utf8)
                 return try decoder.decode(ContextModel.self, from: data)
             }
         }

@@ -14,7 +14,6 @@ import struct Basics.AbsolutePath
 import struct Basics.StringError
 
 public final class ClangTarget: Target {
-
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
 

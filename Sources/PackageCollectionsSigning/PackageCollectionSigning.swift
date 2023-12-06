@@ -10,13 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import _CryptoExtras
+
 import Basics
-@_implementationOnly import Crypto
 import Dispatch
 import Foundation
 import PackageCollectionsModel
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import _CryptoExtras
+@_implementationOnly import Crypto
 @_implementationOnly import X509
+#else
+import _CryptoExtras
+import Crypto
+import X509
+#endif
 
 public protocol PackageCollectionSigner {
     /// Signs package collection using the given certificate and key.
@@ -239,9 +247,7 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
         signedCollection: Model.SignedCollection,
         certPolicyKey: CertificatePolicyKey = .default
     ) async throws {
-        guard let signatureBytes = signedCollection.signature.signature.data(using: .utf8)?.copyBytes() else {
-            throw PackageCollectionSigningError.invalidSignature
-        }
+        let signatureBytes = Data(signedCollection.signature.signature.utf8).copyBytes()
 
         // Parse the signature
         let certChainValidate = { certChainData in

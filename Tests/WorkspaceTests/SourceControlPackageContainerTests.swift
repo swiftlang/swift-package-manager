@@ -132,7 +132,10 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        return self.repositories[repository.location]!
+        guard let repository = self.repositories[repository.location] else {
+            throw InternalError("unknown repository at \(repository.location)")
+        }
+        return repository
     }
 
     func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
@@ -143,11 +146,11 @@ private class MockRepositories: RepositoryProvider {
         fatalError("unexpected API call")
     }
 
-    func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
         return true
     }
 
-    func isValidRefFormat(_ ref: String) -> Bool {
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         return true
     }
 
@@ -190,7 +193,7 @@ private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class SourceControlPackageContainerTests: XCTestCase {
-    func testVprefixVersions() throws {
+    func testVprefixVersions() async throws {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
@@ -227,12 +230,12 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref)
+        let container = try await provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
 
-    func testVersions() throws {
+    func testVersions() async throws {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
@@ -284,7 +287,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref)
+            let container = try await provider.getContainer(for: ref)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, ["1.0.1"])
         }
@@ -292,7 +295,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.2.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref) as! SourceControlPackageContainer
+            let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(container.validToolsVersionsCache["1.0.0"], false)
@@ -305,7 +308,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref)
+            let container = try await provider.getContainer(for: ref)
             let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, [])
         }
@@ -314,7 +317,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-            let container = try provider.getContainer(for: ref) as! SourceControlPackageContainer
+            let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
                 _ = try container.getDependencies(at: revision.identifier, productFilter: .nothing)
@@ -325,7 +328,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         }
     }
 
-    func testPreReleaseVersions() throws {
+    func testPreReleaseVersions() async throws {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
@@ -364,12 +367,12 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref)
+        let container = try await provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
 
-    func testSimultaneousVersions() throws {
+    func testSimultaneousVersions() async throws {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
@@ -412,7 +415,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             customRepositoryManager: repositoryManager
         )
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
-        let container = try provider.getContainer(for: ref)
+        let container = try await provider.getContainer(for: ref)
         let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
@@ -446,7 +449,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5ProductMapping[$0.identity.description]!
             )
@@ -458,7 +461,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(),
+                package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.identity.description]!
             )
@@ -552,8 +555,8 @@ class SourceControlPackageContainerTests: XCTestCase {
         }
     }
 
-    func testMissingBranchDiagnostics() throws {
-        try testWithTemporaryDirectory { tmpDir in
+    func testMissingBranchDiagnostics() async throws {
+        try await testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending("SomePackage")
             try localFileSystem.createDirectory(packageDir)
@@ -598,7 +601,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Get a hold of the container for the test package.
             let packageRef = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDir), path: packageDir)
-            let container = try containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
+            let container = try await containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
             do { _ = try container.getDependencies(at: "master", productFilter: .everything) }
@@ -620,8 +623,8 @@ class SourceControlPackageContainerTests: XCTestCase {
         }
     }
 
-    func testRepositoryContainerUpdateStrategy() throws {
-        try testWithTemporaryDirectory { temporaryDirectory in
+    func testRepositoryContainerUpdateStrategy() async throws {
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             let package = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
 
@@ -661,7 +664,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             do {
                 repositoryManagerDelegate.reset()
                 XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
-                _ = try containerProvider.getContainer(
+                _ = try await containerProvider.getContainer(
                     for: package,
                     updateStrategy: .never
                 )
@@ -671,7 +674,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             do {
                 repositoryManagerDelegate.reset()
                 XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
-                _ = try containerProvider.getContainer(
+                _ = try await containerProvider.getContainer(
                     for: package,
                     updateStrategy: .always
                 )
@@ -685,7 +688,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
                 repositoryManagerDelegate.reset()
                 XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
-                _ = try containerProvider.getContainer(
+                _ = try await containerProvider.getContainer(
                     for: package,
                     updateStrategy: .ifNeeded(revision: revision.identifier)
                 )
@@ -695,7 +698,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             do {
                 repositoryManagerDelegate.reset()
                 XCTAssertEqual(repositoryManagerDelegate.updated.count, 0)
-                _ = try containerProvider.getContainer(
+                _ = try await containerProvider.getContainer(
                     for: package,
                     updateStrategy: .ifNeeded(revision: UUID().uuidString)
                 )
@@ -708,8 +711,8 @@ class SourceControlPackageContainerTests: XCTestCase {
     // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
     // storing the result of the first product filter and then continually returning it for other filters too.
     // This lead to corrupt graph states.
-    func testRepositoryPackageContainerCache() throws {
-        try testWithTemporaryDirectory { temporaryDirectory in
+    func testRepositoryPackageContainerCache() async throws {
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("Package")
             try localFileSystem.createDirectory(packageDirectory)
             initGitRepo(packageDirectory)
@@ -762,7 +765,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
 
             let packageReference = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
-            let container = try containerProvider.getContainer(for: packageReference)
+            let container = try await containerProvider.getContainer(for: packageReference)
 
             let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
             let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))
@@ -778,8 +781,8 @@ extension PackageContainerProvider {
     fileprivate func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy = .always
-    ) throws -> PackageContainer {
-        try temp_await {
+    ) async throws -> PackageContainer {
+        try await safe_async {
             self.getContainer(
                 for: package,
                 updateStrategy: updateStrategy,

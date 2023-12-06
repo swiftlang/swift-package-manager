@@ -442,7 +442,7 @@ private func manifestToJSON(_ package: Package) -> String {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     let data = try! encoder.encode(Output(package: .init(package), errors: errors, version: 2))
-    return String(data: data, encoding: .utf8)!
+    return String(decoding: data, as: UTF8.self)
 }
 
 var errors: [String] = []

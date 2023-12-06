@@ -20,6 +20,7 @@ import struct TSCBasic.StringError
 /// A collection of dependency mirrors.
 public final class DependencyMirrors: Equatable {
     private var index: [String: String]
+    private var mirrorIndex: [PackageIdentity: PackageIdentity]
     private var reverseIndex: [String: [String]]
     private var visited: OrderedCollections.OrderedSet<String>
     private let lock = NSLock()
@@ -30,11 +31,13 @@ public final class DependencyMirrors: Equatable {
         }
     }
 
-    public init(_ mirrors: [String: String]) {
+    public init(_ mirrors: [String: String] = [:]) throws {
         self.index = mirrors
         self.reverseIndex = [String: [String]]()
+        self.mirrorIndex = [PackageIdentity: PackageIdentity]()
         for entry in mirrors {
             self.reverseIndex[entry.value, default: []].append(entry.key)
+            self.mirrorIndex[try Self.parseLocation(entry.key)] = try Self.parseLocation(entry.value)
         }
         self.visited = .init()
     }
@@ -47,10 +50,11 @@ public final class DependencyMirrors: Equatable {
     /// - Parameters:
     ///   - mirror: The mirror
     ///   - for: The original
-    public func set(mirror: String, for key: String) {
-        self.lock.withLock {
+    public func set(mirror: String, for key: String) throws {
+        try self.lock.withLock {
             self.index[key] = mirror
             self.reverseIndex[mirror, default: []].append(key)
+            self.mirrorIndex[try Self.parseLocation(key)] = try Self.parseLocation(mirror)
         }
     }
 
@@ -63,9 +67,11 @@ public final class DependencyMirrors: Equatable {
             if let value = self.index[originalOrMirror] {
                 self.index[originalOrMirror] = nil
                 self.reverseIndex[value] = nil
+                self.mirrorIndex[try Self.parseLocation(value)] = nil
             } else if let mirror = self.index.first(where: { $0.value == originalOrMirror }) {
                 self.index[mirror.key] = nil
                 self.reverseIndex[originalOrMirror] = nil
+                self.mirrorIndex[try Self.parseLocation(originalOrMirror)] = nil
             } else {
                 throw StringError("Mirror not found for '\(originalOrMirror)'")
             }
@@ -75,9 +81,9 @@ public final class DependencyMirrors: Equatable {
     /// Append the content of a different DependencyMirrors into this one
     /// - Parameters:
     ///   - contentsOf: The DependencyMirrors to append from.
-    public func append(contentsOf mirrors: DependencyMirrors) {
-        mirrors.index.forEach {
-            self.set(mirror: $0.value, for: $0.key)
+    public func append(contentsOf mirrors: DependencyMirrors) throws {
+        try mirrors.index.forEach {
+            try self.set(mirror: $0.value, for: $0.key)
         }
     }
 
@@ -153,15 +159,10 @@ public final class DependencyMirrors: Equatable {
     }
 
     public func effectiveIdentity(for identity: PackageIdentity) throws -> PackageIdentity {
-        // TODO: cache
-        let mirrorIndex = try self.mapping.reduce(into: [PackageIdentity: PackageIdentity]()) { partial, item in
-            try partial[parseLocation(item.key)] = parseLocation(item.value)
-        }
-
         return mirrorIndex[identity] ?? identity
     }
 
-    private func parseLocation(_ location: String) throws -> PackageIdentity {
+    private static func parseLocation(_ location: String) throws -> PackageIdentity {
         if PackageIdentity.plain(location).isRegistry {
             return PackageIdentity.plain(location)
         } else if let path = try? AbsolutePath(validating: location) {
@@ -198,11 +199,5 @@ extension DependencyMirrors: Collection {
         self.lock.withLock {
             self.index.index(after: index)
         }
-    }
-}
-
-extension DependencyMirrors: ExpressibleByDictionaryLiteral {
-    public convenience init(dictionaryLiteral elements: (String, String)...) {
-        self.init(Dictionary(elements, uniquingKeysWith: { first, _ in first }))
     }
 }

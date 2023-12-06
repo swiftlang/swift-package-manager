@@ -73,7 +73,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
         try config.apply{ mirrors in
-            mirrors.set(mirror: mirrorURL, for: originalURL)
+            try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
         XCTAssertTrue(fs.exists(configFile))
 
@@ -96,7 +96,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
         try config.apply{ mirrors in
-            mirrors.set(mirror: mirrorURL, for: originalURL)
+            try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
         XCTAssertTrue(fs.exists(configFile))
 
@@ -124,7 +124,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirror1URL = "https://github.com/mona/swift-argument-parser.git"
 
         try config.applyShared { mirrors in
-            mirrors.set(mirror: mirror1URL, for: original1URL)
+            try mirrors.set(mirror: mirror1URL, for: original1URL)
         }
 
         XCTAssertEqual(config.mirrors.count, 1)
@@ -137,7 +137,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let mirror2URL = "https://github.com/mona/swift-nio.git"
 
         try config.applyLocal { mirrors in
-            mirrors.set(mirror: mirror2URL, for: original2URL)
+            try mirrors.set(mirror: mirror2URL, for: original2URL)
         }
 
         XCTAssertEqual(config.mirrors.count, 1)

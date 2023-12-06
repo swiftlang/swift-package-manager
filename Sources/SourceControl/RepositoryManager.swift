@@ -85,7 +85,7 @@ public class RepositoryManager: Cancellable {
         self.delegate = delegate
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
-        let maxConcurrentOperations = min(maxConcurrentOperations ?? 3, Concurrency.maxOperations)
+        let maxConcurrentOperations = max(1, maxConcurrentOperations ?? 3*Concurrency.maxOperations/4)
         self.lookupQueue = OperationQueue()
         self.lookupQueue.name = "org.swift.swiftpm.repository-manager"
         self.lookupQueue.maxConcurrentOperationCount = maxConcurrentOperations
@@ -188,20 +188,26 @@ public class RepositoryManager: Cancellable {
     // sync func and roll the logic into the async version above
     private func lookup(
         package: PackageIdentity,
-        repository: RepositorySpecifier,
+        repository repositorySpecifier: RepositorySpecifier,
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
-        let relativePath = try repository.storagePath()
+        let relativePath = try repositorySpecifier.storagePath()
         let repositoryPath = self.path.appending(relativePath)
-        let handle = RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
+        let handle = RepositoryHandle(manager: self, repository: repositorySpecifier, subpath: relativePath)
 
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
+        quick: if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
             let repository = try handle.open()
+
+            guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
+                observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
+                break quick
+            }
+
             // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
@@ -216,6 +222,7 @@ public class RepositoryManager: Cancellable {
                     self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                 }
             }
+
             return handle
         }
 
@@ -332,7 +339,7 @@ public class RepositoryManager: Cancellable {
                 }
             } catch {
                 // If we are offline and have a valid cached repository, use the cache anyway.
-                if isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath) {
+                if try isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath, for: handle.repository) {
                     // For the first offline use in the lifetime of this repository manager, emit a warning.
                     if self.emitNoConnectivityWarning.get(default: false) {
                         self.emitNoConnectivityWarning.put(false)
@@ -379,8 +386,16 @@ public class RepositoryManager: Cancellable {
         }
     }
 
+    /// Open a working copy checkout at a path
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         try self.provider.openWorkingCopy(at: path)
+    }
+
+    /// Validate a working copy check is aligned with its repository setup
+    public func isValidWorkingCopy(_ workingCopy: WorkingCheckout, for repository: RepositorySpecifier) throws -> Bool {
+        let relativePath = try repository.storagePath()
+        let repositoryPath = self.path.appending(relativePath)
+        return workingCopy.isAlternateObjectStoreValid(expected: repositoryPath)
     }
 
     /// Open a repository from a handle.
@@ -412,13 +427,13 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Returns true if the directory is valid git location.
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
-        self.provider.isValidDirectory(directory)
+    public func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
+        try self.provider.isValidDirectory(directory)
     }
 
-    /// Returns true if the git reference name is well formed.
-    public func isValidRefFormat(_ ref: String) -> Bool {
-        self.provider.isValidRefFormat(ref)
+    /// Returns true if the directory is valid git location for the specified repository
+    public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        try self.provider.isValidDirectory(directory, for: repository)
     }
 
     /// Reset the repository manager.
@@ -436,7 +451,7 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Sets up the cache directories if they don't already exist.
-    public func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
+    private func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
         // Create the supplied cache directory.
         if !self.fileSystem.exists(cachePath) {
             try self.fileSystem.createDirectory(cachePath, recursive: true)
@@ -577,8 +592,9 @@ extension RepositorySpecifier {
 }
 
 extension RepositorySpecifier {
-    fileprivate var canonicalLocation: CanonicalPackageLocation {
-        .init(self.location.description)
+    fileprivate var canonicalLocation: String {
+        let canonicalPackageLocation: CanonicalPackageURL = .init(self.location.description)
+        return "\(canonicalPackageLocation.description)_\(canonicalPackageLocation.scheme ?? "")"
     }
 }
 

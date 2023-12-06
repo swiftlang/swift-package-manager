@@ -161,6 +161,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
@@ -176,7 +177,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 name: "Logging",
                                 package: "barPkg",
                                 moduleAliases: ["Logging": "BarLogging"]
-                            )]
+                            )],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -203,6 +205,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
     }
 
     func testModuleAliasingDuplicateDylibProductNames() throws {
+        let fooPkg: AbsolutePath = "/fooPkg"
+        let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -215,7 +219,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: "/fooPkg",
+                    path: fooPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -225,7 +229,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: "/barPkg",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -258,11 +262,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '/barPkg'), 'foopkg' (at '/fooPkg')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
         }
     }
 
     func testModuleAliasingDuplicateDylibStaticLibProductNames() throws {
+        let fooPkg: AbsolutePath = "/fooPkg"
+        let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/thisPkg/Sources/exe/main.swift",
@@ -275,7 +281,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: "/fooPkg",
+                    path: fooPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -285,7 +291,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: "/barPkg",
+                    path: barPkg,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
                     ],
@@ -318,7 +324,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '/barPkg'), 'foopkg' (at '/fooPkg')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
         }
     }
 
@@ -357,6 +363,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
@@ -372,7 +379,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 name: "Logging",
                                 package: "barPkg",
                                 moduleAliases: ["Logging": "BarLogging"]
-                            )]
+                            )],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -439,6 +447,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/bazPkg", requirement: .upToNextMajor(from: "2.0.0")),
@@ -454,7 +463,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 name: "Logging",
                                 package: "bazPkg",
                                 moduleAliases: ["Logging": "BazLogging"]
-                            )]
+                            )],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -654,6 +664,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
@@ -671,7 +682,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                                name: "Logging",
                                                package: "barPkg",
                                                moduleAliases: ["Logging": "BarLogging"]
-                                           )]
+                                           )],
+                            type: .executable
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -3470,6 +3482,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3517,6 +3530,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "apkg",
                     path: "/aPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3544,6 +3558,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/aPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3562,7 +3577,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     package: "apkg",
                                     moduleAliases: ["Utils": "AUtils"]
                                 ),
-                            ]
+                            ],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -3637,6 +3653,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3675,6 +3692,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/aPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3692,7 +3710,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     package: "apkg",
                                     moduleAliases: ["Utils": "AUtils"]
                                 ),
-                            ]
+                            ],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -3762,6 +3781,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3799,6 +3819,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/aPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -3817,7 +3838,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     package: "apkg",
                                     moduleAliases: ["Utils": "AUtils"]
                                 ),
-                            ]
+                            ],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -4046,6 +4068,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4083,6 +4106,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     displayName: "apkg",
                     path: "/aPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -4107,6 +4131,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/aPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4126,7 +4151,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 name: "X",
                                 package: "xpkg",
                                 moduleAliases: ["FooUtils": "XFUtils"]
-                            )]
+                            )],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -4208,6 +4234,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4246,6 +4273,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     displayName: "apkg",
                     path: "/aPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -4270,6 +4298,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
+                    toolsVersion: .v5_9,
                     dependencies: [
                         .localSourceControl(path: "/aPkg", requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4292,7 +4321,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     "ZUtils": "XUtils",
                                     "FooUtils": "XFooUtils",
                                 ]
-                            )]
+                            )],
+                            type: .executable
                         ),
                     ]
                 ),
@@ -4500,5 +4530,142 @@ final class ModuleAliasingBuildTests: XCTestCase {
             result.targetMap.values
                 .contains { $0.target.name == "ZUtils" || $0.target.moduleAliases?["Utils"] == "ZUtils" }
         )
+    }
+
+    func testProductAliasingDoesNotBreakPackagesWithOlderToolsVersions() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Lunch/Sources/MyTarget/file.swift",
+            "/Some/Sources/Some/file.swift",
+            "/Other/Sources/Other/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "lunch",
+                    path: "/Lunch",
+                    dependencies: [
+                        .fileSystem(path: "/Some"),
+                        .fileSystem(path: "/Other"),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "MyTarget",
+                            dependencies: [
+                                .byName(name: "SomeProduct", condition: nil),
+                                .product(name: "Other", package: nil, moduleAliases: ["Other": "Other2"], condition: nil),
+                            ]
+                        )
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Some",
+                    path: "/Some",
+                    products: [
+                        ProductDescription(
+                            name: "SomeProduct",
+                            type: .library(.automatic),
+                            targets: ["Some"]
+                        )
+                    ],
+                    targets: [
+                        TargetDescription(name: "Some"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Other",
+                    path: "/Other",
+                    products: [
+                        ProductDescription(
+                            name: "Other",
+                            type: .library(.automatic),
+                            targets: ["Other"]
+                        )
+                    ],
+                    targets: [
+                        TargetDescription(name: "Other"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkTargetsCount(3)
+    }
+
+    func testProductAliasingWarnsIfPackageWithOlderToolsVersionIsPossibleCauseOfConflict() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Lunch/Sources/MyTarget/file.swift",
+            "/Some/Sources/Some/file.swift",
+            "/Other/Sources/Some/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        do {
+            _ = try loadPackageGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "lunch",
+                        path: "/Lunch",
+                        dependencies: [
+                            .fileSystem(path: "/Some"),
+                            .fileSystem(path: "/Other"),
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "MyTarget",
+                                dependencies: [
+                                    .byName(name: "SomeProduct", condition: nil),
+                                    .product(name: "Some", package: nil, moduleAliases: ["Some": "Some2"], condition: nil),
+                                ]
+                            )
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "Some",
+                        path: "/Some",
+                        products: [
+                            ProductDescription(
+                                name: "SomeProduct",
+                                type: .library(.automatic),
+                                targets: ["Some"]
+                            )
+                        ],
+                        targets: [
+                            TargetDescription(name: "Some"),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "Some",
+                        path: "/Other",
+                        products: [
+                            ProductDescription(
+                                name: "SomeProduct",
+                                type: .library(.automatic),
+                                targets: ["Some"]
+                            )
+                        ],
+                        targets: [
+                            TargetDescription(name: "Some"),
+                        ]
+                    )
+                ],
+                observabilityScope: observability.topScope
+            )
+
+            XCTFail("unexpectedly resolved the package graph successfully")
+        } catch {
+            XCTAssertEqual(error.interpolationDescription, "multiple products named 'SomeProduct' in: 'other' (at '\(AbsolutePath("/Other"))'), 'some' (at '\(AbsolutePath("/Some"))')")
+        }
+        XCTAssertEqual(observability.diagnostics.map { $0.description }.sorted(), ["[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'other\'", "[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'some\'"])
     }
 }

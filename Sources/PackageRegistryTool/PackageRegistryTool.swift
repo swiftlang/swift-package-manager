@@ -141,13 +141,14 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
     static func getRegistriesConfig(_ swiftTool: SwiftTool, global: Bool) throws -> Workspace.Configuration.Registries {
         if global {
+            let sharedRegistriesFile = Workspace.DefaultLocations.registriesConfigurationFile(
+                at: swiftTool.sharedConfigurationDirectory
+            )
             // Workspace not needed when working with user-level registries config
             return try .init(
                 fileSystem: swiftTool.fileSystem,
                 localRegistriesFile: .none,
-                sharedRegistriesFile: swiftTool.sharedConfigurationDirectory.map {
-                    Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
-                }
+                sharedRegistriesFile: sharedRegistriesFile
             )
         } else {
             let workspace = try swiftTool.getActiveWorkspace()

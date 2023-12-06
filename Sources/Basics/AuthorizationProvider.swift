@@ -23,6 +23,7 @@ public protocol AuthorizationProvider {
 }
 
 public protocol AuthorizationWriter {
+    @available(*, noasync, message: "Use the async alternative")
     func addOrUpdate(
         for url: URL,
         user: String,
@@ -31,13 +32,37 @@ public protocol AuthorizationWriter {
         callback: @escaping (Result<Void, Error>) -> Void
     )
 
+    @available(*, noasync, message: "Use the async alternative")
     func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void)
+}
+
+public extension AuthorizationWriter {
+    func addOrUpdate(
+        for url: URL,
+        user: String,
+        password: String,
+        persist: Bool = true
+    ) async throws {
+        try await safe_async {
+            self.addOrUpdate(
+                for: url,
+                user: user,
+                password: password, 
+                persist: persist,
+                callback: $0)
+        }
+    }
+
+    func remove(for url: URL) async throws {
+        try await safe_async {
+            self.remove(for: url, callback: $0)
+        }
+    }
 }
 
 public enum AuthorizationProviderError: Error {
     case invalidURLHost
     case notFound
-    case cannotEncodePassword
     case other(String)
 }
 
@@ -48,9 +73,7 @@ extension AuthorizationProvider {
             return nil
         }
         let authString = "\(user):\(password)"
-        guard let authData = authString.data(using: .utf8) else {
-            return nil
-        }
+        let authData = Data(authString.utf8)
         return "Basic \(authData.base64EncodedString())"
     }
 }
@@ -207,9 +230,7 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             return callback(.success(()))
         }
 
-        guard let passwordData = password.data(using: .utf8) else {
-            return callback(.failure(AuthorizationProviderError.cannotEncodePassword))
-        }
+        let passwordData = Data(password.utf8)
 
         do {
             if !(try self.update(protocolHostPort: protocolHostPort, account: user, password: passwordData)) {
@@ -290,12 +311,13 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
                       modified: mostRecent[kSecAttrModificationDate as String] as? Date
                   ) as? [String: Any],
                   let passwordData = existingItem[kSecValueData as String] as? Data,
-                  let password = String(data: passwordData, encoding: String.Encoding.utf8),
                   let account = existingItem[kSecAttrAccount as String] as? String
             else {
                 throw AuthorizationProviderError
                     .other("Failed to extract credentials for '\(protocolHostPort)' from keychain")
             }
+          
+            let password = String(decoding: passwordData, as: UTF8.self)
 
             return (user: account, password: password)
         } catch {

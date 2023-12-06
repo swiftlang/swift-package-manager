@@ -171,8 +171,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         // which ones they are until we've built them and can examine the binaries.
         let toolchain = try swiftTool.getTargetToolchain()
         var buildParameters = try swiftTool.buildParameters()
-        buildParameters.enableTestability = true
-        buildParameters.enableCodeCoverage = parameters.enableCodeCoverage
+        buildParameters.testingParameters.enableTestability = true
+        buildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
         try buildSystem.build(subset: .allIncludingTests)
 
@@ -199,6 +199,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 swiftTool: swiftTool,
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
+                experimentalTestOutput: false,
                 sanitizers: swiftTool.options.build.sanitizers
             )
             for testSuite in testSuites {
@@ -220,13 +221,15 @@ final class PluginDelegate: PluginInvocationDelegate {
                         }
 
                         // Configure a test runner.
+                        let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(testSpecifier))
                         let testRunner = TestRunner(
                             bundlePaths: [testProduct.bundlePath],
-                            xctestArg: testSpecifier,
+                            additionalArguments: additionalArguments,
                             cancellator: swiftTool.cancellator,
                             toolchain: toolchain,
                             testEnv: testEnvironment,
-                            observabilityScope: swiftTool.observabilityScope)
+                            observabilityScope: swiftTool.observabilityScope,
+                            library: .xctest) // FIXME: support both libraries
 
                         // Run the test — for now we run the sequentially so we can capture accurate timing results.
                         let startTime = DispatchTime.now()

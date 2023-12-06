@@ -295,13 +295,24 @@ public final class ClangTargetBuildDescription {
         }
 
         // Enable the correct lto mode if requested.
-        switch self.buildParameters.linkTimeOptimizationMode {
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
         case nil:
             break
         case .full:
             args += ["-flto=full"]
         case .thin:
             args += ["-flto=thin"]
+        }
+
+        // rdar://117578677
+        // Pass -fno-omit-frame-pointer to support backtraces
+        // this can be removed once the backtracer uses DWARF instead of frame pointers
+        if let omitFramePointers = self.buildParameters.debuggingParameters.omitFramePointers {
+            if omitFramePointers {
+                args += ["-fomit-frame-pointer"]
+            } else {
+                args += ["-fno-omit-frame-pointer"]
+            }
         }
 
         // Pass default include paths from the toolchain.

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import struct TSCBasic.ByteString
@@ -583,8 +583,6 @@ extension ManifestLoader {
             }
         }
 
-        // Otherwise, check if there is a version-specific manifest that has
-        // a higher tools version than the main Package.swift file.
         let contents: [String]
         do { contents = try fileSystem.getDirectoryContents(packagePath) } catch {
             throw ToolsVersionParser.Error.inaccessiblePackage(path: packagePath, reason: String(describing: error))
@@ -607,39 +605,47 @@ extension ManifestLoader {
 
         let regularManifest = packagePath.appending(component: Manifest.filename)
 
-        // Find the newest version-specific manifest that is compatible with the the current tools version.
-        if let versionSpecificCandidate = versionSpecificManifests.keys.sorted(by: >).first(where: { $0 <= currentToolsVersion }) {
+        // Try to get the tools version of the regular manifest.  As the comment marker is missing, we default to
+        // tools version 3.1.0 (as documented).
+        let regularManifestToolsVersion: ToolsVersion
+        do {
+            regularManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: regularManifest, fileSystem: fileSystem)
+        }
+        catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
+          regularManifestToolsVersion = .v3
+        }
 
-            let versionSpecificManifest = packagePath.appending(component: versionSpecificManifests[versionSpecificCandidate]!)
+        // Find the newest version-specific manifest that is compatible with the current tools version.
+        guard let versionSpecificCandidate = versionSpecificManifests.keys.sorted(by: >).first(where: { $0 <= currentToolsVersion }) else {
+            // Otherwise, return the regular manifest.
+            return regularManifest
+        }
 
-            // SwiftPM 4 introduced tools-version designations; earlier packages default to tools version 3.1.0.
-            // See https://swift.org/blog/swift-package-manager-manifest-api-redesign.
-            let versionSpecificManifestToolsVersion: ToolsVersion
-            if versionSpecificCandidate < .v4 {
-                versionSpecificManifestToolsVersion = .v3
-            }
-            else {
-                versionSpecificManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: versionSpecificManifest, fileSystem: fileSystem)
-            }
+        let versionSpecificManifest = packagePath.appending(component: versionSpecificManifests[versionSpecificCandidate]!)
 
-            // Try to get the tools version of the regular manifest.  At the comment marker is missing, we default to
-            // tools version 3.1.0 (as documented).
-            let regularManifestToolsVersion: ToolsVersion
-            do {
-                regularManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: regularManifest, fileSystem: fileSystem)
-            }
-            catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
-              regularManifestToolsVersion = .v3
-            }
+        // SwiftPM 4 introduced tools-version designations; earlier packages default to tools version 3.1.0.
+        // See https://swift.org/blog/swift-package-manager-manifest-api-redesign.
+        let versionSpecificManifestToolsVersion: ToolsVersion
+        if versionSpecificCandidate < .v4 {
+            versionSpecificManifestToolsVersion = .v3
+        }
+        else {
+            versionSpecificManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: versionSpecificManifest, fileSystem: fileSystem)
+        }
 
-            // Compare the tools version of this manifest with the regular
-            // manifest and use the version-specific manifest if it has
-            // a greater tools version.
-            if versionSpecificManifestToolsVersion > regularManifestToolsVersion {
+        // Compare the tools version of this manifest with the regular
+        // manifest and use the version-specific manifest if it has
+        // a greater tools version.
+        if versionSpecificManifestToolsVersion > regularManifestToolsVersion {
+            return versionSpecificManifest
+        } else {
+            // If there's no primary candidate, validate the regular manifest.
+            if regularManifestToolsVersion.validateToolsVersion(currentToolsVersion) {
+                return regularManifest
+            } else {
+                // If that's incompatible, use the closest version-specific manifest we got.
                 return versionSpecificManifest
             }
         }
-
-        return regularManifest
     }
 }

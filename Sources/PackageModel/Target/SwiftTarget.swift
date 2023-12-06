@@ -14,7 +14,6 @@ import struct Basics.AbsolutePath
 import struct Basics.SwiftVersion
 
 public final class SwiftTarget: Target {
-
     /// The default name for the test entry point file located in a package.
     public static let defaultTestEntryPointName = "XCTMain.swift"
 

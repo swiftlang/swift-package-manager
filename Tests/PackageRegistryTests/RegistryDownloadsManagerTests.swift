@@ -22,7 +22,7 @@ import class TSCBasic.InMemoryFileSystem
 import struct TSCUtility.Version
 
 class RegistryDownloadsManagerTests: XCTestCase {
-    func testNoCache() throws {
+    func testNoCache() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem()
 
@@ -59,7 +59,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
         do {
             delegate.prepare(fetchExpected: true)
-            let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
+            let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
@@ -81,7 +81,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
         do {
             delegate.prepare(fetchExpected: true)
-            XCTAssertThrowsError(try manager.lookup(package: unknownPackage, version: unknownPackageVersion, observabilityScope: observability.topScope)) { error in
+            await XCTAssertAsyncThrowsError(try await manager.lookup(package: unknownPackage, version: unknownPackageVersion, observabilityScope: observability.topScope)) { error in
                 XCTAssertNotNil(error as? RegistryError)
             }
 
@@ -104,7 +104,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
         do {
             delegate.prepare(fetchExpected: false)
-            let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
+            let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
@@ -130,7 +130,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             try manager.remove(package: package)
 
             delegate.prepare(fetchExpected: true)
-            let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
+            let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
@@ -153,7 +153,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
         }
     }
 
-    func testCache() throws {
+    func testCache() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem()
 
@@ -191,7 +191,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
         do {
             delegate.prepare(fetchExpected: true)
-            let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
+            let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
@@ -214,7 +214,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             try manager.remove(package: package)
 
             delegate.prepare(fetchExpected: true)
-            let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
+            let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
@@ -237,7 +237,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             manager.purgeCache(observabilityScope: observability.topScope)
 
             delegate.prepare(fetchExpected: true)
-            let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
+            let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
@@ -419,16 +419,14 @@ private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
 }
 
 extension RegistryDownloadsManager {
-    fileprivate func lookup(package: PackageIdentity, version: Version, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
-        return try temp_await {
-            self.lookup(
-                package: package,
-                version: version,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent, completion: $0
-            )
-        }
+    fileprivate func lookup(package: PackageIdentity, version: Version, observabilityScope: ObservabilityScope) async throws -> AbsolutePath {
+        try await self.lookup(
+            package: package,
+            version: version,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 

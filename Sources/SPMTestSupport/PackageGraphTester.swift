@@ -179,13 +179,21 @@ public final class ResolvedTargetResult {
     }
 
     public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
-        let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.derived.map({ ($0.platform.name, $0.version.versionString) }))
+        let derived = platforms.map {
+            let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform
+                .custom(name: $0.key, oldestSupportedVersion: $0.value)
+            return self.target.platforms.getDerived(for: platform, usingXCTest: self.target.type == .test)
+        }
+        let targetPlatforms = Dictionary(
+            uniqueKeysWithValues: derived
+                .map { ($0.platform.name, $0.version.versionString) }
+        )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
     public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
-        let platform = target.platforms.getDerived(for: platform)
-        XCTAssertEqual(platform?.options, options, file: file, line: line)
+        let platform = target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
+        XCTAssertEqual(platform.options, options, file: file, line: line)
     }
 }
 
@@ -230,13 +238,17 @@ public final class ResolvedProductResult {
     }
 
     public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
-        let targetPlatforms = Dictionary(uniqueKeysWithValues: product.platforms.derived.map({ ($0.platform.name, $0.version.versionString) }))
+        let derived = platforms.map {
+            let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform.custom(name: $0.key, oldestSupportedVersion: $0.value)
+            return product.platforms.getDerived(for: platform, usingXCTest: product.isLinkingXCTest)
+        }
+        let targetPlatforms = Dictionary(uniqueKeysWithValues: derived.map({ ($0.platform.name, $0.version.versionString) }))
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
     public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
-        let platform = product.platforms.getDerived(for: platform)
-        XCTAssertEqual(platform?.options, options, file: file, line: line)
+        let platform = product.platforms.getDerived(for: platform, usingXCTest: product.isLinkingXCTest)
+        XCTAssertEqual(platform.options, options, file: file, line: line)
     }
 }
 

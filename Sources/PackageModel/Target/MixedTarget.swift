@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.AbsolutePath
+import struct Basics.StringError
+
 public final class MixedTarget: Target {
 
     // The Clang target for the mixed target's Clang sources.

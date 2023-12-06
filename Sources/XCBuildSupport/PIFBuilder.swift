@@ -34,6 +34,9 @@ struct PIFBuilderParameters {
 
     /// An array of paths to search for pkg-config `.pc` files.
     let pkgConfigDirectories: [AbsolutePath]
+
+    /// The toolchain's SDK root path.
+    let sdkRootPath: AbsolutePath?
 }
 
 /// PIF object builder for a package graph.
@@ -97,7 +100,7 @@ public final class PIFBuilder {
         try PIF.sign(topLevelObject.workspace)
 
         let pifData = try encoder.encode(topLevelObject)
-        return String(data: pifData, encoding: .utf8)!
+        return String(decoding: pifData, as: UTF8.self)
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
@@ -298,7 +301,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         PlatformRegistry.default.knownPlatforms.forEach {
             guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
-            guard let supportedPlatform = package.platforms.getDerived(for: $0) else { return }
+            let supportedPlatform = package.platforms.getDerived(for: $0, usingXCTest: false)
             if !supportedPlatform.options.isEmpty {
                 settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
             }
@@ -427,11 +430,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
         if mainTarget.underlyingTarget.type == .test {
-            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .macOS)
-            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS)
-            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS)
-            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS)
-            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .visionOS)
+            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .macOS, usingXCTest: true)
+            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS, usingXCTest: true)
+            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS, usingXCTest: true)
+            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS, usingXCTest: true)
+            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .visionOS, usingXCTest: true)
         }
 
         if product.type == .executable {
@@ -711,6 +714,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         for result in try pkgConfigArgs(
             for: systemTarget,
             pkgConfigDirectories: parameters.pkgConfigDirectories,
+            sdkRootPath: parameters.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) {
@@ -1414,17 +1418,8 @@ extension Array where Element == ResolvedTarget.Dependency {
 }
 
 extension SupportedPlatforms {
-    func deploymentTarget(for platform: PackageModel.Platform) -> String? {
-        if let supportedPlatform = self.getDerived(for: platform) {
-            return supportedPlatform.version.versionString
-        } else if platform == .macCatalyst {
-            // If there is no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
-            return deploymentTarget(for: .iOS)
-        } else if platform.oldestSupportedVersion != .unknown {
-            return platform.oldestSupportedVersion.versionString
-        } else {
-            return nil
-        }
+    func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
+        return self.getDerived(for: platform, usingXCTest: usingXCTest).version.versionString
     }
 }
 
@@ -1577,7 +1572,7 @@ extension Array where Element == PackageConditionProtocol {
                 result += PIF.PlatformFilter.driverKitFilters
 
             case .wasi:
-                result += PIF.PlatformFilter.webAsssemblyFilters
+                result += PIF.PlatformFilter.webAssemblyFilters
 
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
@@ -1648,8 +1643,8 @@ extension PIF.PlatformFilter {
         .init(platform: "openbsd"),
     ]
 
-    /// Web Assembly platform filters.
-    public static let webAsssemblyFilters: [PIF.PlatformFilter] = [
+    /// WebAssembly platform filters.
+    public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
     ]
 }

@@ -173,18 +173,3 @@ public enum PluginPermission: Hashable, Codable {
         }
     }
 }
-
-public extension Sequence where Iterator.Element == Target {
-    var executables: [Target] {
-        return filter {
-            switch $0.type {
-            case .binary:
-                return ($0 as? BinaryTarget)?.containsExecutable == true
-            case .executable, .snippet, .macro:
-                return true
-            default:
-                return false
-            }
-        }
-    }
-}
