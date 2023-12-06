@@ -211,7 +211,9 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
         // Find the main output file
-        let mainFileName = TestEntryPointTool.mainFileName(for: self.context.buildParameters.testingParameters.library)
+        let mainFileName = TestEntryPointTool.mainFileName(
+            for: self.context.productsBuildParameters.testingParameters.library
+        )
         guard let mainFile = outputs.first(where: { path in
             path.basename == mainFileName
         }) else {
@@ -371,12 +373,12 @@ public struct BuildDescription: Codable {
         self.writeCommands = writeCommands
         self.explicitTargetDependencyImportCheckingMode = plan.productsBuildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
-        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, resolvedTarget in
-            let deps = try resolvedTarget.target.recursiveDependencies(
-                satisfying: plan.buildParameters(for: resolvedTarget).buildEnvironment
+        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
+            let deps = try targetBuildDescription.target.recursiveDependencies(
+                satisfying: plan.buildParameters(for: targetBuildDescription.target).buildEnvironment
             )
                 .compactMap(\.target).map(\.c99name)
-            partial[resolvedTarget.target.c99name] = deps
+            partial[targetBuildDescription.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
@@ -384,10 +386,11 @@ public struct BuildDescription: Codable {
             guard case .swift(let desc) = description else {
                 continue
             }
+            let buildParameters = plan.buildParameters(for: target)
             targetCommandLines[target.c99name] =
-                try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
-                                                                  plan.buildParameters.toolchain.swiftCompilerPath
-                                                                      .pathString]
+                try desc.emitCommandLine(scanInvocation: true) + [
+                    "-driver-use-frontend-path", buildParameters.toolchain.swiftCompilerPath.pathString
+                ]
             if case .discovery = desc.testTargetRole {
                 generatedSourceTargets.append(target.c99name)
             }
