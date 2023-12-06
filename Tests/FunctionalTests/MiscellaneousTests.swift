@@ -347,17 +347,13 @@ class MiscellaneousTestCase: XCTestCase {
         // - https://github.com/apple/swift/pull/61766
         // - https://github.com/apple/swift-package-manager/pull/5842#issuecomment-1301632685
         try fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
-            do {
-                let output = try executeSwiftBuild(
-                  fixturePath,
-                  extraArgs: ["--experimental-lto-mode=full", "--verbose"])
-                // FIXME: On macOS dsymutil cannot find temporary .o files? (#6890)
-                // Ensure warnings like the following are not present in build output
-                // warning: (arm64) /var/folders/ym/6l_0x8vj0b70sz_4h9d70p440000gn/T/main-e120de.o unable to open object file: No such file or directory
-                // XCTAssertNoMatch(output.stdout, .contains("unable to open object file"))
-            } catch {
-                XCTFail("\(error)")
-            }
+            let output = try executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--experimental-lto-mode=full", "--verbose"])
+            // FIXME: On macOS dsymutil cannot find temporary .o files? (#6890)
+            // Ensure warnings like the following are not present in build output
+            // warning: (arm64) /var/folders/ym/6l_0x8vj0b70sz_4h9d70p440000gn/T/main-e120de.o unable to open object file: No such file or directory
+            // XCTAssertNoMatch(output.stdout, .contains("unable to open object file"))
         }
         #endif
     }
