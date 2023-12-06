@@ -113,13 +113,22 @@ public class LLBuildManifestBuilder {
                     try self.createSwiftCompileCommand(desc)
                 case .clang(let desc):
                     try self.createClangCompileCommand(desc)
+<<<<<<< HEAD
                 case .mixed(let desc):
                     try self.createMixedCompileCommand(desc)
+=======
+>>>>>>> main
                 }
             }
         }
 
+<<<<<<< HEAD
         try self.addTestDiscoveryGenerationCommand()
+=======
+        if self.buildParameters.testingParameters.library == .xctest {
+            try self.addTestDiscoveryGenerationCommand()
+        }
+>>>>>>> main
         try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
@@ -268,8 +277,14 @@ extension LLBuildManifestBuilder {
 
             let outputs = testEntryPointTarget.target.sources.paths
 
+<<<<<<< HEAD
             guard let mainOutput = (outputs.first { $0.basename == TestEntryPointTool.mainFileName }) else {
                 throw InternalError("main output (\(TestEntryPointTool.mainFileName)) not found")
+=======
+            let mainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+            guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
+                throw InternalError("main output (\(mainFileName)) not found")
+>>>>>>> main
             }
             let cmdName = mainOutput.pathString
             self.manifest.addTestEntryPointCmd(

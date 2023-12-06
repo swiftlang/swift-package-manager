@@ -27,11 +27,11 @@ extension BuildPlan {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
                 }
-                
+
             case let target as ClangTarget where target.type == .library:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
-                
+
                 // Add the modulemap of the dependency if it has one.
                 if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
@@ -45,10 +45,10 @@ extension BuildPlan {
                     clangTarget.additionalFlags.append(
                         "-fmodule-map-file=\(dependencyTargetDescription.moduleMap.pathString)"
                     )
-                    
+
                     // Add the dependency's public headers.
                     clangTarget.additionalFlags += [ "-I", dependencyTargetDescription.publicHeadersDir.pathString ]
-                    
+
                     // Add the dependency's public VFS overlay.
                     clangTarget.additionalFlags += [
                         "-ivfsoverlay", dependencyTargetDescription.allProductHeadersOverlay.pathString

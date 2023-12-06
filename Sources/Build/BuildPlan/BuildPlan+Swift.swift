@@ -52,12 +52,12 @@ extension BuildPlan {
                 guard case let .mixed(target)? = targetMap[dependency] else {
                     throw InternalError("unexpected mixed target \(underlyingTarget)")
                 }
-                
+
                 // Add the dependency's modulemap.
                 swiftTarget.appendClangFlags(
                     "-fmodule-map-file=\(target.moduleMap.pathString)"
                 )
-                
+
                 // Add the dependency's public headers.
                 swiftTarget.appendClangFlags("-I", target.publicHeadersDir.pathString)
             default:

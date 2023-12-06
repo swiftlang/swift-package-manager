@@ -6,30 +6,36 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+if(POLICY CMP0091)
+  cmake_policy(SET CMP0091 NEW)
+endif()
+
 cmake_minimum_required(VERSION 3.19)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 project(SwiftPM LANGUAGES C Swift)
 
+option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
+option(FIND_PM_DEPS "Search for all external Package Manager dependencies" YES)
+
 set(CMAKE_Swift_LANGUAGE_VERSION 5)
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
+set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
-option(FIND_PM_DEPS "Search for all external Package Manager dependencies" YES)
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 
 string(COMPARE EQUAL ${CMAKE_SYSTEM_NAME} Windows CMAKE_INSTALL_DEFAULT)
 option(USE_CMAKE_INSTALL
   "Install build products using cmake's install() instead of the bootstrap script's install()"
   ${CMAKE_INSTALL_DEFAULT})
 
-if(BUILD_SHARED_LIBS)
-  set(CMAKE_POSITION_INDEPENDENT_CODE YES)
-endif()
+add_compile_options(-DUSE_IMPL_ONLY_IMPORTS)
 
 add_compile_options(-DUSE_IMPL_ONLY_IMPORTS)
 
