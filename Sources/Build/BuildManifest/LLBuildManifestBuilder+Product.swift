@@ -15,7 +15,7 @@ import struct LLBuildManifest.Node
 
 extension LLBuildManifestBuilder {
     func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
-        let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
+        let cmdName = try buildProduct.product.getCommandName(config: buildProduct.buildParameters.buildConfig)
 
         // Add dependency on Info.plist generation on Darwin platforms.
         let testInputs: [AbsolutePath]
@@ -34,7 +34,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Create a phony node to represent the entire target.
-        let targetName = try buildProduct.product.getLLBuildTargetName(config: self.buildConfig)
+        let targetName = try buildProduct.product.getLLBuildTargetName(config: buildProduct.buildParameters.buildConfig)
         let output: Node = .virtual(targetName)
 
         let finalProductNode: Node
@@ -60,7 +60,7 @@ extension LLBuildManifestBuilder {
             let linkedBinaryPath = try buildProduct.binaryPath
             if case .executable = buildProduct.product.type,
                buildProduct.buildParameters.triple.isMacOSX,
-               buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
+               buildProduct.buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
                 shouldCodeSign = true
                 linkedBinaryNode = try .file(buildProduct.binaryPath, isMutated: true)
             } else {
@@ -85,7 +85,7 @@ extension LLBuildManifestBuilder {
                     outputPath: plistPath
                 )
 
-                let cmdName = try buildProduct.product.getCommandName(config: self.buildConfig)
+                let cmdName = try buildProduct.product.getCommandName(config: buildProduct.buildParameters.buildConfig)
                 let codeSigningOutput = Node.virtual(targetName + "-CodeSigning")
                 try self.manifest.addShellCmd(
                     name: "\(cmdName)-entitlements",

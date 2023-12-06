@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import struct SPMBuildCore.BuildParameters
 import class PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
 import struct SPMBuildCore.BuildToolPluginInvocationResult
@@ -89,6 +90,15 @@ public enum TargetBuildDescription {
             return target.buildToolPluginInvocationResults
         case .clang(let target):
             return target.buildToolPluginInvocationResults
+        }
+    }
+
+    var buildParameters: BuildParameters {
+        switch self {
+        case .swift(let swiftTargetBuildDescription):
+            swiftTargetBuildDescription.buildParameters
+        case .clang(let clangTargetBuildDescription):
+            clangTargetBuildDescription.buildParameters
         }
     }
 }
