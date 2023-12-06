@@ -33,6 +33,29 @@ extension Build.BuildPlan {
         let buildConfigurationComponent = buildParameters.buildEnvironment.configuration == .release ? "release" : "debug"
         return buildParameters.dataPath.appending(components: buildConfigurationComponent)
     }
+
+    /// Create a build plan with a package graph and same build parameters for products and tools. Provided for
+    /// testing purposes only.
+    convenience init(
+        buildParameters: BuildParameters,
+        graph: PackageGraph,
+        additionalFileRules: [FileRuleDescription] = [],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.init(
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
+            graph: graph,
+            additionalFileRules: additionalFileRules,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
 }
 
 final class BuildPlanTests: XCTestCase {

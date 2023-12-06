@@ -105,11 +105,10 @@ public final class SwiftTargetBuildDescription {
 
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
+        let triple = buildParameters.triple
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
-        let allowLinkingAgainstExecutables = (
-            self.buildParameters.triple.isDarwin() ||
-            self.buildParameters.triple.isLinux() ||
-            self.buildParameters.triple.isWindows()) && self.toolsVersion >= .v5_5
+        let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) &&
+            self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self
             .buildParameters.buildPath
         return dirPath.appending(component: self.target.c99name + ".swiftmodule")

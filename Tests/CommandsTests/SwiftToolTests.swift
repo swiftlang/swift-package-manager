@@ -270,7 +270,8 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitCodeView = try SwiftTool.createSwiftToolForTest(options: explicitCodeViewOptions)
 
         plan = try BuildPlan(
-            buildParameters: explicitCodeView.productsBuildParameters,
+            productsBuildParameters: explicitCodeView.productsBuildParameters,
+            toolsBuildParameters: explicitCodeView.productsBuildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observer.topScope

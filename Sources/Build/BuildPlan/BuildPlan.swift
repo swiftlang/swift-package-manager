@@ -241,8 +241,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// ObservabilityScope with which to emit diagnostics
     let observabilityScope: ObservabilityScope
 
-    /// Create a build plan with a package graph and same build parameters for products and tools. Provided for
-    /// testing purposes only.
+    @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
     public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,

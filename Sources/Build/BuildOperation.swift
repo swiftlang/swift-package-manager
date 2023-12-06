@@ -412,7 +412,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Compute the llbuild target name using the given subset.
-    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
+    private func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -423,7 +423,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                config: productsBuildParameters.configuration.dirname,
+                config: self.productsBuildParameters.configuration.dirname,
                 observabilityScope: self.observabilityScope
             ) {
                 return result
