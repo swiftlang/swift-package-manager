@@ -68,11 +68,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         self.tempsPath.appending("Objects.LinkFileList")
     }
 
-    /// Triple for which this product is compiled.
-    var buildTriple: Triple {
-        self.buildParameters.buildTriple(for: self.product)
-    }
-
     /// File system reference.
     private let fileSystem: FileSystem
 

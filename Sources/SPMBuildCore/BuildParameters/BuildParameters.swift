@@ -249,7 +249,7 @@ public struct BuildParameters: Encodable {
 
         switch product.type {
         case .executable, .snippet:
-            return try RelativePath(validating: "\(product.name)\(targetTriple.executableExtension)")
+            return potentialExecutablePath
         case .library(.static):
             return try RelativePath(validating: "lib\(product.name)\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
@@ -275,7 +275,7 @@ public struct BuildParameters: Encodable {
             #if BUILD_MACROS_AS_DYLIBS
             return try potentialDynamicLibraryPath(for: product)
             #else
-            return try RelativePath(validating: "\(product.name)\(hostTriple.executableExtension)")
+            return try RelativePath(validating: "\(product.name)\(self.triple.executableExtension)")
             #endif
         }
     }

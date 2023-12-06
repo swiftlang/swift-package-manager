@@ -70,9 +70,6 @@ public final class ResolvedTarget {
         }
     }
 
-    /// Triple for which this resolved target should be compiled for.
-    public let buildTriple: BuildTriple
-
     /// The underlying target represented in this resolved target.
     public let underlyingTarget: Target
 

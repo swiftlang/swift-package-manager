@@ -55,7 +55,7 @@ public final class ClangTargetBuildDescription {
         }
 
         if let bundleName = target.underlyingTarget.potentialBundleName {
-            return self.buildParameters.bundlePath(named: bundleName, target: self.target)
+            return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
         }
@@ -103,11 +103,6 @@ public final class ClangTargetBuildDescription {
     /// If this target is a test target.
     public var isTestTarget: Bool {
         target.type == .test
-    }
-
-    /// Triple for which this target is compiled.
-    private var buildTriple: Triple {
-        self.buildParameters.buildTriple(for: self.target)
     }
 
     /// The results of applying any build tool plugins to this target.

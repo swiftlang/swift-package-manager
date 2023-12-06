@@ -126,32 +126,6 @@ extension BuildParameters {
         }
         return []
     }
-
-    /// Triple for which this target is compiled.
-    func buildTriple(for target: ResolvedTarget) -> Basics.Triple {
-        switch target.buildTriple {
-        case .buildTools:
-            return self.hostTriple
-        case .buildProducts:
-            return self.targetTriple
-        }
-    }
-
-    /// Triple for which this target is compiled.
-    func buildTriple(for product: ResolvedProduct) -> Basics.Triple {
-        switch product.buildTriple {
-        case .buildTools:
-            return self.hostTriple
-        case .buildProducts:
-            return self.targetTriple
-        }
-    }
-
-    /// Computes the target triple arguments for a given resolved target.
-    @available(*, deprecated, renamed: "buildTripleArgs(for:)")
-    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
-        try buildTripleArgs(for: target)
-    }
     
     public func buildTripleArgs(for target: ResolvedTarget) throws -> [String] {
         // confusingly enough this is the triple argument, not the target argument
@@ -170,8 +144,6 @@ extension BuildParameters {
 
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
-        let buildTriple = buildTriple(for: target)
-
         let args: [String]
         if self.triple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]

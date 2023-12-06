@@ -58,7 +58,7 @@ public final class SwiftTargetBuildDescription {
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         if let bundleName = target.underlyingTarget.potentialBundleName, needsResourceBundle {
-            return self.buildParameters.bundlePath(named: bundleName, target: self.target)
+            return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
         }
@@ -101,11 +101,6 @@ public final class SwiftTargetBuildDescription {
                     relativeTo: self.tempsPath)
             }
         }
-    }
-    
-    /// Triple for which this target is compiled.
-    private var buildTriple: Triple {
-        self.buildParameters.buildTriple(for: self.target)
     }
 
     /// The path to the swiftmodule file after compilation.
