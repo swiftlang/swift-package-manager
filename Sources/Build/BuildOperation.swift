@@ -721,7 +721,12 @@ extension BuildOperation {
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest) {
+    static func create(
+        with plan: BuildPlan,
+        disableSandboxForPluginCommands: Bool,
+        fileSystem: Basics.FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> (BuildDescription, LLBuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.productsBuildParameters.llbuildManifest)

@@ -365,7 +365,6 @@ extension BuildParameters {
     }
 
     var buildConfig: String { self.configuration.dirname }
-
 }
 
 extension Sequence where Element: Hashable {
