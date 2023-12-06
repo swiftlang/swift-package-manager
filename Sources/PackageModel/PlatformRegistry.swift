@@ -31,18 +31,18 @@ public struct PlatformRegistry {
     /// The static list of known platforms.
     private static var _knownPlatforms: [Platform] {
         [
+            .android,
+            .driverKit,
+            .iOS,
+            .linux,
             .macOS,
             .macCatalyst,
-            .iOS,
+            .openbsd,
             .tvOS,
-            .watchOS,
             .visionOS,
-            .linux,
-            .windows,
-            .android,
             .wasi,
-            .driverKit,
-            .openbsd
+            .watchOS,
+            .windows,
         ]
     }
 }

@@ -1149,8 +1149,7 @@ public final class PackageBuilder {
         var conditions: [PackageCondition] = []
 
         if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
-            let condition = PackageCondition(configuration: config)
-            conditions.append(condition)
+            conditions.append(.init(configuration: config))
         }
 
         if let platforms = condition?.platformNames.map({
@@ -1159,11 +1158,9 @@ public final class PackageBuilder {
             } else {
                 return PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
             }
-        }),
-           !platforms.isEmpty
+        }), !platforms.isEmpty
         {
-            let condition = PackageCondition(platforms: platforms)
-            conditions.append(condition)
+            conditions.append(.init(platforms: platforms))
         }
 
         return conditions
