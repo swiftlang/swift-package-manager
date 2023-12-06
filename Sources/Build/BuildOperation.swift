@@ -42,10 +42,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
-    /// Build parameters for products
-    @available(*, deprecated, renamed: "productsBuildParameters")
-    public var buildParameters: BuildParameters { self.productsBuildParameters }
-
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters
 

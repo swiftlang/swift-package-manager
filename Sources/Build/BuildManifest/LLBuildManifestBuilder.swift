@@ -65,12 +65,6 @@ public class LLBuildManifestBuilder {
 
     public internal(set) var manifest: LLBuildManifest = .init()
 
-    @available(*, deprecated, message: "use `productsBuildParameters` or `toolsBuildParameters` on `self.plan` instead")
-    var buildParameters: BuildParameters { self.plan.buildParameters }
-
-    @available(*, deprecated, message: "use `productsBuildParameters` or `toolsBuildParameters` on `self.plan` instead")
-    var buildEnvironment: BuildEnvironment { self.buildParameters.buildEnvironment }
-
     /// Mapping from Swift compiler path to Swift get version files.
     var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 

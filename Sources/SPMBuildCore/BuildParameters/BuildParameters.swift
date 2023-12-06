@@ -188,32 +188,6 @@ public struct BuildParameters: Encodable {
         self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: triple)
     }
 
-    @available(*, deprecated, message: "Use build parameters value separately created at a higher value instead")
-    public func forTriple(_ targetTriple: Triple) throws -> BuildParameters {
-        var hostSDK = try SwiftSDK.hostSwiftSDK()
-        hostSDK.targetTriple = targetTriple
-
-        return try .init(
-            dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
-            configuration: self.configuration,
-            toolchain: try UserToolchain(swiftSDK: hostSDK),
-            triple: nil,
-            flags: BuildFlags(),
-            pkgConfigDirectories: self.pkgConfigDirectories,
-            architectures: nil,
-            workers: self.workers,
-            shouldCreateDylibForDynamicProducts: self.shouldCreateDylibForDynamicProducts,
-            sanitizers: self.sanitizers,
-            indexStoreMode: self.indexStoreMode,
-            isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
-            shouldSkipBuilding: self.shouldSkipBuilding,
-            driverParameters: self.driverParameters,
-            linkingParameters: self.linkingParameters,
-            outputParameters: self.outputParameters,
-            testingParameters: self.testingParameters
-        )
-    }
-
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
         if isXcodeBuildSystemEnabled {

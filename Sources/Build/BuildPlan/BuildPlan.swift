@@ -178,9 +178,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
     }
 
-    @available(*, deprecated, message: "use either `productsBuildParameters` or `toolsBuildParameters`")
-    public var buildParameters: BuildParameters { self.productsBuildParameters }
-
     /// Build parameters used for products.
     public let productsBuildParameters: BuildParameters
 
@@ -195,12 +192,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Triple for which this product is compiled.
     private func buildTriple(for product: ResolvedProduct) -> Basics.Triple {
         self.buildParameters(for: product).triple
-    }
-
-    /// The build environment.
-    @available(*, deprecated, message: "Use `buildParameters(for:)` to get build parameters instead")
-    var buildEnvironment: BuildEnvironment {
-        self.buildParameters.buildEnvironment
     }
 
     /// The package graph.

@@ -755,14 +755,8 @@ public final class SwiftTool {
         }
     }
 
-    /// Return the build parameters.
-    @available(*, deprecated, renamed: "productsBuildParameters")
-    public func buildParameters() throws -> BuildParameters {
-        try _productsBuildParameters.get()
-    }
-
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
-        return Result(catching: {
+        Result(catching: {
             try _buildParams(toolchain: self.getTargetToolchain())
         })
     }()

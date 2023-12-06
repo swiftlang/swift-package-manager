@@ -435,10 +435,6 @@ public protocol BuildErrorAdviceProvider {
 /// The context available during build execution.
 public final class BuildExecutionContext {
     /// Build parameters for products.
-    @available(*, deprecated, message: "use either `productsBuildParameters` or `toolsBuildParameters`")
-    var buildParameters: BuildParameters { self.productsBuildParameters }
-
-    /// Build parameters for products.
     let productsBuildParameters: BuildParameters
 
     /// Build parameters for build tools.
