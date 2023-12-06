@@ -217,7 +217,7 @@ public struct SwiftTestTool: SwiftCommand {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, library: .xctest)
 
         // Remove test output from prior runs and validate priors.
-        if self.options.enableExperimentalTestOutput && buildParameters.targetTriple.supportsTestSummary {
+        if self.options.enableExperimentalTestOutput && buildParameters.triple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 
@@ -573,7 +573,7 @@ extension SwiftTestTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             try SwiftTestTool.handleTestOutput(
-                buildParameters: try swiftTool.buildParameters(),
+                buildParameters: try swiftTool.productsBuildParameters,
                 packagePath: localFileSystem.currentWorkingDirectory ?? .root // by definition runs in the current working directory
             )
         }
@@ -1201,7 +1201,10 @@ final class XUnitGenerator {
 }
 
 extension SwiftTool {
-    func buildParametersForTest(options: TestToolOptions, library: BuildParameters.Testing.Library) throws -> BuildParameters {
+    func buildParametersForTest(
+        options: TestToolOptions,
+        library: BuildParameters.Testing.Library
+    ) throws -> BuildParameters {
         var result = try self.buildParametersForTest(
             enableCodeCoverage: options.enableCodeCoverage,
             enableTestability: options.enableTestableImports,
@@ -1269,7 +1272,7 @@ private extension Basics.Diagnostic {
 ///
 /// - Returns: The paths to the build test products.
 private func buildTestsIfNeeded(swiftTool: SwiftTool, buildParameters: BuildParameters, testProduct: String?) throws -> [BuiltTestProduct] {
-    let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
+    let buildSystem = try swiftTool.createBuildSystem(productsBuildParameters: buildParameters)
 
     let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
     try buildSystem.build(subset: subset)

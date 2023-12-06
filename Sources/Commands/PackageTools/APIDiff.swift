@@ -98,7 +98,8 @@ struct APIDiff: SwiftCommand {
         let baselineDumper = try APIDigesterBaselineDumper(
             baselineRevision: baselineRevision,
             packageRoot: swiftTool.getPackageRoot(),
-            buildParameters: try buildSystem.buildPlan.buildParameters,
+            productsBuildParameters: try buildSystem.buildPlan.productsBuildParameters,
+            toolsBuildParameters: try buildSystem.buildPlan.toolsBuildParameters,
             apiDigesterTool: apiDigesterTool,
             observabilityScope: swiftTool.observabilityScope
         )
@@ -113,7 +114,7 @@ struct APIDiff: SwiftCommand {
 
         let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
         let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.buildParameters.workers))
+        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.productsBuildParameters.workers))
         var skippedModules: Set<String> = []
 
         for module in modulesToDiff {

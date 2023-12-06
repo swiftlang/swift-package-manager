@@ -36,14 +36,6 @@ public struct BuildParameters: Encodable {
     public var toolchain: Toolchain { _toolchain.toolchain }
     private let _toolchain: _Toolchain
 
-    /// Host triple.
-    @available(*, deprecated, message: "use separate `BuildParameters` values to distinguish between host and target")
-    public var hostTriple: Triple { self.triple }
-
-    /// Target triple.
-    @available(*, deprecated, message: "use separate `BuildParameters` values to distinguish between host and target")
-    public var targetTriple: Triple { self.triple }
-
     /// The triple for which the code is built using these build parameters.
     public var triple: Triple
 

@@ -74,17 +74,44 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            return try buildParameters.binaryPath(for: product)
+            return try self.buildParameters.binaryPath(for: product)
         }
     }
 }
 
 public protocol BuildPlan {
-    var buildParameters: BuildParameters { get }
+    /// Parameters used when building end products.
+    var productsBuildParameters: BuildParameters { get }
+
+    /// Parameters used when building tools (macros and plugins).
+    var toolsBuildParameters: BuildParameters { get }
+
     var buildProducts: AnySequence<ProductBuildDescription> { get }
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
+}
+
+extension BuildPlan {
+    /// Parameters used for building this target.
+    public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
+        switch target.buildTriple {
+        case .buildTools:
+            return self.toolsBuildParameters
+        case .buildProducts:
+            return self.productsBuildParameters
+        }
+    }
+
+    /// Parameters used for building this product.
+    public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
+        switch product.buildTriple {
+        case .buildTools:
+            return self.toolsBuildParameters
+        case .buildProducts:
+            return self.productsBuildParameters
+        }
+    }
 }
 
 public protocol BuildSystemFactory {

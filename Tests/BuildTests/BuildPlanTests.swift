@@ -27,6 +27,14 @@ import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 
+extension Build.BuildPlan {
+    var productsBuildPath: AbsolutePath {
+        let buildParameters = self.productsBuildParameters
+        let buildConfigurationComponent = buildParameters.buildEnvironment.configuration == .release ? "release" : "debug"
+        return buildParameters.dataPath.appending(components: buildConfigurationComponent)
+    }
+}
+
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
@@ -616,27 +624,58 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: BuildPlan(
+        let plan = try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
-        ))
+        )
+        let result = try BuildPlanResult(plan: plan)
 
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = plan.productsBuildPath
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(exe, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
+        XCTAssertMatch(
+            exe,
+            [
+                "-swift-version", "4",
+                "-enable-batch-mode",
+                "-Onone",
+                "-enable-testing",
+                .equal(j),
+                "-DSWIFT_PACKAGE",
+                "-DDEBUG",
+                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+                .anySequence,
+                "-g",
+                .anySequence
+            ]
+        )
 
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-        XCTAssertMatch(lib, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
+        XCTAssertMatch(
+            lib,
+            [
+                "-swift-version", "4",
+                "-enable-batch-mode",
+                "-Onone",
+                "-enable-testing",
+                .equal(j),
+                "-DSWIFT_PACKAGE",
+                "-DDEBUG",
+                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+                .anySequence,
+                "-g",
+                .anySequence
+            ]
+        )
 
       #if os(macOS)
         let linkArguments = [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -854,7 +893,7 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let buildPath: AbsolutePath = plan.buildParameters.dataPath.appending(components: "release")
+            let buildPath = plan.productsBuildParameters.dataPath.appending(components: "release")
 
             let result = try BuildPlanResult(plan: plan)
             let buildProduct = try result.buildProduct(for: "exe")
@@ -896,7 +935,7 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
-            let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
+            let buildPath = plan.productsBuildPath
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
                     inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
@@ -992,14 +1031,14 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "release")
+        let buildPath = result.plan.productsBuildParameters.dataPath.appending(components: "release")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-O", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g"])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1013,7 +1052,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -1025,7 +1064,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1069,14 +1108,14 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "release")
+        let buildPath = result.plan.productsBuildParameters.dataPath.appending(components: "release")
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-O", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g"])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1089,7 +1128,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -1100,7 +1139,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1164,7 +1203,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildParameters.dataPath.appending(components: "debug")
 
         let ext = try result.target(for: "extlib").clangTarget()
         var args: [String] = []
@@ -1229,7 +1268,7 @@ final class BuildPlanTests: XCTestCase {
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1406,11 +1445,11 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = plan.productsBuildPath
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-lc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
@@ -1489,16 +1528,17 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try BuildPlanResult(plan: BuildPlan(
+        let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
-        ))
+        )
+        let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = plan.productsBuildPath
 
         let lib = try result.target(for: "lib").clangTarget()
         var args: [String] = []
@@ -1528,11 +1568,30 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(lib.moduleMap, buildPath.appending(components: "lib.build", "module.modulemap"))
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(exe, [.anySequence, "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG","-Xcc", "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))", "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
+        XCTAssertMatch(
+            exe,
+            [
+                .anySequence,
+                "-swift-version", "4",
+                "-enable-batch-mode",
+                "-Onone",
+                "-enable-testing",
+                .equal(j),
+                "-DSWIFT_PACKAGE",
+                "-DDEBUG",
+                "-Xcc",
+                "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
+                "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
+                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+                .anySequence,
+                "-g",
+                .anySequence
+            ]
+        )
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1651,7 +1710,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
             ],
             createREPLProduct: true,
-                                         observabilityScope: observability.topScope
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1662,9 +1721,18 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
-
-        XCTAssertEqual(try plan.createREPLArguments().sorted(), ["-I\(Dep.appending(components: "Sources", "CDep", "include"))", "-I\(buildPath)", "-I\(buildPath.appending(components: "lib.build"))", "-L\(buildPath)", "-lpkg__REPL", "repl"])
+        let buildPath = plan.productsBuildPath
+        XCTAssertEqual(
+            try plan.createREPLArguments().sorted(),
+            [
+                "-I\(Dep.appending(components: "Sources", "CDep", "include"))",
+                "-I\(buildPath)",
+                "-I\(buildPath.appending(components: "lib.build"))",
+                "-L\(buildPath)",
+                "-lpkg__REPL",
+                "repl"
+            ]
+        )
 
         XCTAssertEqual(plan.graph.allProducts.map({ $0.name }).sorted(), [
             "Dep",
@@ -1710,13 +1778,45 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
       #endif
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let foo = try result.target(for: "Foo").swiftTarget().compileArguments()
-        XCTAssertMatch(foo, [.anySequence, "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
+        XCTAssertMatch(
+            foo,
+            [
+                .anySequence,
+                "-swift-version", "4",
+                "-enable-batch-mode",
+                "-Onone",
+                "-enable-testing",
+                .equal(j),
+                "-DSWIFT_PACKAGE",
+                "-DDEBUG",
+                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+                .anySequence,
+                "-g",
+                .anySequence
+            ]
+        )
 
         let fooTests = try result.target(for: "FooTests").swiftTarget().compileArguments()
-        XCTAssertMatch(fooTests, [.anySequence, "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
+        XCTAssertMatch(
+            fooTests,
+            [
+                .anySequence,
+                "-swift-version", "4",
+                "-enable-batch-mode",
+                "-Onone",
+                "-enable-testing",
+                .equal(j),
+                "-DSWIFT_PACKAGE",
+                "-DDEBUG",
+                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
+                .anySequence,
+                "-g",
+                .anySequence
+            ]
+        )
 
       #if os(macOS)
         let version = MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString
@@ -1727,7 +1827,7 @@ final class BuildPlanTests: XCTestCase {
             rpathsForBackdeployment = []
         }
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "PkgPackageTests.xctest", "Contents", "MacOS", "PkgPackageTests").pathString,
             "-module-name", "PkgPackageTests",
@@ -1799,7 +1899,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "release")
+        let buildPath = result.plan.productsBuildPath
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
 
@@ -1807,7 +1907,7 @@ final class BuildPlanTests: XCTestCase {
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -2142,13 +2242,13 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         XCTAssertMatch(try result.target(for: "exe").swiftTarget().compileArguments(), ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -2162,7 +2262,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -2173,7 +2273,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -2281,14 +2381,14 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
         let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
 
       #if os(macOS)
         XCTAssertEqual(fooLinkArgs, [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "Foo").pathString,
             "-module-name", "Foo",
@@ -2303,7 +2403,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(barLinkArgs, [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "libBar-Baz.dylib").pathString,
             "-module-name", "Bar_Baz",
@@ -2318,7 +2418,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(fooLinkArgs, [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "Foo.exe").pathString,
             "-module-name", "Foo",
@@ -2330,7 +2430,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(barLinkArgs, [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "Bar-Baz.dll").pathString,
             "-module-name", "Bar_Baz",
@@ -2341,7 +2441,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(fooLinkArgs, [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "Foo").pathString,
             "-module-name", "Foo",
@@ -2354,7 +2454,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(barLinkArgs, [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "libBar-Baz.so").pathString,
             "-module-name", "Bar_Baz",
@@ -2412,7 +2512,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence, "-g", .anySequence])
@@ -2422,7 +2522,7 @@ final class BuildPlanTests: XCTestCase {
 
         #if os(macOS)
             let linkArguments = [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "liblib.dylib").pathString,
                 "-module-name", "lib",
@@ -2437,7 +2537,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         #elseif os(Windows)
             let linkArguments = [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "lib.dll").pathString,
                 "-module-name", "lib",
@@ -2448,7 +2548,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         #else
             let linkArguments = [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "liblib.so").pathString,
                 "-module-name", "lib",
@@ -2501,8 +2601,8 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
         
-        let triple = result.plan.buildParameters.targetTriple
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let triple = result.plan.productsBuildParameters.triple
+        let buildPath = result.plan.productsBuildPath
 
         let exe = try result.target(for: "exe").clangTarget()
         
@@ -2556,7 +2656,7 @@ final class BuildPlanTests: XCTestCase {
 
     #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-lc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.dylib").pathString,
@@ -2571,7 +2671,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -2584,7 +2684,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "lib.dll").pathString,
             "-module-name", "lib",
@@ -2596,7 +2696,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -2608,7 +2708,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-lstdc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.so").pathString,
@@ -2622,7 +2722,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -2988,7 +3088,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildParameters.dataPath.appending(components: "debug")
 
         let lib = try result.target(for: "lib").clangTarget()
         let args = [
@@ -3017,7 +3117,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe", "-emit-executable",
@@ -3069,7 +3169,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and test entry point
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let lib = try result.target(for: "lib").clangTarget()
         let args = [
@@ -3101,7 +3201,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(
             try appBuildDescription.linkArguments(),
             [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "app.wasm").pathString,
                 "-module-name", "app", "-static-stdlib", "-emit-executable",
@@ -3118,7 +3218,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(
             try testBuildDescription.linkArguments(),
             [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "PkgPackageTests.wasm").pathString,
                 "-module-name", "PkgPackageTests",
@@ -3213,7 +3313,7 @@ final class BuildPlanTests: XCTestCase {
             ))
 
             let lib = try result.target(for: "lib").clangTarget()
-            let path = StringPattern.equal(result.plan.buildParameters.indexStore.pathString)
+            let path = StringPattern.equal(result.plan.productsBuildParameters.indexStore.pathString)
 
             #if os(macOS)
             XCTAssertMatch(try lib.basicArguments(isCXX: false), [.anySequence, "-index-store-path", path, .anySequence])
@@ -3533,10 +3633,39 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .anySequence])
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
-            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(
+                cbar,
+                [
+                    .anySequence,
+                    "-DCCC=2",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))",
+                    "-Icfoo",
+                    "-L", "cbar",
+                    "-Icxxfoo",
+                    "-L", "cxxbar",
+                    "-g",
+                    "-fno-omit-frame-pointer",
+                    .end
+                ]
+            )
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(
+                bar,
+                [
+                    .anySequence,
+                    "-DLINUX",
+                    "-Isfoo",
+                    "-L", "sbar",
+                    "-cxx-interoperability-mode=default",
+                    "-enable-upcoming-feature", "BestFeature",
+                    "-g",
+                    "-Xcc", "-g",
+                    "-Xcc", "-fno-omit-frame-pointer",
+                    .end
+                ]
+            )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
@@ -3561,10 +3690,40 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .anySequence])
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
-            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(
+                cbar,
+                [
+                    .anySequence,
+                    "-DCCC=2",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))",
+                    "-Icfoo",
+                    "-L", "cbar",
+                    "-Icxxfoo",
+                    "-L", "cxxbar",
+                    "-g",
+                    "-fomit-frame-pointer",
+                    .end
+                ]
+            )
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(
+                bar,
+                [
+                    .anySequence,
+                    "-DLINUX",
+                    "-Isfoo",
+                    "-L", "sbar",
+                    "-cxx-interoperability-mode=default",
+                    "-enable-upcoming-feature",
+                    "BestFeature",
+                    "-g",
+                    "-Xcc", "-g",
+                    "-Xcc", "-fomit-frame-pointer",
+                    .end
+                ]
+            )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
@@ -3586,10 +3745,40 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .anySequence])
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
-            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(
+                cbar,
+                [
+                    .anySequence,
+                    "-DCCC=2",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))",
+                    "-Icfoo",
+                    "-L", "cbar",
+                    "-Icxxfoo",
+                    "-L", "cxxbar",
+                    "-g",
+                    "-fno-omit-frame-pointer",
+                    .end
+                ]
+            )
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(
+                bar,
+                [
+                    .anySequence,
+                    "-DLINUX",
+                    "-Isfoo",
+                    "-L", "sbar",
+                    "-cxx-interoperability-mode=default",
+                    "-enable-upcoming-feature",
+                    "BestFeature",
+                    "-g",
+                    "-Xcc", "-g",
+                    "-Xcc", "-fno-omit-frame-pointer",
+                    .end
+                ]
+            )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
@@ -3599,16 +3788,56 @@ final class BuildPlanTests: XCTestCase {
             let result = try createResult(for: .x86_64MacOS)
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
-            XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", "-g", .end])
+            XCTAssertMatch(
+                cbar,
+                [
+                    .anySequence,
+                    "-DCCC=2",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))",
+                    "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))",
+                    "-Icfoo",
+                    "-L", "cbar",
+                    "-Icxxfoo",
+                    "-L", "cxxbar",
+                    "-g",
+                    .end
+                ]
+            )
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=default", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(
+                bar,
+                [
+                    .anySequence,
+                    "-DDMACOS",
+                    "-Isfoo",
+                    "-L", "sbar",
+                    "-cxx-interoperability-mode=default",
+                    "-enable-upcoming-feature", "BestFeature",
+                    "-enable-upcoming-feature", "WorstFeature",
+                    "-g",
+                    "-Xcc", "-g",
+                    .end
+                ]
+            )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", "-g", "-Xcc", "-g", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-framework", "best", "-Ilfoo", "-L", "lbar", .anySequence])
+            XCTAssertMatch(
+                linkExe,
+                [
+                    .anySequence,
+                    "-lsqlite3",
+                    "-llibz",
+                    "-framework", "CoreData",
+                    "-framework", "best",
+                    "-Ilfoo",
+                    "-L", "lbar",
+                    .anySequence
+                ]
+            )
         }
     }
 
@@ -3645,7 +3874,17 @@ final class BuildPlanTests: XCTestCase {
         ))
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
-        XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo"])
+        XCTAssertMatch(
+            exe,
+            [
+                .anySequence,
+                "-L", "/path/to/foo",
+                "-L/path/to/foo",
+                "-Xlinker", "-rpath=foo",
+                "-Xlinker", "-rpath",
+                "-Xlinker", "foo"
+            ]
+        )
     }
 
     func testUserToolchainCompileFlags() throws {
@@ -3700,7 +3939,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let lib = try result.target(for: "lib").clangTarget()
         var args: [StringPattern] = [.anySequence]
@@ -3709,7 +3948,13 @@ final class BuildPlanTests: XCTestCase {
       #else
         args += ["--sysroot"]
       #endif
-        args += ["\(userSwiftSDK.pathsConfiguration.sdkRootPath!)", "-I/fake/sdk/sysroot", "-clang-flag-from-json", .anySequence, "-clang-command-line-flag"]
+        args += [
+            "\(userSwiftSDK.pathsConfiguration.sdkRootPath!)",
+            "-I/fake/sdk/sysroot",
+            "-clang-flag-from-json",
+            .anySequence,
+            "-clang-command-line-flag"
+        ]
         XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -4033,7 +4278,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let buildPath = plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = plan.productsBuildPath
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -4086,7 +4331,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
         #if os(macOS)
@@ -4160,20 +4405,52 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
          let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
          #if os(macOS)
-           XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+        XCTAssertMatch(
+            fooTarget,
+            [
+                .anySequence,
+                "-emit-objc-header",
+                "-emit-objc-header-path",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                .anySequence
+            ]
+        )
          #else
-           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+        XCTAssertNoMatch(
+            fooTarget,
+            [
+                .anySequence,
+                "-emit-objc-header",
+                "-emit-objc-header-path",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                .anySequence
+            ]
+        )
          #endif
 
          let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
          #if os(macOS)
-           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+        XCTAssertMatch(
+            barTarget,
+            [
+                .anySequence,
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                .anySequence
+            ]
+        )
          #else
-           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+        XCTAssertNoMatch(
+            barTarget,
+            [
+                .anySequence,
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                .anySequence
+            ]
+        )
          #endif
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
@@ -4232,7 +4509,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let dynamicLibraryExtension = plan.buildParameters.targetTriple.dynamicLibraryExtension
+        let dynamicLibraryExtension = plan.productsBuildParameters.triple.dynamicLibraryExtension
 #if os(Windows)
         let dynamicLibraryPrefix = ""
 #else
@@ -4242,19 +4519,51 @@ final class BuildPlanTests: XCTestCase {
 
          let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
          #if os(macOS)
-           XCTAssertMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+        XCTAssertMatch(
+            fooTarget,
+            [
+                .anySequence,
+                "-emit-objc-header",
+                "-emit-objc-header-path",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                .anySequence
+            ]
+        )
          #else
-           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
+        XCTAssertNoMatch(
+            fooTarget,
+            [
+                .anySequence,
+                "-emit-objc-header",
+                "-emit-objc-header-path",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                .anySequence
+            ]
+        )
          #endif
 
          let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
          #if os(macOS)
-           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+        XCTAssertMatch(
+            barTarget,
+            [
+                .anySequence,
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                .anySequence
+            ]
+        )
          #else
-           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
+        XCTAssertNoMatch(
+            barTarget,
+            [
+                .anySequence,
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                .anySequence
+            ]
+        )
          #endif
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -4300,7 +4609,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let objects = try result.buildProduct(for: "exe").objects
         XCTAssertTrue(objects.contains(buildPath.appending(components: "exe.build", "exe.swiftmodule.o")), objects.description)
@@ -4317,7 +4626,7 @@ final class BuildPlanTests: XCTestCase {
                 inputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)"]
                 outputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)"]
                 description: "Wrapping AST for exe for debugging"
-                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
+                args: ["\(result.plan.productsBuildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
             """))
         XCTAssertMatch(contents, .contains("""
               "\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)":
@@ -4325,7 +4634,7 @@ final class BuildPlanTests: XCTestCase {
                 inputs: ["\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)"]
                 outputs: ["\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)"]
                 description: "Wrapping AST for lib for debugging"
-                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
+                args: ["\(result.plan.productsBuildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
             """))
     }
 
@@ -4360,7 +4669,7 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             ))
 
-            let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+            let buildPath = result.plan.productsBuildPath
 
             let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
             try fs.createDirectory(yaml.parentDirectory, recursive: true)
@@ -4370,23 +4679,23 @@ final class BuildPlanTests: XCTestCase {
 
             let contents: String = try fs.readFileContents(yaml)
 
-            if result.plan.buildParameters.targetTriple.isWindows() {
+            if result.plan.productsBuildParameters.triple.isWindows() {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
                     inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                     outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
                     description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
+                    args: ["\(result.plan.productsBuildParameters.toolchain.librarianPath.escapedPathString)","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
-            } else if result.plan.buildParameters.targetTriple.isDarwin() {
+            } else if result.plan.productsBuildParameters.triple.isDarwin() {
                 XCTAssertMatch(contents, .contains("""
                   "C.rary-debug.a":
                     tool: shell
                     inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                     outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
                     description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
+                    args: ["\(result.plan.productsBuildParameters.toolchain.librarianPath.escapedPathString)","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
             } else {    // assume `llvm-ar` is the librarian
                 XCTAssertMatch(contents, .contains("""
@@ -4395,7 +4704,7 @@ final class BuildPlanTests: XCTestCase {
                     inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                     outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
                     description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                    args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString)","crs","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
+                    args: ["\(result.plan.productsBuildParameters.toolchain.librarianPath.escapedPathString)","crs","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
                 """))
             }
         }
@@ -4445,7 +4754,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let fooTarget = try result.target(for: "Foo").swiftTarget()
         XCTAssertEqual(try fooTarget.objects.map{ $0.pathString }, [
@@ -4511,7 +4820,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let fooTarget = try result.target(for: "Foo").swiftTarget()
         XCTAssertEqual(try fooTarget.objects.map{ $0.pathString }, [
@@ -4576,7 +4885,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending("debug")
+        let buildPath = result.plan.productsBuildPath
 
         let fooTarget = try result.target(for: "Foo").clangTarget()
         XCTAssertEqual(try fooTarget.objects.map(\.pathString).sorted(), [
@@ -4766,7 +5075,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(3)
         result.checkTargetsCount(3)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
         let libraryBasicArguments = try result.target(for: "Library").swiftTarget().compileArguments()
         XCTAssertMatch(libraryBasicArguments, [.anySequence, "-F", "\(buildPath)", .anySequence])
@@ -5161,11 +5470,11 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath = result.plan.productsBuildPath
 
       #if os(macOS)
         let linkArguments = [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -5179,7 +5488,7 @@ final class BuildPlanTests: XCTestCase {
         ]
       #elseif os(Windows)
         let linkArguments = [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -5190,7 +5499,7 @@ final class BuildPlanTests: XCTestCase {
         ]
       #else
         let linkArguments = [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",

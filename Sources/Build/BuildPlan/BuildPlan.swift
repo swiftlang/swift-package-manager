@@ -187,26 +187,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Build parameters used for tools.
     public let toolsBuildParameters: BuildParameters
 
-    /// Parameters used for building this target.
-    func buildParameters(for target: ResolvedTarget) -> BuildParameters {
-        switch target.buildTriple {
-        case .buildTools:
-            return self.toolsBuildParameters
-        case .buildProducts:
-            return self.productsBuildParameters
-        }
-    }
-
-    /// Parameters used for building this product.
-    func buildParameters(for product: ResolvedProduct) -> BuildParameters {
-        switch product.buildTriple {
-        case .buildTools:
-            return self.toolsBuildParameters
-        case .buildProducts:
-            return self.productsBuildParameters
-        }
-    }
-
     /// Triple for which this target is compiled.
     private func buildTriple(for target: ResolvedTarget) -> Basics.Triple {
         self.buildParameters(for: target).triple
@@ -272,7 +252,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Create a build plan with a package graph and same build parameters for products and tools. Provided for
     /// testing purposes only.
-    convenience init(
+    public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription] = [],

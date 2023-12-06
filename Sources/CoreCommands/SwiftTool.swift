@@ -642,28 +642,30 @@ public final class SwiftTool {
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
         shouldLinkStaticSwiftStdlib: Bool = false,
-        customBuildParameters: BuildParameters? = .none,
-        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
-        customOutputStream: OutputByteStream? = .none,
-        customLogLevel: Basics.Diagnostic.Severity? = .none,
-        customObservabilityScope: ObservabilityScope? = .none
+        productsBuildParameters: BuildParameters? = .none,
+        toolsBuildParameters: BuildParameters? = .none,
+        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        outputStream: OutputByteStream? = .none,
+        logLevel: Basics.Diagnostic.Severity? = .none,
+        observabilityScope: ObservabilityScope? = .none
     ) throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
 
-        var buildParameters = try customBuildParameters ?? self.buildParameters()
-        buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+        var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
+        productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
         let buildSystem = try buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
-            productsBuildParameters: customBuildParameters,
-            packageGraphLoader: customPackageGraphLoader,
-            outputStream: customOutputStream,
-            logLevel: customLogLevel,
-            observabilityScope: customObservabilityScope
+            productsBuildParameters: productsParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            packageGraphLoader: packageGraphLoader,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            observabilityScope: observabilityScope
         )
 
         // register the build system with the cancellation handler
@@ -867,11 +869,19 @@ public final class SwiftTool {
 
             var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if DriverSupport.checkSupportedFrontendFlags(
+                flags: ["disable-implicit-concurrency-module-import"],
+                toolchain: try self.toolsBuildParameters.toolchain,
+                fileSystem: self.fileSystem
+            ) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
             // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
-            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if DriverSupport.checkSupportedFrontendFlags(
+                flags: ["disable-implicit-string-processing-module-import"],
+                toolchain: try self.toolsBuildParameters.toolchain,
+                fileSystem: self.fileSystem
+            ) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
             }
 
