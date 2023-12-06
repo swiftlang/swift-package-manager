@@ -713,7 +713,7 @@ final class BuildPlanTests: XCTestCase {
         ]
       #elseif os(Windows)
         let linkArguments = [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -725,7 +725,7 @@ final class BuildPlanTests: XCTestCase {
         ]
       #else
         let linkArguments = [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1304,7 +1304,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -1316,7 +1316,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1486,7 +1486,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -1498,7 +1498,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-lstdc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
@@ -1628,7 +1628,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -1639,7 +1639,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
@@ -1865,7 +1865,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "PkgPackageTests.xctest").pathString,
             "-module-name", "PkgPackageTests",
@@ -1876,7 +1876,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
-            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            result.plan.productsBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "PkgPackageTests.xctest").pathString,
             "-module-name", "PkgPackageTests",
