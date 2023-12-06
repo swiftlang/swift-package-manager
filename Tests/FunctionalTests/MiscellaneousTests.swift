@@ -338,6 +338,14 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testLTO() throws {
+        #if os(macOS)
+        // FIXME: this test requires swift-driver to be installed
+        // Currently swift-ci does not build/install swift-driver before running
+        // swift-package-manager tests which results in this test failing.
+        // See the following additional discussion:
+        // - https://github.com/apple/swift/pull/69696
+        // - https://github.com/apple/swift/pull/61766
+        // - https://github.com/apple/swift-package-manager/pull/5842#issuecomment-1301632685
         try fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
             do {
                 let output = try executeSwiftBuild(
@@ -351,6 +359,7 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTFail("\(error)")
             }
         }
+        #endif
     }
 
     func testUnicode() throws {
