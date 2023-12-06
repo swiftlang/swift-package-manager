@@ -37,8 +37,6 @@ option(USE_CMAKE_INSTALL
 
 add_compile_options(-DUSE_IMPL_ONLY_IMPORTS)
 
-add_compile_options(-DUSE_IMPL_ONLY_IMPORTS)
-
 if(FIND_PM_DEPS)
   find_package(SwiftSystem CONFIG REQUIRED)
   find_package(TSC CONFIG REQUIRED)

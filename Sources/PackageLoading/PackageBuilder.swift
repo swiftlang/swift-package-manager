@@ -884,7 +884,6 @@ public final class PackageBuilder {
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
         let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
-
         guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
