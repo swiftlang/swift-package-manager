@@ -96,9 +96,9 @@ public enum TargetBuildDescription {
     var buildParameters: BuildParameters {
         switch self {
         case .swift(let swiftTargetBuildDescription):
-            swiftTargetBuildDescription.buildParameters
+            return swiftTargetBuildDescription.buildParameters
         case .clang(let clangTargetBuildDescription):
-            clangTargetBuildDescription.buildParameters
+            return clangTargetBuildDescription.buildParameters
         }
     }
 }
