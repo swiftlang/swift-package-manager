@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import struct Basics.Triple
 import struct Basics.InternalError
 import class PackageGraph.ResolvedProduct
 import class PackageGraph.ResolvedTarget
@@ -19,6 +20,7 @@ import class PackageModel.ClangTarget
 import class PackageModel.Target
 import class PackageModel.SwiftTarget
 import class PackageModel.SystemLibraryTarget
+import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.ExecutableInfo
 import func TSCBasic.topologicalSort
 
@@ -26,7 +28,7 @@ extension BuildPlan {
     /// Plan a product.
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product)
+        let dependencies = try computeDependencies(of: buildProduct.product, buildParameters: buildProduct.buildParameters)
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -52,9 +54,10 @@ extension BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                if buildParameters.targetTriple.isDarwin() {
+                let triple = buildProduct.buildParameters.triple
+                if triple.isDarwin() {
                     buildProduct.additionalFlags += ["-lc++"]
-                } else if buildParameters.targetTriple.isWindows() {
+                } else if triple.isWindows() {
                     // Don't link any C++ library.
                 } else {
                     buildProduct.additionalFlags += ["-lstdc++"]
@@ -75,7 +78,7 @@ extension BuildPlan {
                 // product or link in the wrapped module object. This is required for properly debugging
                 // Swift products. Debugging strategy is computed based on the current platform we're
                 // building for and is nil for the release configuration.
-                switch buildParameters.debuggingStrategy {
+                switch buildProduct.buildParameters.debuggingStrategy {
                 case .swiftAST:
                     buildProduct.swiftASTs.insert(description.moduleOutputPath)
                 case .modulewrap:
@@ -107,7 +110,8 @@ extension BuildPlan {
 
     /// Computes the dependencies of a product.
     private func computeDependencies(
-        of product: ResolvedProduct
+        of product: ResolvedProduct,
+        buildParameters: BuildParameters
     ) throws -> (
         dylibs: [ResolvedProduct],
         staticTargets: [ResolvedTarget],
@@ -156,12 +160,12 @@ extension BuildPlan {
                 if shouldExcludePlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
                     return []
                 }
-                return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
+                return target.dependencies.filter { $0.satisfies(buildParameters.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
             // need to statically link it.
             case .product(let product, _):
-                guard dependency.satisfies(self.buildEnvironment) else {
+                guard dependency.satisfies(buildParameters.buildEnvironment) else {
                     return []
                 }
 
@@ -221,12 +225,12 @@ extension BuildPlan {
                     }
                     switch binaryTarget.kind {
                     case .xcframework:
-                        let libraries = try self.parseXCFramework(for: binaryTarget)
+                        let libraries = try self.parseXCFramework(for: binaryTarget, triple: buildParameters.triple)
                         for library in libraries {
                             libraryBinaryPaths.insert(library.libraryPath)
                         }
                     case .artifactsArchive:
-                        let tools = try self.parseArtifactsArchive(for: binaryTarget)
+                        let tools = try self.parseArtifactsArchive(for: binaryTarget, triple: buildParameters.triple)
                         tools.forEach { availableTools[$0.name] = $0.executablePath  }
                     case.unknown:
                         throw InternalError("unknown binary target '\(target.name)' type")
@@ -254,9 +258,9 @@ extension BuildPlan {
     }
 
     /// Extracts the artifacts  from an artifactsArchive
-    private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
-        try self.externalExecutablesCache.memoize(key: target) {
-            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
+    private func parseArtifactsArchive(for binaryTarget: BinaryTarget, triple: Triple) throws -> [ExecutableInfo] {
+        try self.externalExecutablesCache.memoize(key: binaryTarget) {
+            let execInfos = try binaryTarget.parseArtifactArchives(for: triple, fileSystem: self.fileSystem)
             return execInfos.filter{!$0.supportedTriples.isEmpty}
         }
     }

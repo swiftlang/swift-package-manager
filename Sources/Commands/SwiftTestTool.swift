@@ -217,7 +217,7 @@ public struct SwiftTestTool: SwiftCommand {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, library: .xctest)
 
         // Remove test output from prior runs and validate priors.
-        if self.options.enableExperimentalTestOutput && buildParameters.targetTriple.supportsTestSummary {
+        if self.options.enableExperimentalTestOutput && buildParameters.triple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 
@@ -241,6 +241,7 @@ public struct SwiftTestTool: SwiftCommand {
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
                 swiftTool.observabilityScope.emit(.noMatchingTests)
+                try generateXUnitOutputIfRequested(for: [], swiftTool: swiftTool)
                 return
             }
 
@@ -264,14 +265,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             let testResults = try runner.run(tests)
 
-            // Generate xUnit file if requested
-            if let xUnitOutput = options.xUnitOutput {
-                let generator = XUnitGenerator(
-                    fileSystem: swiftTool.fileSystem,
-                    results: testResults
-                )
-                try generator.generate(at: xUnitOutput)
-            }
+            try generateXUnitOutputIfRequested(for: testResults, swiftTool: swiftTool)
 
             // process code Coverage if request
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
@@ -325,6 +319,19 @@ public struct SwiftTestTool: SwiftCommand {
         }
     }
 
+    /// Generate xUnit file if requested.
+    private func generateXUnitOutputIfRequested(for testResults: [ParallelTestRunner.TestResult], swiftTool: SwiftTool) throws {
+        guard let xUnitOutput = options.xUnitOutput else {
+            return
+        }
+
+        let generator = XUnitGenerator(
+            fileSystem: swiftTool.fileSystem,
+            results: testResults
+        )
+        try generator.generate(at: xUnitOutput)
+    }
+
     // MARK: - swift-testing
 
     private func swiftTestingRun(_ swiftTool: SwiftTool) throws {
@@ -346,8 +353,7 @@ public struct SwiftTestTool: SwiftCommand {
         }
 
         if self.options.shouldPrintCodeCovPath {
-            let command = try PrintCodeCovPath.parse()
-            try command.run(swiftTool)
+            try printCodeCovPath(swiftTool)
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
@@ -390,7 +396,7 @@ public struct SwiftTestTool: SwiftCommand {
         let ranSuccessfully = runner.test(outputHandler: {
             // command's result output goes on stdout
             // ie "swift test" should output to stdout
-            print($0)
+            print($0, terminator: "")
         })
         if !ranSuccessfully {
             swiftTool.executionStatus = .failure
@@ -542,36 +548,21 @@ public struct SwiftTestTool: SwiftCommand {
 }
 
 extension SwiftTestTool {
-     struct PrintCodeCovPath: SwiftCommand {
-         static let configuration = CommandConfiguration(
-             commandName: "show-codecov-path",
-             abstract: "Print the path of the exported code coverage JSON file"
-         )
-
-         @OptionGroup(visibility: .hidden)
-         var globalOptions: GlobalOptions
-
-         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
-
-         @Flag(name: [.customLong("show-codecov-path"), .customLong("show-code-coverage-path"), .customLong("show-coverage-path")], help: .hidden)
-         var _deprecated_passthrough: Bool = false
-
-         func run(_ swiftTool: SwiftTool) throws {
-             let workspace = try swiftTool.getActiveWorkspace()
-             let root = try swiftTool.getWorkspaceRoot()
-             let rootManifests = try temp_await {
-                 workspace.loadRootManifests(
-                     packages: root.packages,
-                     observabilityScope: swiftTool.observabilityScope,
-                     completion: $0
-                 )
-             }
-             guard let rootManifest = rootManifests.values.first else {
-                 throw StringError("invalid manifests at \(root.packages)")
-             }
-             let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: true, library: .xctest)
-             print(buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName))
-         }
+    func printCodeCovPath(_ swiftTool: SwiftTool) throws {
+        let workspace = try swiftTool.getActiveWorkspace()
+        let root = try swiftTool.getWorkspaceRoot()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: swiftTool.observabilityScope,
+                completion: $0
+            )
+        }
+        guard let rootManifest = rootManifests.values.first else {
+            throw StringError("invalid manifests at \(root.packages)")
+        }
+        let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: true, library: .xctest)
+        print(buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName))
      }
  }
 
@@ -582,7 +573,7 @@ extension SwiftTestTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             try SwiftTestTool.handleTestOutput(
-                buildParameters: try swiftTool.buildParameters(),
+                buildParameters: try swiftTool.productsBuildParameters,
                 packagePath: localFileSystem.currentWorkingDirectory ?? .root // by definition runs in the current working directory
             )
         }
@@ -650,7 +641,7 @@ extension SwiftTestTool {
             let ranSuccessfully = runner.test(outputHandler: {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
-                print($0)
+                print($0, terminator: "")
             })
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
@@ -791,7 +782,7 @@ final class TestRunner {
 
         do {
             let outputHandler = { (bytes: [UInt8]) in
-                if let output = String(bytes: bytes, encoding: .utf8)?.spm_chuzzle() {
+                if let output = String(bytes: bytes, encoding: .utf8) {
                     outputHandler(output)
                 }
             }
@@ -1210,7 +1201,10 @@ final class XUnitGenerator {
 }
 
 extension SwiftTool {
-    func buildParametersForTest(options: TestToolOptions, library: BuildParameters.Testing.Library) throws -> BuildParameters {
+    func buildParametersForTest(
+        options: TestToolOptions,
+        library: BuildParameters.Testing.Library
+    ) throws -> BuildParameters {
         var result = try self.buildParametersForTest(
             enableCodeCoverage: options.enableCodeCoverage,
             enableTestability: options.enableTestableImports,
@@ -1278,7 +1272,7 @@ private extension Basics.Diagnostic {
 ///
 /// - Returns: The paths to the build test products.
 private func buildTestsIfNeeded(swiftTool: SwiftTool, buildParameters: BuildParameters, testProduct: String?) throws -> [BuiltTestProduct] {
-    let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
+    let buildSystem = try swiftTool.createBuildSystem(productsBuildParameters: buildParameters)
 
     let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
     try buildSystem.build(subset: subset)

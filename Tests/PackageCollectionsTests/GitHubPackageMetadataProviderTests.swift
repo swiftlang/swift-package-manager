@@ -45,13 +45,13 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         XCTAssertNil(GitHubPackageMetadataProvider.apiURL("bad/Hello-World.git"))
     }
 
-    func testGood() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testGood() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
             let releasesURL = URL("https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")
 
-            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
@@ -103,7 +103,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
+                let metadata = try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions.count, 2)
@@ -127,8 +127,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         }
     }
 
-    func testRepoNotFound() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testRepoNotFound() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
 
             let handler: LegacyHTTPClient.Handler = { _, _, completion in
@@ -143,18 +143,18 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+            await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                 XCTAssert(error is NotFoundError, "\(error)")
             }
         }
     }
 
-    func testOthersNotFound() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testOthersNotFound() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
-            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -176,7 +176,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
+                let metadata = try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions, [])
@@ -187,8 +187,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         }
     }
 
-    func testPermissionDenied() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testPermissionDenied() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
@@ -204,14 +204,14 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+            await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                 XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .permissionDenied(apiURL))
             }
         }
     }
 
-    func testInvalidAuthToken() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testInvalidAuthToken() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
             let authTokens = [AuthTokenType.github("github.com"): "foo"]
@@ -234,21 +234,21 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+            await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                 XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidAuthToken(apiURL))
             }
         }
     }
 
-    func testAPILimit() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testAPILimit() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             let total = 5
             var remaining = total
 
-            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -280,20 +280,20 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 for index in 0 ... total * 2 {
                     if index >= total {
-                        XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                        await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                             XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .apiLimitsExceeded(apiURL, total))
                         }
                     } else {
-                        XCTAssertNoThrow(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString))
+                        _ = try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
                     }
                 }
             }
         }
     }
 
-    func testInvalidURL() throws {
-        try testWithTemporaryDirectory { tmpPath in
-            try fixture(name: "Collections", createGitRepo: false) { _ in
+    func testInvalidURL() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            try await fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -301,16 +301,16 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 let url = UUID().uuidString
                 let identity = PackageIdentity(urlString: url)
-                XCTAssertThrowsError(try provider.syncGet(identity: identity, location: url), "should throw error") { error in
+                await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: identity, location: url), "should throw error") { error in
                     XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidSourceControlURL(url))
                 }
             }
         }
     }
 
-    func testInvalidURL2() throws {
-        try testWithTemporaryDirectory { tmpPath in
-            try fixture(name: "Collections", createGitRepo: false) { _ in
+    func testInvalidURL2() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            try await fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -318,14 +318,14 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 let path = AbsolutePath.root
                 let identity = PackageIdentity(path: path)
-                XCTAssertThrowsError(try provider.syncGet(identity: identity, location: path.pathString), "should throw error") { error in
+                await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: identity, location: path.pathString), "should throw error") { error in
                     XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidSourceControlURL(path.pathString))
                 }
             }
         }
     }
 
-    func testForRealz() throws {
+    func testForRealz() async throws {
         #if ENABLE_GITHUB_NETWORK_TEST
         #else
         try XCTSkipIf(true)
@@ -347,7 +347,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         defer { XCTAssertNoThrow(try provider.close()) }
 
         for _ in 0 ... 60 {
-            let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
+            let metadata = try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
             XCTAssertNotNil(metadata)
             XCTAssert(metadata.versions.count > 0)
             XCTAssert(metadata.keywords!.count > 0)
@@ -368,8 +368,8 @@ internal extension GitHubPackageMetadataProvider {
 }
 
 private extension GitHubPackageMetadataProvider {
-    func syncGet(identity: PackageIdentity, location: String) throws -> Model.PackageBasicMetadata {
-        try temp_await { callback in
+    func syncGet(identity: PackageIdentity, location: String) async throws -> Model.PackageBasicMetadata {
+        try await safe_async { callback in
             self.get(identity: identity, location: location) { result, _ in callback(result) }
         }
     }

@@ -18,9 +18,8 @@ import PackageModel
 ///
 /// This node uses the product filter that was already finalized during resolution.
 ///
-/// - SeeAlso: DependencyResolutionNode
+/// - SeeAlso: ``DependencyResolutionNode``
 public struct GraphLoadingNode: Equatable, Hashable {
-
     /// The package identity.
     public let identity: PackageIdentity
 
@@ -30,29 +29,15 @@ public struct GraphLoadingNode: Equatable, Hashable {
     /// The product filter applied to the package.
     public let productFilter: ProductFilter
 
-    /// The file system to use for loading the given package.
-    public let fileSystem: FileSystem
-
-    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter, fileSystem: FileSystem) {
+    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter) {
         self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
-        self.fileSystem = fileSystem
     }
 
     /// Returns the dependencies required by this node.
     internal var requiredDependencies: [PackageDependency] {
         return self.manifest.dependenciesRequired(for: self.productFilter)
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(identity)
-        hasher.combine(manifest)
-        hasher.combine(productFilter)
-    }
-
-    public static func == (lhs: GraphLoadingNode, rhs: GraphLoadingNode) -> Bool {
-        return lhs.identity == rhs.identity && lhs.manifest == rhs.manifest && lhs.productFilter == rhs.productFilter
     }
 }
 

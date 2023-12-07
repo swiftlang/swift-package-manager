@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,10 +19,10 @@ public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
-        case target(_ target: ResolvedTarget, conditions: [PackageConditionProtocol])
+        case target(_ target: ResolvedTarget, conditions: [PackageCondition])
 
         /// The target depends on this product.
-        case product(_ product: ResolvedProduct, conditions: [PackageConditionProtocol])
+        case product(_ product: ResolvedProduct, conditions: [PackageCondition])
 
         public var target: ResolvedTarget? {
             switch self {
@@ -38,7 +38,7 @@ public final class ResolvedTarget {
             }
         }
 
-        public var conditions: [PackageConditionProtocol] {
+        public var conditions: [PackageCondition] {
             switch self {
             case .target(_, let conditions): return conditions
             case .product(_, let conditions): return conditions
@@ -141,7 +141,10 @@ public final class ResolvedTarget {
     /// The list of platforms that are supported by this target.
     public let platforms: SupportedPlatforms
 
-    /// Create a target instance.
+    /// Triple for which this resolved target should be compiled for.
+    public let buildTriple: BuildTriple
+
+    /// Create a resolved target instance.
     public init(
         target: Target,
         dependencies: [Dependency],
@@ -152,6 +155,7 @@ public final class ResolvedTarget {
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
+        self.buildTriple = .destination
     }
 }
 

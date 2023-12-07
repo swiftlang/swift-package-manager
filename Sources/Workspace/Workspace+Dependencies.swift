@@ -25,6 +25,7 @@ import struct PackageGraph.Assignment
 import enum PackageGraph.BoundVersion
 import enum PackageGraph.ContainerUpdateStrategy
 import protocol PackageGraph.CustomPackageContainer
+import struct PackageGraph.DependencyResolverBinding
 import protocol PackageGraph.DependencyResolverDelegate
 import struct PackageGraph.Incompatibility
 import struct PackageGraph.MultiplexResolverDelegate
@@ -631,7 +632,7 @@ extension Workspace {
     @discardableResult
     fileprivate func updateDependenciesCheckouts(
         root: PackageGraphRoot,
-        updateResults: [(PackageReference, BoundVersion, ProductFilter)],
+        updateResults: [DependencyResolverBinding],
         updateBranches: Bool = false,
         observabilityScope: ObservabilityScope
     ) -> [(PackageReference, PackageStateChange)] {
@@ -954,7 +955,7 @@ extension Workspace {
     /// Computes states of the packages based on last stored state.
     fileprivate func computePackageStateChanges(
         root: PackageGraphRoot,
-        resolvedDependencies: [(PackageReference, BoundVersion, ProductFilter)],
+        resolvedDependencies: [DependencyResolverBinding],
         updateBranches: Bool,
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, PackageStateChange)] {
@@ -963,44 +964,44 @@ extension Workspace {
         var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
-        for (packageRef, binding, products) in resolvedDependencies {
+        for binding in resolvedDependencies {
             // Get the existing managed dependency for this package ref, if any.
 
             // first find by identity only since edit location may be different by design
-            var currentDependency = self.state.dependencies[packageRef.identity]
+            var currentDependency = self.state.dependencies[binding.package.identity]
             // Check if this is an edited dependency.
             if case .edited(let basedOn, _) = currentDependency?.state, let originalReference = basedOn?.packageRef {
                 packageStateChanges[originalReference.identity] = (originalReference, .unchanged)
             } else {
                 // if not edited, also compare by location since it may have changed
-                currentDependency = self.state.dependencies[comparingLocation: packageRef]
+                currentDependency = self.state.dependencies[comparingLocation: binding.package]
             }
 
-            switch binding {
+            switch binding.boundVersion {
             case .excluded:
                 throw InternalError("Unexpected excluded binding")
 
             case .unversioned:
                 // Ignore the root packages.
-                if root.packages.keys.contains(packageRef.identity) {
+                if root.packages.keys.contains(binding.package.identity) {
                     continue
                 }
 
                 if let currentDependency {
                     switch currentDependency.state {
                     case .fileSystem, .edited:
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
+                        packageStateChanges[binding.package.identity] = (binding.package, .unchanged)
                     case .sourceControlCheckout:
-                        let newState = PackageStateChange.State(requirement: .unversioned, products: products)
-                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
+                        let newState = PackageStateChange.State(requirement: .unversioned, products: binding.products)
+                        packageStateChanges[binding.package.identity] = (binding.package, .updated(newState))
                     case .registryDownload:
                         throw InternalError("Unexpected unversioned binding for downloaded dependency")
                     case .custom:
                         throw InternalError("Unexpected unversioned binding for custom dependency")
                     }
                 } else {
-                    let newState = PackageStateChange.State(requirement: .unversioned, products: products)
-                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
+                    let newState = PackageStateChange.State(requirement: .unversioned, products: binding.products)
+                    packageStateChanges[binding.package.identity] = (binding.package, .added(newState))
                 }
 
             case .revision(let identifier, let branch):
@@ -1008,14 +1009,14 @@ extension Workspace {
                 // TODO: replace with async/await when available
                 guard let container = try (temp_await {
                     packageContainerProvider.getContainer(
-                        for: packageRef,
+                        for: binding.package,
                         updateStrategy: .never,
                         observabilityScope: observabilityScope,
                         on: .sharedConcurrent,
                         completion: $0
                     )
                 }) as? SourceControlPackageContainer else {
-                    throw InternalError("invalid container for \(packageRef) expected a SourceControlPackageContainer")
+                    throw InternalError("invalid container for \(binding.package) expected a SourceControlPackageContainer")
                 }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
@@ -1024,7 +1025,7 @@ extension Workspace {
                 // branches, use the revision from pin instead (if present).
                 if branch != nil, !updateBranches {
                     if case .branch(branch, let pinRevision) = pinsStore.pins.values
-                        .first(where: { $0.packageRef == packageRef })?.state
+                        .first(where: { $0.packageRef == binding.package })?.state
                     {
                         revision = Revision(identifier: pinRevision)
                     }
@@ -1043,21 +1044,21 @@ extension Workspace {
                     if case .sourceControlCheckout(let checkoutState) = currentDependency.state,
                        checkoutState == newState
                     {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
+                        packageStateChanges[binding.package.identity] = (binding.package, .unchanged)
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
                         let newState = PackageStateChange.State(
                             requirement: .revision(revision, branch: branch),
-                            products: products
+                            products: binding.products
                         )
-                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
+                        packageStateChanges[binding.package.identity] = (binding.package, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(
                         requirement: .revision(revision, branch: branch),
-                        products: products
+                        products: binding.products
                     )
-                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
+                    packageStateChanges[binding.package.identity] = (binding.package, .added(newState))
                 }
 
             case .version(let version):
@@ -1066,11 +1067,11 @@ extension Workspace {
                 case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
                     stateChange = .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
-                    stateChange = .updated(.init(requirement: .version(version), products: products))
+                    stateChange = .updated(.init(requirement: .version(version), products: binding.products))
                 case nil:
-                    stateChange = .added(.init(requirement: .version(version), products: products))
+                    stateChange = .added(.init(requirement: .version(version), products: binding.products))
                 }
-                packageStateChanges[packageRef.identity] = (packageRef, stateChange)
+                packageStateChanges[binding.package.identity] = (binding.package, stateChange)
             }
         }
         // Set the state of any old package that might have been removed.
@@ -1114,7 +1115,7 @@ extension Workspace {
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
-    ) -> [(package: PackageReference, binding: BoundVersion, products: ProductFilter)] {
+    ) -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
         let result = resolver.solve(constraints: constraints)
         os_signpost(.end, name: SignpostName.pubgrub)
@@ -1179,7 +1180,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
         difference: Term
     ) {}
     func failedToResolve(incompatibility: Incompatibility) {}
-    func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {}
+    func solved(result: [DependencyResolverBinding]) {}
 }
 
 // FIXME: the manifest loading logic should be changed to use identity instead of location once identity is unique

@@ -36,11 +36,11 @@ public struct BuildParameters: Encodable {
     public var toolchain: Toolchain { _toolchain.toolchain }
     private let _toolchain: _Toolchain
 
-    /// Host triple.
-    public var hostTriple: Triple
+    @available(*, deprecated, renamed: "triple", message: "Use separate `BuildParameters` values for host and target.")
+    public var targetTriple: Triple { self.triple }
 
-    /// Target triple.
-    public var targetTriple: Triple
+    /// The triple for which the code is built using these build parameters.
+    public var triple: Triple
 
     /// Extra build flags.
     public var flags: BuildFlags
@@ -71,8 +71,8 @@ public struct BuildParameters: Encodable {
 
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
-        if self.targetTriple.isDarwin() {
-            switch self.targetTriple.darwinPlatform {
+        if self.triple.isDarwin() {
+            switch self.triple.darwinPlatform {
             case .iOS(.catalyst):
                 return .macCatalyst
             case .iOS(.device), .iOS(.simulator):
@@ -84,13 +84,13 @@ public struct BuildParameters: Encodable {
             case .macOS, nil:
                 return .macOS
             }
-        } else if self.targetTriple.isAndroid() {
+        } else if self.triple.isAndroid() {
             return .android
-        } else if self.targetTriple.isWASI() {
+        } else if self.triple.isWASI() {
             return .wasi
-        } else if self.targetTriple.isWindows() {
+        } else if self.triple.isWindows() {
             return .windows
-        } else if self.targetTriple.isOpenBSD() {
+        } else if self.triple.isOpenBSD() {
             return .openbsd
         } else {
             return .linux
@@ -121,8 +121,7 @@ public struct BuildParameters: Encodable {
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
-        hostTriple: Triple? = nil,
-        targetTriple: Triple? = nil,
+        triple: Triple? = nil,
         flags: BuildFlags,
         pkgConfigDirectories: [AbsolutePath] = [],
         architectures: [String]? = nil,
@@ -138,9 +137,9 @@ public struct BuildParameters: Encodable {
         outputParameters: Output = .init(),
         testingParameters: Testing? = nil
     ) throws {
-        let targetTriple = try targetTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
-            targetTriple: targetTriple,
+            triple: triple,
             shouldEnableDebuggingEntitlement: configuration == .debug,
             omitFramePointers: nil
         )
@@ -148,21 +147,20 @@ public struct BuildParameters: Encodable {
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
-        self.hostTriple = try hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
-        self.targetTriple = targetTriple
+        self.triple = triple
         switch self.debuggingParameters.debugInfoFormat {
         case .dwarf:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
-            self.flags = flags.merging(targetTriple.isWindows() ? BuildFlags(
+            self.flags = flags.merging(triple.isWindows() ? BuildFlags(
                 cCompilerFlags: ["-gdwarf"],
                 cxxCompilerFlags: ["-gdwarf"],
                 swiftCompilerFlags: ["-g", "-use-ld=lld"],
                 linkerFlags: ["-debug:dwarf"]
             ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
         case .codeview:
-            if !targetTriple.isWindows() {
-                throw StringError("CodeView debug information is currently not supported on \(targetTriple.osName)")
+            if !triple.isWindows() {
+                throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
             }
             var flags = flags
             self.flags = flags.merging(BuildFlags(
@@ -190,33 +188,7 @@ public struct BuildParameters: Encodable {
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
-        self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: targetTriple)
-    }
-
-    public func forTriple(_ targetTriple: Triple) throws -> BuildParameters {
-        var hostSDK = try SwiftSDK.hostSwiftSDK()
-        hostSDK.targetTriple = targetTriple
-
-        return try .init(
-            dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
-            configuration: self.configuration,
-            toolchain: try UserToolchain(swiftSDK: hostSDK),
-            hostTriple: self.hostTriple,
-            targetTriple: targetTriple,
-            flags: BuildFlags(),
-            pkgConfigDirectories: self.pkgConfigDirectories,
-            architectures: nil,
-            workers: self.workers,
-            shouldCreateDylibForDynamicProducts: self.shouldCreateDylibForDynamicProducts,
-            sanitizers: self.sanitizers,
-            indexStoreMode: self.indexStoreMode,
-            isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
-            shouldSkipBuilding: self.shouldSkipBuilding,
-            driverParameters: self.driverParameters,
-            linkingParameters: self.linkingParameters,
-            outputParameters: self.outputParameters,
-            testingParameters: self.testingParameters
-        )
+        self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: triple)
     }
 
     /// The path to the build directory (inside the data directory).
@@ -245,14 +217,19 @@ public struct BuildParameters: Encodable {
     }
 
     public var llbuildManifest: AbsolutePath {
+        // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
+        // FIXME: it should be calculated in a different place
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
 
     public var pifManifest: AbsolutePath {
+        // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
+        // FIXME: it should be calculated in a different place
         return dataPath.appending(components: "..", "manifest.pif")
     }
 
     public var buildDescriptionPath: AbsolutePath {
+        // FIXME: this path isn't specific to `BuildParameters`, should be moved one directory level higher
         return buildPath.appending(components: "description.json")
     }
 
@@ -266,32 +243,36 @@ public struct BuildParameters: Encodable {
 
     /// Returns the path to the dynamic library of a product for the current build parameters.
     func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
-        try RelativePath(validating: "\(targetTriple.dynamicLibraryPrefix)\(product.name)\(targetTriple.dynamicLibraryExtension)")
+        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(product.name)\(self.triple.dynamicLibraryExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
-        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(targetTriple.executableExtension)")
+        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(self.triple.executableExtension)")
 
         switch product.type {
         case .executable, .snippet:
             return potentialExecutablePath
         case .library(.static):
-            return try RelativePath(validating: "lib\(product.name)\(targetTriple.staticLibraryExtension)")
+            return try RelativePath(validating: "lib\(product.name)\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
             return try potentialDynamicLibraryPath(for: product)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !targetTriple.isWASI() else {
+            guard !self.triple.isWASI() else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
-
-            let base = "\(product.name).xctest"
-            if targetTriple.isDarwin() {
-                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-            } else {
-                return try RelativePath(validating: base)
+            switch testingParameters.library {
+            case .xctest:
+                let base = "\(product.name).xctest"
+                if self.triple.isDarwin() {
+                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+                } else {
+                    return try RelativePath(validating: base)
+                }
+            case .swiftTesting:
+                return try RelativePath(validating: "\(product.name).swift-testing")
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS

@@ -13,7 +13,6 @@
 import _Concurrency
 import Basics
 import Foundation
-import OrderedCollections
 import PackageFingerprint
 import PackageGraph
 import PackageLoading

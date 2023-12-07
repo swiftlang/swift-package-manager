@@ -36,7 +36,30 @@ struct PackageVersionChecksumTOFU {
     }
 
     // MARK: - source archive
-
+    func validateSourceArchive(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        checksum: String,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.validateSourceArchive(
+                registry: registry,
+                package: package,
+                version: version,
+                checksum: checksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
     func validateSourceArchive(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
@@ -135,7 +158,31 @@ struct PackageVersionChecksumTOFU {
     }
 
     // MARK: - manifests
-
+    func validateManifest(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        toolsVersion: ToolsVersion?,
+        checksum: String,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.validateManifest(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: toolsVersion,
+                checksum: checksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue, 
+                completion: $0
+            )
+        }
+    }
+    @available(*, noasync, message: "Use the async alternative")
     func validateManifest(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,

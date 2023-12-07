@@ -23,6 +23,7 @@ import DriverSupport
 #endif
 
 import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
@@ -49,15 +50,17 @@ public struct SymbolGraphExtract {
         case json(pretty: Bool)
     }
     
-    /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`. The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies how much console output to ask the tool to emit.
+    /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`.
+    /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
+    /// how much console output to ask the tool to emit.
     public func extractSymbolGraph(
         target: ResolvedTarget,
         buildPlan: BuildPlan,
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
-    ) throws {
-        let buildParameters = buildPlan.buildParameters
+    ) throws -> ProcessResult {
+        let buildParameters = buildPlan.buildParameters(for: target)
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.
@@ -101,6 +104,6 @@ public struct SymbolGraphExtract {
             outputRedirection: outputRedirection
         )
         try process.launch()
-        try process.waitUntilExit()
+        return try process.waitUntilExit()
     }
 }

@@ -43,7 +43,27 @@ public class RegistryDownloadsManager: Cancellable {
         self.registryClient = registryClient
         self.delegate = delegate
     }
+    
+    public func lookup(
+        package: PackageIdentity,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> AbsolutePath {
+        try await safe_async {
+            self.lookup(
+                package: package,
+                version: version,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func lookup(
         package: PackageIdentity,
         version: Version,

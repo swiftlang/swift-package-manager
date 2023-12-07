@@ -85,14 +85,13 @@ func mockBuildParameters(
         dataPath: buildPath,
         configuration: config,
         toolchain: toolchain,
-        hostTriple: hostTriple,
-        targetTriple: targetTriple,
+        triple: targetTriple,
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
         debuggingParameters: .init(
-            targetTriple: targetTriple,
+            triple: targetTriple,
             shouldEnableDebuggingEntitlement: config == .debug,
             omitFramePointers: omitFramePointers
         ),

@@ -7,6 +7,10 @@ Swift Next
 
   On macOS, `swift build` and `swift run` now produce binaries that allow backtraces in debug builds. Pass `SWIFT_BACKTRACE=enable=yes` environment variable to enable backtraces on such binaries when running them.
 
+* [7101]
+
+   Binary artifacts are now cached along side repository checkouts so they do not need to be re-downloaded across projects.
+
 Swift 5.9
 -----------
 
@@ -378,3 +382,4 @@ Swift 3.0
 [#6276]: https://github.com/apple/swift-package-manager/pull/6276
 [#6540]: https://github.com/apple/swift-package-manager/pull/6540
 [#6663]: https://github.com/apple/swift-package-manager/pull/6663
+[#7101]: https://github.com/apple/swift-package-manager/pull/7101

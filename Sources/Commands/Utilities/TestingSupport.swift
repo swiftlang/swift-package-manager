@@ -211,7 +211,7 @@ extension SwiftTool {
         experimentalTestOutput: Bool = false,
         library: BuildParameters.Testing.Library
     ) throws -> BuildParameters {
-        var parameters = try self.buildParameters()
+        var parameters = try self.productsBuildParameters
 
         var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?
@@ -224,7 +224,7 @@ extension SwiftTool {
         }
         parameters.testingParameters = .init(
             configuration: parameters.configuration,
-            targetTriple: parameters.targetTriple,
+            targetTriple: parameters.triple,
             forceTestDiscovery: explicitlyEnabledDiscovery,
             testEntryPointPath: explicitlySpecifiedPath,
             library: library

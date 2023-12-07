@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,25 +16,6 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-public protocol DependencyResolver {
-    typealias Binding = (package: PackageReference, binding: BoundVersion, products: ProductFilter)
-    typealias Delegate = DependencyResolverDelegate
-}
-
-public enum DependencyResolverError: Error, Equatable {
-     /// A revision-based dependency contains a local package dependency.
-    case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
-}
-
-extension DependencyResolverError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .revisionDependencyContainsLocalPackage(let dependency, let localPackage):
-            return "package '\(dependency)' is required using a revision-based requirement and it depends on local package '\(localPackage)', which is not supported"
-        }
-    }
-}
-
 public protocol DependencyResolverDelegate {
     func willResolve(term: Term)
     func didResolve(term: Term, version: Version, duration: DispatchTimeInterval)
@@ -44,7 +25,7 @@ public protocol DependencyResolverDelegate {
     func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility)
     func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term)
     func failedToResolve(incompatibility: Incompatibility)
-    func solved(result: [DependencyResolver.Binding])
+    func solved(result: [DependencyResolverBinding])
 }
 
 public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegate {
@@ -82,9 +63,9 @@ public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegat
         self.debug("\(term) is partially satisfied by '\(assignment)', which is caused by '\(assignment.cause?.description ?? "unknown cause")'. new incompatibility \(incompatibility)")
     }
 
-    public func solved(result: [DependencyResolver.Binding]) {
-        for (package, binding, _) in result {
-            self.debug("solved '\(package.identity)' (\(package.locationString)) at '\(binding)'")
+    public func solved(result: [DependencyResolverBinding]) {
+        for binding in result {
+            self.debug("solved '\(binding.package.identity)' (\(binding.package.locationString)) at '\(binding.boundVersion)'")
         }
         self.debug("dependency resolution complete!")
     }
@@ -129,7 +110,7 @@ public struct MultiplexResolverDelegate: DependencyResolverDelegate {
         underlying.forEach { $0.failedToResolve(incompatibility: incompatibility)  }
     }
 
-    public func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
+    public func solved(result: [DependencyResolverBinding]) {
         underlying.forEach { $0.solved(result: result)  }
     }
 
