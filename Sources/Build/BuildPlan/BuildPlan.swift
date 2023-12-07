@@ -130,13 +130,14 @@ extension BuildParameters {
     /// Computes the target triple arguments for a given resolved target.
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
+
         // Compute the triple string for Darwin platform using the platform version.
-        if targetTriple.isDarwin() {
+        if self.triple.isDarwin() {
             let platform = buildEnvironment.platform
             let supportedPlatform = target.platforms.getDerived(for: platform, usingXCTest: target.type == .test)
-            args += [targetTriple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
+            args += [self.triple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
-            args += [targetTriple.tripleString]
+            args += [self.triple.tripleString]
         }
         return args
     }
@@ -144,13 +145,11 @@ extension BuildParameters {
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
-        if self.targetTriple.isApple() {
+        if self.triple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
-        }
-        else if self.targetTriple.isLinux() {
+        } else if self.triple.isLinux() {
             args = ["--defsym", "main=\(target.c99name)_main"]
-        }
-        else {
+        } else {
             return nil
         }
         return args.asSwiftcLinkerFlags()
@@ -164,7 +163,6 @@ extension BuildParameters {
 
 /// A build plan for a package graph.
 public class BuildPlan: SPMBuildCore.BuildPlan {
-
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
         case noBuildableTarget
@@ -180,12 +178,20 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
     }
 
-    /// The build parameters.
-    public let buildParameters: BuildParameters
+    /// Build parameters used for products.
+    public let destinationBuildParameters: BuildParameters
 
-    /// The build environment.
-    var buildEnvironment: BuildEnvironment {
-        buildParameters.buildEnvironment
+    /// Build parameters used for tools.
+    public let toolsBuildParameters: BuildParameters
+
+    /// Triple for which this target is compiled.
+    private func buildTriple(for target: ResolvedTarget) -> Basics.Triple {
+        self.buildParameters(for: target).triple
+    }
+
+    /// Triple for which this product is compiled.
+    private func buildTriple(for product: ResolvedProduct) -> Basics.Triple {
+        self.buildParameters(for: product).triple
     }
 
     /// The package graph.
@@ -230,22 +236,46 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
     /// The filesystem to operate on.
-    let fileSystem: FileSystem
+    let fileSystem: any FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
     let observabilityScope: ObservabilityScope
 
-    /// Create a build plan with build parameters and a package graph.
-    public init(
+    @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
+    public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
-        fileSystem: FileSystem,
+        fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        self.buildParameters = buildParameters
+        try self.init(
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
+            graph: graph,
+            additionalFileRules: additionalFileRules,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    /// Create a build plan with a package graph and explicitly distinct build parameters for products and tools.
+    public init(
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
+        graph: PackageGraph,
+        additionalFileRules: [FileRuleDescription] = [],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        self.destinationBuildParameters = productsBuildParameters
+        self.toolsBuildParameters = toolsBuildParameters
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
@@ -255,6 +285,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph that is eligible.
         for product in graph.allProducts where product.shouldCreateProductDescription {
+            let buildParameters: BuildParameters
+            switch product.buildTriple {
+            case .tools:
+                buildParameters = toolsBuildParameters
+            case .destination:
+                buildParameters = productsBuildParameters
+            }
+
             guard let package = graph.package(for: product) else {
                 throw InternalError("unknown package for \(product)")
             }
@@ -284,6 +322,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var pluginDescriptions = [PluginDescription]()
         var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
+            let buildParameters: BuildParameters
+            switch target.buildTriple {
+            case .tools:
+                buildParameters = toolsBuildParameters
+            case .destination:
+                buildParameters = productsBuildParameters
+            }
+
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
                 guard dependency.satisfies(buildParameters.buildEnvironment) else {
@@ -293,7 +339,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 switch dependency {
                 case .target: break
                 case .product(let product, _):
-                    if buildParameters.targetTriple.isDarwin() {
+                    if buildParameters.triple.isDarwin() {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
                             product: product,
                             forTarget: target,
@@ -373,9 +419,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan the derived test targets, if necessary.
-        if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
+        if productsBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
             let derivedTestTargets = try Self.makeDerivedTestTargets(
-                buildParameters,
+                productsBuildParameters,
                 graph,
                 self.fileSystem,
                 self.observabilityScope
@@ -447,14 +493,16 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
-        let buildPath = buildParameters.buildPath.pathString
+        // API tool runs on products, hence using `self.productsBuildParameters`, not `self.toolsBuildParameters`
+        let buildPath = self.destinationBuildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
         // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
         // will silently error failing the operation.  Filter out this flag
         // similar to how we filter out the library search path unless
         // explicitly requested.
-        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags.filter { !$0.starts(with: "-use-ld=") }
+        var extraSwiftCFlags = self.destinationBuildParameters.toolchain.extraFlags.swiftCompilerFlags
+            .filter { !$0.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
                 if extraSwiftCFlags[index] == "-L" {
@@ -494,7 +542,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
     public func createREPLArguments() throws -> [String] {
-        let buildPath = buildParameters.buildPath.pathString
+        let buildPath = self.toolsBuildParameters.buildPath.pathString
         var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
@@ -536,8 +584,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         let results = try pkgConfigArgs(
             for: target,
-            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
-            sdkRootPath: buildParameters.toolchain.sdkRootPath,
+            pkgConfigDirectories: self.destinationBuildParameters.pkgConfigDirectories,
+            sdkRootPath: self.destinationBuildParameters.toolchain.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -563,9 +611,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Extracts the library information from an XCFramework.
-    func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
-        try self.externalLibrariesCache.memoize(key: target) {
-            return try target.parseXCFrameworks(for: self.buildParameters.targetTriple, fileSystem: self.fileSystem)
+    func parseXCFramework(for binaryTarget: BinaryTarget, triple: Basics.Triple) throws -> [LibraryInfo] {
+        try self.externalLibrariesCache.memoize(key: binaryTarget) {
+            return try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
         }
     }
 }
@@ -601,7 +649,7 @@ extension Basics.Diagnostic {
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> AbsolutePath {
-        return buildPath.appending(component: name + targetTriple.nsbundleExtension)
+        return buildPath.appending(component: name + self.triple.nsbundleExtension)
     }
 }
 

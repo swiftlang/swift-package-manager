@@ -141,6 +141,9 @@ public final class ResolvedTarget {
     /// The list of platforms that are supported by this target.
     public let platforms: SupportedPlatforms
 
+    /// Triple for which this resolved target should be compiled for.
+    public let buildTriple: BuildTriple
+
     /// Create a resolved target instance.
     public init(
         target: Target,
@@ -152,6 +155,7 @@ public final class ResolvedTarget {
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
+        self.buildTriple = .destination
     }
 }
 

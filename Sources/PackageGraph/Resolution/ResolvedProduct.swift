@@ -39,6 +39,9 @@ public final class ResolvedProduct {
     /// The list of platforms that are supported by this product.
     public let platforms: SupportedPlatforms
 
+    /// Triple for which this resolved product should be compiled for.
+    public let buildTriple: BuildTriple
+
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
@@ -81,6 +84,8 @@ public final class ResolvedProduct {
                 platforms: platforms
             )
         }
+        
+        self.buildTriple = .destination
     }
 
     /// True if this product contains Swift targets.

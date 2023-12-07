@@ -65,10 +65,6 @@ public class LLBuildManifestBuilder {
 
     public internal(set) var manifest: LLBuildManifest = .init()
 
-    var buildConfig: String { self.buildParameters.configuration.dirname }
-    var buildParameters: BuildParameters { self.plan.buildParameters }
-    var buildEnvironment: BuildEnvironment { self.buildParameters.buildEnvironment }
-
     /// Mapping from Swift compiler path to Swift get version files.
     var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 
@@ -85,9 +81,9 @@ public class LLBuildManifestBuilder {
         self.observabilityScope = observabilityScope
     }
 
-    // MARK: - Generate Manifest
+    // MARK: - Generate Build Manifest
 
-    /// Generate manifest at the given path.
+    /// Generate build manifest at the given path.
     @discardableResult
     public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
@@ -98,7 +94,7 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.buildParameters.driverParameters.useExplicitModuleBuild {
+        if self.plan.destinationBuildParameters.driverParameters.useExplicitModuleBuild {
             // Explicit module builds use the integrated driver directly and
             // require that every target's build jobs specify its dependencies explicitly to plan
             // its build.
@@ -117,7 +113,7 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        if self.buildParameters.testingParameters.library == .xctest {
+        if self.plan.destinationBuildParameters.testingParameters.library == .xctest {
             try self.addTestDiscoveryGenerationCommand()
         }
         try self.addTestEntryPointGenerationCommand()
@@ -181,10 +177,16 @@ extension LLBuildManifestBuilder {
 extension LLBuildManifestBuilder {
     // Creates commands for copying all binary artifacts depended on in the plan.
     private func addBinaryDependencyCommands() {
-        let binaryPaths = Set(plan.targetMap.values.flatMap(\.libraryBinaryPaths))
-        for binaryPath in binaryPaths {
-            let destination = destinationPath(forBinaryAt: binaryPath)
-            addCopyCommand(from: binaryPath, to: destination)
+        // Make sure we don't have multiple copy commands for each destination by mapping each destination to 
+        // its source binary.
+        var destinations = [AbsolutePath: AbsolutePath]()
+        for target in self.plan.targetMap.values {
+            for binaryPath in target.libraryBinaryPaths {
+                destinations[target.buildParameters.destinationPath(forBinaryAt: binaryPath)] = binaryPath
+            }
+        }
+        for (destination, source) in destinations {
+            self.addCopyCommand(from: source, to: destination)
         }
     }
 }
@@ -268,7 +270,9 @@ extension LLBuildManifestBuilder {
 
             let outputs = testEntryPointTarget.target.sources.paths
 
-            let mainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+            let mainFileName = TestEntryPointTool.mainFileName(
+                for: self.plan.destinationBuildParameters.testingParameters.library
+            )
             guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
                 throw InternalError("main output (\(mainFileName)) not found")
             }
@@ -353,10 +357,14 @@ extension LLBuildManifestBuilder {
         self.manifest.addCopyCmd(name: destination.pathString, inputs: [inputNode], outputs: [outputNode])
         return (inputNode, outputNode)
     }
+}
 
+extension BuildParameters {
     func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
-        self.plan.buildParameters.buildPath.appending(component: path.basename)
+        self.buildPath.appending(component: path.basename)
     }
+
+    var buildConfig: String { self.configuration.dirname }
 }
 
 extension Sequence where Element: Hashable {
