@@ -42,7 +42,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: self.buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 addStaticTargetInputs(target)
@@ -68,7 +68,7 @@ extension LLBuildManifestBuilder {
         }
 
         for binaryPath in target.libraryBinaryPaths {
-            let path = destinationPath(forBinaryAt: binaryPath)
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
@@ -97,7 +97,7 @@ extension LLBuildManifestBuilder {
 
             args += ["-c", path.source.pathString, "-o", path.object.pathString]
 
-            let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
+            let clangCompiler = try target.buildParameters.toolchain.getClangCompiler().pathString
             args.insert(clangCompiler, at: 0)
 
             let objectFileNode: Node = .file(path.object)
@@ -116,7 +116,7 @@ extension LLBuildManifestBuilder {
         try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: self.buildConfig)
+        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
@@ -126,7 +126,7 @@ extension LLBuildManifestBuilder {
             outputs: [output]
         )
 
-        if self.plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
+        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
             if !target.isTestTarget {
                 self.addNode(output, toTarget: .main)
             }

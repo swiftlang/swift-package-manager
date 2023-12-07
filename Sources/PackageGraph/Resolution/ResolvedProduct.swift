@@ -41,6 +41,9 @@ public struct ResolvedProduct: Hashable {
 
     public let platformVersionProvider: PlatformVersionProvider
 
+    /// Triple for which this resolved product should be compiled for.
+    public let buildTriple: BuildTriple
+
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
@@ -84,6 +87,8 @@ public struct ResolvedProduct: Hashable {
                 platformVersionProvider: platformVersionProvider
             )
         }
+        
+        self.buildTriple = .destination
 
         // defaultLocalization is currently shared across the entire package
         // this may need to be enhanced if / when we support localization per target or product

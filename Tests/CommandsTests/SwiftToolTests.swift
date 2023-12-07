@@ -255,7 +255,8 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
         let explicitDwarf = try SwiftTool.createSwiftToolForTest(options: explicitDwarfOptions)
         plan = try BuildPlan(
-            buildParameters: explicitDwarf.buildParameters(),
+            productsBuildParameters: explicitDwarf.productsBuildParameters,
+            toolsBuildParameters: explicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observer.topScope
@@ -269,7 +270,8 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitCodeView = try SwiftTool.createSwiftToolForTest(options: explicitCodeViewOptions)
 
         plan = try BuildPlan(
-            buildParameters: explicitCodeView.buildParameters(),
+            productsBuildParameters: explicitCodeView.productsBuildParameters,
+            toolsBuildParameters: explicitCodeView.productsBuildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observer.topScope
@@ -283,7 +285,7 @@ final class SwiftToolTests: CommandsTestCase {
         let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
         let unsupportedCodeView = try SwiftTool.createSwiftToolForTest(options: unsupportedCodeViewOptions)
 
-        XCTAssertThrowsError(try unsupportedCodeView.buildParameters()) {
+        XCTAssertThrowsError(try unsupportedCodeView.productsBuildParameters) {
             XCTAssertEqual($0 as? StringError, StringError("CodeView debug information is currently not supported on linux"))
         }
 
@@ -291,7 +293,8 @@ final class SwiftToolTests: CommandsTestCase {
         let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
         let implicitDwarf = try SwiftTool.createSwiftToolForTest(options: implicitDwarfOptions)
         plan = try BuildPlan(
-            buildParameters: implicitDwarf.buildParameters(),
+            productsBuildParameters: implicitDwarf.productsBuildParameters,
+            toolsBuildParameters: implicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observer.topScope
@@ -303,7 +306,8 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
         let explicitNoDebugInfo = try SwiftTool.createSwiftToolForTest(options: explicitNoDebugInfoOptions)
         plan = try BuildPlan(
-            buildParameters: explicitNoDebugInfo.buildParameters(),
+            productsBuildParameters: explicitNoDebugInfo.productsBuildParameters,
+            toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observer.topScope

@@ -26,6 +26,7 @@ struct BuildResult {
     let stdout: String
     let stderr: String
     let binContents: [String]
+    let moduleContents: [String]
 }
 
 final class BuildToolTests: CommandsTestCase {
@@ -55,7 +56,14 @@ final class BuildToolTests: CommandsTestCase {
             // is what `binContents` is meant to represent.
             return contents != ["output-file-map.json"]
         }
-        return BuildResult(binPath: binPath, stdout: stdout, stderr: stderr, binContents: binContents)
+        let moduleContents = (try? localFileSystem.getDirectoryContents(binPath.appending(component: "Modules"))) ?? []
+        return BuildResult(
+            binPath: binPath,
+            stdout: stdout,
+            stderr: stderr,
+            binContents: binContents,
+            moduleContents: moduleContents
+        )
     }
 
     func testUsage() throws {
@@ -325,9 +333,9 @@ final class BuildToolTests: CommandsTestCase {
                 // Also make sure we didn't emit parseable module interfaces
                 // (do this here to avoid doing a second build in
                 // testParseableInterfaces().
-                XCTAssertNoMatch(result.binContents, ["ATarget.swiftinterface"])
-                XCTAssertNoMatch(result.binContents, ["BTarget.swiftinterface"])
-                XCTAssertNoMatch(result.binContents, ["CTarget.swiftinterface"])
+                XCTAssertNoMatch(result.moduleContents, ["ATarget.swiftinterface"])
+                XCTAssertNoMatch(result.moduleContents, ["BTarget.swiftinterface"])
+                XCTAssertNoMatch(result.moduleContents, ["CTarget.swiftinterface"])
             }
         }
     }
@@ -336,8 +344,8 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
             do {
                 let result = try build(["--enable-parseable-module-interfaces"], packagePath: fixturePath)
-                XCTAssertMatch(result.binContents, ["A.swiftinterface"])
-                XCTAssertMatch(result.binContents, ["B.swiftinterface"])
+                XCTAssertMatch(result.moduleContents, ["A.swiftinterface"])
+                XCTAssertMatch(result.moduleContents, ["B.swiftinterface"])
             } catch SwiftPMError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -348,8 +356,8 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/LibraryEvolution") { fixturePath in
             do {
                 let result = try build([], packagePath: fixturePath)
-                XCTAssertMatch(result.binContents, ["A.swiftinterface"])
-                XCTAssertMatch(result.binContents, ["B.swiftinterface"])
+                XCTAssertMatch(result.moduleContents, ["A.swiftinterface"])
+                XCTAssertMatch(result.moduleContents, ["B.swiftinterface"])
             }
         }
     }

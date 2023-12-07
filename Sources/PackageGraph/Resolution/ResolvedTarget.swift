@@ -143,6 +143,10 @@ public struct ResolvedTarget: Hashable {
 
     private let platformVersionProvider: PlatformVersionProvider
 
+    /// Triple for which this resolved target should be compiled for.
+    public let buildTriple: BuildTriple
+
+    /// Create a resolved target instance.
     public init(
         underlying: Target,
         dependencies: [ResolvedTarget.Dependency],
@@ -155,6 +159,7 @@ public struct ResolvedTarget: Hashable {
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
+        self.buildTriple = .destination
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {

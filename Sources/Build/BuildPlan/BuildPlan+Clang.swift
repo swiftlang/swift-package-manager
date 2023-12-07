@@ -18,7 +18,9 @@ import class PackageModel.SystemLibraryTarget
 extension BuildPlan {
     /// Plan a Clang target.
     func plan(clangTarget: ClangTargetBuildDescription) throws {
-        for case .target(let dependency, _) in try clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
+        let dependencies = try clangTarget.target.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
+
+        for case .target(let dependency, _) in dependencies {
             switch dependency.underlying {
             case is SwiftTarget:
                 if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
@@ -42,7 +44,7 @@ extension BuildPlan {
                 clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
-                    let libraries = try self.parseXCFramework(for: target)
+                    let libraries = try self.parseXCFramework(for: target, triple: clangTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
                             clangTarget.additionalFlags += ["-I", $0.pathString]

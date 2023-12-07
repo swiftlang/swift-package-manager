@@ -125,15 +125,13 @@ public struct SwiftRunTool: SwiftCommand {
                     explicitProduct: self.options.executable
                 )
             }
-            let buildParameters = try swiftTool.buildParameters()
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try swiftTool.createBuildSystem(
                 explicitBuildSystem: .native,
                 cacheBuildManifest: false,
-                customBuildParameters: buildParameters,
-                customPackageGraphLoader: graphLoader
+                packageGraphLoader: graphLoader
             )
 
             // Perform build.
@@ -159,7 +157,7 @@ public struct SwiftRunTool: SwiftCommand {
                     try buildSystem.build(subset: .product(productName))
                 }
 
-                let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
+                let executablePath = try swiftTool.productsBuildParameters.buildPath.appending(component: productName)
 
                 // Make sure we are running from the original working directory.
                 let cwd: AbsolutePath? = swiftTool.fileSystem.currentWorkingDirectory
@@ -201,7 +199,7 @@ public struct SwiftRunTool: SwiftCommand {
                     try buildSystem.build(subset: .product(productName))
                 }
 
-                let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
+                let executablePath = try swiftTool.productsBuildParameters.buildPath.appending(component: productName)
                 try self.run(
                     fileSystem: swiftTool.fileSystem,
                     executablePath: executablePath,

@@ -42,8 +42,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
-    /// The build parameters.
-    public let buildParameters: BuildParameters
+    /// Build parameters for products.
+    let productsBuildParameters: BuildParameters
+
+    /// Build parameters for build tools: plugins and macros.
+    let toolsBuildParameters: BuildParameters
 
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
@@ -102,7 +105,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let pkgConfigDirectories: [AbsolutePath]
 
     public init(
-        buildParameters: BuildParameters,
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         pluginConfiguration: PluginConfiguration? = .none,
@@ -114,10 +118,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         observabilityScope: ObservabilityScope
     ) {
         /// Checks if stdout stream is tty.
-        var buildParameters = buildParameters
-        buildParameters.outputParameters.isColorized = outputStream.isTTY
+        var productsBuildParameters = productsBuildParameters
+        productsBuildParameters.outputParameters.isColorized = outputStream.isTTY
 
-        self.buildParameters = buildParameters
+        var toolsBuildParameters = toolsBuildParameters
+        toolsBuildParameters.outputParameters.isColorized = outputStream.isTTY
+
+        self.productsBuildParameters = productsBuildParameters
+        self.toolsBuildParameters = toolsBuildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.additionalFileRules = additionalFileRules
@@ -147,7 +155,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     if try self.buildPackageStructure() {
                         // confirm the step above created the build description as expected
                         // we trust it to update the build description when needed
-                        let buildDescriptionPath = self.buildParameters.buildDescriptionPath
+                        let buildDescriptionPath = self.productsBuildParameters.buildDescriptionPath
                         guard self.fileSystem.exists(buildDescriptionPath) else {
                             throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                         }
@@ -184,7 +192,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
+        guard DriverSupport.checkSupportedFrontendFlags(
+            flags: ["import-prescan"],
+            toolchain: self.productsBuildParameters.toolchain,
+            fileSystem: localFileSystem
+        ) else {
             return
         }
 
@@ -240,7 +252,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
-        guard !buildParameters.shouldSkipBuilding else {
+        guard !self.productsBuildParameters.shouldSkipBuilding else {
             return
         }
 
@@ -266,7 +278,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         // delegate is only available after createBuildSystem is called
-        self.buildSystemDelegate?.buildStart(configuration: self.buildParameters.configuration)
+        self.buildSystemDelegate?.buildStart(configuration: self.productsBuildParameters.configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
@@ -279,8 +291,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.
-        let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
-            component: buildParameters.configuration.dirname
+        let oldBuildPath = productsBuildParameters.dataPath.parentDirectory.appending(
+            component: productsBuildParameters.configuration.dirname
         )
         if self.fileSystem.exists(oldBuildPath) {
             do { try self.fileSystem.removeFileTree(oldBuildPath) }
@@ -294,7 +306,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         do {
-            try self.fileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
+            try self.fileSystem.createSymbolicLink(oldBuildPath, pointingAt: productsBuildParameters.buildPath, relative: true)
         } catch {
             self.observabilityScope.emit(
                 warning: "unable to create symbolic link at \(oldBuildPath)",
@@ -400,7 +412,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Compute the llbuild target name using the given subset.
-    func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
+    private func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
         switch subset {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -411,8 +423,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                   config: buildParameters.configuration.dirname,
-                   observabilityScope: self.observabilityScope
+                config: self.productsBuildParameters.configuration.dirname,
+                observabilityScope: self.observabilityScope
             ) {
                 return result
             }
@@ -428,9 +440,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        if let pluginConfiguration, !self.buildParameters.shouldSkipBuilding {
-            let buildOperationForPluginDependencies = try BuildOperation(
-                buildParameters: self.buildParameters.forTriple(self.buildParameters.hostTriple),
+        if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
+            let buildOperationForPluginDependencies = BuildOperation(
+                productsBuildParameters: self.productsBuildParameters,
+                toolsBuildParameters: self.toolsBuildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: { return graph },
                 additionalFileRules: self.additionalFileRules,
@@ -442,11 +455,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                builtToolsDir: self.buildParameters.buildPath,
-                buildEnvironment: self.buildParameters.buildEnvironment,
-                toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                builtToolsDir: self.toolsBuildParameters.buildPath,
+                buildEnvironment: self.toolsBuildParameters.buildEnvironment,
+                toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
-                sdkRootPath: self.buildParameters.toolchain.sdkRootPath,
+                sdkRootPath: self.toolsBuildParameters.toolchain.sdkRootPath,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
@@ -526,7 +539,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            productsBuildParameters: self.productsBuildParameters,
+            toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
@@ -567,7 +581,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             : NinjaProgressAnimation(stream: self.outputStream)
 
         let buildExecutionContext = BuildExecutionContext(
-            buildParameters,
+            productsBuildParameters: self.productsBuildParameters,
+            toolsBuildParameters: self.toolsBuildParameters,
             buildDescription: buildDescription,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope,
@@ -587,12 +602,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         self.buildSystemDelegate = buildSystemDelegate
 
-        let databasePath = buildParameters.dataPath.appending("build.db").pathString
+        let databasePath = self.productsBuildParameters.dataPath.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
-            buildFile: buildParameters.llbuildManifest.pathString,
+            buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
             delegate: buildSystemDelegate,
-            schedulerLanes: buildParameters.workers
+            schedulerLanes: self.productsBuildParameters.workers
         )
 
         // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
@@ -706,10 +721,15 @@ extension BuildOperation {
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: Basics.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest) {
+    static func create(
+        with plan: BuildPlan,
+        disableSandboxForPluginCommands: Bool,
+        fileSystem: Basics.FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> (BuildDescription, LLBuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
-        let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
+        let buildManifest = try llbuild.generateManifest(at: plan.destinationBuildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
@@ -730,10 +750,10 @@ extension BuildDescription {
             pluginDescriptions: plan.pluginDescriptions
         )
         try fileSystem.createDirectory(
-            plan.buildParameters.buildDescriptionPath.parentDirectory,
+            plan.destinationBuildParameters.buildDescriptionPath.parentDirectory,
             recursive: true
         )
-        try buildDescription.write(fileSystem: fileSystem, path: plan.buildParameters.buildDescriptionPath)
+        try buildDescription.write(fileSystem: fileSystem, path: plan.destinationBuildParameters.buildDescriptionPath)
         return (buildDescription, buildManifest)
     }
 }

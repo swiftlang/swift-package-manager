@@ -83,7 +83,7 @@ extension SwiftPackageTool {
             try tool.createBuildSystem(explicitProduct: productToInstall.name)
                 .build(subset: .product(productToInstall.name))
 
-            let binPath = try tool.buildParameters().buildPath.appending(component: productToInstall.name)
+            let binPath = try tool.productsBuildParameters.buildPath.appending(component: productToInstall.name)
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try tool.fileSystem.copy(from: binPath, to: finalBinPath)
 

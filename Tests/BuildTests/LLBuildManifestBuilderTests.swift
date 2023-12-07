@@ -50,7 +50,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .release
         ))
         var plan = try BuildPlan(
-            buildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -84,7 +85,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .debug
         ))
         plan = try BuildPlan(
-            buildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -137,7 +139,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .release
         ))
         plan = try BuildPlan(
-            buildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -161,7 +164,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .debug
         ))
         plan = try BuildPlan(
-            buildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
