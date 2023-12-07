@@ -179,7 +179,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Build parameters used for products.
-    public let productsBuildParameters: BuildParameters
+    public let destinationBuildParameters: BuildParameters
 
     /// Build parameters used for tools.
     public let toolsBuildParameters: BuildParameters
@@ -274,7 +274,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        self.productsBuildParameters = productsBuildParameters
+        self.destinationBuildParameters = productsBuildParameters
         self.toolsBuildParameters = toolsBuildParameters
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
@@ -287,9 +287,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for product in graph.allProducts where product.shouldCreateProductDescription {
             let buildParameters: BuildParameters
             switch product.buildTriple {
-            case .buildTools:
+            case .tools:
                 buildParameters = toolsBuildParameters
-            case .buildProducts:
+            case .destination:
                 buildParameters = productsBuildParameters
             }
 
@@ -324,9 +324,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
             let buildParameters: BuildParameters
             switch target.buildTriple {
-            case .buildTools:
+            case .tools:
                 buildParameters = toolsBuildParameters
-            case .buildProducts:
+            case .destination:
                 buildParameters = productsBuildParameters
             }
 
@@ -494,14 +494,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
         // API tool runs on products, hence using `self.productsBuildParameters`, not `self.toolsBuildParameters`
-        let buildPath = self.productsBuildParameters.buildPath.pathString
+        let buildPath = self.destinationBuildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
         // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
         // will silently error failing the operation.  Filter out this flag
         // similar to how we filter out the library search path unless
         // explicitly requested.
-        var extraSwiftCFlags = self.productsBuildParameters.toolchain.extraFlags.swiftCompilerFlags
+        var extraSwiftCFlags = self.destinationBuildParameters.toolchain.extraFlags.swiftCompilerFlags
             .filter { !$0.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
@@ -583,8 +583,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         let results = try pkgConfigArgs(
             for: target,
-            pkgConfigDirectories: self.productsBuildParameters.pkgConfigDirectories,
-            sdkRootPath: self.productsBuildParameters.toolchain.sdkRootPath,
+            pkgConfigDirectories: self.destinationBuildParameters.pkgConfigDirectories,
+            sdkRootPath: self.destinationBuildParameters.toolchain.sdkRootPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

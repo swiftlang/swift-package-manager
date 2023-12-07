@@ -371,7 +371,7 @@ public struct BuildDescription: Codable {
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.writeCommands = writeCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.productsBuildParameters.driverParameters
+        self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
             let deps = try targetBuildDescription.target.recursiveDependencies(

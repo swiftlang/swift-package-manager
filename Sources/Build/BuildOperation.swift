@@ -729,7 +729,7 @@ extension BuildDescription {
     ) throws -> (BuildDescription, LLBuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
-        let buildManifest = try llbuild.generateManifest(at: plan.productsBuildParameters.llbuildManifest)
+        let buildManifest = try llbuild.generateManifest(at: plan.destinationBuildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
@@ -750,10 +750,10 @@ extension BuildDescription {
             pluginDescriptions: plan.pluginDescriptions
         )
         try fileSystem.createDirectory(
-            plan.productsBuildParameters.buildDescriptionPath.parentDirectory,
+            plan.destinationBuildParameters.buildDescriptionPath.parentDirectory,
             recursive: true
         )
-        try buildDescription.write(fileSystem: fileSystem, path: plan.productsBuildParameters.buildDescriptionPath)
+        try buildDescription.write(fileSystem: fileSystem, path: plan.destinationBuildParameters.buildDescriptionPath)
         return (buildDescription, buildManifest)
     }
 }

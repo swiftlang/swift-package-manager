@@ -65,7 +65,7 @@ struct DumpSymbolGraph: SwiftCommand {
 
         // Run the tool once for every library and executable target in the root package.
         let buildPlan = try buildSystem.buildPlan
-        let symbolGraphDirectory = buildPlan.productsBuildParameters.dataPath.appending("symbolgraph")
+        let symbolGraphDirectory = buildPlan.destinationBuildParameters.dataPath.appending("symbolgraph")
         let targets = try buildSystem.getPackageGraph().rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library }
         for target in targets {
             print("-- Emitting symbol graph for", target.name)

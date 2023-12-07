@@ -80,8 +80,8 @@ extension ProductBuildDescription {
 }
 
 public protocol BuildPlan {
-    /// Parameters used when building end products.
-    var productsBuildParameters: BuildParameters { get }
+    /// Parameters used when building end products for the destination platform.
+    var destinationBuildParameters: BuildParameters { get }
 
     /// Parameters used when building tools (macros and plugins).
     var toolsBuildParameters: BuildParameters { get }
@@ -93,23 +93,23 @@ public protocol BuildPlan {
 }
 
 extension BuildPlan {
-    /// Parameters used for building this target.
+    /// Parameters used for building a given target.
     public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
         switch target.buildTriple {
-        case .buildTools:
+        case .tools:
             return self.toolsBuildParameters
-        case .buildProducts:
-            return self.productsBuildParameters
+        case .destination:
+            return self.destinationBuildParameters
         }
     }
 
-    /// Parameters used for building this product.
+    /// Parameters used for building a given product.
     public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
         switch product.buildTriple {
-        case .buildTools:
+        case .tools:
             return self.toolsBuildParameters
-        case .buildProducts:
-            return self.productsBuildParameters
+        case .destination:
+            return self.destinationBuildParameters
         }
     }
 }

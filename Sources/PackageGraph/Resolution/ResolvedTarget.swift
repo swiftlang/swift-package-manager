@@ -155,7 +155,7 @@ public final class ResolvedTarget {
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
-        self.buildTriple = .buildProducts
+        self.buildTriple = .destination
     }
 }
 

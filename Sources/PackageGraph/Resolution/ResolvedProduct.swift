@@ -85,7 +85,7 @@ public final class ResolvedProduct {
             )
         }
         
-        self.buildTriple = .buildProducts
+        self.buildTriple = .destination
     }
 
     /// True if this product contains Swift targets.

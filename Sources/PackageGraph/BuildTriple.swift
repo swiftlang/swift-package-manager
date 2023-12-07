@@ -15,8 +15,8 @@
 /// > system "targets" and can lead to confusion in this context.
 public enum BuildTriple {
     /// Triple for which build tools are compiled (the host triple).
-    case buildTools
+    case tools
 
-    /// Triple for which build products are compiled (the target triple).
-    case buildProducts
+    /// Triple of the destination platform for which end products are compiled (the target triple).
+    case destination
 }
