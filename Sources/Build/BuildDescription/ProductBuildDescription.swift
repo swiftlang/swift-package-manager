@@ -327,6 +327,16 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
 
+        // Enable the correct lto mode if requested.
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
+        case nil:
+            break
+        case .full:
+            args += ["-lto=llvm-full"]
+        case .thin:
+            args += ["-lto=llvm-thin"]
+        }
+
         // Pass default library paths from the toolchain.
         for librarySearchPath in self.buildParameters.toolchain.librarySearchPaths {
             args += ["-L", librarySearchPath.pathString]

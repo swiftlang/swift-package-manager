@@ -515,10 +515,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         arguments += extraSwiftCFlags
 
-        // Add the search path to the directory containing the modulemap file.
+        // Add search paths to the directories containing module maps and Swift modules.
         for target in targets {
             switch target {
-            case .swift: break
+            case .swift(let targetDescription):
+                arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
             case .clang(let targetDescription):
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]
