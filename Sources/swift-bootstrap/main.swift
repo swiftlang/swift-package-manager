@@ -281,8 +281,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 dataPath: dataPath,
                 configuration: configuration,
                 toolchain: self.targetToolchain,
-                hostTriple: self.hostToolchain.targetTriple,
-                targetTriple: self.targetToolchain.targetTriple,
+                triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
@@ -308,7 +307,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             switch buildSystem {
             case .native:
                 return BuildOperation(
-                    buildParameters: buildParameters,
+                    // when building `swift-bootstrap`, host and target build parameters are the same
+                    productsBuildParameters: buildParameters,
+                    toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: packageGraphLoader,
                     additionalFileRules: [],

@@ -17,7 +17,7 @@ extension BuildParameters {
     public struct Debugging: Encodable {
         public init(
             debugInfoFormat: DebugInfoFormat = .dwarf,
-            targetTriple: Triple,
+            triple: Triple,
             shouldEnableDebuggingEntitlement: Bool,
             omitFramePointers: Bool?
         ) {
@@ -25,13 +25,13 @@ extension BuildParameters {
 
             // Per rdar://112065568 for backtraces to work on macOS a special entitlement needs to be granted on the final
             // executable.
-            self.shouldEnableDebuggingEntitlement = targetTriple.isMacOSX && shouldEnableDebuggingEntitlement
+            self.shouldEnableDebuggingEntitlement = triple.isMacOSX && shouldEnableDebuggingEntitlement
             // rdar://117578677: frame-pointer to support backtraces
             // this can be removed once the backtracer uses DWARF instead of frame pointers
             if let omitFramePointers {
                 // if set, we respect user's preference
                 self.omitFramePointers = omitFramePointers
-            } else if targetTriple.isLinux() {
+            } else if triple.isLinux() {
                 // on Linux we preserve frame pointers by default
                 self.omitFramePointers = false
             } else {
@@ -67,7 +67,7 @@ extension BuildParameters {
             return nil
         }
 
-        if targetTriple.isApple() {
+        if self.triple.isApple() {
             return .swiftAST
         }
         return .modulewrap

@@ -65,7 +65,7 @@ struct DumpSymbolGraph: SwiftCommand {
 
         // Run the tool once for every library and executable target in the root package.
         let buildPlan = try buildSystem.buildPlan
-        let symbolGraphDirectory = buildPlan.buildParameters.dataPath.appending("symbolgraph")
+        let symbolGraphDirectory = buildPlan.destinationBuildParameters.dataPath.appending("symbolgraph")
         let targets = try buildSystem.getPackageGraph().rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library }
         for target in targets {
             print("-- Emitting symbol graph for", target.name)
@@ -78,11 +78,12 @@ struct DumpSymbolGraph: SwiftCommand {
             )
 
             if result.exitStatus != .terminated(code: 0) {
+                let commandline = "\nUsing commandline: \(result.arguments)"
                 switch result.output {
                 case .success(let value):
-                    swiftTool.observabilityScope.emit(error: "Failed to emit symbol graph for '\(target.c99name)': \(String(decoding: value, as: UTF8.self))")
+                    swiftTool.observabilityScope.emit(error: "Failed to emit symbol graph for '\(target.c99name)': \(String(decoding: value, as: UTF8.self))\(commandline)")
                 case .failure(let error):
-                    swiftTool.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(target.c99name)': \(error)")
+                    swiftTool.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(target.c99name)': \(error)\(commandline)")
                 }
             }
         }
@@ -140,7 +141,7 @@ struct DumpPIF: SwiftCommand {
     func run(_ swiftTool: SwiftTool) throws {
         let graph = try swiftTool.loadPackageGraph()
         let pif = try PIFBuilder.generatePIF(
-            buildParameters: swiftTool.buildParameters(),
+            buildParameters: swiftTool.productsBuildParameters,
             packageGraph: graph,
             fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope,

@@ -41,6 +41,9 @@ public final class ResolvedProduct {
 
     public let platformVersionProvider: PlatformVersionProvider
 
+    /// Triple for which this resolved product should be compiled for.
+    public let buildTriple: BuildTriple
+
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
@@ -85,6 +88,8 @@ public final class ResolvedProduct {
                 platformVersionProvider: platformVersionProvider
             )
         }
+        
+        self.buildTriple = .destination
     }
 
     /// True if this product contains Swift targets.

@@ -450,19 +450,23 @@ def install_dylib(args, library_name, install_dir, module_names):
     for module in module_names:
         # If we're cross-compiling, we expect the .swiftmodule to be a directory that contains everything.
         if args.cross_compile_hosts:
-            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'], subpath="Modules")
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
             if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
-                install_binary(args, module + ".swiftinterface", install_dir)
+                install_binary(args, module + ".swiftinterface", install_dir, subpath="Modules")
             else:
-                install_binary(args, module + ".swiftmodule", install_dir)
-            install_binary(args, module + ".swiftdoc", install_dir)
+                install_binary(args, module + ".swiftmodule", install_dir, subpath="Modules")
+            install_binary(args, module + ".swiftdoc", install_dir, subpath="Modules")
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
-def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[]):
-    src = os.path.join(args.bin_dir, binary)
+def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[], subpath=None):
+    if subpath:
+        basepath = os.path.join(args.bin_dir, subpath)
+    else:
+        basepath = args.bin_dir
+    src = os.path.join(basepath, binary)
     install_file(args, src, destination, destination_is_directory=destination_is_directory, ignored_patterns=ignored_patterns)
 
 def install_file(args, src, destination, destination_is_directory=True, ignored_patterns=[]):
