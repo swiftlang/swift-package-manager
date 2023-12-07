@@ -191,6 +191,14 @@
         "identifier" : "XCBuildSupportTests",
         "name" : "XCBuildSupportTests"
       }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "LLBuildManifestTests",
+        "name" : "LLBuildManifestTests"
+      }
     }
   ],
   "version" : 1

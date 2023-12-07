@@ -3,10 +3,13 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
-* [#5728]
+* [#7010]
 
-  In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
+  On macOS, `swift build` and `swift run` now produce binaries that allow backtraces in debug builds. Pass `SWIFT_BACKTRACE=enable=yes` environment variable to enable backtraces on such binaries when running them.
 
+* [7101]
+
+   Binary artifacts are now cached along side repository checkouts so they do not need to be re-downloaded across projects.
 
 Swift 5.9
 -----------
@@ -379,3 +382,4 @@ Swift 3.0
 [#6276]: https://github.com/apple/swift-package-manager/pull/6276
 [#6540]: https://github.com/apple/swift-package-manager/pull/6540
 [#6663]: https://github.com/apple/swift-package-manager/pull/6663
+[#7101]: https://github.com/apple/swift-package-manager/pull/7101

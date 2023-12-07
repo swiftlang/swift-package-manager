@@ -53,7 +53,34 @@ struct SignatureValidation {
     }
 
     // MARK: - source archive
-
+    func validate(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        content: Data,
+        configuration: RegistryConfiguration.Security.Signing,
+        timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> SigningEntity? {
+        try await safe_async {
+            self.validate(
+                registry: registry,
+                package: package,
+                version: version, 
+                content: content,
+                configuration: configuration,
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope, 
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
     func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
@@ -285,7 +312,36 @@ struct SignatureValidation {
     }
 
     // MARK: - manifests
+    func validate(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        toolsVersion: ToolsVersion?,
+        manifestContent: String,
+        configuration: RegistryConfiguration.Security.Signing,
+        timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> SigningEntity? {
+        try await safe_async {
+            self.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: toolsVersion,
+                manifestContent: manifestContent,
+                configuration: configuration,
+                timeout: timeout,
+                fileSystem:fileSystem,
+                observabilityScope: observabilityScope, 
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,

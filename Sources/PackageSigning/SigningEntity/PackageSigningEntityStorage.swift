@@ -20,6 +20,7 @@ import struct TSCUtility.Version
 
 public protocol PackageSigningEntityStorage {
     /// For a given package, return the signing entities and the package versions that each of them signed.
+    @available(*, noasync, message: "Use the async alternative")
     func get(
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,
@@ -31,6 +32,7 @@ public protocol PackageSigningEntityStorage {
     ///
     /// This throws `PackageSigningEntityStorageError.conflict` if `signingEntity`
     /// of the package version is different from that in storage.
+    @available(*, noasync, message: "Use the async alternative")
     func put(
         package: PackageIdentity,
         version: Version,
@@ -46,6 +48,7 @@ public protocol PackageSigningEntityStorage {
     /// If the package version already has other `SigningEntity`s in storage, this
     /// API **adds** `signingEntity` to the package version's signers rather than
     /// throwing an error.
+    @available(*, noasync, message: "Use the async alternative")
     func add(
         package: PackageIdentity,
         version: Version,
@@ -57,6 +60,7 @@ public protocol PackageSigningEntityStorage {
     )
 
     /// Make `signingEntity` the package's expected signer starting from the given version.
+    @available(*, noasync, message: "Use the async alternative")
     func changeSigningEntityFromVersion(
         package: PackageIdentity,
         version: Version,
@@ -71,6 +75,7 @@ public protocol PackageSigningEntityStorage {
     ///
     /// This API deletes all other existing signers from storage, therefore making
     /// `signingEntity` the package's sole signer.
+    @available(*, noasync, message: "Use the async alternative")
     func changeSigningEntityForAllVersions(
         package: PackageIdentity,
         version: Version,
@@ -80,6 +85,107 @@ public protocol PackageSigningEntityStorage {
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     )
+}
+
+public extension PackageSigningEntityStorage {
+    func get(
+        package: PackageIdentity,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> PackageSigners {
+        try await safe_async {
+            self.get(
+                package: package,
+                observabilityScope: observabilityScope, 
+                callbackQueue: callbackQueue,
+                callback: $0
+            )
+        }
+    }
+
+    func put(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.put(
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                origin: origin,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                callback: $0
+            )
+        }
+    }
+
+    func add(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.add(
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                origin: origin,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                callback: $0
+            )
+        }
+    }
+
+    func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.changeSigningEntityFromVersion(
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                origin: origin,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                callback: $0
+            )
+        }
+    }
+
+    func changeSigningEntityForAllVersions(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.changeSigningEntityForAllVersions(
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                origin: origin,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                callback: $0
+            )
+        }
+    }
 }
 
 // MARK: - Models

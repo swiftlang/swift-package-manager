@@ -121,6 +121,10 @@ private let fixtureArchivePath = try! AbsolutePath(validating: #file)
 
 final class SwiftSDKBundleTests: XCTestCase {
     func testInstallRemote() async throws {
+        #if canImport(Darwin) && !os(macOS)
+        try XCTSkipIf(true, "skipping test because process launching is not available")
+        #endif
+
         let system = ObservabilitySystem.makeForTesting()
         var output = [SwiftSDKBundleStore.Output]()
         let observabilityScope = system.topScope

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,8 +19,7 @@ import XCTest
 import class TSCBasic.InMemoryFileSystem
 
 /// Tests for the handling of source layout conventions.
-class PackageBuilderTests: XCTestCase {
-
+final class PackageBuilderTests: XCTestCase {
     func testDotFilesAreIgnored() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/.Bar.swift",
@@ -2990,7 +2989,7 @@ class PackageBuilderTests: XCTestCase {
 
         var assignment = BuildSettings.Assignment()
         assignment.values = ["YOLO"]
-        assignment.conditions = [PlatformsCondition(platforms: [PackageModel.Platform.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
+        assignment.conditions = [PackageCondition(platforms: [.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
 
         var settings = BuildSettings.AssignmentTable()
         settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)

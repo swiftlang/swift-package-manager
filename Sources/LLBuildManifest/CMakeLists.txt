@@ -7,9 +7,9 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(LLBuildManifest STATIC
-  BuildManifest.swift
   Command.swift
-  ManifestWriter.swift
+  LLBuildManifest.swift
+  LLBuildManifestWriter.swift
   Node.swift
   Target.swift
   Tools.swift)

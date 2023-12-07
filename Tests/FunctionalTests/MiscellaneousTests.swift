@@ -54,8 +54,8 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertBuilds(fixturePath.appending("app"))
             let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertFileExists(buildDir.appending("FooExec"))
-            XCTAssertFileExists(buildDir.appending("FooLib1.swiftmodule"))
-            XCTAssertFileExists(buildDir.appending("FooLib2.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib1.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib2.swiftmodule"))
         }
     }
 
@@ -337,25 +337,27 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testInvalidRefsValidation() throws {
-        try fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { fixturePath in
-            do {
-                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidBranch"))) { error in
-                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                        return XCTFail("invalid error \(error)")
-                    }
-                    XCTAssert(stderr.contains("invalid branch name: "), "Didn't find expected output: \(stderr)")
-                }
-            }
-            do {
-                XCTAssertThrowsError(try SwiftPM.Build.execute(packagePath: fixturePath.appending("InvalidRevision"))) { error in
-                    guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                        return XCTFail("invalid error \(error)")
-                    }
-                    XCTAssert(stderr.contains("invalid revision: "), "Didn't find expected output: \(stderr)")
-                }
-            }
+    func testLTO() throws {
+        #if os(macOS)
+        // FIXME: this test requires swift-driver to be installed
+        // Currently swift-ci does not build/install swift-driver before running
+        // swift-package-manager tests which results in this test failing.
+        // See the following additional discussion:
+        // - https://github.com/apple/swift/pull/69696
+        // - https://github.com/apple/swift/pull/61766
+        // - https://github.com/apple/swift-package-manager/pull/5842#issuecomment-1301632685
+        try fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
+            /*let output =*/ 
+            try executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--experimental-lto-mode=full", "--verbose"]
+            )
+            // FIXME: On macOS dsymutil cannot find temporary .o files? (#6890)
+            // Ensure warnings like the following are not present in build output
+            // warning: (arm64) /var/folders/ym/6l_0x8vj0b70sz_4h9d70p440000gn/T/main-e120de.o unable to open object file: No such file or directory
+            // XCTAssertNoMatch(output.stdout, .contains("unable to open object file"))
         }
+        #endif
     }
 
     func testUnicode() throws {

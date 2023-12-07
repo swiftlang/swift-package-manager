@@ -573,6 +573,7 @@ public final class InitPackage {
                     print("Hello, world!")
                 }
             }
+
             """
         case .macro:
             content = """
@@ -587,6 +588,7 @@ public final class InitPackage {
             /// produces a tuple `(x + y, "x + y")`.
             @freestanding(expression)
             public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
+
             """
 
         case .empty, .buildToolPlugin, .commandPlugin:

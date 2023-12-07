@@ -86,8 +86,8 @@ extension BuildPlan {
                 let discoveryResolvedTarget = ResolvedTarget(
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
-                    defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
+                    defaultLocalization: testProduct.defaultLocalization,
+                    platforms: testProduct.platforms
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -104,23 +104,27 @@ extension BuildPlan {
 
             /// Generates a synthesized test entry point target, consisting of a single "main" file which calls the test entry
             /// point API and leverages the test discovery target to reference which tests to run.
-            func generateSynthesizedEntryPointTarget(discoveryTarget: SwiftTarget, discoveryResolvedTarget: ResolvedTarget) throws -> SwiftTargetBuildDescription {
+            func generateSynthesizedEntryPointTarget(
+                swiftTargetDependencies: [Target.Dependency],
+                resolvedTargetDependencies: [ResolvedTarget.Dependency]
+            ) throws -> SwiftTargetBuildDescription {
                 let entryPointDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let entryPointMainFile = entryPointDerivedDir.appending(component: TestEntryPointTool.mainFileName)
+                let entryPointMainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+                let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
                 let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
                     type: .library,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
+                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + swiftTargetDependencies,
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(
                     target: entryPointTarget,
-                    dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
-                    defaultLocalization: .none, // safe since this is a derived target
-                    platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
+                    dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
+                    defaultLocalization: testProduct.defaultLocalization,
+                    platforms: testProduct.platforms
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -133,23 +137,36 @@ extension BuildPlan {
                 )
             }
 
+            let discoveryTargets: (target: SwiftTarget, resolved: ResolvedTarget, buildDescription: SwiftTargetBuildDescription)?
+            let swiftTargetDependencies: [Target.Dependency]
+            let resolvedTargetDependencies: [ResolvedTarget.Dependency]
+
+            switch buildParameters.testingParameters.library {
+            case .xctest:
+                discoveryTargets = try generateDiscoveryTargets()
+                swiftTargetDependencies = [.target(discoveryTargets!.target, conditions: [])]
+                resolvedTargetDependencies = [.target(discoveryTargets!.resolved, conditions: [])]
+            case .swiftTesting:
+                discoveryTargets = nil
+                swiftTargetDependencies = testProduct.targets.map { .target($0.underlyingTarget, conditions: []) }
+                resolvedTargetDependencies = testProduct.targets.map { .target($0, conditions: []) }
+            }
+
             if let entryPointResolvedTarget = testProduct.testEntryPointTarget {
                 if isEntryPointPathSpecifiedExplicitly || explicitlyEnabledDiscovery {
-                    let discoveryTargets = try generateDiscoveryTargets()
-
                     if isEntryPointPathSpecifiedExplicitly {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let entryPointTarget = SwiftTarget(
                             name: entryPointResolvedTarget.underlyingTarget.name,
-                            dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
+                            dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + swiftTargetDependencies,
                             packageAccess: entryPointResolvedTarget.packageAccess,
                             testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
                             target: entryPointTarget,
-                            dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
-                            defaultLocalization: .none, // safe since this is a derived target
-                            platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived target
+                            dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
+                            defaultLocalization: testProduct.defaultLocalization,
+                            platforms: testProduct.platforms
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,
@@ -161,11 +178,14 @@ extension BuildPlan {
                             observabilityScope: observabilityScope
                         )
 
-                        result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
+                        result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
                     } else {
                         // Ignore test entry point and synthesize one, declaring a dependency on the test discovery targets created above.
-                        let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
-                        result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
+                        let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(
+                            swiftTargetDependencies: swiftTargetDependencies,
+                            resolvedTargetDependencies: resolvedTargetDependencies
+                        )
+                        result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
                     }
                 } else {
                     // Use the test entry point as-is, without performing test discovery.
@@ -182,9 +202,11 @@ extension BuildPlan {
                 }
             } else {
                 // Synthesize a test entry point target, declaring a dependency on the test discovery targets.
-                let discoveryTargets = try generateDiscoveryTargets()
-                let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
-                result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
+                let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(
+                    swiftTargetDependencies: swiftTargetDependencies,
+                    resolvedTargetDependencies: resolvedTargetDependencies
+                )
+                result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
             }
         }
 

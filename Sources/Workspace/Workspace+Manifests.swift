@@ -181,8 +181,7 @@ extension Workspace {
                 let node = GraphLoadingNode(
                     identity: identity,
                     manifest: package.manifest,
-                    productFilter: .everything,
-                    fileSystem: workspace.fileSystem
+                    productFilter: .everything
                 )
                 return node
             } + root.dependencies.compactMap { dependency in
@@ -192,11 +191,12 @@ extension Workspace {
                     GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: manifest,
-                        productFilter: dependency.productFilter,
-                        fileSystem: workspace.fileSystem
+                        productFilter: dependency.productFilter
                     )
                 }
             }
+
+            let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map(\.packageRef) }
 
             var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
@@ -209,17 +209,28 @@ extension Workspace {
                         if existing.canonicalLocation == package.canonicalLocation {
                             // same literal location is fine
                             if existing.locationString != package.locationString {
-                                let preferred = [existing, package].sorted(by: {
-                                    $0.locationString > $1.locationString
-                                }).first! // safe
-                                observabilityScope.emit(debug: """
-                                similar variants of package '\(package.identity)' \
-                                found at '\(package.locationString)' and '\(existing.locationString)'. \
-                                using preferred variant '\(preferred.locationString)'
-                                """)
-                                if preferred.locationString != existing.locationString {
-                                    requiredIdentities.remove(existing)
-                                    requiredIdentities.insert(preferred, at: index)
+                                // we prefer the top level dependencies
+                                if topLevelDependencies.contains(where: {
+                                    $0.locationString == existing.locationString
+                                }) {
+                                    observabilityScope.emit(debug: """
+                                    similar variants of package '\(package.identity)' \
+                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                    using preferred root variant '\(existing.locationString)'
+                                    """)
+                                } else {
+                                    let preferred = [existing, package].sorted(by: {
+                                        $0.locationString > $1.locationString
+                                    }).first! // safe
+                                    observabilityScope.emit(debug: """
+                                    similar variants of package '\(package.identity)' \
+                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                    using preferred variant '\(preferred.locationString)'
+                                    """)
+                                    if preferred.locationString != existing.locationString {
+                                        requiredIdentities.remove(existing)
+                                        requiredIdentities.insert(preferred, at: index)
+                                    }
                                 }
                             }
                         } else {
@@ -234,8 +245,7 @@ extension Workspace {
                         GraphLoadingNode(
                             identity: dependency.identity,
                             manifest: manifest,
-                            productFilter: dependency.productFilter,
-                            fileSystem: workspace.fileSystem
+                            productFilter: dependency.productFilter
                         )
                     }
                 }
@@ -397,6 +407,24 @@ extension Workspace {
         automaticallyAddManagedDependencies: Bool = false,
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
+        let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
+            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
+            // file)
+            if automaticallyAddManagedDependencies {
+                try refs.forEach { ref in
+                    // Since we are creating managed dependencies based on the resolved file in this mode, but local
+                    // packages aren't part of that file, they will be missing from it. So we're eagerly adding them
+                    // here, but explicitly don't add any that are overridden by a root with the same identity since
+                    // that would lead to loading the given package twice, once as a root and once as a dependency
+                    // which violates various assumptions.
+                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
+                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
+                    }
+                }
+                observabilityScope.trap { try self.state.save() }
+            }
+        }
+
         // Utility Just because a raw tuple cannot be hashable.
         struct Key: Hashable {
             let identity: PackageIdentity
@@ -431,6 +459,7 @@ extension Workspace {
 
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map(\.packageRef)
+        try prepopulateManagedDependencies(rootDependencies)
         let rootDependenciesManifests = try temp_await { self.loadManagedManifests(
             for: rootDependencies,
             observabilityScope: observabilityScope,
@@ -462,21 +491,7 @@ extension Workspace {
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
-            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
-            // file)
-            if automaticallyAddManagedDependencies {
-                try dependenciesToLoad.forEach { ref in
-                    // Since we are creating managed dependencies based on the resolved file in this mode, but local
-                    // packages aren't part of that file, they will be missing from it. So we're eagerly adding them
-                    // here, but explicitly don't add any that are overridden by a root with the same identity since
-                    // that would lead to loading the given package twice, once as a root and once as a dependency 
-                    // which violates various assumptions.
-                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
-                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
-                    }
-                }
-                observabilityScope.trap { try self.state.save() }
-            }
+            try prepopulateManagedDependencies(dependenciesToLoad)
             let dependenciesManifests = try temp_await { self.loadManagedManifests(
                 for: dependenciesToLoad,
                 observabilityScope: observabilityScope,

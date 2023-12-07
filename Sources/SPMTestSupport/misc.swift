@@ -20,6 +20,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
@@ -72,20 +73,20 @@ public func testWithTemporaryDirectory(
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-public func fixture(
+@discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
-    body: (AbsolutePath) throws -> Void
-) throws {
+    body: (AbsolutePath) throws -> T
+) throws -> T {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = try RelativePath(validating: name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
@@ -93,48 +94,14 @@ public func fixture(
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            // Construct the expected path of the fixture.
-            // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
-                .appending(fixtureSubpath)
-
-            // Check that the fixture is really there.
-            guard localFileSystem.isDirectory(fixtureDir) else {
-                XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
-                return
-            }
-
-            // The fixture contains either a checkout or just a Git directory.
-            if localFileSystem.isFile(fixtureDir.appending("Package.swift")) {
-                // It's a single package, so copy the whole directory as-is.
-                let dstDir = tmpDirPath.appending(component: copyName)
-#if os(Windows)
-                try localFileSystem.copy(from: fixtureDir, to: dstDir)
-#else
-                try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)
-#endif
-
-                // Invoke the block, passing it the path of the copied fixture.
-                try body(dstDir)
-            } else {
-                // Copy each of the package directories and construct a git repo in it.
-                for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
-                    let srcDir = fixtureDir.appending(component: fileName)
-                    guard localFileSystem.isDirectory(srcDir) else { continue }
-                    let dstDir = tmpDirPath.appending(component: fileName)
-#if os(Windows)
-                    try localFileSystem.copy(from: srcDir, to: dstDir)
-#else
-                    try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-#endif
-                    if createGitRepo {
-                        initGitRepo(dstDir, tag: "1.2.3", addFile: false)
-                    }
-                }
-
-                // Invoke the block, passing it the path of the copied fixture.
-                try body(tmpDirPath)
-            }
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try body(preparedFixture)
         }
     } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
         print("**** FAILURE EXECUTING SUBPROCESS ****")
@@ -142,6 +109,88 @@ public func fixture(
         print("stderr:", stderr)
         throw error
     }
+}
+
+@discardableResult public func fixture<T>(
+    name: String,
+    createGitRepo: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line,
+    body: (AbsolutePath) async throws -> T
+) async throws -> T {
+    do {
+        // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = try RelativePath(validating: name)
+        let copyName = fixtureSubpath.components.joined(separator: "_")
+
+        // Create a temporary directory for the duration of the block.
+        return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+
+            defer {
+                // Unblock and remove the tmp dir on deinit.
+                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                try? localFileSystem.removeFileTree(tmpDirPath)
+            }
+
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try await body(preparedFixture)
+        }
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
+        print("stderr:", stderr)
+        throw error
+    }
+}
+
+fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: StaticString = #file, line: UInt = #line) throws -> AbsolutePath {
+    let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
+        .appending(fixtureSubpath)
+
+    // Check that the fixture is really there.
+    guard localFileSystem.isDirectory(fixtureDir) else {
+        XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+        throw SwiftPMError.packagePathNotFound
+    }
+
+    return fixtureDir
+}
+
+fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
+    func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
+#if os(Windows)
+        try localFileSystem.copy(from: srcDir, to: dstDir)
+#else
+        try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+#endif
+    }
+
+    // The fixture contains either a checkout or just a Git directory.
+    if localFileSystem.isFile(fixtureDir.appending("Package.swift")) {
+        // It's a single package, so copy the whole directory as-is.
+        let dstDir = tmpDirPath.appending(component: copyName)
+        try copy(from: fixtureDir, to: dstDir)
+        // Invoke the block, passing it the path of the copied fixture.
+        return dstDir
+    }
+    // Copy each of the package directories and construct a git repo in it.
+    for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
+        let srcDir = fixtureDir.appending(component: fileName)
+        guard localFileSystem.isDirectory(srcDir) else { continue }
+        let dstDir = tmpDirPath.appending(component: fileName)
+
+        try copy(from: srcDir, to: dstDir)
+        if createGitRepo {
+            initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+        }
+    }
+    return tmpDirPath
 }
 
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain

@@ -127,7 +127,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: true)
                 }
             }
-        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate, .unknown:
             break
         }
     }

@@ -17,7 +17,6 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.InMemoryFileSystem
 import enum TSCBasic.PathValidationError
 
@@ -774,11 +773,5 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
 #endif
-    }
-}
-
-extension DiagnosticsEngine {
-    public var hasWarnings: Bool {
-        return diagnostics.contains(where: { $0.message.behavior == .warning })
     }
 }

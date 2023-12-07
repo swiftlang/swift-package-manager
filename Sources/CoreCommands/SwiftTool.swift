@@ -13,7 +13,6 @@
 import ArgumentParser
 import Basics
 import Dispatch
-@_implementationOnly import DriverSupport
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
@@ -21,6 +20,12 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import Workspace
+
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import DriverSupport
+#else
+import DriverSupport
+#endif
 
 #if canImport(WinSDK)
 import WinSDK
@@ -247,8 +252,6 @@ public final class SwiftTool {
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
-
-    private let driverSupport = DriverSupport()
 
     /// Create an instance of this tool.
     ///
@@ -610,7 +613,7 @@ public final class SwiftTool {
             return false
         }
 
-        let buildParameters = try self.buildParameters()
+        let buildParameters = try self.productsBuildParameters
         let haveBuildManifestAndDescription =
             self.fileSystem.exists(buildParameters.llbuildManifest) &&
             self.fileSystem.exists(buildParameters.buildDescriptionPath)
@@ -638,25 +641,31 @@ public final class SwiftTool {
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
-        customBuildParameters: BuildParameters? = .none,
-        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
-        customOutputStream: OutputByteStream? = .none,
-        customLogLevel: Basics.Diagnostic.Severity? = .none,
-        customObservabilityScope: ObservabilityScope? = .none
+        shouldLinkStaticSwiftStdlib: Bool = false,
+        productsBuildParameters: BuildParameters? = .none,
+        toolsBuildParameters: BuildParameters? = .none,
+        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        outputStream: OutputByteStream? = .none,
+        logLevel: Basics.Diagnostic.Severity? = .none,
+        observabilityScope: ObservabilityScope? = .none
     ) throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
 
+        var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
+        productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+
         let buildSystem = try buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
-            customBuildParameters: customBuildParameters,
-            customPackageGraphLoader: customPackageGraphLoader,
-            customOutputStream: customOutputStream,
-            customLogLevel: customLogLevel,
-            customObservabilityScope: customObservabilityScope
+            productsBuildParameters: productsParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            packageGraphLoader: packageGraphLoader,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            observabilityScope: observabilityScope
         )
 
         // register the build system with the cancellation handler
@@ -664,20 +673,27 @@ public final class SwiftTool {
         return buildSystem
     }
 
+    static let entitlementsMacOSWarning = """
+    `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
+    when building on macOS.
+    """
+
     private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
-        let hostTriple = try self.getHostToolchain().targetTriple
-        let targetTriple = toolchain.targetTriple
+        let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
-            component: targetTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+            component: triple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
         )
+
+        if options.build.getTaskAllowEntitlement != nil && !triple.isMacOSX {
+            observabilityScope.emit(warning: Self.entitlementsMacOSWarning)
+        }
 
         return try BuildParameters(
             dataPath: dataPath,
             configuration: options.build.configuration,
             toolchain: toolchain,
-            hostTriple: hostTriple,
-            targetTriple: targetTriple,
+            triple: triple,
             flags: options.build.buildFlags,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
@@ -685,9 +701,15 @@ public final class SwiftTool {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+            debuggingParameters: .init(
+                debugInfoFormat: options.build.debugInfoFormat.buildParameter,
+                triple: triple,
+                shouldEnableDebuggingEntitlement:
+                    options.build.getTaskAllowEntitlement ?? (options.build.configuration == .debug),
+                omitFramePointers: options.build.omitFramePointers
+            ),
             driverParameters: .init(
-                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"],
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
@@ -700,15 +722,14 @@ public final class SwiftTool {
             linkingParameters: .init(
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 linkTimeOptimizationMode: options.build.linkTimeOptimizationMode?.buildParameter,
-                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath,
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib
+                shouldDisableLocalRpath: options.linker.shouldDisableLocalRpath
             ),
             outputParameters: .init(
                 isVerbose: self.logLevel <= .info
             ),
             testingParameters: .init(
                 configuration: options.build.configuration,
-                targetTriple: targetTriple,
+                targetTriple: triple,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath
             )
@@ -716,28 +737,31 @@ public final class SwiftTool {
     }
 
     /// Return the build parameters for the host toolchain.
-    public func hostBuildParameters() throws -> BuildParameters {
-        return try _hostBuildParameters.get()
+    public var toolsBuildParameters: BuildParameters {
+        get throws {
+            try _toolsBuildParameters.get()
+        }
     }
 
-    private lazy var _hostBuildParameters: Result<BuildParameters, Swift.Error> = {
-        return Result(catching: {
+    private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
+        Result(catching: {
             try _buildParams(toolchain: self.getHostToolchain())
         })
     }()
 
-    /// Return the build parameters.
-    public func buildParameters() throws -> BuildParameters {
-        return try _buildParameters.get()
+    public var productsBuildParameters: BuildParameters {
+        get throws {
+            try _productsBuildParameters.get()
+        }
     }
 
-    private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
-        return Result(catching: {
+    private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
+        Result(catching: {
             try _buildParams(toolchain: self.getTargetToolchain())
         })
     }()
 
-    /// Lazily compute the target toolchain.
+    /// Lazily compute the target toolchain.z
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         var swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
@@ -787,6 +811,16 @@ public final class SwiftTool {
             swiftSDK.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
+            if !self.fileSystem.exists(binDir) {
+                self.observabilityScope.emit(
+                    warning: """
+                        Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
+                            binDir
+                        )`
+                        """
+                )
+            }
+
             swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
@@ -829,11 +863,19 @@ public final class SwiftTool {
 
             var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if DriverSupport.checkSupportedFrontendFlags(
+                flags: ["disable-implicit-concurrency-module-import"],
+                toolchain: try self.toolsBuildParameters.toolchain,
+                fileSystem: self.fileSystem
+            ) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
             // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
-            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if DriverSupport.checkSupportedFrontendFlags(
+                flags: ["disable-implicit-string-processing-module-import"],
+                toolchain: try self.toolsBuildParameters.toolchain,
+                fileSystem: self.fileSystem
+            ) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
             }
 

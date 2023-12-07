@@ -25,7 +25,23 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     public init(_ packageSigners: [PackageIdentity: PackageSigners] = [:]) {
         self.packageSigners = packageSigners
     }
+    
+    public func get(
+        package: PackageIdentity,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws -> PackageSigners {
+        try await safe_async {
+            self.get(
+                package: package,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                callback: $0
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     public func get(
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,

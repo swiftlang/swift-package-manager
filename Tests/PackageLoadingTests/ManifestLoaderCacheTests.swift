@@ -10,13 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@testable import Basics
 @testable import PackageLoading
 import PackageModel
 import SPMTestSupport
 import XCTest
 
 import class TSCBasic.InMemoryFileSystem
+import enum TSCBasic.ProcessEnv
 import func TSCTestSupport.withCustomEnv
 
 class ManifestLoaderCacheTests: XCTestCase {
@@ -297,6 +298,72 @@ class ManifestLoaderCacheTests: XCTestCase {
                 delegate: delegate
             )
 
+            try check(loader: manifestLoader, expectCached: false)
+            try check(loader: manifestLoader, expectCached: true)
+
+            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
+                try check(loader: manifestLoader, expectCached: false)
+                try check(loader: manifestLoader, expectCached: true)
+            }
+
+            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
+                try check(loader: manifestLoader, expectCached: false)
+                try check(loader: manifestLoader, expectCached: true)
+            }
+
+            try check(loader: manifestLoader, expectCached: true)
+
+            func check(loader: ManifestLoader, expectCached: Bool) throws {
+                delegate.clear()
+                delegate.prepare(expectParsing: !expectCached)
+
+                let manifest = try XCTUnwrap(loader.load(
+                    manifestPath: manifestPath,
+                    packageKind: .root(manifestPath.parentDirectory),
+                    toolsVersion: .current,
+                    fileSystem: fileSystem,
+                    observabilityScope: observability.topScope
+                ))
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                XCTAssertEqual(manifest.displayName, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, "foo")
+            }
+        }
+    }
+
+    func testCacheDoNotInvalidationExpectedEnv() throws {
+        try testWithTemporaryDirectory { path in
+            let fileSystem = InMemoryFileSystem()
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fileSystem.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fileSystem.writeFileContents(
+                manifestPath,
+                string: """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
+            )
+
+            let delegate = ManifestTestDelegate()
+
+            let manifestLoader = ManifestLoader(
+                toolchain: try UserToolchain.default,
+                cacheDir: path,
+                delegate: delegate
+            )
+
             func check(loader: ManifestLoader, expectCached: Bool) throws {
                 delegate.clear()
                 delegate.prepare(expectParsing: !expectCached)
@@ -319,14 +386,10 @@ class ManifestLoaderCacheTests: XCTestCase {
             try check(loader: manifestLoader, expectCached: false)
             try check(loader: manifestLoader, expectCached: true)
 
-            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
-                try check(loader: manifestLoader, expectCached: false)
-                try check(loader: manifestLoader, expectCached: true)
-            }
-
-            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
-                try check(loader: manifestLoader, expectCached: false)
-                try check(loader: manifestLoader, expectCached: true)
+            for key in EnvironmentVariables.nonCachableKeys {
+                try withCustomEnv([key: UUID().uuidString]) {
+                    try check(loader: manifestLoader, expectCached: true)
+                }
             }
 
             try check(loader: manifestLoader, expectCached: true)

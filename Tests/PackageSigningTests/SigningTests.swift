@@ -22,7 +22,7 @@ import XCTest
 
 final class SigningTests: XCTestCase {
     func testCMS1_0_0EndToEnd() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -66,7 +66,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithECSigningIdentity() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -108,7 +108,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithRSASigningIdentity() async throws {
-        let keyAndCertChain = try temp_await { self.rsaTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.rsaTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -150,7 +150,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSWrongKeyTypeForSignatureAlgorithm() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -177,7 +177,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0EndToEndWithSelfSignedCertificate() async throws {
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -221,7 +221,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithSelfSignedECSigningIdentity() async throws {
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -263,7 +263,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithSelfSignedRSASigningIdentity() async throws {
-        let keyAndCertChain = try temp_await { self.rsaSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.rsaSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -322,7 +322,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSInvalidSignature() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -359,7 +359,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSUntrustedCertificate() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -395,7 +395,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSCheckCertificateValidityPeriod() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -589,7 +589,7 @@ final class SigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let keyAndCertChain = try temp_await { rsaADPKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try rsaADPKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -623,25 +623,21 @@ final class SigningTests: XCTestCase {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
 
-        func rsaADPKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-            do {
-                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                    let privateKey = try readFileContents(
-                        in: fixturePath,
-                        pathComponents: "Certificates", "development_key.p8"
-                    )
-                    let certificate = try readFileContents(
-                        in: fixturePath,
-                        pathComponents: "Certificates", "development.cer"
-                    )
+        func rsaADPKeyAndCertChain() throws -> KeyAndCertChain {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let privateKey = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "development_key.p8"
+                )
+                let certificate = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "development.cer"
+                )
 
-                    callback(.success(KeyAndCertChain(
-                        privateKey: privateKey,
-                        certificateChain: [certificate]
-                    )))
-                }
-            } catch {
-                callback(.failure(error))
+                return KeyAndCertChain(
+                    privateKey: privateKey,
+                    certificateChain: [certificate]
+                )
             }
         }
     }
@@ -652,7 +648,7 @@ final class SigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let keyAndCertChain = try temp_await { ecADPKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try ecADPKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -686,25 +682,21 @@ final class SigningTests: XCTestCase {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
 
-        func ecADPKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-            do {
-                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                    let privateKey = try readFileContents(
-                        in: fixturePath,
-                        pathComponents: "Certificates", "swift_package_key.p8"
-                    )
-                    let certificate = try readFileContents(
-                        in: fixturePath,
-                        pathComponents: "Certificates", "swift_package.cer"
-                    )
+        func ecADPKeyAndCertChain() throws -> KeyAndCertChain {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let privateKey = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "swift_package_key.p8"
+                )
+                let certificate = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "swift_package.cer"
+                )
 
-                    callback(.success(KeyAndCertChain(
-                        privateKey: privateKey,
-                        certificateChain: [certificate]
-                    )))
-                }
-            } catch {
-                callback(.failure(error))
+                return KeyAndCertChain(
+                    privateKey: privateKey,
+                    certificateChain: [certificate]
+                )
             }
         }
     }
@@ -880,7 +872,7 @@ final class SigningTests: XCTestCase {
     #endif
 
     func testCMS1_0_0ExtractSigningEntity() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -919,7 +911,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0ExtractSigningEntityWithSelfSignedCertificate() async throws {
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -958,7 +950,7 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0ExtractSigningEntityWithUntrustedCertificate() async throws {
-        let keyAndCertChain = try temp_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
             privateKey: try Certificate
@@ -996,107 +988,91 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    private func ecTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let privateKey = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_ec_key.p8"
-                )
-                let certificate = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_ec.cer"
-                )
-                let intermediateCA = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "TestIntermediateCA.cer"
-                )
-                let rootCA = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "TestRootCA.cer"
-                )
+    private func ecTestKeyAndCertChain() throws -> KeyAndCertChain {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let privateKey = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_ec_key.p8"
+            )
+            let certificate = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_ec.cer"
+            )
+            let intermediateCA = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "TestIntermediateCA.cer"
+            )
+            let rootCA = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "TestRootCA.cer"
+            )
 
-                callback(.success(KeyAndCertChain(
-                    privateKey: privateKey,
-                    certificateChain: [certificate, intermediateCA, rootCA]
-                )))
-            }
-        } catch {
-            callback(.failure(error))
+            return KeyAndCertChain(
+                privateKey: privateKey,
+                certificateChain: [certificate, intermediateCA, rootCA]
+            )
         }
     }
 
-    private func ecSelfSignedTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let privateKey = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_ec_self_signed_key.p8"
-                )
-                let certificate = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_ec_self_signed.cer"
-                )
+    private func ecSelfSignedTestKeyAndCertChain() throws -> KeyAndCertChain {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let privateKey = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_ec_self_signed_key.p8"
+            )
+            let certificate = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_ec_self_signed.cer"
+            )
 
-                callback(.success(KeyAndCertChain(
-                    privateKey: privateKey,
-                    certificateChain: [certificate]
-                )))
-            }
-        } catch {
-            callback(.failure(error))
+            return KeyAndCertChain(
+                privateKey: privateKey,
+                certificateChain: [certificate]
+            )
         }
     }
 
-    private func rsaTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let privateKey = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_rsa_key.p8"
-                )
-                let certificate = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_rsa.cer"
-                )
-                let intermediateCA = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "TestIntermediateCA.cer"
-                )
-                let rootCA = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "TestRootCA.cer"
-                )
+    private func rsaTestKeyAndCertChain() throws -> KeyAndCertChain {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let privateKey = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_rsa_key.p8"
+            )
+            let certificate = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_rsa.cer"
+            )
+            let intermediateCA = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "TestIntermediateCA.cer"
+            )
+            let rootCA = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "TestRootCA.cer"
+            )
 
-                callback(.success(KeyAndCertChain(
-                    privateKey: privateKey,
-                    certificateChain: [certificate, intermediateCA, rootCA]
-                )))
-            }
-        } catch {
-            callback(.failure(error))
+            return KeyAndCertChain(
+                privateKey: privateKey,
+                certificateChain: [certificate, intermediateCA, rootCA]
+            )
         }
     }
 
-    private func rsaSelfSignedTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let privateKey = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_rsa_self_signed_key.p8"
-                )
-                let certificate = try readFileContents(
-                    in: fixturePath,
-                    pathComponents: "Certificates", "Test_rsa_self_signed.cer"
-                )
+    private func rsaSelfSignedTestKeyAndCertChain() throws -> KeyAndCertChain {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let privateKey = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_rsa_self_signed_key.p8"
+            )
+            let certificate = try readFileContents(
+                in: fixturePath,
+                pathComponents: "Certificates", "Test_rsa_self_signed.cer"
+            )
 
-                callback(.success(KeyAndCertChain(
-                    privateKey: privateKey,
-                    certificateChain: [certificate]
-                )))
-            }
-        } catch {
-            callback(.failure(error))
+            return KeyAndCertChain(
+                privateKey: privateKey,
+                certificateChain: [certificate]
+            )
         }
     }
 

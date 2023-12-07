@@ -39,6 +39,9 @@ public final class ResolvedProduct {
     /// The list of platforms that are supported by this product.
     public let platforms: SupportedPlatforms
 
+    /// Triple for which this resolved product should be compiled for.
+    public let buildTriple: BuildTriple
+
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
@@ -59,6 +62,14 @@ public final class ResolvedProduct {
         self.underlyingProduct = product
         self.targets = targets
 
+        // defaultLocalization is currently shared across the entire package
+        // this may need to be enhanced if / when we support localization per target or product
+        let defaultLocalization = self.targets.first?.defaultLocalization
+        self.defaultLocalization = defaultLocalization
+
+        let platforms = Self.computePlatforms(targets: targets)
+        self.platforms = platforms
+
         self.testEntryPointTarget = underlyingProduct.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
@@ -69,16 +80,12 @@ public final class ResolvedProduct {
             return ResolvedTarget(
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
-                defaultLocalization: .none, // safe since this is a derived product
-                platforms: .init(declared: [], derivedXCTestPlatformProvider: .none) // safe since this is a derived product
+                defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
+                platforms: platforms
             )
         }
-
-        // defaultLocalization is currently shared across the entire package
-        // this may need to be enhanced if / when we support localization per target or product
-        self.defaultLocalization = self.targets.first?.defaultLocalization
-
-        self.platforms = Self.computePlatforms(targets: targets)
+        
+        self.buildTriple = .destination
     }
 
     /// True if this product contains Swift targets.

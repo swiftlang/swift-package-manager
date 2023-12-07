@@ -24,8 +24,8 @@ final class AuthorizationProviderTests: XCTestCase {
         self.assertAuthentication(provider, for: url, expected: (user, password))
     }
 
-    func testNetrc() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testNetrc() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             let netrcPath = tmpPath.appending(".netrc")
 
             let provider = try NetrcAuthorizationProvider(path: netrcPath, fileSystem: localFileSystem)
@@ -39,20 +39,14 @@ final class AuthorizationProviderTests: XCTestCase {
             let otherPassword = UUID().uuidString
 
             // Add
-            XCTAssertNoThrow(try temp_await { callback in
-                provider.addOrUpdate(for: url, user: user, password: password, callback: callback)
-            })
-            XCTAssertNoThrow(try temp_await { callback in
-                provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback)
-            })
+            try await provider.addOrUpdate(for: url, user: user, password: password)
+            try await provider.addOrUpdate(for: otherURL, user: user, password: otherPassword)
 
             self.assertAuthentication(provider, for: url, expected: (user, password))
 
             // Update - the new password is appended to the end of file
             let newPassword = UUID().uuidString
-            XCTAssertNoThrow(try temp_await { callback in
-                provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback)
-            })
+            try await provider.addOrUpdate(for: url, user: user, password: newPassword)
 
             // .netrc file now contains two entries for `url`: one with `password` and the other with `newPassword`.
             // `NetrcAuthorizationProvider` returns the last entry it finds.
@@ -140,36 +134,30 @@ final class AuthorizationProviderTests: XCTestCase {
         let httpsPassword = UUID().uuidString
 
         // Add
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: httpURL, user: user, password: httpPassword, callback: callback)
-        })
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: httpsURL, user: user, password: httpsPassword, callback: callback)
-        })
+        try await provider.addOrUpdate(for: httpURL, user: user, password: httpPassword)
+        try await provider.addOrUpdate(for: httpsURL, user: user, password: httpsPassword)
 
         self.assertAuthentication(provider, for: httpURL, expected: (user, httpPassword))
         self.assertAuthentication(provider, for: httpsURL, expected: (user, httpsPassword))
 
         // Update
         let newHTTPPassword = UUID().uuidString
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: httpURL, user: user, password: newHTTPPassword, callback: callback)
-        })
+        try await provider.addOrUpdate(for: httpURL, user: user, password: newHTTPPassword)
+
         let newHTTPSPassword = UUID().uuidString
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: httpsURL, user: user, password: newHTTPSPassword, callback: callback)
-        })
+        try await provider.addOrUpdate(for: httpsURL, user: user, password: newHTTPSPassword)
+
 
         // Existing password is updated
         self.assertAuthentication(provider, for: httpURL, expected: (user, newHTTPPassword))
         self.assertAuthentication(provider, for: httpsURL, expected: (user, newHTTPSPassword))
 
         // Delete
-        XCTAssertNoThrow(try temp_await { callback in provider.remove(for: httpURL, callback: callback) })
+        try await provider.remove(for: httpURL)
         XCTAssertNil(provider.authentication(for: httpURL))
         self.assertAuthentication(provider, for: httpsURL, expected: (user, newHTTPSPassword))
 
-        XCTAssertNoThrow(try temp_await { callback in provider.remove(for: httpsURL, callback: callback) })
+        try await provider.remove(for: httpsURL)
         XCTAssertNil(provider.authentication(for: httpsURL))
         #endif
     }
@@ -189,36 +177,29 @@ final class AuthorizationProviderTests: XCTestCase {
         let portPassword = UUID().uuidString
 
         // Add
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: noPortURL, user: user, password: noPortPassword, callback: callback)
-        })
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: portURL, user: user, password: portPassword, callback: callback)
-        })
+        try await provider.addOrUpdate(for: noPortURL, user: user, password: noPortPassword)
+        try await provider.addOrUpdate(for: portURL, user: user, password: portPassword)
 
         self.assertAuthentication(provider, for: noPortURL, expected: (user, noPortPassword))
         self.assertAuthentication(provider, for: portURL, expected: (user, portPassword))
 
         // Update
         let newPortPassword = UUID().uuidString
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: portURL, user: user, password: newPortPassword, callback: callback)
-        })
+        try await provider.addOrUpdate(for: portURL, user: user, password: newPortPassword)
+
         let newNoPortPassword = UUID().uuidString
-        XCTAssertNoThrow(try temp_await { callback in
-            provider.addOrUpdate(for: noPortURL, user: user, password: newNoPortPassword, callback: callback)
-        })
+        try await provider.addOrUpdate(for: noPortURL, user: user, password: newNoPortPassword)
 
         // Existing password is updated
         self.assertAuthentication(provider, for: portURL, expected: (user, newPortPassword))
         self.assertAuthentication(provider, for: noPortURL, expected: (user, newNoPortPassword))
 
         // Delete
-        XCTAssertNoThrow(try temp_await { callback in provider.remove(for: noPortURL, callback: callback) })
+        try await provider.remove(for: noPortURL)
         XCTAssertNil(provider.authentication(for: noPortURL))
         self.assertAuthentication(provider, for: portURL, expected: (user, newPortPassword))
 
-        XCTAssertNoThrow(try temp_await { callback in provider.remove(for: portURL, callback: callback) })
+        try await provider.remove(for: portURL)
         XCTAssertNil(provider.authentication(for: portURL))
         #endif
     }

@@ -216,7 +216,7 @@ public final class ClangTargetBuildDescription {
 
         var args = [String]()
         // Only enable ARC on macOS.
-        if buildParameters.targetTriple.isDarwin() {
+        if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
         args += try buildParameters.targetTripleArgs(for: target)
@@ -225,32 +225,33 @@ public final class ClangTargetBuildDescription {
         args += activeCompilationConditions
         args += ["-fblocks"]
 
+        let buildTriple = self.buildParameters.triple
         // Enable index store, if appropriate.
         //
         // This feature is not widely available in OSS clang. So, we only enable
         // index store for Apple's clang or if explicitly asked to.
         if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += buildParameters.indexStoreArguments(for: target)
-        } else if buildParameters.targetTriple.isDarwin(),
-                  (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true
+            args += self.buildParameters.indexStoreArguments(for: target)
+        } else if buildTriple.isDarwin(),
+                  (try? self.buildParameters.toolchain._isClangCompilerVendorApple()) == true
         {
-            args += buildParameters.indexStoreArguments(for: target)
+            args += self.buildParameters.indexStoreArguments(for: target)
         }
 
         // Enable Clang module flags, if appropriate.
         let enableModules: Bool
+        let triple = self.buildParameters.triple
         if toolsVersion < .v5_8 {
             // For version < 5.8, we enable them except in these cases:
             // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
             // 2. on Windows when compiling for any language, because of issues with the Windows SDK
             // 3. on Android when compiling for any language, because of issues with the Android SDK
-            enableModules = !(buildParameters.targetTriple.isDarwin() && isCXX) && !buildParameters.targetTriple
-                .isWindows() && !buildParameters.targetTriple.isAndroid()
+            enableModules = !(triple.isDarwin() && isCXX) && !triple.isWindows() && !triple.isAndroid()
         } else {
             // For version >= 5.8, we disable them when compiling for C++ regardless of platforms, see:
             // https://github.com/llvm/llvm-project/issues/55980 for clang frontend crash when module
             // enabled for C++ on c++17 standard and above.
-            enableModules = !isCXX && !buildParameters.targetTriple.isWindows() && !buildParameters.targetTriple.isAndroid()
+            enableModules = !isCXX && !triple.isWindows() && !triple.isAndroid()
         }
 
         if enableModules {
@@ -299,6 +300,17 @@ public final class ClangTargetBuildDescription {
             args += ["-flto=full"]
         case .thin:
             args += ["-flto=thin"]
+        }
+
+        // rdar://117578677
+        // Pass -fno-omit-frame-pointer to support backtraces
+        // this can be removed once the backtracer uses DWARF instead of frame pointers
+        if let omitFramePointers = self.buildParameters.debuggingParameters.omitFramePointers {
+            if omitFramePointers {
+                args += ["-fomit-frame-pointer"]
+            } else {
+                args += ["-fno-omit-frame-pointer"]
+            }
         }
 
         // Pass default include paths from the toolchain.

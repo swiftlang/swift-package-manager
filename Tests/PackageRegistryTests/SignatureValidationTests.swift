@@ -33,7 +33,7 @@ final class SignatureValidationTests: XCTestCase {
     )
     """
 
-    func testUnsignedPackage_shouldError() throws {
+    func testUnsignedPackage_shouldError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -82,8 +82,8 @@ final class SignatureValidationTests: XCTestCase {
 
         // Package is not signed. With onUnsigned = .error,
         // an error gets thrown.
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -97,7 +97,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedPackage_shouldWarn() throws {
+    func testUnsignedPackage_shouldWarn() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -148,15 +148,13 @@ final class SignatureValidationTests: XCTestCase {
 
         // Package is not signed. With onUnsigned = .warn,
         // no error gets thrown but there should be a warning
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: Data(emptyZipFile.contents),
-                configuration: configuration.signing(for: package, registry: registry),
-                observabilityScope: observability.topScope
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            content: Data(emptyZipFile.contents),
+            configuration: configuration.signing(for: package, registry: registry),
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
@@ -165,7 +163,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedPackage_shouldPrompt() throws {
+    func testUnsignedPackage_shouldPrompt() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -216,8 +214,8 @@ final class SignatureValidationTests: XCTestCase {
 
             // Package is not signed. With onUnsigned = .error,
             // an error gets thrown.
-            XCTAssertThrowsError(
-                try signatureValidation.validate(
+            await XCTAssertAsyncThrowsError(
+                try await signatureValidation.validate(
                     registry: registry,
                     package: package,
                     version: version,
@@ -242,7 +240,7 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package is not signed, signingEntity should be nil
-            let signingEntity = try signatureValidation.validate(
+            let signingEntity = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -253,7 +251,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testFailedToFetchSignature_shouldError() throws {
+    func testFailedToFetchSignature_shouldError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -302,8 +300,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Failed to fetch package metadata / signature
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -317,7 +315,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedArchiveAndManifest_shouldPrompt() throws {
+    func testUnsignedArchiveAndManifest_shouldPrompt() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -367,8 +365,8 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package is not signed. With onUnsigned = .prompt, prompt to continue.
-            XCTAssertThrowsError(
-                try signatureValidation.validate(
+            await XCTAssertAsyncThrowsError(
+                try await signatureValidation.validate(
                     registry: registry,
                     package: package,
                     version: version,
@@ -394,7 +392,7 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package is not signed, signingEntity should be nil
-            let signingEntity = try signatureValidation.validate(
+            let signingEntity = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -406,7 +404,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testUnsignedArchiveAndManifest_nonPrompt() throws {
+    func testUnsignedArchiveAndManifest_nonPrompt() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -457,16 +455,14 @@ final class SignatureValidationTests: XCTestCase {
 
         // Package is not signed.
         // With the exception of .prompt, we log then continue.
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                manifestContent: Self.unsignedManifest,
-                configuration: configuration.signing(for: package, registry: registry),
-                observabilityScope: observability.topScope
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none,
+            manifestContent: Self.unsignedManifest,
+            configuration: configuration.signing(for: package, registry: registry),
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
@@ -475,7 +471,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testFailedToFetchArchiveSignatureToValidateManifest_diagnostics() throws {
+    func testFailedToFetchArchiveSignatureToValidateManifest_diagnostics() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -519,16 +515,14 @@ final class SignatureValidationTests: XCTestCase {
 
         // Failed to fetch package metadata / signature.
         // This error is not thrown for manifest but there should be diagnostics.
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                manifestContent: Self.unsignedManifest,
-                configuration: configuration.signing(for: package, registry: registry),
-                observabilityScope: observability.topScope
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none,
+            manifestContent: Self.unsignedManifest,
+            configuration: configuration.signing(for: package, registry: registry),
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
@@ -549,7 +543,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -604,8 +598,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Archive is signed, but manifest is not signed
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -629,7 +623,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -694,8 +688,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Archive is signed, but manifest signature format is bad
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -718,7 +712,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -778,8 +772,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Archive is signed, but manifest signature is malformed
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -804,7 +798,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -832,7 +826,7 @@ final class SignatureValidationTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             // Write test root to trust roots directory
             let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
             try localFileSystem.createDirectory(trustRootsDirectoryPath)
@@ -874,19 +868,17 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package signature is valid
-            XCTAssertNoThrow(
-                try signatureValidation.validate(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    content: Data(emptyZipFile.contents),
-                    configuration: configuration.signing(for: package, registry: registry)
-                )
+            _ = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: Data(emptyZipFile.contents),
+                configuration: configuration.signing(for: package, registry: registry)
             )
         }
     }
 
-    func testSignedPackage_badSignature() throws {
+    func testSignedPackage_badSignature() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -937,8 +929,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Package signature can't be parsed so it is invalid
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -952,7 +944,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedPackage_badSignature_skipSignatureValidation() throws {
+    func testSignedPackage_badSignature_skipSignatureValidation() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -997,14 +989,12 @@ final class SignatureValidationTests: XCTestCase {
 
         // Signature is bad, but we are skipping signature
         // validation, so no error is thrown.
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: Data(emptyZipFile.contents),
-                configuration: configuration.signing(for: package, registry: registry)
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            content: Data(emptyZipFile.contents),
+            configuration: configuration.signing(for: package, registry: registry)
         )
     }
 
@@ -1016,7 +1006,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1044,7 +1034,7 @@ final class SignatureValidationTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             // Write test root to trust roots directory
             let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
             try localFileSystem.createDirectory(trustRootsDirectoryPath)
@@ -1086,8 +1076,8 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package signature doesn't match content so it's invalid
-            XCTAssertThrowsError(
-                try signatureValidation.validate(
+            await XCTAssertAsyncThrowsError(
+                try await signatureValidation.validate(
                     registry: registry,
                     package: package,
                     version: version,
@@ -1110,7 +1100,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1172,8 +1162,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Test root not trusted; onUntrustedCertificate is set to .error
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -1195,7 +1185,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1259,8 +1249,8 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Test root not trusted; onUntrustedCertificate is set to .prompt
-            XCTAssertThrowsError(
-                try signatureValidation.validate(
+            await XCTAssertAsyncThrowsError(
+                try await signatureValidation.validate(
                     registry: registry,
                     package: package,
                     version: version,
@@ -1285,7 +1275,7 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package signer is untrusted, signingEntity should be nil
-            let signingEntity = try signatureValidation.validate(
+            let signingEntity = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -1304,7 +1294,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1368,15 +1358,13 @@ final class SignatureValidationTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
 
         // Test root not trusted but onUntrustedCertificate is set to .warn
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: Data(emptyZipFile.contents),
-                configuration: configuration.signing(for: package, registry: registry),
-                observabilityScope: observability.topScope
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            content: Data(emptyZipFile.contents),
+            configuration: configuration.signing(for: package, registry: registry),
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
@@ -1393,7 +1381,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1431,7 +1419,7 @@ final class SignatureValidationTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             // Write test root to trust roots directory
             let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
             try localFileSystem.createDirectory(trustRootsDirectoryPath)
@@ -1473,20 +1461,18 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Manifest signature is valid
-            XCTAssertNoThrow(
-                try signatureValidation.validate(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    toolsVersion: .none,
-                    manifestContent: manifestContent,
-                    configuration: configuration.signing(for: package, registry: registry)
-                )
+            _ = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: .none,
+                manifestContent: manifestContent,
+                configuration: configuration.signing(for: package, registry: registry)
             )
         }
     }
 
-    func testSignedManifest_badSignature() throws {
+    func testSignedManifest_badSignature() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -1494,7 +1480,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1552,8 +1538,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         // Manifest signature can't be parsed so it is invalid
-        XCTAssertThrowsError(
-            try signatureValidation.validate(
+        await XCTAssertAsyncThrowsError(
+            try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -1568,7 +1554,7 @@ final class SignatureValidationTests: XCTestCase {
         }
     }
 
-    func testSignedManifest_badSignature_skipSignatureValidation() throws {
+    func testSignedManifest_badSignature_skipSignatureValidation() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -1576,7 +1562,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1635,15 +1621,13 @@ final class SignatureValidationTests: XCTestCase {
 
         // Manifest signature is bad, but we are skipping signature
         // validation, so no error is thrown.
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                manifestContent: manifestContent,
-                configuration: configuration.signing(for: package, registry: registry)
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none,
+            manifestContent: manifestContent,
+            configuration: configuration.signing(for: package, registry: registry)
         )
     }
 
@@ -1655,7 +1639,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1693,7 +1677,7 @@ final class SignatureValidationTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
 
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             // Write test root to trust roots directory
             let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
             try localFileSystem.createDirectory(trustRootsDirectoryPath)
@@ -1735,8 +1719,8 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Manifest signature doesn't match content so it's invalid
-            XCTAssertThrowsError(
-                try signatureValidation.validate(
+            await XCTAssertAsyncThrowsError(
+                try await signatureValidation.validate(
                     registry: registry,
                     package: package,
                     version: version,
@@ -1760,7 +1744,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1834,8 +1818,8 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Test root not trusted; onUntrustedCertificate is set to .prompt
-            XCTAssertThrowsError(
-                try signatureValidation.validate(
+            await XCTAssertAsyncThrowsError(
+                try await signatureValidation.validate(
                     registry: registry,
                     package: package,
                     version: version,
@@ -1861,7 +1845,7 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             // Package signer is not trusted, signingEntity should be nil
-            let signingEntity = try signatureValidation.validate(
+            let signingEntity = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -1881,7 +1865,7 @@ final class SignatureValidationTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let keyAndCertChain = try temp_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = try SwiftSigningIdentity(
             derEncodedCertificate: keyAndCertChain.leafCertificate,
             derEncodedPrivateKey: keyAndCertChain.privateKey,
@@ -1956,16 +1940,14 @@ final class SignatureValidationTests: XCTestCase {
 
         // Test root not trusted.
         // With the exception of .prompt, we log then continue.
-        XCTAssertNoThrow(
-            try signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                manifestContent: manifestContent,
-                configuration: configuration.signing(for: package, registry: registry),
-                observabilityScope: observability.topScope
-            )
+        _ = try await signatureValidation.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none,
+            manifestContent: manifestContent,
+            configuration: configuration.signing(for: package, registry: registry),
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
@@ -1991,23 +1973,19 @@ final class SignatureValidationTests: XCTestCase {
         )
     }
 
-    private func ecSelfSignedTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let privateKey = try localFileSystem.readFileContents(
-                    fixturePath.appending(components: "Certificates", "Test_ec_self_signed_key.p8")
-                ).contents
-                let certificate = try localFileSystem.readFileContents(
-                    fixturePath.appending(components: "Certificates", "Test_ec_self_signed.cer")
-                ).contents
+    private func ecSelfSignedTestKeyAndCertChain() throws -> KeyAndCertChain {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let privateKey = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Certificates", "Test_ec_self_signed_key.p8")
+            ).contents
+            let certificate = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Certificates", "Test_ec_self_signed.cer")
+            ).contents
 
-                callback(.success(KeyAndCertChain(
-                    privateKey: privateKey,
-                    certificateChain: [certificate]
-                )))
-            }
-        } catch {
-            callback(.failure(error))
+            return KeyAndCertChain(
+                privateKey: privateKey,
+                certificateChain: [certificate]
+            )
         }
     }
 
@@ -2040,21 +2018,18 @@ extension SignatureValidation {
         content: Data,
         configuration: RegistryConfiguration.Security.Signing,
         observabilityScope: ObservabilityScope? = nil
-    ) throws -> SigningEntity? {
-        try temp_await {
-            self.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: content,
-                configuration: configuration,
-                timeout: nil,
-                fileSystem: localFileSystem,
-                observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> SigningEntity? {
+        try await self.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            content: content,
+            configuration: configuration,
+            timeout: nil,
+            fileSystem: localFileSystem,
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     fileprivate func validate(
@@ -2065,22 +2040,19 @@ extension SignatureValidation {
         manifestContent: String,
         configuration: RegistryConfiguration.Security.Signing,
         observabilityScope: ObservabilityScope? = nil
-    ) throws -> SigningEntity? {
-        try temp_await {
-            self.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: toolsVersion,
-                manifestContent: manifestContent,
-                configuration: configuration,
-                timeout: nil,
-                fileSystem: localFileSystem,
-                observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> SigningEntity? {
+        try await self.validate(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: toolsVersion,
+            manifestContent: manifestContent,
+            configuration: configuration,
+            timeout: nil,
+            fileSystem: localFileSystem,
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 
@@ -2125,15 +2097,12 @@ private struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegat
 }
 
 extension PackageSigningEntityStorage {
-    fileprivate func get(package: PackageIdentity) throws -> PackageSigners {
-        try temp_await {
-            self.get(
-                package: package,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    fileprivate func get(package: PackageIdentity) async throws -> PackageSigners {
+        try await self.get(
+            package: package,
+            observabilityScope: ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 

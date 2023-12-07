@@ -123,7 +123,7 @@ final class RunToolTests: CommandsTestCase {
             let sync = DispatchGroup()
             let outputHandler = OutputHandler(sync: sync)
             let process = Process(
-                arguments: [SwiftPM.Run.path.pathString, "--package-path", fixturePath.pathString],
+                arguments: [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
                 outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
             )
 

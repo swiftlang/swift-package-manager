@@ -78,18 +78,23 @@ func mockBuildParameters(
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
-    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil
+    linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
+    omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     return try! BuildParameters(
         dataPath: buildPath,
         configuration: config,
         toolchain: toolchain,
-        hostTriple: hostTriple,
-        targetTriple: targetTriple,
+        triple: targetTriple,
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
+        debuggingParameters: .init(
+            triple: targetTriple,
+            shouldEnableDebuggingEntitlement: config == .debug,
+            omitFramePointers: omitFramePointers
+        ),
         driverParameters: .init(
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             useExplicitModuleBuild: useExplicitModuleBuild
@@ -118,7 +123,7 @@ func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug,     targetTriple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug, targetTriple: triple)
 }
 
 enum BuildError: Swift.Error {

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -781,7 +781,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(
         to target: ResolvedTarget,
         in pifTarget: PIFTargetBuilder,
-        conditions: [PackageConditionProtocol],
+        conditions: [PackageCondition],
         linkProduct: Bool
     ) {
         // Only add the binary target as a library when we want to link against the product.
@@ -803,7 +803,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(
         to product: ResolvedProduct,
         in pifTarget: PIFTargetBuilder,
-        conditions: [PackageConditionProtocol],
+        conditions: [PackageCondition],
         linkProduct: Bool
     ) {
         pifTarget.addDependency(
@@ -1498,7 +1498,7 @@ private extension BuildSettings.AssignmentTable {
 
 private extension BuildSettings.Assignment {
     var configurations: [BuildConfiguration] {
-        if let configurationCondition = conditions.lazy.compactMap({ $0 as? ConfigurationCondition }).first {
+        if let configurationCondition = conditions.lazy.compactMap(\.configurationCondition).first {
             return [configurationCondition.configuration]
         } else {
             return BuildConfiguration.allCases
@@ -1506,7 +1506,7 @@ private extension BuildSettings.Assignment {
     }
 
     var pifPlatforms: [PIF.BuildSettings.Platform]? {
-        if let platformsCondition = conditions.lazy.compactMap({ $0 as? PlatformsCondition }).first {
+        if let platformsCondition = conditions.lazy.compactMap(\.platformsCondition).first {
             return platformsCondition.platforms.compactMap { PIF.BuildSettings.Platform(rawValue: $0.name) }
         } else {
             return nil
@@ -1537,10 +1537,10 @@ public struct DelayedImmutable<Value> {
     }
 }
 
-extension Array where Element == PackageConditionProtocol {
+extension [PackageCondition] {
     func toPlatformFilters() -> [PIF.PlatformFilter] {
         var result: [PIF.PlatformFilter] = []
-        let platformConditions = self.compactMap{ $0 as? PlatformsCondition }.flatMap{ $0.platforms }
+        let platformConditions = self.compactMap(\.platformsCondition).flatMap { $0.platforms }
 
         for condition in platformConditions {
             switch condition {
@@ -1643,7 +1643,7 @@ extension PIF.PlatformFilter {
         .init(platform: "openbsd"),
     ]
 
-    /// Web Assembly platform filters.
+    /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
     ]

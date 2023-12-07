@@ -94,7 +94,7 @@ class InitTests: XCTestCase {
 #else
             XCTAssertFileExists(binPath.appending("Foo"))
 #endif
-            XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
+            XCTAssertFileExists(binPath.appending(components: "Modules", "Foo.swiftmodule"))
         }
     }
 
@@ -145,7 +145,7 @@ class InitTests: XCTestCase {
             // Try building it
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Foo.swiftmodule"))
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
     }
         
@@ -243,7 +243,7 @@ class InitTests: XCTestCase {
             // Try building it.
             XCTAssertBuilds(packageRoot)
             let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "some_package.swiftmodule"))
+            XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
         }
     }
     

@@ -4692,7 +4692,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
             XCTFail("unexpectedly resolved the package graph successfully")
         } catch {
-            XCTAssertEqual(error.interpolationDescription, "multiple products named 'SomeProduct' in: 'other' (at '/Other'), 'some' (at '/Some')")
+            XCTAssertEqual(error.interpolationDescription, "multiple products named 'SomeProduct' in: 'other' (at '\(AbsolutePath("/Other"))'), 'some' (at '\(AbsolutePath("/Some"))')")
         }
         XCTAssertEqual(observability.diagnostics.map { $0.description }.sorted(), ["[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'other\'", "[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'some\'"])
     }
