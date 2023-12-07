@@ -645,8 +645,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
             "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "exe.build", "exe.swiftmodule").pathString,
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "lib.swiftmodule").pathString,
             "-g",
         ]
       #elseif os(Windows)
@@ -869,7 +869,7 @@ final class BuildPlanTests: XCTestCase {
             let contents: String = try fs.readFileContents(yaml)
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "PkgLib.swiftmodule").escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
+                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "Modules", "PkgLib.swiftmodule").escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
                 """))
 
         }
@@ -1736,8 +1736,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))"] +
             rpathsForBackdeployment +
             ["-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.swiftmodule").pathString,
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "FooTests.swiftmodule").pathString,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Modules", "FooTests.swiftmodule").pathString,
             "-g",
         ])
       #elseif os(Windows)
@@ -2313,7 +2313,7 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Bar.swiftmodule").pathString,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Modules", "Bar.swiftmodule").pathString,
             "-g",
         ])
       #elseif os(Windows)
@@ -2432,7 +2432,7 @@ final class BuildPlanTests: XCTestCase {
                 "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
                 "-target", defaultTargetTriple,
-                "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "lib.swiftmodule").pathString,
+                "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
                 "-g",
             ]
         #elseif os(Windows)
@@ -4110,7 +4110,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .contains("""
               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
                 tool: clang
-                inputs: ["\(buildPath.appending(components: "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+                inputs: ["\(buildPath.appending(components: "Modules", "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
                 description: "Compiling Bar main.m"
             """))
@@ -4184,7 +4184,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .contains("""
                "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
                  tool: clang
-                 inputs: ["\(buildPath.appending(components: "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+                 inputs: ["\(buildPath.appending(components: "Modules", "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
                  outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
                  description: "Compiling Bar main.m"
              """))
@@ -4322,10 +4322,10 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(contents, .contains("""
               "\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)":
                 tool: shell
-                inputs: ["\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)"]
+                inputs: ["\(buildPath.appending(components: "Modules", "lib.swiftmodule").escapedPathString)"]
                 outputs: ["\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)"]
                 description: "Wrapping AST for lib for debugging"
-                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "lib.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
+                args: ["\(result.plan.buildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "Modules", "lib.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
             """))
     }
 
@@ -4958,7 +4958,7 @@ final class BuildPlanTests: XCTestCase {
 
         let yamlContents: String = try fs.readFileContents(yaml)
         let inputs: SerializedJSON = """
-            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath)","\(AbsolutePath("/Pkg/.build/debug/Lib.swiftmodule"))"
+            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath)","\(AbsolutePath("/Pkg/.build/debug/Modules/Lib.swiftmodule"))"
         """
         XCTAssertMatch(yamlContents, .contains(inputs.underlying))
     }
@@ -5173,8 +5173,8 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
             "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "exe.build", "exe.swiftmodule").pathString,
-            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "lib.swiftmodule").pathString,
             "-g",
         ]
       #elseif os(Windows)

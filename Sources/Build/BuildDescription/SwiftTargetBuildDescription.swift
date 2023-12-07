@@ -103,13 +103,16 @@ public final class SwiftTargetBuildDescription {
         }
     }
 
+    var modulesPath: AbsolutePath {
+        return self.buildParameters.buildPath.appending(component: "Modules")
+    }
+
     /// The path to the swiftmodule file after compilation.
-    var moduleOutputPath: AbsolutePath {
+    public var moduleOutputPath: AbsolutePath { // note: needs to be public because of sourcekit-lsp
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let allowLinkingAgainstExecutables = (buildParameters.targetTriple.isDarwin() || self.buildParameters.targetTriple
             .isLinux() || self.buildParameters.targetTriple.isWindows()) && self.toolsVersion >= .v5_5
-        let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self
-            .buildParameters.buildPath
+        let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
         return dirPath.appending(component: self.target.c99name + ".swiftmodule")
     }
 
@@ -122,7 +125,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The path to the swifinterface file after compilation.
     var parseableModuleInterfaceOutputPath: AbsolutePath {
-        self.buildParameters.buildPath.appending(component: self.target.c99name + ".swiftinterface")
+        self.modulesPath.appending(component: self.target.c99name + ".swiftinterface")
     }
 
     /// Path to the resource Info.plist file, if generated.
@@ -638,7 +641,7 @@ public final class SwiftTargetBuildDescription {
         result.append(contentsOf: self.sources.map(\.pathString))
 
         result.append("-I")
-        result.append(self.buildParameters.buildPath.pathString)
+        result.append(self.modulesPath.pathString)
 
         result += try self.compileArguments()
         return result

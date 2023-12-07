@@ -54,8 +54,8 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertBuilds(fixturePath.appending("app"))
             let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertFileExists(buildDir.appending("FooExec"))
-            XCTAssertFileExists(buildDir.appending("FooLib1.swiftmodule"))
-            XCTAssertFileExists(buildDir.appending("FooLib2.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib1.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib2.swiftmodule"))
         }
     }
 
