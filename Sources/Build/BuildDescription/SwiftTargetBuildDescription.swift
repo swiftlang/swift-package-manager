@@ -238,6 +238,9 @@ public final class SwiftTargetBuildDescription {
     /// Whether or not to generate code for test observation.
     private let shouldGenerateTestObservation: Bool
 
+    /// Whether to disable sandboxing (e.g. for macros).
+    private let disableSandbox: Bool
+
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -250,6 +253,7 @@ public final class SwiftTargetBuildDescription {
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
+        disableSandbox: Bool,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -276,6 +280,7 @@ public final class SwiftTargetBuildDescription {
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.shouldGenerateTestObservation = shouldGenerateTestObservation
+        self.disableSandbox = disableSandbox
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
@@ -451,6 +456,18 @@ public final class SwiftTargetBuildDescription {
 
             let localPluginPath = toolchainUsrPath.appending(components: ["local"] + pluginPathComponents)
             args += ["-Xfrontend", "-external-plugin-path", "-Xfrontend", "\(localPluginPath)#\(pluginServer.pathString)"]
+        }
+
+        if self.disableSandbox {
+            let toolchainSupportsDisablingSandbox = DriverSupport.checkSupportedFrontendFlags(flags: ["-disable-sandbox"], toolchain: self.buildParameters.toolchain, fileSystem: fileSystem)
+            if toolchainSupportsDisablingSandbox {
+                args += ["-disable-sandbox"]
+            } else {
+                // If there's at least one macro being used, we warn about our inability to disable sandboxing.
+                if !self.requiredMacroProducts.isEmpty {
+                    observabilityScope.emit(warning: "cannot disable sandboxing for Swift compilation because the selected toolchain does not support it")
+                }
+            }
         }
 
         return args
