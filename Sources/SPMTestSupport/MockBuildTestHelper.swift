@@ -85,6 +85,7 @@ public func mockBuildParameters(
 ) -> BuildParameters {
     try! BuildParameters(
         dataPath: buildPath,
+        sdkPath: toolchain.sdkRootPath,
         configuration: config,
         toolchain: toolchain,
         triple: targetTriple,

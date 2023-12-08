@@ -645,6 +645,12 @@ public final class SwiftTargetBuildDescription {
             }
         }
 
+        // rdar://115777026
+        // Compiler commands need to track SDK dependencies to trigger rebuilds when the SDK changes
+        if let sdkPath = self.buildParameters.sdkPath, self.buildParameters.targetTriple.isDarwin() {
+            args += ["-sdk", sdkPath.pathString]
+        }
+
         return args
     }
 
