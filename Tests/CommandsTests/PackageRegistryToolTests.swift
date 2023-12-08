@@ -279,7 +279,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     // TODO: Test example with login and password
 
-    func testArchiving() async throws {
+    func testArchiving() throws {
         #if os(Linux)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
@@ -293,7 +293,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         let metadataFilename = SwiftPackageRegistryTool.Publish.metadataFilename
 
         // git repo
-        try await withTemporaryDirectory { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
@@ -320,12 +320,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observability.topScope
             )
 
-            try await validatePackageArchive(at: archivePath)
+            try validatePackageArchive(at: archivePath)
             XCTAssertTrue(archivePath.isDescendant(of: workingDirectory))
         }
 
         // not a git repo
-        try await withTemporaryDirectory { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
@@ -350,11 +350,11 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observability.topScope
             )
 
-            try await validatePackageArchive(at: archivePath)
+            try validatePackageArchive(at: archivePath)
         }
 
         // canonical metadata location
-        try await withTemporaryDirectory { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
@@ -385,17 +385,17 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let extractedPath = try await validatePackageArchive(at: archivePath)
+            let extractedPath = try validatePackageArchive(at: archivePath)
             XCTAssertFileExists(extractedPath.appending(component: metadataFilename))
         }
 
         @discardableResult
-        func validatePackageArchive(at archivePath: AbsolutePath) async throws -> AbsolutePath {
+        func validatePackageArchive(at archivePath: AbsolutePath) throws -> AbsolutePath {
             XCTAssertFileExists(archivePath)
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try await archiver.extract(from: archivePath, to: extractPath)
+            try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
             try localFileSystem.stripFirstLevel(of: extractPath)
             XCTAssertFileExists(extractPath.appending("Package.swift"))
             return extractPath
@@ -550,7 +550,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try await archiver.extract(from: archivePath, to: extractPath)
+            try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
             try localFileSystem.stripFirstLevel(of: extractPath)
 
             let manifestInArchive = try localFileSystem.readFileContents(extractPath.appending(manifestFile)).contents
@@ -963,7 +963,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         let archiver = ZipArchiver(fileSystem: localFileSystem)
         let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
         try localFileSystem.createDirectory(extractPath)
-        try await archiver.extract(from: archivePath, to: extractPath)
+        try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
         try localFileSystem.stripFirstLevel(of: extractPath)
 
         let manifestSignature = try ManifestSignatureParser.parse(
