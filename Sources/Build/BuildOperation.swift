@@ -531,6 +531,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
+            disableSandbox: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )

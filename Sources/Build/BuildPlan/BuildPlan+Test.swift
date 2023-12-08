@@ -28,6 +28,7 @@ extension BuildPlan {
     static func makeDerivedTestTargets(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph,
+        _ disableSandbox: Bool,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, entryPointTargetBuildDescription: SwiftTargetBuildDescription)] {
@@ -95,6 +96,7 @@ extension BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     testTargetRole: .discovery,
+                    disableSandbox: disableSandbox,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -128,6 +130,7 @@ extension BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
+                    disableSandbox: disableSandbox,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -157,6 +160,7 @@ extension BuildPlan {
                             toolsVersion: toolsVersion,
                             buildParameters: buildParameters,
                             testTargetRole: .entryPoint(isSynthesized: false),
+                            disableSandbox: disableSandbox,
                             fileSystem: fileSystem,
                             observabilityScope: observabilityScope
                         )
@@ -175,6 +179,7 @@ extension BuildPlan {
                         toolsVersion: toolsVersion,
                         buildParameters: buildParameters,
                         testTargetRole: .entryPoint(isSynthesized: false),
+                        disableSandbox: disableSandbox,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
