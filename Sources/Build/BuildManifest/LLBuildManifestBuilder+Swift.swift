@@ -386,7 +386,7 @@ extension LLBuildManifestBuilder {
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
-            importPath: target.modulesPath,
+            importPath: target.buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: try target.objects,
             otherArguments: try target.compileArguments(),
