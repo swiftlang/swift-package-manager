@@ -20,7 +20,7 @@ typealias WireInput = HostToPluginMessage.InputContext
 
 /// Creates the serialized input structure for the plugin script based on all
 /// the input information to a plugin.
-internal struct PluginContextSerializer {
+struct PluginContextSerializer {
     let fileSystem: FileSystem
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
@@ -180,8 +180,8 @@ internal struct PluginContextSerializer {
     }
 
     // Adds a product to the serialized structure, if it isn't already there and
-    // if it is of a kind that should be passed to the plugin. If so, this func-
-    // tion returns the product's wire ID. If not, it returns nil.
+    // if it is of a kind that should be passed to the plugin. If so, this function returns the product's wire ID.
+    // If not, it returns nil.
     mutating func serialize(product: ResolvedProduct) throws -> WireInput.Product.Id? {
         // If we've already seen the product, just return the wire ID we already assigned to it.
         if let id = productsToIds[product] { return id }

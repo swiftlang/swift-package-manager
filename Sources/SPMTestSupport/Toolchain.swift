@@ -63,7 +63,11 @@ extension UserToolchain {
             return true
         }
         else {
-            // On macOS 11 and earlier, we don't know if concurrency actually works because not all SDKs and toolchains have the right bits.  We could examine the SDK and the various libraries, but the most accurate test is to just try to compile and run a snippet of code that requires async/await support.  It doesn't have to actually do anything, it's enough that all the libraries can be found (but because the library reference is weak we do need the linkage reference to `_swift_task_create` and the like).
+            // On macOS 11 and earlier, we don't know if concurrency actually works because not all SDKs and toolchains 
+            // have the right bits.  We could examine the SDK and the various libraries, but the most accurate test is
+            // to just try to compile and run a snippet of code that requires async/await support. It doesn't have to
+            // actually do anything, it's enough that all the libraries can be found (but because the library reference
+            // is weak we do need the linkage reference to `_swift_task_create` and the like).
             do {
                 try testWithTemporaryDirectory { tmpPath in
                     let inputPath = tmpPath.appending("foo.swift")
