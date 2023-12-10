@@ -60,6 +60,7 @@ extension Basics.Triple {
     public static let arm64Android = try! Self("aarch64-unknown-linux-android")
     public static let windows = try! Self("x86_64-unknown-windows-msvc")
     public static let wasi = try! Self("wasm32-unknown-wasi")
+    public static let arm64iOS  = try! Self("arm64-apple-ios")
 }
 
 public let hostTriple = try! UserToolchain.default.targetTriple

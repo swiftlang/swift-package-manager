@@ -3466,7 +3466,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        let targetTriple = try Triple("arm64-apple-ios")
+        let targetTriple = Triple.arm64iOS
 
         let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
         let expectedVersion = Platform.iOS.oldestSupportedVersion.versionString
@@ -3485,10 +3485,11 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testPlatformsValidation() throws {
-        let fileSystem = InMemoryFileSystem(emptyFiles:
-            "/A/Sources/ATarget/foo.swift",
-            "/B/Sources/BTarget/foo.swift"
+    func testPlatformsValidationComparesSpecifiedDarwinTriple() throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+                "/A/Sources/ATarget/foo.swift",
+                "/B/Sources/BTarget/foo.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -3508,13 +3509,14 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
-                    ]),
+                    ]
+                ),
                 Manifest.createFileSystemManifest(
                     displayName: "B",
                     path: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
-                        PlatformDescription(name: "ios", version: "11"),
+                        PlatformDescription(name: "ios", version: "10"),
                     ],
                     toolsVersion: .v5,
                     products: [
@@ -3522,7 +3524,85 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
-                    ]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // macOS versions are different (thus incompatible),
+        // however our build triple *only specifies* `iOS`.
+        // Therefore, we expect no error, as the iOS version
+        // constraints above are valid.
+        XCTAssertNoThrow(
+            _ = try BuildPlan(
+                buildParameters: mockBuildParameters(targetTriple: .arm64iOS),
+                graph: graph,
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
+            )
+        )
+
+        // For completeness, the invalid target should still throw an error.
+        XCTAssertThrows(Diagnostics.fatalError) {
+            _ = try BuildPlan(
+                buildParameters: mockBuildParameters(targetTriple: .x86_64MacOS),
+                graph: graph,
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
+            )
+        }
+
+        testDiagnostics(observability.diagnostics) { result in
+            let diagnosticMessage = """
+            the library 'ATarget' requires macos 10.13, but depends on the product 'BLibrary' which requires macos 10.14; \
+            consider changing the library 'ATarget' to require macos 10.14 or later, or the product 'BLibrary' to require \
+            macos 10.13 or earlier.
+            """
+            result.check(diagnostic: .contains(diagnosticMessage), severity: .error)
+        }
+    }
+
+    func testPlatformsValidationWhenADependencyRequiresHigherOSVersionThanPackage() throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+                "/A/Sources/ATarget/foo.swift",
+                "/B/Sources/BTarget/foo.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.13"),
+                    ],
+                    toolsVersion: .v5,
+                    dependencies: [
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "B",
+                    path: "/B",
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "10.14"),
+                    ],
+                    toolsVersion: .v5,
+                    products: [
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BTarget", dependencies: []),
+                    ]
+                ),
             ],
             observabilityScope: observability.topScope
         )
