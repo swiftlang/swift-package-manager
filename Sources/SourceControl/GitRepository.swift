@@ -205,23 +205,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return localFileSystem.isDirectory(directory)
     }
 
-    public func isValidDirectory(_ directory: Basics.AbsolutePath) -> Bool {
-        do {
-            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return result == ".git" || result == "." || result == directory.pathString
-        } catch {
-            return false
-        }
+    public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
+        let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+        return result == ".git" || result == "." || result == directory.pathString
     }
 
-    /// Returns true if the git reference name is well formed.
-    public func isValidRefFormat(_ ref: String) -> Bool {
-        do {
-            _ = try self.git.run(["check-ref-format", "--allow-onelevel", ref])
-            return true
-        } catch {
-            return false
-        }
+    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        return remoteURL == repository.url
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
@@ -743,7 +734,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Returns true if there is an alternative object store in the repository and it is valid.
-    public func isAlternateObjectStoreValid() -> Bool {
+    public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
         let objectStoreFile = self.path.appending(components: ".git", "objects", "info", "alternates")
         guard let bytes = try? localFileSystem.readFileContents(objectStoreFile) else {
             return false
@@ -752,7 +743,11 @@ public final class GitRepository: Repository, WorkingCheckout {
         guard let firstLine = ByteString(split[0]).validDescription else {
             return false
         }
-        return (try? localFileSystem.isDirectory(AbsolutePath(validating: firstLine))) == true
+        guard let objectsPath = try? AbsolutePath(validating: firstLine), localFileSystem.isDirectory(objectsPath) else {
+            return false
+        }
+        let repositoryPath = objectsPath.parentDirectory
+        return expected == repositoryPath
     }
 
     /// Returns true if the file at `path` is ignored by `git`
@@ -924,6 +919,14 @@ public final class GitRepository: Repository, WorkingCheckout {
             }
         }
     }
+
+    /// Read a symbolic link.
+    func readLink(hash: Hash) throws -> String {
+        return try callGit(
+            "cat-file", "-p", String(describing: hash.bytes),
+            failureMessage: "Couldn't read '\(String(describing: hash.bytes))'"
+        )
+    }
 }
 
 // MARK: - GitFileSystemView
@@ -1084,13 +1087,18 @@ private class GitFileSystemView: FileSystem {
         guard entry.type != .tree else {
             throw FileSystemError(.isDirectory, path)
         }
-        guard entry.type != .symlink else {
-            throw InternalError("symlinks not supported")
-        }
         guard case .hash(let hash) = entry.location else {
             throw InternalError("only hash locations supported")
         }
-        return try self.repository.readBlob(hash: hash)
+        switch entry.type {
+        case .symlink:
+            let path = try repository.readLink(hash: hash)
+            return try readFileContents(AbsolutePath(validating: path))
+        case .blob:
+            return try self.repository.readBlob(hash: hash)
+        default:
+            throw InternalError("unsupported git entry type \(entry.type) at path \(path)")
+        }
     }
 
     // MARK: Unsupported methods.

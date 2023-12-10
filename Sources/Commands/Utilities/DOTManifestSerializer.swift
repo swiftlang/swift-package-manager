@@ -18,10 +18,10 @@ import protocol TSCBasic.OutputByteStream
 public struct DOTManifestSerializer {
     var kindCounter = [String: Int]()
     var hasEmittedStyling = Set<String>()
-    let manifest: LLBuildManifest.BuildManifest
+    let manifest: LLBuildManifest
 
     /// Creates a serializer that will serialize the given manifest.
-    public init(manifest: LLBuildManifest.BuildManifest) {
+    public init(manifest: LLBuildManifest) {
         self.manifest = manifest
     }
 

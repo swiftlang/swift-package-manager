@@ -12,7 +12,5 @@ target_link_libraries(swift-package PRIVATE
   Commands
   TSCBasic)
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS swift-package
   RUNTIME DESTINATION bin)
-endif()

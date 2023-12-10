@@ -118,6 +118,10 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         case error
     }
 
+    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
+    public var shouldDisableLocalRpath: Bool = false
+
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
@@ -188,7 +192,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 buildFlags: self.buildFlags,
                 manifestBuildFlags: self.manifestFlags,
                 useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
-                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck
+                explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: self.shouldDisableLocalRpath
             )
         } catch _ as Diagnostics {
             throw ExitCode.failure
@@ -232,7 +237,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
-            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool
         ) throws {
             let buildSystem = try createBuildSystem(
                 packagePath: packagePath,
@@ -244,6 +250,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 explicitTargetDependencyImportCheck: explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
             try buildSystem.build(subset: .allExcludingTests)
@@ -259,6 +266,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
             explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
 
@@ -273,14 +281,20 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 dataPath: dataPath,
                 configuration: configuration,
                 toolchain: self.targetToolchain,
-                hostTriple: self.hostToolchain.targetTriple,
-                targetTriple: self.targetToolchain.targetTriple,
+                triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
-                explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
-                verboseOutput: logLevel <= .info
+                driverParameters: .init(
+                    explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
+                    useIntegratedSwiftDriver: useIntegratedSwiftDriver
+                ),
+                linkingParameters: .init(
+                    shouldDisableLocalRpath: shouldDisableLocalRpath
+                ),
+                outputParameters: .init(
+                    isVerbose: logLevel <= .info
+                )
             )
 
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
@@ -293,7 +307,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             switch buildSystem {
             case .native:
                 return BuildOperation(
-                    buildParameters: buildParameters,
+                    // when building `swift-bootstrap`, host and target build parameters are the same
+                    productsBuildParameters: buildParameters,
+                    toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: packageGraphLoader,
                     additionalFileRules: [],

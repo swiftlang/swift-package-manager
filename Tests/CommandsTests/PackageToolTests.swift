@@ -264,17 +264,35 @@ final class PackageToolTests: CommandsTestCase {
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
-            var path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
-            // Retag the dependency, and update.
-            let repo = GitRepository(path: fixturePath.appending("Foo"))
+            do {
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
+                _ = try checkoutRepo.revision(forTag: "1.2.3")
+            }
+
+
+            // update and retag the dependency, and update.
+            let repoPath = fixturePath.appending("Foo")
+            let repo = GitRepository(path: repoPath)
+            try localFileSystem.writeFileContents(repoPath.appending("test"), string: "test")
+            try repo.stageEverything()
+            try repo.commit()
             try repo.tag(name: "1.2.4")
+
+            // we will validate it is there
+            let revision = try repo.revision(forTag: "1.2.4")
+
             _ = try execute(["update"], packagePath: packageRoot)
 
-            // We shouldn't assume package path will be same after an update so ask again for it.
-            path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3", "1.2.4"])
+            do {
+                // We shouldn't assume package path will be same after an update so ask again for it.
+                let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+                let checkoutRepo = GitRepository(path: checkoutPath)
+                // tag may not be there, but revision should be after update
+                XCTAssertTrue(checkoutRepo.exists(revision: .init(identifier: revision)))
+            }
         }
     }
 
@@ -479,7 +497,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
-        _ = try SwiftPM.Package.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
+        let result = try SwiftPM.Package.execute(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
 
         var symbolGraphURL: URL?
@@ -488,7 +506,13 @@ final class PackageToolTests: CommandsTestCase {
             break
         }
 
-        let symbolGraphData = try Data(contentsOf: XCTUnwrap(symbolGraphURL, file: file, line: line))
+        let symbolGraphData: Data
+        if let symbolGraphURL {
+            symbolGraphData = try Data(contentsOf: symbolGraphURL)
+        } else {
+            XCTFail("Failed to extract symbol graph: \(result.stdout)\n\(result.stderr)")
+            return nil
+        }
 
         // Double check that it's a valid JSON
         XCTAssertNoThrow(try JSONSerialization.jsonObject(with: symbolGraphData), file: file, line: line)
@@ -928,13 +952,10 @@ final class PackageToolTests: CommandsTestCase {
     func testPinning() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
-            func build() throws -> String {
-                return try SwiftPM.Build.execute(packagePath: fooPath).stdout
-            }
             let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
 
             // Build and check.
-            _ = try build()
+            _ = try SwiftPM.Build.execute(packagePath: fooPath)
             XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to bar checkout.
@@ -1918,12 +1939,12 @@ final class PackageToolTests: CommandsTestCase {
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: \"internet good\")]",
             permissionError: "all network connections on ports: 23, 42, 443, 8080",
             reason: "internet good",
-            remedy: ["--allow-network-connections", "all"])
+            remedy: ["--allow-network-connections", "all:23,42,443,8080"])
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: 1..<4), reason: \"internet good\")]",
             permissionError: "all network connections on ports: 1, 2, 3",
             reason: "internet good",
-            remedy: ["--allow-network-connections", "all"])
+            remedy: ["--allow-network-connections", "all:1,2,3"])
 
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(), reason: \"localhost good\")]",
@@ -1934,12 +1955,12 @@ final class PackageToolTests: CommandsTestCase {
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42, 443, 8080]), reason: \"localhost good\")]",
             permissionError: "local network connections on ports: 23, 42, 443, 8080",
             reason: "localhost good",
-            remedy: ["--allow-network-connections", "local"])
+            remedy: ["--allow-network-connections", "local:23,42,443,8080"])
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: 1..<4), reason: \"localhost good\")]",
             permissionError: "local network connections on ports: 1, 2, 3",
             reason: "localhost good",
-            remedy: ["--allow-network-connections", "local"])
+            remedy: ["--allow-network-connections", "local:1,2,3"])
 
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .docker, reason: \"docker good\")]",
@@ -2141,7 +2162,10 @@ final class PackageToolTests: CommandsTestCase {
             do {
                 let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("success"))
-                XCTAssertEqual(stderr, "")
+                let filteredStderr = stderr.components(separatedBy: "\n").filter {
+                    !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit")
+                }.joined(separator: "\n")
+                XCTAssertEqual(filteredStderr, "")
             }
 
             // Check default command arguments

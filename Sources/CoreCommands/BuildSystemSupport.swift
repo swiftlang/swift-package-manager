@@ -19,41 +19,77 @@ import struct PackageGraph.PackageGraph
 import struct PackageLoading.FileRuleDescription
 import protocol TSCBasic.OutputByteStream
 
+private struct NativeBuildSystemFactory: BuildSystemFactory {
+    let swiftTool: SwiftTool
+
+    func makeBuildSystem(
+        explicitProduct: String?,
+        cacheBuildManifest: Bool,
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> PackageGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
+    ) throws -> any BuildSystem {
+        let testEntryPointPath = productsBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
+        return try BuildOperation(
+            productsBuildParameters: try productsBuildParameters ?? self.swiftTool.productsBuildParameters,
+            toolsBuildParameters: try toolsBuildParameters ?? self.swiftTool.toolsBuildParameters,
+            cacheBuildManifest: cacheBuildManifest && self.swiftTool.canUseCachedBuildManifest(),
+            packageGraphLoader: packageGraphLoader ?? {
+                try self.swiftTool.loadPackageGraph(
+                    explicitProduct: explicitProduct,
+                    testEntryPointPath: testEntryPointPath
+                )
+            },
+            pluginConfiguration: .init(
+                scriptRunner: self.swiftTool.getPluginScriptRunner(),
+                workDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
+                disableSandbox: self.swiftTool.shouldDisableSandbox
+            ),
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            pkgConfigDirectories: self.swiftTool.options.locations.pkgConfigDirectories,
+            outputStream: outputStream ?? self.swiftTool.outputStream,
+            logLevel: logLevel ?? self.swiftTool.logLevel,
+            fileSystem: self.swiftTool.fileSystem,
+            observabilityScope: observabilityScope ?? self.swiftTool.observabilityScope)
+    }
+}
+
+private struct XcodeBuildSystemFactory: BuildSystemFactory {
+    let swiftTool: SwiftTool
+
+    func makeBuildSystem(
+        explicitProduct: String?,
+        cacheBuildManifest: Bool,
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> PackageGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
+    ) throws -> any BuildSystem {
+        return try XcodeBuildSystem(
+            buildParameters: productsBuildParameters ?? self.swiftTool.productsBuildParameters,
+            packageGraphLoader: packageGraphLoader ?? {
+                try self.swiftTool.loadPackageGraph(
+                    explicitProduct: explicitProduct
+                )
+            },
+            outputStream: outputStream ?? self.swiftTool.outputStream,
+            logLevel: logLevel ?? self.swiftTool.logLevel,
+            fileSystem: self.swiftTool.fileSystem,
+            observabilityScope: observabilityScope ?? self.swiftTool.observabilityScope
+        )
+    }
+}
+
 extension SwiftTool {
     public var defaultBuildSystemProvider: BuildSystemProvider {
-        get throws {
-            return .init(providers: [
-                .native: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                    let testEntryPointPath = customBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
-                    let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
-                    return try BuildOperation(
-                        buildParameters: customBuildParameters ?? self.buildParameters(),
-                        cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
-                        packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                        pluginConfiguration: .init(
-                            scriptRunner: self.getPluginScriptRunner(),
-                            workDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                            disableSandbox: self.shouldDisableSandbox
-                        ),
-                        additionalFileRules: FileRuleDescription.swiftpmFileTypes,
-                        pkgConfigDirectories: self.options.locations.pkgConfigDirectories,
-                        outputStream: customOutputStream ?? self.outputStream,
-                        logLevel: customLogLevel ?? self.logLevel,
-                        fileSystem: self.fileSystem,
-                        observabilityScope: customObservabilityScope ?? self.observabilityScope)
-                },
-                .xcode: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                    let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-                    return try XcodeBuildSystem(
-                        buildParameters: customBuildParameters ?? self.buildParameters(),
-                        packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                        outputStream: customOutputStream ?? self.outputStream,
-                        logLevel: customLogLevel ?? self.logLevel,
-                        fileSystem: self.fileSystem,
-                        observabilityScope: customObservabilityScope ?? self.observabilityScope
-                    )
-                },
-            ])
-        }
+        .init(providers: [
+            .native: NativeBuildSystemFactory(swiftTool: self),
+            .xcode: XcodeBuildSystemFactory(swiftTool: self)
+        ])
     }
 }

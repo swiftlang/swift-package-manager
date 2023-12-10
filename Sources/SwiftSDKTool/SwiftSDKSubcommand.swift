@@ -43,14 +43,9 @@ extension SwiftSDKSubcommand {
     /// on the file system. A new directory at this path is created if one doesn't exist already.
     /// - Returns: existing or a newly created directory at the computed location.
     func getOrCreateSwiftSDKsDirectory() throws -> AbsolutePath {
-        guard var swiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
+        var swiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: locations.swiftSDKsDirectory
-        ) else {
-            let expectedPath = try fileSystem.swiftSDKsDirectory
-            throw StringError(
-                "Couldn't find or create a directory where Swift SDKs are stored: `\(expectedPath)`"
-            )
-        }
+        )
 
         if !self.fileSystem.exists(swiftSDKsDirectory) {
             swiftSDKsDirectory = try self.fileSystem.getOrCreateSwiftPMSwiftSDKsDirectory()

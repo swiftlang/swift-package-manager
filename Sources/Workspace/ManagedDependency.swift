@@ -196,7 +196,7 @@ extension Workspace {
 
         // When loading manifests in Workspace, there are cases where we must also compare the location
         // as it may attempt to load manifests for dependencies that have the same identity but from a different location
-        // (e.g. dependency is changed to  a fork with the same identity)
+        // (e.g. dependency is changed to a fork with the same identity)
         public subscript(comparingLocation package: PackageReference) -> ManagedDependency? {
             if let dependency = self.dependencies[package.identity], dependency.packageRef.equalsIncludingLocation(package) {
                 return dependency

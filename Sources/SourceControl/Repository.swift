@@ -143,10 +143,10 @@ public protocol RepositoryProvider: Cancellable {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 
     /// Returns true if the directory is valid git location.
-    func isValidDirectory(_ directory: AbsolutePath) -> Bool
+    func isValidDirectory(_ directory: AbsolutePath) throws -> Bool
 
-    /// Returns true if the git reference name is well formed.
-    func isValidRefFormat(_ ref: String) -> Bool
+    /// Returns true if the directory is valid git location for the specified repository
+    func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool
 }
 
 /// Abstract repository operations.
@@ -272,7 +272,7 @@ public protocol WorkingCheckout {
     func checkout(newBranch: String) throws
 
     /// Returns true if there is an alternative store in the checkout and it is valid.
-    func isAlternateObjectStoreValid() -> Bool
+    func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool
 
     /// Returns true if the file at `path` is ignored by `git`
     func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool]

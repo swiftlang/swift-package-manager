@@ -337,7 +337,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'; consider using the `moduleAliases` parameter in manifest to provide unique names", severity: .error)
+            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'", severity: .error)
         }
     }
 
@@ -396,7 +396,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth', 'second', 'third'; consider using the `moduleAliases` parameter in manifest to provide unique names", severity: .error)
+            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth', 'second', 'third'", severity: .error)
         }
     }
 
@@ -466,8 +466,8 @@ class PackageGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.checkUnordered(diagnostic: "multiple targets named 'Bar' in: 'fourth', 'third'; consider using the `moduleAliases` parameter in manifest to provide unique names", severity: .error)
-            result.checkUnordered(diagnostic: "multiple targets named 'Foo' in: 'first', 'second'; consider using the `moduleAliases` parameter in manifest to provide unique names", severity: .error)
+            result.checkUnordered(diagnostic: "multiple targets named 'Bar' in: 'fourth', 'third'", severity: .error)
+            result.checkUnordered(diagnostic: "multiple targets named 'Foo' in: 'first', 'second'", severity: .error)
         }
     }
 
@@ -535,7 +535,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth'; consider using the `moduleAliases` parameter in manifest to provide unique names", severity: .error)
+            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth'", severity: .error)
         }
     }
 
@@ -1255,7 +1255,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Foo' in: 'dep2', 'start'; consider using the `moduleAliases` parameter in manifest to provide unique names", severity: .error)
+            result.check(diagnostic: "multiple targets named 'Foo' in: 'dep2', 'start'", severity: .error)
         }
     }
 
@@ -2220,8 +2220,8 @@ class PackageGraphTests: XCTestCase {
             "linux": "0.0",
             "macos": "10.13",
             "maccatalyst": "13.0",
-            "ios": "11.0",
-            "tvos": "11.0",
+            "ios": "12.0",
+            "tvos": "12.0",
             "driverkit": "19.0",
             "watchos": "4.0",
             "visionos": "1.0",
@@ -2233,8 +2233,8 @@ class PackageGraphTests: XCTestCase {
 
         let customXCTestMinimumDeploymentTargets = [
             PackageModel.Platform.macOS: PlatformVersion("10.15"),
-            PackageModel.Platform.iOS: PlatformVersion("11.0"),
-            PackageModel.Platform.tvOS: PlatformVersion("10.0"),
+            PackageModel.Platform.iOS: PlatformVersion("12.0"),
+            PackageModel.Platform.tvOS: PlatformVersion("12.0"),
             PackageModel.Platform.watchOS: PlatformVersion("4.0"),
             PackageModel.Platform.visionOS: PlatformVersion("1.0"),
         ]
@@ -2471,8 +2471,8 @@ class PackageGraphTests: XCTestCase {
             "linux": "0.0",
             "macos": "10.13",
             "maccatalyst": "13.0",
-            "ios": "11.0",
-            "tvos": "11.0",
+            "ios": "12.0",
+            "tvos": "12.0",
             "driverkit": "19.0",
             "watchos": "4.0",
             "visionos": "1.0",

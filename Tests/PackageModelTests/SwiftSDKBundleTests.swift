@@ -90,8 +90,8 @@ private struct MockArtifact {
 
 private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
     let bundles = bundleArtifacts.enumerated().map { (i, artifacts) in
-        let bundleName = "test\(i).artifactbundle"
-        return MockBundle(name: "test\(i).artifactbundle", path: "/\(bundleName)", artifacts: [artifacts])
+        let bundleName = "test\(i).\(artifactBundleExtension)"
+        return MockBundle(name: "test\(i).\(artifactBundleExtension)", path: "/\(bundleName)", artifacts: [artifacts])
     }
 
 
@@ -111,9 +111,60 @@ private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (
 }
 
 private let arm64Triple = try! Triple("arm64-apple-macosx13.0")
-let i686Triple = try! Triple("i686-apple-macosx13.0")
+private let i686Triple = try! Triple("i686-apple-macosx13.0")
+
+private let fixtureArchivePath = try! AbsolutePath(validating: #file)
+    .parentDirectory
+    .parentDirectory
+    .parentDirectory
+    .appending(components: ["Fixtures", "SwiftSDKs", "test-sdk.artifactbundle.tar.gz"])
 
 final class SwiftSDKBundleTests: XCTestCase {
+    func testInstallRemote() async throws {
+        #if canImport(Darwin) && !os(macOS)
+        try XCTSkipIf(true, "skipping test because process launching is not available")
+        #endif
+
+        let system = ObservabilitySystem.makeForTesting()
+        var output = [SwiftSDKBundleStore.Output]()
+        let observabilityScope = system.topScope
+        let cancellator = Cancellator(observabilityScope: observabilityScope)
+        let archiver = UniversalArchiver(localFileSystem, cancellator)
+
+        let httpClient = HTTPClient { request, _ in
+            guard case let .download(_, downloadPath) = request.kind else {
+                XCTFail("Unexpected HTTPClient.Request.Kind")
+                return .init(statusCode: 400)
+            }
+            try localFileSystem.copy(from: fixtureArchivePath, to: downloadPath)
+            return .init(statusCode: 200)
+        }
+
+        try await withTemporaryDirectory(fileSystem: localFileSystem, removeTreeOnDeinit: true) { tmpDir in
+            let store = SwiftSDKBundleStore(
+                swiftSDKsDirectory: tmpDir,
+                fileSystem: localFileSystem,
+                observabilityScope: observabilityScope,
+                outputHandler: {
+                    output.append($0)
+                }
+            )
+            let bundleURLString = "https://localhost/archive?test=foo"
+            try await store.install(bundlePathOrURL: bundleURLString, archiver, httpClient)
+            
+            let bundleURL = URL(string: bundleURLString)!
+            XCTAssertEqual(output, [
+                .downloadStarted(bundleURL),
+                .downloadFinishedSuccessfully(bundleURL),
+                .unpackingArchive(bundlePathOrURL: bundleURLString),
+                .installationSuccessful(
+                    bundlePathOrURL: bundleURLString,
+                    bundleName: "test-sdk.artifactbundle"
+                ),
+            ])
+        }.value
+    }
+
     func testInstall() async throws {
         let system = ObservabilitySystem.makeForTesting()
 
@@ -126,23 +177,23 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         let archiver = MockArchiver()
 
-        try await SwiftSDKBundle.install(
-            bundlePathOrURL: bundles[0].path,
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
-            fileSystem,
-            archiver,
-            system.topScope
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
         )
 
+        // Expected to be successful:
+        try await store.install(bundlePathOrURL: bundles[0].path, archiver)
+
+        // Expected to fail:
         let invalidPath = "foobar"
         do {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: "foobar",
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                archiver,
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: invalidPath, archiver)
 
             XCTFail("Function expected to throw")
         } catch {
@@ -152,21 +203,15 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
 
             switch error {
-            case .invalidBundleName(let bundleName):
-                XCTAssertEqual(bundleName, invalidPath)
+            case let .invalidBundleArchive(archivePath):
+                XCTAssertEqual(archivePath, AbsolutePath.root.appending(invalidPath))
             default:
                 XCTFail("Unexpected error value")
             }
         }
 
         do {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundles[0].path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                archiver,
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: bundles[0].path, archiver)
 
             XCTFail("Function expected to throw")
         } catch {
@@ -176,21 +221,17 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
 
             switch error {
-            case .swiftSDKBundleAlreadyInstalled(let installedBundleName):
+            case let .swiftSDKArtifactAlreadyInstalled(installedBundleName, newBundleName, artifactID):
                 XCTAssertEqual(bundles[0].name, installedBundleName)
+                XCTAssertEqual(newBundleName, "test0.\(artifactBundleExtension)")
+                XCTAssertEqual(artifactID, testArtifactID)
             default:
                 XCTFail("Unexpected error value")
             }
         }
 
         do {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundles[1].path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                archiver,
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: bundles[1].path, archiver)
 
              XCTFail("Function expected to throw")
          } catch {
@@ -208,6 +249,14 @@ final class SwiftSDKBundleTests: XCTestCase {
                 XCTFail("Unexpected error value")
             }
         }
+
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .unpackingArchive(bundlePathOrURL: invalidPath),
+        ])
     }
 
     func testList() async throws {
@@ -218,26 +267,37 @@ final class SwiftSDKBundleTests: XCTestCase {
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
+        let archiver = MockArchiver()
 
-        for bundle in bundles {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundle.path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                MockArchiver(),
-                system.topScope
-            )
-        }
-
-        let validBundles = try SwiftSDKBundle.getAllValidBundles(
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
-            observabilityScope: system.topScope
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
         )
+
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        let validBundles = try store.allValidBundles
 
         XCTAssertEqual(validBundles.count, bundles.count)
 
         XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .installationSuccessful(
+                bundlePathOrURL: bundles[1].path,
+                bundleName: AbsolutePath(bundles[1].path).components.last!
+            ),
+        ])
     }
 
     func testBundleSelection() async throws {
@@ -249,24 +309,36 @@ final class SwiftSDKBundleTests: XCTestCase {
         )
         let system = ObservabilitySystem.makeForTesting()
 
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
+        )
+
+        let archiver = MockArchiver()
         for bundle in bundles {
-            try await SwiftSDKBundle.install(
-                bundlePathOrURL: bundle.path,
-                swiftSDKsDirectory: swiftSDKsDirectory,
-                fileSystem,
-                MockArchiver(),
-                system.topScope
-            )
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
         }
 
-        let sdk = try SwiftSDKBundle.selectBundle(
-            fromBundlesAt: swiftSDKsDirectory,
-            fileSystem: fileSystem,
+        let sdk = try store.selectBundle(
             matching: "\(testArtifactID)1",
-            hostTriple: Triple("arm64-apple-macosx14.0"),
-            observabilityScope: system.topScope
+            hostTriple: Triple("arm64-apple-macosx14.0")
         )
 
         XCTAssertEqual(sdk.targetTriple, targetTriple)
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .installationSuccessful(
+                bundlePathOrURL: bundles[1].path,
+                bundleName: AbsolutePath(bundles[1].path).components.last!
+            ),
+        ])
     }
 }

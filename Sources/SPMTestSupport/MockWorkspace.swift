@@ -68,7 +68,7 @@ public final class MockWorkspace {
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
         self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
-        self.mirrors = customMirrors ?? DependencyMirrors()
+        self.mirrors = try customMirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(
             locationMapper: self.mirrors.effective(for:),
             identityMapper: self.mirrors.effectiveIdentity(for:)
@@ -893,11 +893,11 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func willDownloadBinaryArtifact(from url: String) {
+    public func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
         self.append("downloading binary artifact package: \(url)")
     }
 
-    public func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
+    public func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
         self.append("finished downloading binary artifact package: \(url)")
     }
 

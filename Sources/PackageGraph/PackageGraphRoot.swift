@@ -56,7 +56,13 @@ public struct PackageGraphRoot {
 
         return self._dependencies.map { dependency in
             do {
-                return try dependencyMapper.mappedDependency(for: dependency, fileSystem: localFileSystem)
+                return try dependencyMapper.mappedDependency(
+                    MappablePackageDependency(
+                        dependency,
+                        parentPackagePath: localFileSystem.currentWorkingDirectory ?? .root
+                    ),
+                    fileSystem: localFileSystem
+                )
             } catch {
                 observabilityScope.emit(warning: "could not map dependency \(dependency.identity): \(error.interpolationDescription)")
                 return dependency

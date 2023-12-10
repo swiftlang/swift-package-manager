@@ -122,6 +122,7 @@ public enum XCBuildMessage {
     case taskOutput(TaskOutputInfo)
     case taskComplete(TaskCompleteInfo)
     case targetDiagnostic(TargetDiagnosticInfo)
+    case unknown
 }
 
 extension XCBuildMessage.BuildDiagnosticInfo: Codable, Equatable, Sendable {}
@@ -285,7 +286,7 @@ extension XCBuildMessage: Codable, Equatable, Sendable {
         case "targetDiagnostic":
             self = try .targetDiagnostic(TargetDiagnosticInfo(from: decoder))
         default:
-            throw DecodingError.dataCorruptedError(forKey: .kind, in: container, debugDescription: "invalid kind \(kind)")
+            self = .unknown
         }
     }
 
@@ -335,6 +336,9 @@ extension XCBuildMessage: Codable, Equatable, Sendable {
         case let .targetDiagnostic(info):
             try container.encode("targetDiagnostic", forKey: .kind)
             try info.encode(to: encoder)
+        case .unknown:
+            assertionFailure()
+            break
         }
     }
 }

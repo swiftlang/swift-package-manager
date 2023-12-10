@@ -35,11 +35,13 @@ public struct ListSwiftSDKs: SwiftSDKSubcommand {
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        let validBundles = try SwiftSDKBundle.getAllValidBundles(
+        let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            outputHandler: { print($0.description) }
         )
+        let validBundles = try store.allValidBundles
 
         guard !validBundles.isEmpty else {
             print("No Swift SDKs are currently installed.")

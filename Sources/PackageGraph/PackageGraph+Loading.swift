@@ -46,10 +46,14 @@ extension PackageGraph {
         root.manifests.forEach {
             manifestMap[$0.key] = ($0.value, fileSystem)
         }
-        let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
-            node.requiredDependencies.compactMap{ dependency in
-                return manifestMap[dependency.identity].map { (manifest, fileSystem) in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: fileSystem)
+        func nodeSuccessorsProvider(node: GraphLoadingNode) -> [GraphLoadingNode] {
+            node.requiredDependencies.compactMap { dependency in
+                manifestMap[dependency.identity].map { (manifest, fileSystem) in
+                    GraphLoadingNode(
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        productFilter: dependency.productFilter
+                    )
                 }
             }
         }
@@ -59,11 +63,15 @@ extension PackageGraph {
             manifestMap[$0.identity]?.manifest
         })
         let rootManifestNodes = root.packages.map { identity, package in
-            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: fileSystem)
+            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
         }
-        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
+        let rootDependencyNodes = root.dependencies.lazy.compactMap { dependency in
             manifestMap[dependency.identity].map {
-                GraphLoadingNode(identity: dependency.identity, manifest: $0.manifest, productFilter: dependency.productFilter, fileSystem: $0.fs)
+                GraphLoadingNode(
+                    identity: dependency.identity,
+                    manifest: $0.manifest,
+                    productFilter: dependency.productFilter
+                )
             }
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -72,13 +80,13 @@ extension PackageGraph {
         var allNodes: [GraphLoadingNode]
 
         // Detect cycles in manifest dependencies.
-        if let cycle = findCycle(inputManifests, successors: successors) {
+        if let cycle = findCycle(inputManifests, successors: nodeSuccessorsProvider) {
             observabilityScope.emit(PackageGraphError.cycleDetected(cycle))
             // Break the cycle so we can build a partial package graph.
             allNodes = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
         } else {
-            // Sort all manifests toplogically.
-            allNodes = try topologicalSort(inputManifests, successors: successors)
+            // Sort all manifests topologically.
+            allNodes = try topologicalSort(inputManifests, successors: nodeSuccessorsProvider)
         }
 
         var flattenedManifests: [PackageIdentity: GraphLoadingNode] = [:]
@@ -87,8 +95,7 @@ extension PackageGraph {
                 let merged = GraphLoadingNode(
                     identity: node.identity,
                     manifest: node.manifest,
-                    productFilter: existing.productFilter.union(node.productFilter),
-                    fileSystem: node.fileSystem
+                    productFilter: existing.productFilter.union(node.productFilter)
                 )
                 flattenedManifests[node.identity] = merged
             } else {
@@ -123,7 +130,7 @@ extension PackageGraph {
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
-                    fileSystem: node.fileSystem,
+                    fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope
                 )
                 let package = try builder.construct()
@@ -799,6 +806,10 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
                                                      observabilityScope: observabilityScope)
         }
     }
+
+    // Emit diagnostics for any module aliases that did not end up being applied.
+    aliasTracker.diagnoseUnappliedAliases(observabilityScope: observabilityScope)
+
     return true
 }
 
@@ -858,10 +869,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     enum Dependency {
 
         /// Dependency to another target, with conditions.
-        case target(_ target: ResolvedTargetBuilder, conditions: [PackageConditionProtocol])
+        case target(_ target: ResolvedTargetBuilder, conditions: [PackageCondition])
 
         /// Dependency to a product, with conditions.
-        case product(_ product: ResolvedProductBuilder, conditions: [PackageConditionProtocol])
+        case product(_ product: ResolvedProductBuilder, conditions: [PackageCondition])
     }
 
     /// The target reference.
@@ -907,7 +918,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
                 try self.target.validateDependency(target: targetBuilder.target)
                 return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
-                try self.target.validateDependency(product: productBuilder.product, productPackage: productBuilder.packageBuilder.package.identity)
+                try self.target.validateDependency(
+                    product: productBuilder.product,
+                    productPackage: productBuilder.packageBuilder.package.identity
+                )
                 let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
                     try self.diagnoseInvalidUseOfUnsafeFlags(product)

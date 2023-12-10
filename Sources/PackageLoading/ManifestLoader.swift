@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Dispatch
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 import class TSCBasic.BufferedOutputByteStream
@@ -292,7 +293,41 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.evaluationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
         self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
     }
-
+    
+    public func load(
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest {
+        try await safe_async {
+            self.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue, 
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
     public func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
@@ -408,6 +443,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
         packageLocation: String,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
@@ -452,6 +488,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             v4: manifestJSON,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
+            packagePath: packagePath,
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem
@@ -496,7 +533,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 manifestPath: path,
                 toolsVersion: toolsVersion,
-                env: ProcessEnv.vars,
+                env: ProcessEnv.cachableVars,
                 swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
@@ -559,6 +596,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     evaluationResult,
                     packageIdentity: packageIdentity,
                     packageKind: packageKind,
+                    packagePath: path.parentDirectory,
                     packageLocation: packageLocation,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
@@ -601,6 +639,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         evaluationResult,
                         packageIdentity: packageIdentity,
                         packageKind: packageKind,
+                        packagePath: path.parentDirectory,
                         packageLocation: packageLocation,
                         toolsVersion: toolsVersion,
                         identityResolver: identityResolver,
@@ -658,23 +697,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // we must not block the calling thread (for concurrency control) so nesting this in a queue
             self.evaluationQueue.addOperation {
-                do {
-                    // park the evaluation thread based on the max concurrency allowed
-                    self.concurrencySemaphore.wait()
+                // park the evaluation thread based on the max concurrency allowed
+                self.concurrencySemaphore.wait()
 
-                    let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
-                                                            swiftCompilerFlags: self.extraManifestFlags,
-                                                            swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
+                let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
+                                                        swiftCompilerFlags: self.extraManifestFlags,
+                                                        swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
 
-                    importScanner.scanImports(manifestPath, callbackQueue: callbackQueue) { result in
-                        do {
-                            let imports = try result.get().filter { !allowedImports.contains($0) }
-                            guard imports.isEmpty else {
-                                throw ManifestParseError.importsRestrictedModules(imports)
-                            }
-                        } catch {
-                            completion(.failure(error))
+                Task {
+                    let result = try await importScanner.scanImports(manifestPath)
+                    let imports = result.filter { !allowedImports.contains($0) }
+                    guard imports.isEmpty else {
+                        callbackQueue.async {
+                            completion(.failure(ManifestParseError.importsRestrictedModules(imports)))
                         }
+                        return
                     }
                 }
             }
@@ -1209,5 +1246,11 @@ extension ManifestLoader {
             action = nil
             return next
         }
+    }
+}
+
+extension ProcessEnv {
+    fileprivate static var cachableVars: EnvironmentVariables {
+        Self.vars.cachable
     }
 }

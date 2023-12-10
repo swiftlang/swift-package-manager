@@ -85,6 +85,10 @@ struct BuildToolOptions: ParsableArguments {
     /// Specific product to build.
     @Option(help: "Build the specified product")
     var product: String?
+
+    /// If should link the Swift stdlib statically.
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
+    public var shouldLinkStaticSwiftStdlib: Bool = false
 }
 
 /// swift-build tool namespace
@@ -105,7 +109,7 @@ public struct SwiftBuildTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
-            return try print(swiftTool.buildParameters().buildPath.description)
+            return try print(swiftTool.productsBuildParameters.buildPath.description)
         }
 
         if options.printManifestGraphviz {
@@ -122,20 +126,15 @@ public struct SwiftBuildTool: SwiftCommand {
             return
         }
 
-        #if os(Linux)
-        // Emit warning if clang is older than version 3.6 on Linux.
-        // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
-        checkClangVersion(observabilityScope: swiftTool.observabilityScope)
-        #endif
-
         guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
             throw ExitCode.failure
         }
         let buildSystem = try swiftTool.createBuildSystem(
             explicitProduct: options.product,
+            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
-            customOutputStream: TSCBasic.stdoutStream
+            outputStream: TSCBasic.stdoutStream
         )
         do {
             try buildSystem.build(subset: subset)
@@ -144,25 +143,11 @@ public struct SwiftBuildTool: SwiftCommand {
         }
     }
 
-    private func checkClangVersion(observabilityScope: ObservabilityScope) {
-        // We only care about this on Ubuntu 14.04
-        guard let uname = try? TSCBasic.Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
-              uname.hasSuffix("14.04"),
-              let clangVersionOutput = try? TSCBasic.Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
-              let clang = getClangVersion(versionOutput: clangVersionOutput) else {
-            return
-        }
-
-        if clang < Version(3, 6, 0) {
-            observabilityScope.emit(warning: "minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
-        }
-    }
-
     public init() {}
 }
 
 public extension _SwiftCommand {
     func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
-        return try swiftTool.defaultBuildSystemProvider
+        swiftTool.defaultBuildSystemProvider
     }
 }

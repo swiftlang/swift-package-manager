@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import DriverSupport
 import PackageGraph
 import PackageModel
 import OrderedCollections
@@ -107,24 +106,25 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     private var deadStripArguments: [String] {
-        if !self.buildParameters.linkerDeadStrip {
+        if !self.buildParameters.linkingParameters.linkerDeadStrip {
             return []
         }
 
+        let triple = self.buildParameters.triple
         switch self.buildParameters.configuration {
         case .debug:
             return []
         case .release:
-            if self.buildParameters.targetTriple.isApple() {
+            if triple.isApple() {
                 return ["-Xlinker", "-dead_strip"]
-            } else if self.buildParameters.targetTriple.isWindows() {
+            } else if triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
-            } else if self.buildParameters.targetTriple.arch == .wasm32 {
+            } else if triple.arch == .wasm32 {
                 // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
                 // during GC, and it removes Swift metadata sections like swift5_protocols
                 // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
                 // to LLVM and wasm-ld
-                // This workaround is required for not only WASI but also all WebAssembly archs
+                // This workaround is required for not only WASI but also all WebAssembly triples
                 // using wasm-ld (e.g. wasm32-unknown-unknown). So this branch is conditioned by
                 // arch == .wasm32
                 return []
@@ -137,7 +137,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     /// The arguments to the librarian to create a static library.
     public func archiveArguments() throws -> [String] {
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
-        let triple = self.buildParameters.targetTriple
+        let triple = self.buildParameters.triple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
             return try [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(self.linkFileListPath.pathString)"]
         }
@@ -154,7 +154,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.additionalFlags
 
         // pass `-v` during verbose builds.
-        if self.buildParameters.verboseOutput {
+        if self.buildParameters.outputParameters.isVerbose {
             args += ["-v"]
         }
 
@@ -169,7 +169,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.dylibs.map { "-l" + $0.product.name }
 
         // Add arguments needed for code coverage if it is enabled.
-        if self.buildParameters.enableCodeCoverage {
+        if self.buildParameters.testingParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
 
@@ -188,6 +188,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         var isLinkingStaticStdlib = false
+        let triple = self.buildParameters.triple
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached
@@ -198,7 +199,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return []
         case .test:
             // Test products are bundle when using objectiveC, executable when using test entry point.
-            switch self.buildParameters.testProductStyle {
+            switch self.buildParameters.testingParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
             case .entryPointExecutable:
@@ -207,7 +208,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += self.deadStripArguments
         case .library(.dynamic):
             args += ["-emit-library"]
-            if self.buildParameters.targetTriple.isDarwin() {
+            if triple.isDarwin() {
                 let relativePath = try "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
@@ -215,10 +216,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
-            if self.buildParameters.shouldLinkStaticSwiftStdlib {
-                if self.buildParameters.targetTriple.isDarwin() {
+            if self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib {
+                if triple.isDarwin() {
                     self.observabilityScope.emit(.swiftBackDeployError)
-                } else if self.buildParameters.targetTriple.isSupportingStaticStdlib {
+                } else if triple.isSupportingStaticStdlib {
                     args += ["-static-stdlib"]
                     isLinkingStaticStdlib = true
                 }
@@ -235,8 +236,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
-            if let target = executableTarget.underlyingTarget as? SwiftTarget, self.toolsVersion >= .v5_5,
-               self.buildParameters.canRenameEntrypointFunctionName, target.supportsTestableExecutablesFeature
+            if let target = executableTarget.underlyingTarget as? SwiftTarget, 
+                self.toolsVersion >= .v5_5,
+                self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
+                target.supportsTestableExecutablesFeature
             {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
                     args += flags
@@ -257,12 +260,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         // Set rpath such that dynamic libraries are looked up
-        // adjacent to the product.
-        if self.buildParameters.targetTriple.isLinux() {
-            args += ["-Xlinker", "-rpath=$ORIGIN"]
-        } else if self.buildParameters.targetTriple.isDarwin() {
-            let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
-            args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+        // adjacent to the product, unless overridden.
+        if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
+            if triple.isLinux() {
+                args += ["-Xlinker", "-rpath=$ORIGIN"]
+            } else if triple.isDarwin() {
+                let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
+                args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+            }
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
@@ -280,7 +285,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
-            if useStdlibRpath, self.buildParameters.targetTriple.isMacOSX {
+            if useStdlibRpath, triple.isMacOSX {
                 let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
                 if macOSSupportedPlatform.version.major < 12 {
                     let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
@@ -322,6 +327,16 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
 
+        // Enable the correct lto mode if requested.
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
+        case nil:
+            break
+        case .full:
+            args += ["-lto=llvm-full"]
+        case .thin:
+            args += ["-lto=llvm-thin"]
+        }
+
         // Pass default library paths from the toolchain.
         for librarySearchPath in self.buildParameters.toolchain.librarySearchPaths {
             args += ["-L", librarySearchPath.pathString]
@@ -348,7 +363,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         flags += libraries.map { "-l" + $0 }
 
         // Linked frameworks.
-        if self.buildParameters.targetTriple.supportsFrameworks {
+        if self.buildParameters.triple.supportsFrameworks {
             let frameworks = OrderedSet(self.staticTargets.reduce([]) {
                 $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
             })
@@ -362,6 +377,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
 
         return flags
+    }
+
+    func codeSigningArguments(plistPath: AbsolutePath, binaryPath: AbsolutePath) -> [String] {
+        ["codesign", "--force", "--sign", "-", "--entitlements", plistPath.pathString, binaryPath.pathString]
     }
 }
 

@@ -44,12 +44,11 @@ extension SwiftPM {
         }
     }
 
-    /// Path to currently built binary.
-    public var path: AbsolutePath {
-        return Self.testBinaryPath(for: self.executableName)
+    public var xctestBinaryPath: AbsolutePath {
+        Self.xctestBinaryPath(for: executableName)
     }
 
-    public static func testBinaryPath(for executableName: RelativePath) -> AbsolutePath {
+    public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
         #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
@@ -102,9 +101,10 @@ extension SwiftPM {
         env: [String: String]? = nil
     ) throws -> ProcessResult {
         var environment = ProcessInfo.processInfo.environment
-        for (key, value) in env ?? [:] {
-            environment[key] = value
-        }
+#if !os(Windows)
+        environment["SDKROOT"] = nil
+#endif
+
 #if Xcode
         // Unset these variables which causes issues when running tests via Xcode.
         environment["XCTestConfigurationFilePath"] = nil
@@ -114,15 +114,16 @@ extension SwiftPM {
 #endif
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
-        environment["SWIFTPM_TESTS_MODULECACHE"] = self.path.parentDirectory.pathString
-#if !os(Windows)
-        environment["SDKROOT"] = nil
-#endif
+        environment["SWIFTPM_TESTS_MODULECACHE"] = xctestBinaryPath.parentDirectory.pathString
         
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
         
-        var completeArgs = [self.path.pathString]
+        for (key, value) in env ?? [:] {
+            environment[key] = value
+        }
+
+        var completeArgs = [xctestBinaryPath.pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
         }

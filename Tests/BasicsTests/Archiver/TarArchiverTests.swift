@@ -19,51 +19,51 @@ import class TSCBasic.InMemoryFileSystem
 import struct TSCBasic.FileSystemError
 
 final class TarArchiverTests: XCTestCase {
-    func testSuccess() throws {
-        try testWithTemporaryDirectory { tmpdir in
+    func testSuccess() async throws {
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
-            try archiver.extract(from: inputArchivePath, to: tmpdir)
+            try await archiver.extract(from: inputArchivePath, to: tmpdir)
             let content = tmpdir.appending("file")
             XCTAssert(localFileSystem.exists(content))
             XCTAssertEqual((try? localFileSystem.readFileContents(content))?.cString, "Hello World!")
         }
     }
 
-    func testArchiveDoesntExist() {
+    func testArchiveDoesntExist() async {
         let fileSystem = InMemoryFileSystem()
         let archiver = TarArchiver(fileSystem: fileSystem)
         let archive = AbsolutePath("/archive.tar.gz")
-        XCTAssertThrowsError(try archiver.extract(from: archive, to: "/")) { error in
+        await XCTAssertAsyncThrowsError(try await archiver.extract(from: archive, to: "/")) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, archive))
         }
     }
 
-    func testDestinationDoesntExist() throws {
+    func testDestinationDoesntExist() async throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.tar.gz")
         let archiver = TarArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath("/destination")
-        XCTAssertThrowsError(try archiver.extract(from: "/archive.tar.gz", to: destination)) { error in
+        await XCTAssertAsyncThrowsError(try await archiver.extract(from: "/archive.tar.gz", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
         }
     }
 
-    func testDestinationIsFile() throws {
+    func testDestinationIsFile() async {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.tar.gz", "/destination")
         let archiver = TarArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath("/destination")
-        XCTAssertThrowsError(try archiver.extract(from: "/archive.tar.gz", to: destination)) { error in
+        await XCTAssertAsyncThrowsError(try await archiver.extract(from: "/archive.tar.gz", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
         }
     }
 
-    func testInvalidArchive() throws {
-        try testWithTemporaryDirectory { tmpdir in
+    func testInvalidArchive() async throws {
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
-            XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
+            await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
                 #if os(Linux)
                 XCTAssertMatch((error as? StringError)?.description, .contains("not in gzip format"))
                 #else
@@ -73,39 +73,39 @@ final class TarArchiverTests: XCTestCase {
         }
     }
 
-    func testValidation() throws {
+    func testValidation() async throws {
         // valid
-        try testWithTemporaryDirectory { _ in
+        try await testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
-            XCTAssertTrue(try archiver.validate(path: path))
+            try await XCTAssertAsyncTrue(try await archiver.validate(path: path))
         }
         // invalid
-        try testWithTemporaryDirectory { _ in
+        try await testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
-            XCTAssertFalse(try archiver.validate(path: path))
+            try await XCTAssertAsyncFalse(try await archiver.validate(path: path))
         }
         // error
-        try testWithTemporaryDirectory { _ in
+        try await  testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath.root.appending("does_not_exist.tar.gz")
-            XCTAssertThrowsError(try archiver.validate(path: path)) { error in
+            await XCTAssertAsyncThrowsError(try await archiver.validate(path: path)) { error in
                 XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, path))
             }
         }
     }
 
-    func testCompress() throws {
+    func testCompress() async throws {
         #if os(Linux)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
         }
         #endif
 
-        try testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
 
             let rootDir = tmpdir.appending(component: UUID().uuidString)
@@ -122,12 +122,12 @@ final class TarArchiverTests: XCTestCase {
             try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
 
             let archivePath = tmpdir.appending(component: UUID().uuidString + ".tar.gz")
-            try archiver.compress(directory: rootDir, to: archivePath)
+            try await archiver.compress(directory: rootDir, to: archivePath)
             XCTAssertFileExists(archivePath)
 
             let extractRootDir = tmpdir.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractRootDir)
-            try archiver.extract(from: archivePath, to: extractRootDir)
+            try await archiver.extract(from: archivePath, to: extractRootDir)
             try localFileSystem.stripFirstLevel(of: extractRootDir)
 
             XCTAssertFileExists(extractRootDir.appending("file1.txt"))

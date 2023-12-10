@@ -42,6 +42,7 @@ let swiftPMDataModelProduct = (
         "PackageMetadata",
         "PackageModel",
         "SourceControl",
+        "SourceKitLSPAPI",
         "Workspace",
     ]
 )
@@ -128,6 +129,7 @@ let package = Package(
             name: "PackageDescription",
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
+                .define("USE_IMPL_ONLY_IMPORTS"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
@@ -145,6 +147,14 @@ let package = Package(
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
             linkerSettings: packageLibraryLinkSettings
+        ),
+
+        .target(
+            name: "SourceKitLSPAPI",
+            dependencies: [
+                "Build",
+                "SPMBuildCore"
+            ]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -517,6 +527,7 @@ let package = Package(
             name: "SPMTestSupport",
             dependencies: [
                 "Basics",
+                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -537,6 +548,14 @@ let package = Package(
         // MARK: SwiftPM tests
 
         .testTarget(
+            name: "SourceKitLSPAPITests",
+            dependencies: [
+                "SourceKitLSPAPI",
+                "SPMTestSupport",
+            ]
+        ),
+
+        .testTarget(
             name: "BasicsTests",
             dependencies: ["Basics", "SPMTestSupport", "tsan_utils"],
             exclude: [
@@ -549,6 +568,10 @@ let package = Package(
         .testTarget(
             name: "BuildTests",
             dependencies: ["Build", "PackageModel", "SPMTestSupport"]
+        ),
+        .testTarget(
+            name: "LLBuildManifestTests",
+            dependencies: ["Basics", "LLBuildManifest", "SPMTestSupport"]
         ),
         .testTarget(
             name: "WorkspaceTests",
@@ -732,10 +755,10 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.5.0")),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "0.6.0")),
+        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
     ]
 } else {
     package.dependencies += [

@@ -56,7 +56,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                         BuiltTestProduct(
                             productName: product.name,
                             binaryPath: binaryPath,
-                            packagePath: package.path
+                            packagePath: package.path,
+                            library: buildParameters.testingParameters.library
                         )
                     )
                 }
@@ -189,7 +190,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             platform: "macosx",
             sdk: "macosx",
             sdkVariant: nil,
-            targetArchitecture: buildParameters.targetTriple.archName,
+            targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )
@@ -318,10 +319,11 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
-            enableTestability: buildParameters.enableTestability,
+            enableTestability: buildParameters.testingParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
-            pkgConfigDirectories: buildParameters.pkgConfigDirectories
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath
         )
     }
 }

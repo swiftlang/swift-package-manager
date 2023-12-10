@@ -63,7 +63,7 @@ final class SwiftPMTests: XCTestCase {
                 try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", entry))
             }
             try localFileSystem.writeFileContents(AbsolutePath(validating: "Sources/main.m", relativeTo: packagePath)) {
-                $0 <<< "int main() {}"
+                $0.send("int main() {}")
             }
             let archs = ["x86_64", "arm64"]
 

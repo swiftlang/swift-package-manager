@@ -128,6 +128,22 @@ final class TestToolTests: CommandsTestCase {
         }
     }
 
+    func testSwiftTestXMLOutputWhenEmpty() throws {
+        try fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
+            let xUnitOutput = fixturePath.appending("result.xml")
+            // Run tests in parallel with verbose output.
+            let stdout = try SwiftPM.Test.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
+            // in "swift test" test output goes to stdout
+            XCTAssertNoMatch(stdout, .contains("passed"))
+            XCTAssertNoMatch(stdout, .contains("failed"))
+
+            // Check the xUnit output.
+            XCTAssertFileExists(xUnitOutput)
+            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+            XCTAssertMatch(contents, .contains("tests=\"0\" failures=\"0\""))
+        }
+    }
+
     func testSwiftTestFilter() throws {
         try fixture(name: "Miscellaneous/SkipTests") { fixturePath in
             let (stdout, _) = try SwiftPM.Test.execute(["--filter", ".*1"], packagePath: fixturePath)
@@ -252,6 +268,24 @@ final class TestToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
                 XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
                 XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
+            }
+        }
+    }
+
+    func testBasicSwiftTestingIntegration() throws {
+        try XCTSkipUnless(
+            nil != ProcessInfo.processInfo.environment["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
+            "Skipping \(#function) because swift-testing tests are not explicitly enabled"
+        )
+
+        if #unavailable(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, visionOS 1.0) {
+            throw XCTSkip("swift-testing unavailable")
+        }
+
+        try fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+            do {
+                let (stdout, _) = try SwiftPM.Test.execute(["--enable-experimental-swift-testing", "--disable-xctest"], packagePath: fixturePath)
+                XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
             }
         }
     }

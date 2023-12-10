@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import TSCclibc
+#else
+import TSCclibc
+#endif
 
 public struct SwiftVersion {
     /// The version number.

@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import OrderedCollections
-
 extension Dictionary {
     @inlinable
     @discardableResult
@@ -36,15 +34,3 @@ extension Dictionary {
         }
     }
 }
-
-/*
- extension OrderedDictionary {
-     public subscript(key: Key, `default` `default`: Value) -> Value {
-         set {
-             self[key] = newValue
-         } get {
-             self[key] ?? `default`
-         }
-     }
- }
- */
