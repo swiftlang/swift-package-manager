@@ -184,14 +184,10 @@ extension ManifestLoader {
 /// from different threads, the environment will neither be setup nor restored
 /// correctly.
 public func withCustomEnv(_ env: [String: String], body: () async throws -> Void) async throws {
-    let state = Array(env.keys).map({ ($0, ProcessEnv.vars[$0]) })
+    let state = env.map { ($0, $1) }
     let restore = {
         for (key, value) in state {
-            if let value = value {
-                try ProcessEnv.setVar(key, value: value)
-            } else {
-                try ProcessEnv.unsetVar(key)
-            }
+            try ProcessEnv.setVar(key, value: value)
         }
     }
     do {
