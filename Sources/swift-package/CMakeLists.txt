@@ -15,7 +15,5 @@ target_link_libraries(swift-package PRIVATE
 target_compile_options(swift-package PRIVATE
   -parse-as-library)
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS swift-package
   RUNTIME DESTINATION bin)
-endif()
