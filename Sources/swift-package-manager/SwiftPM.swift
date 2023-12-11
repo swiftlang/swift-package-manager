@@ -35,7 +35,7 @@ struct SwiftPM {
         case "swift-run":
             SwiftRunTool.main()
         case "swift-package-collection":
-            SwiftPackageCollectionsTool.main()
+            await SwiftPackageCollectionsTool.main()
         case "swift-package-registry":
             SwiftPackageRegistryTool.main()
         default:
