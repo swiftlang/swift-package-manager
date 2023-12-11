@@ -555,6 +555,25 @@ public final class SwiftTargetBuildDescription {
             args += ["-color-diagnostics"]
         }
 
+        // If this is a generated test discovery target, it might import a test
+        // target that is built with C++ interop enabled. In that case, the test
+        // discovery target must enable C++ interop as well
+        switch testTargetRole {
+        case .discovery:
+            for dependency in try self.target.recursiveTargetDependencies() {
+                let dependencyScope = self.buildParameters.createScope(for: dependency)
+                let dependencySwiftFlags = dependencyScope.evaluate(.OTHER_SWIFT_FLAGS)
+                if let interopModeFlag = dependencySwiftFlags.first(where: { $0.hasPrefix("-cxx-interoperability-mode=") }) {
+                    args += [interopModeFlag]
+                    break
+                }
+            }
+            if let cxxStandard = self.package.manifest.cxxLanguageStandard {
+                args += ["-Xcc", "-std=\(cxxStandard)"]
+            }
+        default: break
+        }
+
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
 
