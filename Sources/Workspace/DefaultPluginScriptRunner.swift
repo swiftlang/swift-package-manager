@@ -503,6 +503,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                                     }
                                 })
                             }
+                            catch DecodingError.keyNotFound(let key, _) where key.stringValue == "version" {
+                                print("message from plugin did not contain a 'version' key, likely an incompatible plugin library is being loaded by the plugin")
+                            }
                             catch {
                                 print("error while trying to handle message from plugin: \(error.interpolationDescription)")
                             }
