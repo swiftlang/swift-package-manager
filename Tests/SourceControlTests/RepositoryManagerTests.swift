@@ -335,11 +335,11 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
-    func testConcurrency() throws {
+    func testConcurrency() async throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
-        try testWithTemporaryDirectory { path in
+        try await testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider(fileSystem: fs)
             let delegate = DummyRepositoryManagerDelegate()
             let manager = RepositoryManager(
@@ -350,27 +350,23 @@ class RepositoryManagerTests: XCTestCase {
             )
             let dummyRepo = RepositorySpecifier(path: "/dummy")
 
-            let group = DispatchGroup()
-            let results = ThreadSafeKeyValueStore<Int, Result<RepositoryManager.RepositoryHandle, Error>>()
+            let results = ThreadSafeKeyValueStore<Int, RepositoryManager.RepositoryHandle>()
             let concurrency = 10000
-            for index in 0 ..< concurrency {
-                group.enter()
-                delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
-                manager.lookup(
-                    package: .init(url: SourceControlURL(dummyRepo.url)),
-                    repository: dummyRepo,
-                    updateStrategy: .always,
-                    observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent
-                ) { result in
-                    results[index] = result
-                    group.leave()
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for index in 0 ..< concurrency {
+                    group.addTask {
+                        delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
+                        results[index] = try await manager.lookup(
+                            package: .init(url: SourceControlURL(dummyRepo.url)),
+                            repository: dummyRepo,
+                            updateStrategy: .always,
+                            observabilityScope: observability.topScope,
+                            delegateQueue: .sharedConcurrent,
+                            callbackQueue: .sharedConcurrent
+                        )
+                    }
                 }
-            }
-
-            if case .timedOut = group.wait(timeout: .now() + 60) {
-                return XCTFail("timeout")
+                try await group.waitForAll()
             }
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -383,7 +379,7 @@ class RepositoryManagerTests: XCTestCase {
 
             XCTAssertEqual(results.count, concurrency)
             for index in 0 ..< concurrency {
-                XCTAssertEqual(try results[index]?.get().repository, dummyRepo)
+                XCTAssertEqual(results[index]?.repository, dummyRepo)
             }
         }
     }
