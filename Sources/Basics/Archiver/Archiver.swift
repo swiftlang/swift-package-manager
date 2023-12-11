@@ -65,27 +65,10 @@ extension Archiver {
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-        try await safe_async {
-            self.extract(from: archivePath, to: destinationPath, completion: $0)
+        try await withCheckedThrowingContinuation {
+            self.extract(from: archivePath, to: destinationPath, completion: $0.resume(with:))
         }
     }
-
-    public func compress(
-        directory: AbsolutePath,
-        to: AbsolutePath
-    ) async throws {
-        try await safe_async {
-            self.compress(directory: directory, to: to, completion: $0)
-        }
-    }
-
-    public func validate(
-        path: AbsolutePath
-    ) async throws -> Bool {
-        try await safe_async {
-            self.validate(path: path, completion: $0)
-        }
-    }    
 
     /// Asynchronously compresses the contents of a directory to a destination archive.
     ///
