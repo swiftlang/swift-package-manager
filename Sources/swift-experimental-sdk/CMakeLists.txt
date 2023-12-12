@@ -14,7 +14,5 @@ target_link_libraries(swift-experimental-sdk PRIVATE
 target_compile_options(swift-experimental-sdk PRIVATE
   -parse-as-library)
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS swift-experimental-sdk
   RUNTIME DESTINATION bin)
-endif()

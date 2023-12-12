@@ -254,7 +254,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
         }
     }
 
-    func testConcurrency() throws {
+    func testConcurrency() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem()
 
@@ -291,19 +291,15 @@ class RegistryDownloadsManagerTests: XCTestCase {
                 source: packageSource
             )
 
-            let group = DispatchGroup()
-            let results = ThreadSafeKeyValueStore<Version, Result<AbsolutePath, Error>>()
-            for packageVersion in packageVersions {
-                group.enter()
-                delegate.prepare(fetchExpected: true)
-                manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent) { result in
-                    results[packageVersion] = result
-                    group.leave()
+            let results = ThreadSafeKeyValueStore<Version, AbsolutePath>()
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for packageVersion in packageVersions {
+                    group.addTask {
+                        delegate.prepare(fetchExpected: true)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                    }
                 }
-            }
-
-            if case .timedOut = group.wait(timeout: .now() + 60) {
-                return XCTFail("timeout")
+                try await group.waitForAll()
             }
 
             try delegate.wait(timeout: .now() + 2)
@@ -313,7 +309,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(results.count, concurrency)
             for packageVersion in packageVersions {
                 let expectedPath = try downloadsPath.appending(package.downloadPath(version: packageVersion))
-                XCTAssertEqual(try results[packageVersion]?.get(), expectedPath)
+                XCTAssertEqual(results[packageVersion], expectedPath)
             }
         }
 
@@ -334,20 +330,16 @@ class RegistryDownloadsManagerTests: XCTestCase {
             )
 
             delegate.reset()
-            let group = DispatchGroup()
-            let results = ThreadSafeKeyValueStore<Version, Result<AbsolutePath, Error>>()
-            for index in 0 ..< concurrency {
-                group.enter()
-                delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
-                let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
-                manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent) { result in
-                    results[packageVersion] = result
-                    group.leave()
+            let results = ThreadSafeKeyValueStore<Version, AbsolutePath>()
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for index in 0 ..< concurrency {
+                    group.addTask {
+                        delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
+                        let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                    }
                 }
-            }
-
-            if case .timedOut = group.wait(timeout: .now() + 60) {
-                return XCTFail("timeout")
+                try await group.waitForAll()
             }
 
             try delegate.wait(timeout: .now() + 2)
@@ -357,7 +349,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(results.count, concurrency / repeatRatio)
             for packageVersion in packageVersions {
                 let expectedPath = try downloadsPath.appending(package.downloadPath(version: packageVersion))
-                XCTAssertEqual(try results[packageVersion]?.get(), expectedPath)
+                XCTAssertEqual(results[packageVersion], expectedPath)
             }
         }
     }

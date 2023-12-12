@@ -76,10 +76,8 @@ set_target_properties(Basics PROPERTIES
 target_link_options(Basics PRIVATE
     "$<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>")
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS Basics
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Basics)

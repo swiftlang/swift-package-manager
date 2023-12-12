@@ -30,11 +30,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 
-string(COMPARE EQUAL ${CMAKE_SYSTEM_NAME} Windows CMAKE_INSTALL_DEFAULT)
-option(USE_CMAKE_INSTALL
-  "Install build products using cmake's install() instead of the bootstrap script's install()"
-  ${CMAKE_INSTALL_DEFAULT})
-
 add_compile_options(-DUSE_IMPL_ONLY_IMPORTS)
 
 if(FIND_PM_DEPS)
