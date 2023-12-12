@@ -25,7 +25,7 @@ struct SwiftPM {
     static func main() async {
         switch execName {
         case "swift-package":
-            SwiftPackageTool.main()
+            await SwiftPackageTool.main()
         case "swift-build":
             SwiftBuildTool.main()
         case "swift-experimental-sdk":

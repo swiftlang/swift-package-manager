@@ -19,7 +19,7 @@ import PackageModel
 import struct TSCBasic.StringError
 
 extension SwiftPackageTool {
-    struct Describe: SwiftCommand {
+    struct Describe: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Describe the current package")
         
@@ -29,21 +29,18 @@ extension SwiftPackageTool {
         @Option(help: "json | text")
         var type: DescribeMode = .text
         
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let workspace = try swiftTool.getActiveWorkspace()
             
             guard let packagePath = try swiftTool.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
             
-            let package = try temp_await {
-                workspace.loadRootPackage(
-                    at: packagePath,
-                    observabilityScope: swiftTool.observabilityScope,
-                    completion: $0
-                )
-            }
-            
+            let package = try await workspace.loadRootPackage(
+                at: packagePath,
+                observabilityScope: swiftTool.observabilityScope
+            )
+
             try self.describe(package, in: type)
         }
         
