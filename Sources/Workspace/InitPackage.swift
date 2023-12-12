@@ -115,6 +115,11 @@ public final class InitPackage {
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
+        if options.packageType == .macro && options.supportedTestingLibraries.contains(.swiftTesting) {
+            // FIXME: https://github.com/apple/swift-syntax/issues/2400
+            throw InitError.unsupportedTestingLibraryForPackageType(.swiftTesting, .macro)
+        }
+
         self.options = options
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
@@ -761,37 +766,7 @@ public final class InitPackage {
             // libraries, but we still only want to present a single library's
             // example tests.
             if options.supportedTestingLibraries.contains(.swiftTesting) {
-                stream.send(##"""
-                    #if canImport(\##(moduleName)Macros)
-                    @Test func macro() throws {
-                        // FIXME: https://github.com/apple/swift-syntax/issues/2400
-                        // try expandMacros(
-                        //     testMacros,
-                        //     from: """
-                        //     #stringify(a + b)
-                        //     """,
-                        //     to: """
-                        //     (a + b, "a + b")
-                        //     """
-                        // )
-                    }
-
-                    @Test func macroWithStringLiteral() throws {
-                        // FIXME: https://github.com/apple/swift-syntax/issues/2400
-                        // try expandMacros(
-                        //     testMacros,
-                        //     from: #"""
-                        //     #stringify("Hello, \(name)")
-                        //     """#,
-                        //     to: #"""
-                        //     ("Hello, \(name)", #""Hello, \(name)""#)
-                        //     """#
-                        // )
-                    }
-                    #endif
-
-                    """##
-                )
+                // FIXME: https://github.com/apple/swift-syntax/issues/2400
             } else if options.supportedTestingLibraries.contains(.xctest) {
                 stream.send(##"""
                     final class \##(moduleName)Tests: XCTestCase {
@@ -919,6 +894,7 @@ public final class InitPackage {
 
 private enum InitError: Swift.Error {
     case manifestAlreadyExists
+    case unsupportedTestingLibraryForPackageType(_ testingLibrary: BuildParameters.Testing.Library, _ packageType: InitPackage.PackageType)
 }
 
 extension InitError: CustomStringConvertible {
@@ -926,6 +902,8 @@ extension InitError: CustomStringConvertible {
         switch self {
         case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"
+        case let .unsupportedTestingLibraryForPackageType(library, packageType):
+            return "\(library) cannot be used when initializing a \(packageType) package"
         }
     }
 }
