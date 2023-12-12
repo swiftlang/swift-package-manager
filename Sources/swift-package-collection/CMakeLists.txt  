@@ -9,7 +9,7 @@
 add_executable(swift-package-collection
   Entrypoint.swift)
 target_link_libraries(swift-package-collection PRIVATE
-  PackageCollectionsTool )
+  PackageCollectionsTool)
 
 target_compile_options(swift-package-collection PRIVATE
   -parse-as-library)
