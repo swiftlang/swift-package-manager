@@ -37,7 +37,7 @@ struct SwiftPM {
         case "swift-package-collection":
             SwiftPackageCollectionsTool.main()
         case "swift-package-registry":
-            SwiftPackageRegistryTool.main()
+            await SwiftPackageRegistryTool.main()
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }

@@ -89,7 +89,7 @@ private func readpassword(_ prompt: String) throws -> String {
 #endif
 
 extension SwiftPackageRegistryTool {
-    struct Login: SwiftCommand {
+    struct Login: AsyncSwiftCommand {
 
         static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
             // Login URL must be HTTPS
@@ -144,7 +144,7 @@ extension SwiftPackageRegistryTool {
 
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             // We need to be able to read/write credentials
             // Make sure credentials store is available before proceeding
             let authorizationProvider: AuthorizationProvider?
@@ -220,15 +220,12 @@ extension SwiftPackageRegistryTool {
             }
 
             // Save in cache so we can try the credentials and persist to storage only if login succeeds
-            try temp_await { callback in
-                authorizationWriter?.addOrUpdate(
-                    for: registryURL,
-                    user: storeUsername,
-                    password: storePassword,
-                    persist: false,
-                    callback: callback
-                )
-            }
+            try await authorizationWriter?.addOrUpdate(
+                for: registryURL,
+                user: storeUsername,
+                password: storePassword,
+                persist: false
+            )
 
             // `url` can either be base URL of the registry, in which case the login API
             // is assumed to be at /login, or the full URL of the login API.
@@ -258,15 +255,13 @@ extension SwiftPackageRegistryTool {
             )
 
             // Try logging in
-            try temp_await { callback in
-                registryClient.login(
-                    loginURL: loginURL,
-                    timeout: .seconds(5),
-                    observabilityScope: swiftTool.observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: callback
-                )
-            }
+            try await registryClient.login(
+                loginURL: loginURL,
+                timeout: .seconds(5),
+                observabilityScope: swiftTool.observabilityScope,
+                callbackQueue: .sharedConcurrent
+            )
+
             print("Login successful.")
 
             // Login successful. Persist credentials to storage.
@@ -296,15 +291,12 @@ extension SwiftPackageRegistryTool {
             }
 
             if saveChanges {
-                try temp_await { callback in
-                    authorizationWriter?.addOrUpdate(
-                        for: registryURL,
-                        user: storeUsername,
-                        password: storePassword,
-                        persist: true,
-                        callback: callback
-                    )
-                }
+                try await authorizationWriter?.addOrUpdate(
+                    for: registryURL,
+                    user: storeUsername,
+                    password: storePassword,
+                    persist: true
+                )
 
                 if osStore {
                     print("\nCredentials have been saved to the operating system's secure credential store.")
@@ -323,7 +315,7 @@ extension SwiftPackageRegistryTool {
         }
     }
 
-    struct Logout: SwiftCommand {
+    struct Logout: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log out from a registry"
         )
@@ -338,7 +330,7 @@ extension SwiftPackageRegistryTool {
             self.url
         }
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             // Auth config is in user-level registries config only
             let configuration = try getRegistriesConfig(swiftTool, global: true)
 
@@ -359,7 +351,7 @@ extension SwiftPackageRegistryTool {
 
             // Only OS credential store supports deletion
             if osStore {
-                try temp_await { callback in authorizationWriter?.remove(for: registryURL, callback: callback) }
+                try await authorizationWriter?.remove(for: registryURL)
                 print("Credentials have been removed from operating system's secure credential store.")
             } else {
                 print("netrc file not updated. Please remove credentials from the file manually.")
