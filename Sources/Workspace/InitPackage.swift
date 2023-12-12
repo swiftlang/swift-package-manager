@@ -685,127 +685,128 @@ public final class InitPackage {
     }
 
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
+        var content = ""
+
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            content += "import Testing\n"
+        }
+        if options.supportedTestingLibraries.contains(.xctest) {
+            content += "import XCTest\n"
+        }
+        content += "@testable import \(moduleName)\n"
+
+        // Prefer swift-testing if specified, otherwise XCTest. If both are
+        // specified, the developer is free to write tests using both
+        // libraries, but we still only want to present a single library's
+        // example tests.
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            content += """
+
+                @Test func example() throws {
+                    // swift-testing Documentation
+                    // https://swiftpackageindex.com/apple/swift-testing/main/documentation/testing
+                }
+
+                """
+        } else if options.supportedTestingLibraries.contains(.xctest) {
+            content += """
+
+                final class \(moduleName)Tests: XCTestCase {
+                    func testExample() throws {
+                        // XCTest Documentation
+                        // https://developer.apple.com/documentation/xctest
+
+                        // Defining Test Cases and Test Methods
+                        // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
+                    }
+                }
+
+                """
+        }
+
         try writePackageFile(path) { stream in
-            if options.supportedTestingLibraries.contains(.swiftTesting) {
-                stream.send("import Testing\n")
-            }
-            if options.supportedTestingLibraries.contains(.xctest) {
-                stream.send("import XCTest\n")
-            }
-            stream.send("@testable import \(moduleName)\n")
-
-            // Prefer swift-testing if specified, otherwise XCTest. If both are
-            // specified, the developer is free to write tests using both
-            // libraries, but we still only want to present a single library's
-            // example tests.
-            if options.supportedTestingLibraries.contains(.swiftTesting) {
-                stream.send(
-                    """
-
-                    @Test func example() throws {
-                        // swift-testing Documentation
-                        // https://swiftpackageindex.com/apple/swift-testing/main/documentation/testing
-                    }
-
-                    """
-                )
-            } else if options.supportedTestingLibraries.contains(.xctest) {
-                stream.send(
-                    """
-
-                    final class \(moduleName)Tests: XCTestCase {
-                        func testExample() throws {
-                            // XCTest Documentation
-                            // https://developer.apple.com/documentation/xctest
-
-                            // Defining Test Cases and Test Methods
-                            // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
-                        }
-                    }
-
-                    """
-                )
-            }
+            stream.send(content)
         }
     }
 
     private func writeMacroTestsFile(_ path: AbsolutePath) throws {
-        try writePackageFile(path) { stream in
-            stream.send(##"""
-                import SwiftSyntax
-                import SwiftSyntaxBuilder
-                import SwiftSyntaxMacros
-                import SwiftSyntaxMacrosTestSupport
-                """##
-            )
+        var content = ""
 
-            if options.supportedTestingLibraries.contains(.swiftTesting) {
-                stream.send("import Testing\n")
-            }
-            if options.supportedTestingLibraries.contains(.xctest) {
-                stream.send("import XCTest\n")
-            }
+        content += ##"""
+            import SwiftSyntax
+            import SwiftSyntaxBuilder
+            import SwiftSyntaxMacros
+            import SwiftSyntaxMacrosTestSupport
+            """##
 
-            stream.send(##"""
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            content += "import Testing\n"
+        }
+        if options.supportedTestingLibraries.contains(.xctest) {
+            content += "import XCTest\n"
+        }
 
-                // Macro implementations build for the host, so the corresponding module is not available when cross-compiling. Cross-compiled tests may still make use of the macro itself in end-to-end tests.
-                #if canImport(\##(moduleName)Macros)
-                import \##(moduleName)Macros
+        content += ##"""
 
-                let testMacros: [String: Macro.Type] = [
-                    "stringify": StringifyMacro.self,
-                ]
-                #endif
+            // Macro implementations build for the host, so the corresponding module is not available when cross-compiling. Cross-compiled tests may still make use of the macro itself in end-to-end tests.
+            #if canImport(\##(moduleName)Macros)
+            import \##(moduleName)Macros
+
+            let testMacros: [String: Macro.Type] = [
+                "stringify": StringifyMacro.self,
+            ]
+            #endif
 
 
-                """##
-            )
+            """##
 
-            // Prefer swift-testing if specified, otherwise XCTest. If both are
-            // specified, the developer is free to write tests using both
-            // libraries, but we still only want to present a single library's
-            // example tests.
-            if options.supportedTestingLibraries.contains(.swiftTesting) {
-                // FIXME: https://github.com/apple/swift-syntax/issues/2400
-            } else if options.supportedTestingLibraries.contains(.xctest) {
-                stream.send(##"""
-                    final class \##(moduleName)Tests: XCTestCase {
-                        func testMacro() throws {
-                            #if canImport(\##(moduleName)Macros)
-                            assertMacroExpansion(
-                                """
-                                #stringify(a + b)
-                                """,
-                                expandedSource: """
-                                (a + b, "a + b")
-                                """,
-                                macros: testMacros
-                            )
-                            #else
-                            throw XCTSkip("macros are only supported when running tests for the host platform")
-                            #endif
-                        }
-
-                        func testMacroWithStringLiteral() throws {
-                            #if canImport(\##(moduleName)Macros)
-                            assertMacroExpansion(
-                                #"""
-                                #stringify("Hello, \(name)")
-                                """#,
-                                expandedSource: #"""
-                                ("Hello, \(name)", #""Hello, \(name)""#)
-                                """#,
-                                macros: testMacros
-                            )
-                            #else
-                            throw XCTSkip("macros are only supported when running tests for the host platform")
-                            #endif
-                        }
+        // Prefer swift-testing if specified, otherwise XCTest. If both are
+        // specified, the developer is free to write tests using both
+        // libraries, but we still only want to present a single library's
+        // example tests.
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            // FIXME: https://github.com/apple/swift-syntax/issues/2400
+        } else if options.supportedTestingLibraries.contains(.xctest) {
+            content += ##"""
+                final class \##(moduleName)Tests: XCTestCase {
+                    func testMacro() throws {
+                        #if canImport(\##(moduleName)Macros)
+                        assertMacroExpansion(
+                            """
+                            #stringify(a + b)
+                            """,
+                            expandedSource: """
+                            (a + b, "a + b")
+                            """,
+                            macros: testMacros
+                        )
+                        #else
+                        throw XCTSkip("macros are only supported when running tests for the host platform")
+                        #endif
                     }
 
-                    """##
-                )
-            }
+                    func testMacroWithStringLiteral() throws {
+                        #if canImport(\##(moduleName)Macros)
+                        assertMacroExpansion(
+                            #"""
+                            #stringify("Hello, \(name)")
+                            """#,
+                            expandedSource: #"""
+                            ("Hello, \(name)", #""Hello, \(name)""#)
+                            """#,
+                            macros: testMacros
+                        )
+                        #else
+                        throw XCTSkip("macros are only supported when running tests for the host platform")
+                        #endif
+                    }
+                }
+
+                """##
+        }
+
+        try writePackageFile(path) { stream in
+            stream.send(content)
         }
     }
 
