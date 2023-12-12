@@ -510,7 +510,7 @@ public final class MockWorkspace {
         public let diagnostics: [Basics.Diagnostic]
     }
 
-    public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) async throws {
+    public func checkPrecomputeResolution() async throws -> ResolutionPrecomputationResult {
         let observability = ObservabilitySystem.makeForTesting()
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
@@ -532,7 +532,7 @@ public final class MockWorkspace {
             observabilityScope: observability.topScope
         )
 
-        check(ResolutionPrecomputationResult(result: result, diagnostics: observability.diagnostics))
+        return ResolutionPrecomputationResult(result: result, diagnostics: observability.diagnostics)
     }
 
     public func set(
