@@ -643,7 +643,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try testRoots()
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -753,7 +753,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try testRoots()
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -860,7 +860,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try testRoots()
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -920,15 +920,11 @@ final class PackageRegistryToolTests: CommandsTestCase {
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com:8081/secret-sign-in")
     }
 
-    private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let rootCA = try localFileSystem
-                    .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
-                callback(.success([rootCA]))
-            }
-        } catch {
-            callback(.failure(error))
+    private func testRoots() throws -> [[UInt8]] {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let rootCA = try localFileSystem
+                .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
+            return [rootCA]
         }
     }
 

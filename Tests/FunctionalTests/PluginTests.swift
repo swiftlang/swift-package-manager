@@ -168,14 +168,14 @@ class PluginTests: XCTestCase {
         }
     }
     
-    func testCommandPluginInvocation() throws {
+    func testCommandPluginInvocation() async throws {
         try XCTSkipIf(true, "test is disabled because it isn't stable, see rdar://117870608")
 
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
         // FIXME: This test is getting quite long — we should add some support functionality for creating synthetic plugin tests and factor this out into separate tests.
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin. It depends on a sample package.
             let packageDir = tmpPath.appending(components: "MyPackage")
             let manifestFile = packageDir.appending("Package.swift")
@@ -366,13 +366,10 @@ class PluginTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -434,7 +431,7 @@ class PluginTests: XCTestCase {
                 line: UInt = #line,
                 expectFailure: Bool = false,
                 diagnosticsChecker: (DiagnosticsTestResult) throws -> Void
-            ) {
+            ) async {
                 // Find the named plugin.
                 let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
                 guard let plugin = plugins.first(where: { $0.name == pluginName }) else {
@@ -462,7 +459,7 @@ class PluginTests: XCTestCase {
                     )
 
                     let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
-                    let success = try temp_await { plugin.invoke(
+                    let success = try await safe_async { plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
@@ -479,7 +476,8 @@ class PluginTests: XCTestCase {
                         observabilityScope: observability.topScope,
                         callbackQueue: delegateQueue,
                         delegate: delegate,
-                        completion: $0) }
+                        completion: $0)
+                    }
                     if expectFailure {
                         XCTAssertFalse(success, "expected command to fail, but it succeeded", file: file, line: line)
                     }
@@ -499,19 +497,19 @@ class PluginTests: XCTestCase {
             }
 
             // Invoke the command plugin that prints out various things it was given, and check them.
-            testCommand(package: package, plugin: "PluginPrintingInfo", targets: ["MyLibrary"], arguments: ["veni", "vidi", "vici"]) { output in
+            await testCommand(package: package, plugin: "PluginPrintingInfo", targets: ["MyLibrary"], arguments: ["veni", "vidi", "vici"]) { output in
                 output.check(diagnostic: .equal("Root package is MyPackage."), severity: .info)
                 output.check(diagnostic: .and(.prefix("Found the swiftc tool"), .suffix(".")), severity: .info)
             }
 
             // Invoke the command plugin that throws an unhandled error at the top level.
-            testCommand(package: package, plugin: "PluginFailingWithError", targets: [], arguments: [], expectFailure: true) { output in
+            await testCommand(package: package, plugin: "PluginFailingWithError", targets: [], arguments: [], expectFailure: true) { output in
                 output.check(diagnostic: .equal("This text should appear before the uncaught thrown error."), severity: .info)
                 output.check(diagnostic: .equal("This is the uncaught thrown error."), severity: .error)
 
             }
             // Invoke the command plugin that exits with code 1 without returning an error.
-            testCommand(package: package, plugin: "PluginFailingWithoutError", targets: [], arguments: [], expectFailure: true) { output in
+            await testCommand(package: package, plugin: "PluginFailingWithoutError", targets: [], arguments: [], expectFailure: true) { output in
                 output.check(diagnostic: .equal("This text should appear before we exit."), severity: .info)
                 output.check(diagnostic: .equal("Plugin ended with exit code 1"), severity: .error)
             }
@@ -534,10 +532,10 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testPluginUsageDoesntAffectTestTargetMappings() throws {
+    func testPluginUsageDoesntAffectTestTargetMappings() async throws {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { packageDir in
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { packageDir in
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
@@ -549,13 +547,10 @@ class PluginTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -570,11 +565,11 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testCommandPluginCancellation() throws {
+    func testCommandPluginCancellation() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { (tmpPath: AbsolutePath) -> Void in
             // Create a sample package with a couple of plugins a other targets and products.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -646,13 +641,10 @@ class PluginTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -732,64 +724,81 @@ class PluginTests: XCTestCase {
                 toolchain: try UserToolchain.default
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
-            let sync = DispatchSemaphore(value: 0)
-            plugin.invoke(
-                action: .performCommand(package: package, arguments: []),
-                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                scriptRunner: scriptRunner,
-                workingDirectory: package.path,
-                outputDirectory: pluginDir.appending("output"),
-                toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
-                accessibleTools: [:],
-                writableDirectories: [pluginDir.appending("output")],
-                readOnlyDirectories: [package.path],
-                allowNetworkConnections: [],
-                pkgConfigDirectories: [],
-                sdkRootPath: try UserToolchain.default.sdkRootPath,
-                fileSystem: localFileSystem,
-                observabilityScope: observability.topScope,
-                callbackQueue: delegateQueue,
-                delegate: delegate,
-                completion: { _ in
-                    sync.signal()
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    // TODO: have invoke natively support task cancelation instead
+                    try await withTaskCancellationHandler {
+                        _ = try await plugin.invoke(
+                            action: .performCommand(package: package, arguments: []),
+                            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                            scriptRunner: scriptRunner,
+                            workingDirectory: package.path,
+                            outputDirectory: pluginDir.appending("output"),
+                            toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
+                            accessibleTools: [:],
+                            writableDirectories: [pluginDir.appending("output")],
+                            readOnlyDirectories: [package.path],
+                            allowNetworkConnections: [],
+                            pkgConfigDirectories: [],
+                            sdkRootPath: try UserToolchain.default.sdkRootPath,
+                            fileSystem: localFileSystem,
+                            observabilityScope: observability.topScope,
+                            callbackQueue: delegateQueue,
+                            delegate: delegate
+                        )
+                    } onCancel: {
+                        do {
+                            try scriptRunner.cancel(deadline: .now() + .seconds(5))
+                        } catch {
+                            XCTFail("Cancelling script runner should not fail: \(error)")
+                        }
+                    }
                 }
-            )
-            
-            // Wait for three seconds.
-            let result = sync.wait(timeout: .now() + 3)
-            XCTAssertEqual(result, .timedOut, "expected the plugin to time out")
-            
-            // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
-            var pid: Int? = .none
-            delegateQueue.sync {
-                pid = delegate.parsedProcessIdentifier
+                group.addTask {
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(DispatchTimeInterval.seconds(3).nanoseconds()!))
+                    } catch {
+                        XCTFail("The plugin should not finish within 3 seconds")
+                    }
+                }
+
+                try await group.next()
+
+
+                // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
+                var pid: Int? = .none
+                delegateQueue.sync {
+                    pid = delegate.parsedProcessIdentifier
+                }
+                guard let pid else {
+                    throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
+                }
+
+                // Check that it's running (we do this by asking for its priority — this only works on some platforms).
+                #if os(macOS)
+                errno = 0
+                getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+                XCTAssertEqual(errno, 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+                #endif
+
+                // Ask the plugin running to cancel all plugins.
+                group.cancelAll()
+
+                // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
+                #if os(macOS)
+                errno = 0
+                getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+                XCTAssertEqual(errno, ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+                #endif
             }
-            guard let pid else {
-                throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
-            }
-            
-            // Check that it's running (we do this by asking for its priority — this only works on some platforms).
-            #if os(macOS)
-            errno = 0
-            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
-            XCTAssertEqual(errno, 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
-            #endif
-            
-            // Ask the plugin running to cancel all plugins.
-            try scriptRunner.cancel(deadline: .now() + .seconds(5))
-            
-            // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
-            #if os(macOS)
-            errno = 0
-            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
-            XCTAssertEqual(errno, ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
-            #endif
+
+
         }
     }
 
-    func testUnusedPluginProductWarnings() throws {
+    func testUnusedPluginProductWarnings() async throws {
         // Test the warnings we get around unused plugin products in package dependencies.
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package that uses three packages that vend plugins.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -942,13 +951,10 @@ class PluginTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.

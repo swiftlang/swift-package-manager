@@ -14,7 +14,5 @@ target_link_libraries(swift-test PRIVATE
 target_compile_options(swift-test PRIVATE
   -parse-as-library)
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS swift-test
   RUNTIME DESTINATION bin)
-endif()
