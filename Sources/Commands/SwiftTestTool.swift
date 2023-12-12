@@ -185,7 +185,7 @@ public enum TestOutput: String, ExpressibleByArgument {
 }
 
 /// swift-test tool namespace
-public struct SwiftTestTool: SwiftCommand {
+public struct SwiftTestTool: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "test",
         _superCommandName: "swift",
@@ -206,7 +206,7 @@ public struct SwiftTestTool: SwiftCommand {
 
     // MARK: - XCTest
 
-    private func xctestRun(_ swiftTool: SwiftTool) throws {
+    private func xctestRun(_ swiftTool: SwiftTool) async throws {
         // validate XCTest available on darwin based systems
         let toolchain = try swiftTool.getTargetToolchain()
         let isHostTestingAvailable = try swiftTool.getHostToolchain().swiftSDK.supportsTesting
@@ -224,7 +224,13 @@ public struct SwiftTestTool: SwiftCommand {
         let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool, library: .xctest)
         if !self.options.shouldRunInParallel {
             let xctestArgs = try xctestArgs(for: testProducts, swiftTool: swiftTool)
-            try runTestProducts(testProducts, additionalArguments: xctestArgs, buildParameters: buildParameters, swiftTool: swiftTool, library: .xctest)
+            try await runTestProducts(
+                testProducts,
+                additionalArguments: xctestArgs,
+                buildParameters: buildParameters,
+                swiftTool: swiftTool,
+                library: .xctest
+            )
         } else {
             let testSuites = try TestingSupport.getTestSuites(
                 in: testProducts,
@@ -269,7 +275,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // process code Coverage if request
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
-                try processCodeCoverage(testProducts, swiftTool: swiftTool, library: .xctest)
+                try await processCodeCoverage(testProducts, swiftTool: swiftTool, library: .xctest)
             }
 
             if !runner.ranSuccessfully {
@@ -334,16 +340,22 @@ public struct SwiftTestTool: SwiftCommand {
 
     // MARK: - swift-testing
 
-    private func swiftTestingRun(_ swiftTool: SwiftTool) throws {
+    private func swiftTestingRun(_ swiftTool: SwiftTool) async throws {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options, library: .swiftTesting)
         let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool, library: .swiftTesting)
         let additionalArguments = Array(CommandLine.arguments.dropFirst())
-        try runTestProducts(testProducts, additionalArguments: additionalArguments, buildParameters: buildParameters, swiftTool: swiftTool, library: .swiftTesting)
+        try await runTestProducts(
+            testProducts,
+            additionalArguments: additionalArguments,
+            buildParameters: buildParameters,
+            swiftTool: swiftTool,
+            library: .swiftTesting
+        )
     }
 
     // MARK: - Common implementation
 
-    public func run(_ swiftTool: SwiftTool) throws {
+    public func run(_ swiftTool: SwiftTool) async throws {
         do {
             // Validate commands arguments
             try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
@@ -353,22 +365,28 @@ public struct SwiftTestTool: SwiftCommand {
         }
 
         if self.options.shouldPrintCodeCovPath {
-            try printCodeCovPath(swiftTool)
+            try await printCodeCovPath(swiftTool)
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
             try command.run(swiftTool)
         } else {
             if options.sharedOptions.enableSwiftTestingLibrarySupport {
-                try swiftTestingRun(swiftTool)
+                try await swiftTestingRun(swiftTool)
             }
             if options.sharedOptions.enableXCTestSupport {
-                try xctestRun(swiftTool)
+                try await xctestRun(swiftTool)
             }
         }
     }
 
-    private func runTestProducts(_ testProducts: [BuiltTestProduct], additionalArguments: [String], buildParameters: BuildParameters, swiftTool: SwiftTool, library: BuildParameters.Testing.Library) throws {
+    private func runTestProducts(
+        _ testProducts: [BuiltTestProduct],
+        additionalArguments: [String],
+        buildParameters: BuildParameters,
+        swiftTool: SwiftTool,
+        library: BuildParameters.Testing.Library
+    ) async throws {
         // Clean out the code coverage directory that may contain stale
         // profraw files from a previous run of the code coverage tool.
         if self.options.enableCodeCoverage {
@@ -403,7 +421,7 @@ public struct SwiftTestTool: SwiftCommand {
         }
 
         if self.options.enableCodeCoverage, ranSuccessfully {
-            try processCodeCoverage(testProducts, swiftTool: swiftTool, library: library)
+            try await processCodeCoverage(testProducts, swiftTool: swiftTool, library: library)
         }
 
         if self.options.enableExperimentalTestOutput, !ranSuccessfully {
@@ -443,16 +461,18 @@ public struct SwiftTestTool: SwiftCommand {
     }
 
     /// Processes the code coverage data and emits a json.
-    private func processCodeCoverage(_ testProducts: [BuiltTestProduct], swiftTool: SwiftTool, library: BuildParameters.Testing.Library) throws {
+    private func processCodeCoverage(
+        _ testProducts: [BuiltTestProduct],
+        swiftTool: SwiftTool,
+        library: BuildParameters.Testing.Library
+    ) async throws {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftTool.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftTool.observabilityScope
+        )
+
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }
@@ -548,16 +568,14 @@ public struct SwiftTestTool: SwiftCommand {
 }
 
 extension SwiftTestTool {
-    func printCodeCovPath(_ swiftTool: SwiftTool) throws {
+    func printCodeCovPath(_ swiftTool: SwiftTool) async throws {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftTool.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftTool.observabilityScope
+        )
+
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }

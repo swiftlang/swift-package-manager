@@ -31,7 +31,7 @@ struct SwiftPM {
         case "swift-experimental-sdk":
             await SwiftSDKTool.main()
         case "swift-test":
-            SwiftTestTool.main()
+            await SwiftTestTool.main()
         case "swift-run":
             SwiftRunTool.main()
         case "swift-package-collection":
