@@ -565,11 +565,13 @@ public final class SwiftTargetBuildDescription {
                 let dependencySwiftFlags = dependencyScope.evaluate(.OTHER_SWIFT_FLAGS)
                 if let interopModeFlag = dependencySwiftFlags.first(where: { $0.hasPrefix("-cxx-interoperability-mode=") }) {
                     args += [interopModeFlag]
+                    if interopModeFlag != "-cxx-interoperability-mode=off" {
+                        if let cxxStandard = self.package.manifest.cxxLanguageStandard {
+                            args += ["-Xcc", "-std=\(cxxStandard)"]
+                        }
+                    }
                     break
                 }
-            }
-            if let cxxStandard = self.package.manifest.cxxLanguageStandard {
-                args += ["-Xcc", "-std=\(cxxStandard)"]
             }
         default: break
         }
