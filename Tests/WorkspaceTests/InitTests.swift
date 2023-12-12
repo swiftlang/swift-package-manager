@@ -98,7 +98,7 @@ class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibrary() throws {
+    func testInitPackageLibraryWithXCTestOnly() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -149,6 +149,116 @@ class InitTests: XCTestCase {
         }
     }
         
+    func testInitPackageLibraryWithSwiftTestingOnly() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .library,
+                supportedTestingLibraries: [.swiftTesting],
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.2.0""#))
+            XCTAssertMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
+
+            let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
+            let testFileContents: String = try localFileSystem.readFileContents(testFile)
+            XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
+            XCTAssertNoMatch(testFileContents, .contains(#"import XCTest"#))
+            XCTAssertMatch(testFileContents, .contains(#"@Test func example() throws"#))
+            XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
+
+            // Try building it -- DISABLED because we cannot pull the swift-testing repository from CI.
+//            XCTAssertBuilds(path)
+//            let triple = try UserToolchain.default.targetTriple
+//            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+        }
+    }
+
+    func testInitPackageLibraryWithBothSwiftTestingAndXCTest() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .library,
+                supportedTestingLibraries: [.swiftTesting, .xctest],
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .contains(#"swift-testing.git", from: "0.2.0""#))
+            XCTAssertMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
+
+            let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
+            let testFileContents: String = try localFileSystem.readFileContents(testFile)
+            XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
+            XCTAssertMatch(testFileContents, .contains(#"import XCTest"#))
+            XCTAssertMatch(testFileContents, .contains(#"@Test func example() throws"#))
+            XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
+
+            // Try building it -- DISABLED because we cannot pull the swift-testing repository from CI.
+            //            XCTAssertBuilds(path)
+            //            let triple = try UserToolchain.default.targetTriple
+            //            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+        }
+    }
+
+    func testInitPackageLibraryWithNoTests() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .library,
+                supportedTestingLibraries: [],
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertNoMatch(manifestContents, .contains(#"swift-testing.git", from: "0.2.0""#))
+            XCTAssertNoMatch(manifestContents, .contains(#".product(name: "Testing", package: "swift-testing")"#))
+            XCTAssertNoMatch(manifestContents, .contains(#".testTarget"#))
+
+            XCTAssertNoSuchPath(path.appending("Tests"))
+
+            // Try building it
+            XCTAssertBuilds(path)
+            let triple = try UserToolchain.default.targetTriple
+            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+        }
+    }
+
     func testInitPackageCommandPlugin() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
