@@ -33,7 +33,7 @@ import struct TSCBasic.SHA256
 import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
-    struct Publish: SwiftCommand {
+    struct Publish: AsyncSwiftCommand {
         static let metadataFilename = "package-metadata.json"
 
         static let configuration = CommandConfiguration(
@@ -85,7 +85,7 @@ extension SwiftPackageRegistryTool {
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             // Require both local and user-level registries config
             let configuration = try getRegistriesConfig(swiftTool, global: false).configuration
 
@@ -207,22 +207,19 @@ extension SwiftPackageRegistryTool {
 
             swiftTool.observabilityScope
                 .emit(info: "publishing \(self.packageIdentity) archive at '\(archivePath)' to \(registryURL)")
-            let result = try temp_await {
-                registryClient.publish(
-                    registryURL: registryURL,
-                    packageIdentity: self.packageIdentity,
-                    packageVersion: self.packageVersion,
-                    packageArchive: archivePath,
-                    packageMetadata: metadataLocation?.path,
-                    signature: archiveSignature,
-                    metadataSignature: metadataSignature,
-                    signatureFormat: self.signatureFormat,
-                    fileSystem: localFileSystem,
-                    observabilityScope: swiftTool.observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            let result = try await registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: self.packageIdentity,
+                packageVersion: self.packageVersion,
+                packageArchive: archivePath,
+                packageMetadata: metadataLocation?.path,
+                signature: archiveSignature,
+                metadataSignature: metadataSignature,
+                signatureFormat: self.signatureFormat,
+                fileSystem: localFileSystem,
+                observabilityScope: swiftTool.observabilityScope,
+                callbackQueue: .sharedConcurrent
+            )
 
             switch result {
             case .published(.none):
