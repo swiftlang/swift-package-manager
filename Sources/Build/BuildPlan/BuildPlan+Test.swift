@@ -88,7 +88,8 @@ extension BuildPlan {
                     target: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: testProduct.defaultLocalization,
-                    platforms: testProduct.platforms
+                    supportedPlatforms: testProduct.supportedPlatforms,
+                    platformVersionProvider: testProduct.platformVersionProvider
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -126,7 +127,8 @@ extension BuildPlan {
                     target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
                     defaultLocalization: testProduct.defaultLocalization,
-                    platforms: testProduct.platforms
+                    supportedPlatforms: testProduct.supportedPlatforms,
+                    platformVersionProvider: testProduct.platformVersionProvider
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -169,7 +171,8 @@ extension BuildPlan {
                             target: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
                             defaultLocalization: testProduct.defaultLocalization,
-                            platforms: testProduct.platforms
+                            supportedPlatforms: testProduct.supportedPlatforms,
+                            platformVersionProvider: testProduct.platformVersionProvider
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,

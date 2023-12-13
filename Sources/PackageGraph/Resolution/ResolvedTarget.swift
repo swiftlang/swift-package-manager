@@ -139,7 +139,9 @@ public final class ResolvedTarget {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public let platforms: SupportedPlatforms
+    public let supportedPlatforms: [SupportedPlatform]
+
+    private let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved target should be compiled for.
     public let buildTriple: BuildTriple
@@ -149,13 +151,23 @@ public final class ResolvedTarget {
         target: Target,
         dependencies: [Dependency],
         defaultLocalization: String?,
-        platforms: SupportedPlatforms
+        supportedPlatforms: [SupportedPlatform],
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlyingTarget = target
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
+        self.supportedPlatforms = supportedPlatforms
+        self.platformVersionProvider = platformVersionProvider
         self.buildTriple = .destination
+    }
+
+    public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        self.platformVersionProvider.getDerived(
+            declared: self.supportedPlatforms,
+            for: platform,
+            usingXCTest: usingXCTest
+        )
     }
 }
 

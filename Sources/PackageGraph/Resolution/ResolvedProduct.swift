@@ -37,7 +37,9 @@ public final class ResolvedProduct {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this product.
-    public let platforms: SupportedPlatforms
+    public let supportedPlatforms: [SupportedPlatform]
+
+    public let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved product should be compiled for.
     public let buildTriple: BuildTriple
@@ -67,10 +69,11 @@ public final class ResolvedProduct {
         let defaultLocalization = self.targets.first?.defaultLocalization
         self.defaultLocalization = defaultLocalization
 
-        let platforms = Self.computePlatforms(targets: targets)
-        self.platforms = platforms
+        let (platforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
+        self.supportedPlatforms = platforms
+        self.platformVersionProvider = platformVersionProvider
 
-        self.testEntryPointTarget = underlyingProduct.testEntryPointPath.map { testEntryPointPath in
+        self.testEntryPointTarget = product.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
             let swiftTarget = SwiftTarget(name: product.name,
@@ -81,7 +84,8 @@ public final class ResolvedProduct {
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
-                platforms: platforms
+                supportedPlatforms: platforms,
+                platformVersionProvider: platformVersionProvider
             )
         }
         
@@ -105,33 +109,23 @@ public final class ResolvedProduct {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(Set(targets).union(recursiveDependencies))
     }
-
-    private static func computePlatforms(targets: [ResolvedTarget]) -> SupportedPlatforms {
-        // merging two sets of supported platforms, preferring the max constraint
-        func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {
-            for platformSupport in platforms {
-                if let existing = partial.firstIndex(where: { $0.platform == platformSupport.platform }) {
-                    if partial[existing].version < platformSupport.version {
-                        partial.remove(at: existing)
-                        partial.append(platformSupport)
-                    }
-                } else {
-                    partial.append(platformSupport)
-                }
-            }
+    private static func computePlatforms(targets: [ResolvedTarget]) -> ([SupportedPlatform], PlatformVersionProvider) {
+        let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+            merge(into: &partial, platforms: item.supportedPlatforms)
         }
 
-        let declared = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-            merge(into: &partial, platforms: item.platforms.declared)
-        }
+        return (
+            declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
+            PlatformVersionProvider(implementation: .mergingFromTargets(targets))
+        )
+    }    
 
-        return SupportedPlatforms(
-            declared: declared.sorted(by: { $0.platform.name < $1.platform.name })) { declared in
-                let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-                    merge(into: &partial, platforms: [item.platforms.getDerived(for: declared, usingXCTest: item.type == .test)])
-                }
-                return platforms.first!.version
-            }
+    public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        self.platformVersionProvider.getDerived(
+            declared: self.supportedPlatforms,
+            for: platform,
+            usingXCTest: usingXCTest
+        )
     }
 }
 

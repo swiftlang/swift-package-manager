@@ -145,6 +145,13 @@ extension PackageGraph {
             }
         }
 
+        let platformVersionProvider: PlatformVersionProvider
+        if let customXCTestMinimumDeploymentTargets {
+            platformVersionProvider = .init(implementation: .customXCTestMinimumDeploymentTargets(customXCTestMinimumDeploymentTargets))
+        } else {
+            platformVersionProvider = .init(implementation: .minimumDeploymentTargetDefault)
+        }
+
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = try createResolvedPackages(
             nodes: allNodes,
@@ -153,13 +160,7 @@ extension PackageGraph {
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
-            derivedXCTestPlatformProvider: { declared in
-                if let customXCTestMinimumDeploymentTargets {
-                    return customXCTestMinimumDeploymentTargets[declared]
-                } else {
-                    return MinimumDeploymentTarget.default.computeXCTestMinimumDeploymentTarget(for: declared)
-                }
-            },
+            platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -240,7 +241,7 @@ private func createResolvedPackages(
     rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
-    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?,
+    platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -257,7 +258,8 @@ private func createResolvedPackages(
             package,
             productFilter: node.productFilter,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
-            allowedToOverride: allowedToOverride
+            allowedToOverride: allowedToOverride,
+            platformVersionProvider: platformVersionProvider
         )
     }
 
@@ -361,14 +363,19 @@ private func createResolvedPackages(
 
         packageBuilder.defaultLocalization = package.manifest.defaultLocalization
 
-        packageBuilder.platforms = computePlatforms(
+        packageBuilder.supportedPlatforms = computePlatforms(
             package: package,
-            platformRegistry: platformRegistry,
-            derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
+            platformRegistry: platformRegistry
         )
 
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: packageObservabilityScope) }
+        let targetBuilders = package.targets.map {
+            ResolvedTargetBuilder(
+                target: $0,
+                observabilityScope: packageObservabilityScope,
+                platformVersionProvider: platformVersionProvider
+            )
+        }
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
@@ -386,7 +393,7 @@ private func createResolvedPackages(
                 }
             }
             targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
-            targetBuilder.platforms = packageBuilder.platforms
+            targetBuilder.supportedPlatforms = packageBuilder.supportedPlatforms
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -743,10 +750,8 @@ private class DuplicateProductsChecker {
 
 private func computePlatforms(
     package: Package,
-    platformRegistry: PlatformRegistry,
-    derivedXCTestPlatformProvider: @escaping (_ declared: PackageModel.Platform) -> PlatformVersion?
-) -> SupportedPlatforms {
-
+    platformRegistry: PlatformRegistry
+) -> [SupportedPlatform] {
     // the supported platforms as declared in the manifest
     let declaredPlatforms: [SupportedPlatform] = package.manifest.platforms.map { platform in
         let declaredPlatform = platformRegistry.platformByName[platform.platformName]
@@ -758,10 +763,7 @@ private func computePlatforms(
         )
     }
 
-    return SupportedPlatforms(
-        declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
-        derivedXCTestPlatformProvider: derivedXCTestPlatformProvider
-    )
+    return declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
 }
 
 // Track and override module aliases specified for targets in a package graph
@@ -888,11 +890,14 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
+    var supportedPlatforms: [SupportedPlatform] = []
+
+    let platformVersionProvider: PlatformVersionProvider
 
     init(
         target: Target,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.target = target
         self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
@@ -900,6 +905,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             metadata.targetName = target.name
             return metadata
         }
+        self.platformVersionProvider = platformVersionProvider
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
@@ -934,7 +940,8 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             target: self.target,
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms
+            supportedPlatforms: self.supportedPlatforms,
+            platformVersionProvider: self.platformVersionProvider
         )
     }
 }
@@ -983,27 +990,37 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var defaultLocalization: String? = nil
 
     /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derivedXCTestPlatformProvider: .none)
+    var supportedPlatforms: [SupportedPlatform] = []
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     var registryMetadata: RegistryReleaseMetadata?
 
-    init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
+    let platformVersionProvider: PlatformVersionProvider
+
+    init(
+        _ package: Package,
+        productFilter: ProductFilter,
+        isAllowedToVendUnsafeProducts: Bool,
+        allowedToOverride: Bool,
+        platformVersionProvider: PlatformVersionProvider
+    ) {
         self.package = package
         self.productFilter = productFilter
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
         self.allowedToOverride = allowedToOverride
+        self.platformVersionProvider = platformVersionProvider
     }
 
     override func constructImpl() throws -> ResolvedPackage {
         return ResolvedPackage(
             package: self.package,
             defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms,
+            supportedPlatforms: self.supportedPlatforms,
             dependencies: try self.dependencies.map{ try $0.construct() },
             targets: try self.targets.map{ try $0.construct() },
             products: try self.products.map{ try $0.construct() },
-            registryMetadata: self.registryMetadata
+            registryMetadata: self.registryMetadata,
+            platformVersionProvider: self.platformVersionProvider
         )
     }
 }
