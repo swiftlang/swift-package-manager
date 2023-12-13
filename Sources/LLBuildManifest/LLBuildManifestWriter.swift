@@ -21,6 +21,7 @@ public struct LLBuildManifestWriter {
     private var buffer = """
     client:
       name: basic
+      file-system: device-agnostic
     tools: {}
 
     """
