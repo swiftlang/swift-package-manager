@@ -145,6 +145,13 @@ extension PackageGraph {
             }
         }
 
+        let platformVersionProvider: PlatformVersionProvider
+        if let customXCTestMinimumDeploymentTargets {
+            platformVersionProvider = .init(implementation: .customXCTestMinimumDeploymentTargets(customXCTestMinimumDeploymentTargets))
+        } else {
+            platformVersionProvider = .init(implementation: .minimumDeploymentTargetDefault)
+        }
+
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = try createResolvedPackages(
             nodes: allNodes,
@@ -153,9 +160,7 @@ extension PackageGraph {
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
-            platformVersionProvider: .init(
-                implementation: .customXCTestMinimumDeploymentTargets(customXCTestMinimumDeploymentTargets)
-            ),
+            platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

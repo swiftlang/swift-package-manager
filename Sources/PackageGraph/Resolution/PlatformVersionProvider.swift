@@ -32,8 +32,8 @@ func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatfor
 public struct PlatformVersionProvider: Hashable {
     public enum Implementation: Hashable {
         case mergingFromTargets([ResolvedTarget])
-        case customXCTestMinimumDeploymentTargets([PackageModel.Platform: PlatformVersion]?)
-        case empty
+        case customXCTestMinimumDeploymentTargets([PackageModel.Platform: PlatformVersion])
+        case minimumDeploymentTargetDefault
     }
 
     private let implementation: Implementation
@@ -43,22 +43,21 @@ public struct PlatformVersionProvider: Hashable {
     }
 
     func derivedXCTestPlatformProvider(_ declared: PackageModel.Platform) -> PlatformVersion? {
-        switch implementation {
+        switch self.implementation {
         case .mergingFromTargets(let targets):
             let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-                merge(into: &partial, platforms: [item.getSupportedPlatform(for: declared, usingXCTest: item.type == .test)])
+                merge(
+                    into: &partial,
+                    platforms: [item.getSupportedPlatform(for: declared, usingXCTest: item.type == .test)]
+                )
             }
             return platforms.first!.version
 
         case .customXCTestMinimumDeploymentTargets(let customXCTestMinimumDeploymentTargets):
-            if let customXCTestMinimumDeploymentTargets {
-                return customXCTestMinimumDeploymentTargets[declared]
-            } else {
-                return MinimumDeploymentTarget.default.computeXCTestMinimumDeploymentTarget(for: declared)
-            }
+            return customXCTestMinimumDeploymentTargets[declared]
 
-        case .empty:
-            return nil
+        case .minimumDeploymentTargetDefault:
+            return MinimumDeploymentTarget.default.computeXCTestMinimumDeploymentTarget(for: declared)
         }
     }
 
@@ -68,7 +67,10 @@ public struct PlatformVersionProvider: Hashable {
         if let declaredPlatform = declared.first(where: { $0.platform == platform }) {
             var version = declaredPlatform.version
 
-            if usingXCTest, let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform), version < xcTestMinimumDeploymentTarget {
+            if usingXCTest,
+               let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform),
+               version < xcTestMinimumDeploymentTarget
+            {
                 version = xcTestMinimumDeploymentTarget
             }
 
@@ -84,7 +86,10 @@ public struct PlatformVersionProvider: Hashable {
             )
         } else {
             let minimumSupportedVersion: PlatformVersion
-            if usingXCTest, let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform), xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
+            if usingXCTest,
+               let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform),
+               xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion
+            {
                 minimumSupportedVersion = xcTestMinimumDeploymentTarget
             } else {
                 minimumSupportedVersion = platform.oldestSupportedVersion
