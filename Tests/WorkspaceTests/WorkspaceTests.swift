@@ -865,7 +865,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoMatch(workspace.delegate.events, [.contains("updating repo")])
     }
 
-    func testPrecomputeResolution_empty() async throws {
+    func testPrecomputeResolution_empty() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -905,12 +905,13 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result.isRequired, false)
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result.isRequired, false)
+        }
     }
 
-    func testPrecomputeResolution_newPackages() async throws {
+    func testPrecomputeResolution_newPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -966,12 +967,13 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
+        }
     }
 
-    func testPrecomputeResolution_requirementChange_versionToBranch() async throws {
+    func testPrecomputeResolution_requirementChange_versionToBranch() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1030,16 +1032,17 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(v1_5),
-            requirement: .revision("master")
-        )))
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .sourceControlCheckout(v1_5),
+                requirement: .revision("master")
+            )))
+        }
     }
 
-    func testPrecomputeResolution_requirementChange_versionToRevision() async throws {
+    func testPrecomputeResolution_requirementChange_versionToRevision() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
@@ -1081,16 +1084,17 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await testWorkspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(v1_5),
-            requirement: .revision("hello")
-        )))
+        try testWorkspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .sourceControlCheckout(v1_5),
+                requirement: .revision("hello")
+            )))
+        }
     }
 
-    func testPrecomputeResolution_requirementChange_localToBranch() async throws {
+    func testPrecomputeResolution_requirementChange_localToBranch() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1148,16 +1152,17 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .fileSystem(cPackagePath),
-            requirement: .revision("master")
-        )))
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .fileSystem(cPackagePath),
+                requirement: .revision("master")
+            )))
+        }
     }
 
-    func testPrecomputeResolution_requirementChange_versionToLocal() async throws {
+    func testPrecomputeResolution_requirementChange_versionToLocal() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1215,16 +1220,17 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(v1_5),
-            requirement: .unversioned
-        )))
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .sourceControlCheckout(v1_5),
+                requirement: .unversioned
+            )))
+        }
     }
 
-    func testPrecomputeResolution_requirementChange_branchToLocal() async throws {
+    func testPrecomputeResolution_requirementChange_branchToLocal() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1283,16 +1289,17 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(master),
-            requirement: .unversioned
-        )))
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .sourceControlCheckout(master),
+                requirement: .unversioned
+            )))
+        }
     }
 
-    func testPrecomputeResolution_other() async throws {
+    func testPrecomputeResolution_other() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1351,17 +1358,20 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(
-            result.result,
-            .required(reason: .other(
-                "Dependencies could not be resolved because no versions of \'c\' match the requirement 2.0.0..<3.0.0 and root depends on \'c\' 2.0.0..<3.0.0."
-            ))
-        )
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(
+                result.result,
+                .required(
+                    reason: .other(
+                        "Dependencies could not be resolved because no versions of \'c\' match the requirement 2.0.0..<3.0.0 and root depends on \'c\' 2.0.0..<3.0.0."
+                    )
+                )
+            )
+        }
     }
 
-    func testPrecomputeResolution_notRequired() async throws {
+    func testPrecomputeResolution_notRequired() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1421,9 +1431,10 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result.isRequired, false)
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertNoDiagnostics(result.diagnostics)
+            XCTAssertEqual(result.result.isRequired, false)
+        }
     }
 
     func testLoadingRootManifests() throws {

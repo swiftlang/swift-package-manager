@@ -7,13 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-package
-  Entrypoint.swift)
+  main.swift)
 target_link_libraries(swift-package PRIVATE
   Commands
   TSCBasic)
-
-target_compile_options(swift-package PRIVATE
-  -parse-as-library)
 
 install(TARGETS swift-package
   RUNTIME DESTINATION bin)
