@@ -31,7 +31,7 @@ private extension ResolvedTarget {
             dependencies: deps.map { .target($0, conditions: []) },
             defaultLocalization: nil,
             supportedPlatforms: [],
-            platformVersionProvider: .init(implementation: .empty)
+            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)
         )
     }
 }

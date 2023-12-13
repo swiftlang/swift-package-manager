@@ -63,11 +63,18 @@ public struct ResolvedProduct: Hashable {
 
     public init(product: Product, targets: [ResolvedTarget]) {
         assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
-        let (supportedPlatforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
-        let defaultLocalization = targets.first?.defaultLocalization
-        
         self.underlying = product
         self.targets = targets
+
+        // defaultLocalization is currently shared across the entire package
+        // this may need to be enhanced if / when we support localization per target or product
+        let defaultLocalization = self.targets.first?.defaultLocalization
+        self.defaultLocalization = defaultLocalization
+
+        let (platforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
+        self.supportedPlatforms = platforms
+        self.platformVersionProvider = platformVersionProvider
+
         self.testEntryPointTarget = product.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
@@ -79,22 +86,14 @@ public struct ResolvedProduct: Hashable {
             )
             return ResolvedTarget(
                 underlying: swiftTarget,
-                dependencies: targets.map {
-                    .target($0, conditions: [])
-                },
-                defaultLocalization: defaultLocalization,
-                supportedPlatforms: supportedPlatforms,
+                dependencies: targets.map { .target($0, conditions: []) },
+                defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
+                supportedPlatforms: platforms,
                 platformVersionProvider: platformVersionProvider
             )
         }
         
         self.buildTriple = .destination
-
-        // defaultLocalization is currently shared across the entire package
-        // this may need to be enhanced if / when we support localization per target or product
-        self.defaultLocalization = defaultLocalization
-        self.supportedPlatforms = supportedPlatforms
-        self.platformVersionProvider = platformVersionProvider
     }
 
     /// True if this product contains Swift targets.

@@ -97,24 +97,21 @@ enum ExtensionBlockSymbolBehavior: String, EnumerableFlag {
     case omitExtensionBlockSymbols
 }
 
-struct DumpPackage: SwiftCommand {
+struct DumpPackage: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "Print parsed Package.swift as JSON")
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    func run(_ swiftTool: SwiftTool) throws {
+    func run(_ swiftTool: SwiftTool) async throws {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
 
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftTool.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftTool.observabilityScope
+        )
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }

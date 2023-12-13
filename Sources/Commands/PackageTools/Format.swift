@@ -21,7 +21,7 @@ import enum TSCBasic.ProcessEnv
 import enum TSCUtility.Diagnostics
 
 extension SwiftPackageTool {
-    struct Format: SwiftCommand {
+    struct Format: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "_format", shouldDisplay: false)
 
@@ -32,7 +32,7 @@ extension SwiftPackageTool {
                   help: "Pass flag through to the swift-format tool")
         var swiftFormatFlags: [String] = []
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             // Look for swift-format binary.
             // FIXME: This should be moved to user toolchain.
             let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.vars["SWIFT_FORMAT"])
@@ -48,13 +48,11 @@ extension SwiftPackageTool {
                 throw StringError("unknown package")
             }
 
-            let package = try temp_await {
-                workspace.loadRootPackage(
-                    at: packagePath,
-                    observabilityScope: swiftTool.observabilityScope,
-                    completion: $0
-                )
-            }
+            let package = try await workspace.loadRootPackage(
+                at: packagePath,
+                observabilityScope: swiftTool.observabilityScope
+            )
+
 
             // Use the user provided flags or default to formatting mode.
             let formatOptions = swiftFormatFlags.isEmpty
@@ -71,7 +69,7 @@ extension SwiftPackageTool {
             let args = [swiftFormat.pathString] + formatOptions + [packagePath.pathString] + paths
             print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
 
-            let result = try TSCBasic.Process.popen(arguments: args)
+            let result = try await TSCBasic.Process.popen(arguments: args)
             let output = try (result.utf8Output() + result.utf8stderrOutput())
 
             if result.exitStatus != .terminated(code: 0) {

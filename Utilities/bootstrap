@@ -449,7 +449,9 @@ def install_dylib(args, library_name, install_dir, module_names):
     # Install the swiftmodule/swiftinterface and swiftdoc files for all the modules.
     for module in module_names:
         # If we're cross-compiling, we expect the .swiftmodule to be a directory that contains everything.
-        if args.cross_compile_hosts:
+        if args.cross_compile_hosts and re.match("macosx-", args.cross_compile_hosts):
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
+        elif args.cross_compile_hosts:
             install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'], subpath="Modules")
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.

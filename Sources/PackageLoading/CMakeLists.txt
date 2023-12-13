@@ -35,10 +35,8 @@ target_link_libraries(PackageLoading PRIVATE
 set_target_properties(PackageLoading PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS PackageLoading
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageLoading)

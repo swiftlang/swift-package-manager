@@ -42,6 +42,7 @@ let swiftPMDataModelProduct = (
         "PackageMetadata",
         "PackageModel",
         "SourceControl",
+        "SourceKitLSPAPI",
         "Workspace",
     ]
 )
@@ -146,6 +147,14 @@ let package = Package(
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
             linkerSettings: packageLibraryLinkSettings
+        ),
+
+        .target(
+            name: "SourceKitLSPAPI",
+            dependencies: [
+                "Build",
+                "SPMBuildCore"
+            ]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -518,6 +527,7 @@ let package = Package(
             name: "SPMTestSupport",
             dependencies: [
                 "Basics",
+                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -536,6 +546,14 @@ let package = Package(
             dependencies: []),
 
         // MARK: SwiftPM tests
+
+        .testTarget(
+            name: "SourceKitLSPAPITests",
+            dependencies: [
+                "SourceKitLSPAPI",
+                "SPMTestSupport",
+            ]
+        ),
 
         .testTarget(
             name: "BasicsTests",

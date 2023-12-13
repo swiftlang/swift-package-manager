@@ -25,7 +25,7 @@ import XCBuildSupport
 import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
-public struct SwiftPackageTool: ParsableCommand {
+public struct SwiftPackageTool: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package",
         _superCommandName: "swift",

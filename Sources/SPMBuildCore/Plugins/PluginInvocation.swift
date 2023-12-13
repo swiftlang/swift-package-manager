@@ -24,6 +24,46 @@ public enum PluginAction {
 }
 
 extension PluginTarget {
+    public func invoke(
+        action: PluginAction,
+        buildEnvironment: BuildEnvironment,
+        scriptRunner: PluginScriptRunner,
+        workingDirectory: AbsolutePath,
+        outputDirectory: AbsolutePath,
+        toolSearchDirectories: [AbsolutePath],
+        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginInvocationDelegate
+    ) async throws -> Bool {
+        try await safe_async {
+            self.invoke(
+                action: action,
+                buildEnvironment: buildEnvironment,
+                scriptRunner: scriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: outputDirectory,
+                toolSearchDirectories: toolSearchDirectories,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections,
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                delegate: delegate,
+                completion: $0
+            )
+        }
+    }
     /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
     /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
     /// determine the context that is available to the plugin.
@@ -47,6 +87,7 @@ extension PluginTarget {
     ///   - fileSystem: The file system to which all of the paths refers.
     ///
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
+    @available(*, noasync, message: "Use the async alternative")
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,

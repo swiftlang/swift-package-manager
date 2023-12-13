@@ -54,7 +54,7 @@ struct JSONOptions: ParsableArguments {
     var json: Bool = false
 }
 
-public struct SwiftPackageCollectionsTool: ParsableCommand {
+public struct SwiftPackageCollectionsTool: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-collection",
         _superCommandName: "swift",
@@ -76,7 +76,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
     // MARK: Collections
 
-    struct List: SwiftCommand {
+    struct List: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(abstract: "List configured collections")
 
         @OptionGroup
@@ -85,9 +85,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftTool: SwiftTool) throws {
-            let collections = try with(swiftTool) { collections in
-                try temp_await { collections.listCollections(identifiers: nil, callback: $0) }
+        func run(_ swiftTool: SwiftTool) async throws {
+            let collections = try await with(swiftTool) { collections in
+                try await collections.listCollections(identifiers: nil)
             }
 
             if self.jsonOptions.json {
@@ -100,21 +100,21 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         }
     }
 
-    struct Refresh: SwiftCommand {
+    struct Refresh: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(abstract: "Refresh configured collections")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftTool: SwiftTool) throws {
-            let collections = try with(swiftTool) { collections in
-                try temp_await { collections.refreshCollections(callback: $0) }
+        func run(_ swiftTool: SwiftTool) async throws {
+            let collections = try await with(swiftTool) { collections in
+                try await collections.refreshCollections()
             }
             print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
         }
     }
 
-    struct Add: SwiftCommand {
+    struct Add: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(abstract: "Add a new collection")
 
         @Argument(help: "URL of the collection to add")
@@ -132,20 +132,15 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let collectionURL = try url(self.collectionURL)
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
-            let collection: PackageCollectionsModel.Collection = try with(swiftTool) { collections in
+            let collection: PackageCollectionsModel.Collection = try await with(swiftTool) { collections in
                 do {
                     let userTrusted = self.trustUnsigned
-                    return try temp_await {
-                        collections.addCollection(
-                            source,
-                            order: order,
-                            trustConfirmationProvider: { _, callback in callback(userTrusted) },
-                            callback: $0
-                        )
+                    return try await collections.addCollection(source, order: order) { _, callback in
+                        callback(userTrusted)
                     }
                 } catch PackageCollectionError.trustConfirmationRequired, PackageCollectionError.untrusted {
                     throw CollectionsError.unsigned
@@ -162,7 +157,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         }
     }
 
-    struct Remove: SwiftCommand {
+    struct Remove: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(abstract: "Remove a configured collection")
 
         @Argument(help: "URL of the collection to remove")
@@ -171,13 +166,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let collectionURL = try url(self.collectionURL)
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
-            try with(swiftTool) { collections in
-                let collection = try temp_await { collections.getCollection(source, callback: $0) }
-                _ = try temp_await { collections.removeCollection(source, callback: $0) }
+            try await with(swiftTool) { collections in
+                let collection = try await collections.getCollection(source)
+                _ = try await collections.removeCollection(source)
                 print("Removed \"\(collection.name)\" from your package collections.")
             }
         }
@@ -190,7 +185,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         case module
     }
 
-    struct Search: SwiftCommand {
+    struct Search: AsyncSwiftCommand {
         static var configuration = CommandConfiguration(abstract: "Search for packages by keywords or module names")
 
         @OptionGroup
@@ -205,11 +200,11 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftTool: SwiftTool) throws {
-            try with(swiftTool) { collections in
+        func run(_ swiftTool: SwiftTool) async throws {
+            try await with(swiftTool) { collections in
                 switch searchMethod {
                 case .keywords:
-                    let results = try temp_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
+                    let results = try await collections.findPackages(searchQuery, collections: nil)
 
                     if jsonOptions.json {
                         try JSONEncoder.makeWithDefaults().print(results.items)
@@ -220,7 +215,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     }
 
                 case .module:
-                    let results = try temp_await { collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil, callback: $0) }
+                    let results = try await collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil)
 
                     let packages = Set(results.items.flatMap { $0.packages })
                     if jsonOptions.json {
@@ -237,7 +232,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
     // MARK: Packages
 
-    struct Describe: SwiftCommand {
+    struct Describe: AsyncSwiftCommand {
         static var configuration = CommandConfiguration(abstract: "Get metadata for a collection or a package included in an imported collection")
 
         @OptionGroup
@@ -287,12 +282,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             """
         }
 
-        func run(_ swiftTool: SwiftTool) throws {
-            try with(swiftTool) { collections in
+        func run(_ swiftTool: SwiftTool) async throws {
+            try await with(swiftTool) { collections in
                 let identity = PackageIdentity(urlString: self.packageURL)
 
                 do { // assume URL is for a package in an imported collection
-                    let result = try temp_await { collections.getPackageMetadata(identity: identity, location: self.packageURL, callback: $0) }
+                    let result = try await collections.getPackageMetadata(identity: identity, location: self.packageURL)
 
                     if let versionString = version {
                         guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
@@ -333,7 +328,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
                     do {
                         let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
-                        let collection = try temp_await { collections.getCollection(source, callback: $0) }
+                        let collection = try await collections.getCollection(source)
 
                         let description = optionalRow("Description", collection.overview)
                         let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
@@ -386,7 +381,7 @@ private extension JSONEncoder {
 }
 
 private extension ParsableCommand {
-    func with<T>(_ swiftTool: SwiftTool, handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
+    func with<T>(_ swiftTool: SwiftTool, handler: (_ collections: PackageCollectionsProtocol) async throws -> T) async throws -> T {
         _ = try? swiftTool.getActiveWorkspace(emitDeprecatedConfigurationWarning: true)
         let collections = PackageCollections(
             configuration: .init(
@@ -404,7 +399,7 @@ private extension ParsableCommand {
             }
         }
 
-        return try handler(collections)
+        return try await handler(collections)
     }
 
     func url(_ urlString: String) throws -> URL {

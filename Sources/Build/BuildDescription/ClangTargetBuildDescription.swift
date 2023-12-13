@@ -320,6 +320,42 @@ public final class ClangTargetBuildDescription {
         return args
     }
 
+    public func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
+        let standards = [
+            (clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
+            (clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
+        ]
+
+        guard let path = try self.compilePaths().first(where: { $0.source == filePath }) else {
+            throw BuildDescriptionError.requestedFileNotPartOfTarget(
+                targetName: self.target.name,
+                requestedFilePath: filePath
+            )
+        }
+
+        let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
+        let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
+
+        var args = try basicArguments(isCXX: isCXX, isC: isC)
+
+        args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
+
+        // Add language standard flag if needed.
+        if let ext = path.source.extension {
+            for (standard, validExtensions) in standards {
+                if let standard, validExtensions.contains(ext) {
+                    args += ["-std=\(standard)"]
+                }
+            }
+        }
+
+        args += ["-c", path.source.pathString, "-o", path.object.pathString]
+
+        let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
+        args.insert(clangCompiler, at: 0)
+        return args
+    }
+
     /// Returns the build flags from the declared build settings.
     private func buildSettingsFlags() throws -> [String] {
         let scope = buildParameters.createScope(for: target)
