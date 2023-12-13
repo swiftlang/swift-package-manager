@@ -11,17 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
-import class Foundation.Pipe
-import class Foundation.Process
-import struct Foundation.URL
 import struct TSCBasic.FileSystemError
 import class TSCBasic.Process
-
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import TSCclibc
-#else
-import TSCclibc
-#endif
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
@@ -99,107 +90,40 @@ public struct ZipArchiver: Archiver, Cancellable {
                 arguments: ["tar.exe", "-a", "-c", "-f", destinationPath.pathString, directory.basename],
                 workingDirectory: directory.parentDirectory.underlying
             )
-            try self.launchAndWait(process: process, completion: completion)
-            #elseif os(Linux)
+            #else
             // This is to work around `swift package-registry publish` tool failing on
             // Amazon Linux 2 due to it having an earlier Glibc version (rdar://116370323)
             // and therefore posix_spawn_file_actions_addchdir_np is unavailable.
-            // Instead of TSC.Process, we shell out to Foundation.Process and do `cd`
-            // explicitly before `zip`.
-            if SPM_posix_spawn_file_actions_addchdir_np_supported() {
-                try self.compress_zip(
-                    directory: directory,
-                    destinationPath: destinationPath,
-                    completion: completion
-                )
-            } else {
-                let process = Foundation.Process()
-                process.executableURL = URL(fileURLWithPath: "/bin/sh")
-                process.arguments = [
+            // Instead of passing `workingDirectory` param to TSC.Process, which will trigger
+            // SPM_posix_spawn_file_actions_addchdir_np_supported check, we shell out and
+            // do `cd` explicitly before `zip`.
+            let process = TSCBasic.Process(
+                arguments: [
+                    "/bin/sh",
                     "-c",
                     "cd \(directory.parentDirectory.underlying.pathString) && zip -r \(destinationPath.pathString) \(directory.basename)",
                 ]
-
-                let stdoutPipe = Pipe()
-                let stderrPipe = Pipe()
-                process.standardOutput = stdoutPipe
-                process.standardError = stderrPipe
-
-                try self.launchAndWait(
-                    process: process,
-                    stdoutPipe: stdoutPipe,
-                    stderrPipe: stderrPipe,
-                    completion: completion
-                )
-            }
-            #else
-            try self.compress_zip(
-                directory: directory,
-                destinationPath: destinationPath,
-                completion: completion
             )
             #endif
+
+            guard let registrationKey = self.cancellator.register(process) else {
+                throw CancellationError.failedToRegisterProcess(process)
+            }
+
+            DispatchQueue.sharedConcurrent.async {
+                defer { self.cancellator.deregister(registrationKey) }
+                completion(.init(catching: {
+                    try process.launch()
+                    let processResult = try process.waitUntilExit()
+                    guard processResult.exitStatus == .terminated(code: 0) else {
+                        throw try StringError(processResult.utf8stderrOutput())
+                    }
+                }))
+            }
         } catch {
             return completion(.failure(error))
         }
     }
-
-    private func compress_zip(
-        directory: AbsolutePath,
-        destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) throws {
-        let process = TSCBasic.Process(
-            arguments: ["zip", "-r", destinationPath.pathString, directory.basename],
-            workingDirectory: directory.parentDirectory.underlying
-        )
-        try self.launchAndWait(process: process, completion: completion)
-    }
-
-    private func launchAndWait(
-        process: TSCBasic.Process,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) throws {
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
-        }
-
-        DispatchQueue.sharedConcurrent.async {
-            defer { self.cancellator.deregister(registrationKey) }
-            completion(.init(catching: {
-                try process.launch()
-                let processResult = try process.waitUntilExit()
-                guard processResult.exitStatus == .terminated(code: 0) else {
-                    throw try StringError(processResult.utf8stderrOutput())
-                }
-            }))
-        }
-    }
-
-    #if os(Linux)
-    private func launchAndWait(
-        process: Foundation.Process,
-        stdoutPipe: Pipe,
-        stderrPipe: Pipe,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) throws {
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
-        }
-
-        DispatchQueue.sharedConcurrent.async {
-            defer { self.cancellator.deregister(registrationKey) }
-            completion(.init(catching: {
-                try process.run()
-                process.waitUntilExit()
-                guard process.terminationStatus == 0 else {
-                    let stderr = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                    throw StringError(String(decoding: stderr, as: UTF8.self))
-                }
-            }))
-        }
-    }
-    #endif
 
     public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
