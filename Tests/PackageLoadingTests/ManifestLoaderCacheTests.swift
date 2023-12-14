@@ -22,7 +22,7 @@ import func TSCTestSupport.withCustomEnv
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 class ManifestLoaderCacheTests: XCTestCase {
-    func testDBCaching() async  throws {
+    func testDBCaching() async throws {
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
             let observability = ObservabilitySystem.makeForTesting()
