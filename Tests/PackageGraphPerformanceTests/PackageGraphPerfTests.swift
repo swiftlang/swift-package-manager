@@ -126,10 +126,12 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                     )
                 ],
                 targets: [
-                    try .init(name: "Target\(sequenceNumber)",
-                              dependencies: dependencySequence.map {
-                                  .product(name: "Target\($0)", package: "Package\($0)")
-                              })
+                    try .init(
+                        name: "Target\(sequenceNumber)",
+                        dependencies: dependencySequence.map {
+                            .product(name: "Target\($0)", package: "Package\($0)")
+                        }
+                    )
                 ]
             )
         }

@@ -87,3 +87,7 @@ extension ResolvedPackage: CustomStringConvertible {
         return "<ResolvedPackage: \(self.identity)>"
     }
 }
+
+extension ResolvedPackage: Identifiable {
+    public var id: PackageIdentity { self.underlying.identity }
+}

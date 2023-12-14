@@ -84,12 +84,12 @@ public struct ResolvedTarget: Hashable {
 
     /// Returns the recursive dependencies, across the whole package-graph.
     public func recursiveDependencies() throws -> [Dependency] {
-        return try topologicalSort(self.dependencies) { $0.dependencies }
+        return try TSCBasic.topologicalSort(self.dependencies) { $0.dependencies }
     }
 
     /// Returns the recursive target dependencies, across the whole package-graph.
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
-        return try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
+        return try TSCBasic.topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
     }
 
     /// Returns the recursive dependencies, across the whole package-graph, which satisfy the input build environment,
@@ -97,7 +97,7 @@ public struct ResolvedTarget: Hashable {
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
     public func recursiveDependencies(satisfying environment: BuildEnvironment) throws -> [Dependency] {
-        return try topologicalSort(dependencies(satisfying: environment)) { dependency in
+        return try TSCBasic.topologicalSort(dependencies(satisfying: environment)) { dependency in
             return dependency.dependencies.filter { $0.satisfies(environment) }
         }
     }
