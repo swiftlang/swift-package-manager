@@ -24,6 +24,8 @@ public struct ResolvedProduct: Hashable {
         self.underlying.type
     }
 
+    public let packageIdentity: PackageIdentity
+
     /// The underlying product.
     public let underlying: Product
 
@@ -61,8 +63,9 @@ public struct ResolvedProduct: Hashable {
         }
     }
 
-    public init(product: Product, targets: [ResolvedTarget]) {
+    public init(packageIdentity: PackageIdentity, product: Product, targets: [ResolvedTarget]) {
         assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
+        self.packageIdentity = packageIdentity
         self.underlying = product
         self.targets = targets
 
@@ -85,6 +88,7 @@ public struct ResolvedProduct: Hashable {
                 testEntryPointPath: testEntryPointPath
             )
             return ResolvedTarget(
+                packageIdentity: packageIdentity,
                 underlying: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product

@@ -17,7 +17,7 @@ import func TSCBasic.topologicalSort
 /// Represents a fully resolved target. All the dependencies for this target are also stored as resolved.
 public struct ResolvedTarget: Hashable {
     /// Represents dependency of a resolved target.
-    public enum Dependency: Hashable {
+    public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
         case target(_ target: ResolvedTarget, conditions: [PackageCondition])
 
@@ -129,6 +129,8 @@ public struct ResolvedTarget: Hashable {
         return underlying.sources
     }
 
+    let packageIdentity: PackageIdentity
+
     /// The underlying target represented in this resolved target.
     public let underlying: Target
 
@@ -148,12 +150,14 @@ public struct ResolvedTarget: Hashable {
 
     /// Create a resolved target instance.
     public init(
+        packageIdentity: PackageIdentity,
         underlying: Target,
         dependencies: [ResolvedTarget.Dependency],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
         platformVersionProvider: PlatformVersionProvider
     ) {
+        self.packageIdentity = packageIdentity
         self.underlying = underlying
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
@@ -188,5 +192,51 @@ extension ResolvedTarget.Dependency: CustomStringConvertible {
         }
         str += ">"
         return str
+    }
+}
+
+extension ResolvedTarget.Dependency: Identifiable {
+    public struct ID: Hashable {
+        enum Kind: Hashable {
+            case target
+            case product
+        }
+
+        let kind: Kind
+        let packageIdentity: PackageIdentity
+        let name: String
+    }
+
+    public var id: ID {
+        switch self {
+        case .target(let target, _):
+            return .init(kind: .target, packageIdentity: target.packageIdentity, name: target.name)
+        case .product(let product, _):
+            return .init(kind: .product, packageIdentity: product.packageIdentity, name: product.name)
+        }
+    }
+}
+
+extension ResolvedTarget.Dependency: Equatable {
+    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
+        switch (lhs, rhs) {
+        case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
+            return lhsTarget == rhsTarget
+        case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
+            return lhsProduct == rhsProduct
+        case (.product, .target), (.target, .product):
+            return false
+        }
+    }
+}
+
+extension ResolvedTarget.Dependency: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .target(let target, _):
+            hasher.combine(target)
+        case .product(let product, _):
+            hasher.combine(product)
+        }
     }
 }

@@ -373,6 +373,7 @@ private func createResolvedPackages(
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map {
             ResolvedTargetBuilder(
+                packageIdentity: package.identity,
                 target: $0,
                 observabilityScope: packageObservabilityScope,
                 platformVersionProvider: platformVersionProvider
@@ -861,6 +862,7 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 
     override func constructImpl() throws -> ResolvedProduct {
         return ResolvedProduct(
+            packageIdentity: packageBuilder.package.identity,
             product: product,
             targets: try targets.map{ try $0.construct() }
         )
@@ -879,6 +881,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         case product(_ product: ResolvedProductBuilder, conditions: [PackageCondition])
     }
 
+    /// The reference to its package.
+    let packageIdentity: PackageIdentity
+
     /// The target reference.
     let target: Target
 
@@ -895,10 +900,12 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     let platformVersionProvider: PlatformVersionProvider
 
     init(
+        packageIdentity: PackageIdentity,
         target: Target,
         observabilityScope: ObservabilityScope,
         platformVersionProvider: PlatformVersionProvider
     ) {
+        self.packageIdentity = packageIdentity
         self.target = target
         self.observabilityScope = observabilityScope
         self.platformVersionProvider = platformVersionProvider
@@ -929,6 +936,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         }
 
         return ResolvedTarget(
+            packageIdentity: self.packageIdentity,
             underlying: self.target,
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,

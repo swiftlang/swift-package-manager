@@ -85,6 +85,7 @@ extension BuildPlan {
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
                 let discoveryResolvedTarget = ResolvedTarget(
+                    packageIdentity: testProduct.packageIdentity,
                     underlying: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: testProduct.defaultLocalization,
@@ -124,6 +125,7 @@ extension BuildPlan {
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(
+                    packageIdentity: testProduct.packageIdentity,
                     underlying: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
                     defaultLocalization: testProduct.defaultLocalization,
@@ -168,6 +170,7 @@ extension BuildPlan {
                             testEntryPointSources: entryPointResolvedTarget.underlying.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
+                            packageIdentity: testProduct.packageIdentity,
                             underlying: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
                             defaultLocalization: testProduct.defaultLocalization,
