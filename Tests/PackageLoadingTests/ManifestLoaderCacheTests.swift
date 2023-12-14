@@ -21,7 +21,7 @@ import enum TSCBasic.ProcessEnv
 import func TSCTestSupport.withCustomEnv
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
-class ManifestLoaderCacheTests: XCTestCase {
+final class ManifestLoaderCacheTests: XCTestCase {
     func testDBCaching() async throws {
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
@@ -533,7 +533,11 @@ class ManifestLoaderCacheTests: XCTestCase {
     }
 }
 
-private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
+private func makeMockManifests(
+    fileSystem: FileSystem,
+    rootPath: AbsolutePath,
+    count: Int = Int.random(in: 50 ..< 100)
+) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
     var manifests = [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult]()
     for index in 0 ..< count {
         let packagePath = rootPath.appending("\(index)")
