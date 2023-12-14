@@ -16,7 +16,7 @@ import PackageGraph
 import PackageModel
 
 private extension ResolvedTarget {
-    init(name: String, deps: ResolvedTarget...) {
+    init(name: String, deps: ResolvedTarget..., conditions: [PackageCondition] = []) {
         self.init(
             underlying: SwiftTarget(
                 name: name,
@@ -36,29 +36,17 @@ private extension ResolvedTarget {
     }
 }
 
-func testTargets(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {
-    do {
-        try body()
-    } catch {
-        XCTFail("\(error)", file: file, line: line)
-    }
-}
-
 class TargetDependencyTests: XCTestCase {
-
     func test1() throws {
-        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
 
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
-        }
     }
 
     func test2() throws {
-        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
@@ -67,11 +55,9 @@ class TargetDependencyTests: XCTestCase {
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
-        }
     }
 
     func test3() throws {
-        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
@@ -80,11 +66,9 @@ class TargetDependencyTests: XCTestCase {
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
-        }
     }
 
     func test4() throws {
-        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
@@ -93,11 +77,9 @@ class TargetDependencyTests: XCTestCase {
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
-        }
     }
 
     func test5() throws {
-        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
@@ -117,11 +99,9 @@ class TargetDependencyTests: XCTestCase {
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
-        }
     }
 
     func test6() throws {
-        testTargets {
             let t1 = ResolvedTarget(name: "t1")
             let t2 = ResolvedTarget(name: "t2", deps: t1)
             let t3 = ResolvedTarget(name: "t3", deps: t2)
@@ -141,6 +121,13 @@ class TargetDependencyTests: XCTestCase {
             XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
             XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
             XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
-        }
+    }
+
+    func testConditions() throws {
+        let t1 = ResolvedTarget(name: "t1")
+        let t2 = ResolvedTarget(name: "t2", deps: t1)
+        let t2Conditions = ResolvedTarget(name: "t2", deps: t1, conditions: [.init(platforms: [.linux])])
+
+        XCTAssertEqual(t2, t2Conditions)
     }
 }
