@@ -15,6 +15,7 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
+import SourceControl
 
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
@@ -958,7 +959,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                         do {
                             let packageDirectory = manifestPath.parentDirectory.pathString
-                            let contextModel = ContextModel(packageDirectory: packageDirectory)
+
+                            let gitInformation: ContextModel.GitInformation?
+                            do {
+                                let repo = GitRepository(path: manifestPath.parentDirectory)
+                                gitInformation = ContextModel.GitInformation(
+                                    currentTag: repo.getCurrentTag(),
+                                    currentCommit: try repo.getCurrentRevision().identifier,
+                                    hasUncommittedChanges: repo.hasUncommittedChanges()
+                                )
+                            } catch {
+                                gitInformation = nil
+                            }
+
+                            let contextModel = ContextModel(
+                                packageDirectory: packageDirectory,
+                                gitInformation: gitInformation
+                            )
                             cmd += ["-context", try contextModel.encode()]
                         } catch {
                             return completion(.failure(error))
