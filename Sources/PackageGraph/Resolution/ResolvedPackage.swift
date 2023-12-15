@@ -14,24 +14,24 @@ import Basics
 import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.
-public final class ResolvedPackage {
-    /// The underlying package reference.
-    public let underlyingPackage: Package
-
+public struct ResolvedPackage: Hashable {
     // The identity of the package.
     public var identity: PackageIdentity {
-        return self.underlyingPackage.identity
+        return self.underlying.identity
     }
 
     /// The manifest describing the package.
     public var manifest: Manifest {
-        return self.underlyingPackage.manifest
+        return self.underlying.manifest
     }
 
     /// The local path of the package.
     public var path: AbsolutePath {
-        return self.underlyingPackage.path
+        return self.underlying.path
     }
+
+    /// The underlying package reference.
+    public let underlying: Package
 
     /// The targets contained in the package.
     public let targets: [ResolvedTarget]
@@ -54,7 +54,7 @@ public final class ResolvedPackage {
     private let platformVersionProvider: PlatformVersionProvider
 
     public init(
-        package: Package,
+        underlying: Package,
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
         dependencies: [ResolvedPackage],
@@ -63,15 +63,15 @@ public final class ResolvedPackage {
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
-        self.underlyingPackage = package
-        self.defaultLocalization = defaultLocalization
-        self.supportedPlatforms = supportedPlatforms
-        self.dependencies = dependencies
+        self.underlying = underlying
         self.targets = targets
         self.products = products
+        self.dependencies = dependencies
+        self.defaultLocalization = defaultLocalization
+        self.supportedPlatforms = supportedPlatforms
         self.registryMetadata = registryMetadata
         self.platformVersionProvider = platformVersionProvider
-    }    
+    }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
@@ -82,18 +82,12 @@ public final class ResolvedPackage {
     }
 }
 
-extension ResolvedPackage: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
-    }
-
-    public static func == (lhs: ResolvedPackage, rhs: ResolvedPackage) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
-    }
-}
-
 extension ResolvedPackage: CustomStringConvertible {
     public var description: String {
         return "<ResolvedPackage: \(self.identity)>"
     }
+}
+
+extension ResolvedPackage: Identifiable {
+    public var id: PackageIdentity { self.underlying.identity }
 }

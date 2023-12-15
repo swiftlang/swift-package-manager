@@ -13,7 +13,7 @@
 import Foundation
 
 // FIXME: should be an internal import
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 
 /*private*/ import class PackageLoading.ManifestLoader
 /*private*/ import struct PackageModel.ToolsVersion

@@ -157,7 +157,7 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
+        return BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
     }
 }
 
@@ -358,13 +358,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             // This can affect what flags to pass and other semantics.
             let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .v5_5
 
-            switch target.underlyingTarget {
+            switch target.underlying {
             case is SwiftTarget:
                 guard let package = graph.package(for: target) else {
                     throw InternalError("package not found for \(target)")
                 }
 
-                let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlyingTarget.type == .macro }.compactMap { macroProductsByTarget[$0] }
+                let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlying.type == .macro }.compactMap { macroProductsByTarget[$0] }
 
                 var generateTestObservation = false
                 if target.type == .test && shouldGenerateTestObservation {
@@ -410,7 +410,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             case is SystemLibraryTarget, is BinaryTarget:
                  break
             default:
-                 throw InternalError("unhandled \(target.underlyingTarget)")
+                 throw InternalError("unhandled \(target.underlying)")
             }
         }
 
@@ -536,7 +536,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Add search paths from the system library targets.
         for target in graph.reachableTargets {
-            if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
+            if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments.append(contentsOf: try self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
@@ -572,7 +572,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Add search paths from the system library targets.
         for target in graph.reachableTargets {
-            if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
+            if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments += try self.pkgConfig(for: systemLib).cFlags
             }
         }
@@ -694,7 +694,7 @@ extension Basics.Triple {
 
 extension ResolvedPackage {
     var isRemote: Bool {
-        switch self.underlyingPackage.manifest.packageKind {
+        switch self.underlying.manifest.packageKind {
         case .registry, .remoteSourceControl, .localSourceControl:
             return true
         case .root, .fileSystem:
@@ -709,7 +709,7 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        return self.targets.filter({ !($0.underlyingTarget is BinaryTarget) }).isEmpty
+        return self.targets.filter({ !($0.underlying is BinaryTarget) }).isEmpty
     }
 
     private var isPlugin: Bool {

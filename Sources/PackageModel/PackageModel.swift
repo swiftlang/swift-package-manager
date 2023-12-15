@@ -95,6 +95,16 @@ public final class Package: Encodable {
     }
 }
 
+extension Package: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: Package, rhs: Package) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+    }
+}
+
 extension Package {
     public var diagnosticsMetadata: ObservabilityMetadata {
         return .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)

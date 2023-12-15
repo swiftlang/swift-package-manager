@@ -13,22 +13,24 @@
 import Basics
 import PackageModel
 
-public final class ResolvedProduct {
-    /// The underlying product.
-    public let underlyingProduct: Product
-
+public struct ResolvedProduct: Hashable {
     /// The name of this product.
     public var name: String {
-        return underlyingProduct.name
+        self.underlying.name
     }
-
-    /// The top level targets contained in this product.
-    public let targets: [ResolvedTarget]
 
     /// The type of this product.
     public var type: ProductType {
-        return underlyingProduct.type
+        self.underlying.type
     }
+
+    public let packageIdentity: PackageIdentity
+
+    /// The underlying product.
+    public let underlying: Product
+
+    /// The top level targets contained in this product.
+    public let targets: [ResolvedTarget]
 
     /// Executable target for test entry point file.
     public let testEntryPointTarget: ResolvedTarget?
@@ -49,19 +51,22 @@ public final class ResolvedProduct {
     /// Note: This property is only valid for executable products.
     public var executableTarget: ResolvedTarget {
         get throws {
-            guard type == .executable || type == .snippet || type == .macro else {
+            guard self.type == .executable || self.type == .snippet || self.type == .macro else {
                 throw InternalError("`executableTarget` should only be called for executable targets")
             }
-            guard let underlyingExecutableTarget = targets.map({ $0.underlyingTarget }).executables.first, let executableTarget = targets.first(where: { $0.underlyingTarget == underlyingExecutableTarget }) else {
+            guard let underlyingExecutableTarget = targets.map(\.underlying).executables.first,
+                  let executableTarget = targets.first(where: { $0.underlying == underlyingExecutableTarget })
+            else {
                 throw InternalError("could not determine executable target")
             }
             return executableTarget
         }
     }
 
-    public init(product: Product, targets: [ResolvedTarget]) {
-        assert(product.targets.count == targets.count && product.targets.map({ $0.name }) == targets.map({ $0.name }))
-        self.underlyingProduct = product
+    public init(packageIdentity: PackageIdentity, product: Product, targets: [ResolvedTarget]) {
+        assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
+        self.packageIdentity = packageIdentity
+        self.underlying = product
         self.targets = targets
 
         // defaultLocalization is currently shared across the entire package
@@ -76,12 +81,15 @@ public final class ResolvedProduct {
         self.testEntryPointTarget = product.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(name: product.name,
-                                          dependencies: dependencies,
-                                          packageAccess: true, // entry point target so treated as a part of the package
-                                          testEntryPointPath: testEntryPointPath)
+            let swiftTarget = SwiftTarget(
+                name: product.name,
+                dependencies: dependencies,
+                packageAccess: true, // entry point target so treated as a part of the package
+                testEntryPointPath: testEntryPointPath
+            )
             return ResolvedTarget(
-                target: swiftTarget,
+                packageIdentity: packageIdentity,
+                underlying: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
                 supportedPlatforms: platforms,
@@ -94,21 +102,22 @@ public final class ResolvedProduct {
 
     /// True if this product contains Swift targets.
     public var containsSwiftTargets: Bool {
-      //  C targets can't import Swift targets in SwiftPM (at least not right
-      // now), so we can just look at the top-level targets.
-      //
-      // If that ever changes, we'll need to do something more complex here,
-      // recursively checking dependencies for SwiftTargets, and considering
-      // dynamic library targets to be Swift targets (since the dylib could
-      // contain Swift code we don't know about as part of this build).
-      return targets.contains { $0.underlyingTarget is SwiftTarget }
+        //  C targets can't import Swift targets in SwiftPM (at least not right
+        // now), so we can just look at the top-level targets.
+        //
+        // If that ever changes, we'll need to do something more complex here,
+        // recursively checking dependencies for SwiftTargets, and considering
+        // dynamic library targets to be Swift targets (since the dylib could
+        // contain Swift code we don't know about as part of this build).
+        self.targets.contains { $0.underlying is SwiftTarget }
     }
 
     /// Returns the recursive target dependencies.
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
-        return Array(Set(targets).union(recursiveDependencies))
+        return Array(Set(self.targets).union(recursiveDependencies))
     }
+
     private static func computePlatforms(targets: [ResolvedTarget]) -> ([SupportedPlatform], PlatformVersionProvider) {
         let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
             merge(into: &partial, platforms: item.supportedPlatforms)
@@ -118,7 +127,7 @@ public final class ResolvedProduct {
             declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
             PlatformVersionProvider(implementation: .mergingFromTargets(targets))
         )
-    }    
+    }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
         self.platformVersionProvider.getDerived(
@@ -127,27 +136,27 @@ public final class ResolvedProduct {
             usingXCTest: usingXCTest
         )
     }
-}
 
-extension ResolvedProduct: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
-    }
-
-    public static func == (lhs: ResolvedProduct, rhs: ResolvedProduct) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+    func diagnoseInvalidUseOfUnsafeFlags(_ diagnosticsEmitter: DiagnosticsEmitter) throws {
+        // Diagnose if any target in this product uses an unsafe flag.
+        for target in try self.recursiveTargetDependencies() {
+            if target.underlying.usesUnsafeFlags {
+                diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: target.name))
+            }
+        }
     }
 }
 
 extension ResolvedProduct: CustomStringConvertible {
     public var description: String {
-        return "<ResolvedProduct: \(name)>"
+        "<ResolvedProduct: \(self.name)>"
     }
 }
 
 extension ResolvedProduct {
     public var isLinkingXCTest: Bool {
-        // To retain existing behavior, we have to check both the product type, as well as the types of all of its targets.
-        return self.type == .test || self.targets.contains(where: { $0.type == .test })
+        // To retain existing behavior, we have to check both the product type, as well as the types of all of its
+        // targets.
+        self.type == .test || self.targets.contains(where: { $0.type == .test })
     }
 }

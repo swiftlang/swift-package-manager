@@ -19,7 +19,6 @@ import func TSCBasic.topologicalSort
 import func TSCBasic.bestMatch
 
 extension PackageGraph {
-
     /// Load the package graph for the given package path.
     public static func load(
         root: PackageGraphRoot,
@@ -211,7 +210,10 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             }
             
             // Make sure that any diagnostics we emit below are associated with the package.
-            let packageDiagnosticsScope = observabilityScope.makeChildScope(description: "Package Dependency Validation", metadata: package.underlyingPackage.diagnosticsMetadata)
+            let packageDiagnosticsScope = observabilityScope.makeChildScope(
+                description: "Package Dependency Validation",
+                metadata: package.underlying.diagnosticsMetadata
+            )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
@@ -226,7 +228,7 @@ fileprivate extension ResolvedProduct {
     /// Returns true if and only if the product represents a command plugin target.
     var isCommandPlugin: Bool {
         guard type == .plugin else { return false }
-        guard let target = underlyingProduct.targets.compactMap({ $0 as? PluginTarget }).first else { return false }
+        guard let target = underlying.targets.compactMap({ $0 as? PluginTarget }).first else { return false }
         guard case .command = target.capability else { return false }
         return true
     }
@@ -371,6 +373,7 @@ private func createResolvedPackages(
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map {
             ResolvedTargetBuilder(
+                packageIdentity: package.identity,
                 target: $0,
                 observabilityScope: packageObservabilityScope,
                 platformVersionProvider: platformVersionProvider
@@ -384,6 +387,7 @@ private func createResolvedPackages(
             targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
                 switch dependency {
                 case .target(let target, let conditions):
+                    try targetBuilder.target.validateDependency(target: target)
                     guard let targetBuilder = targetMap[target] else {
                         throw InternalError("unknown target \(target.name)")
                     }
@@ -781,7 +785,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
     }
 
     guard hasAliases else { return false }
-    let aliasTracker = ModuleAliasTracker()
+    var aliasTracker = ModuleAliasTracker()
     for packageBuilder in packageBuilders {
         try aliasTracker.addTargetAliases(targets: packageBuilder.package.targets,
                                           package: packageBuilder.package.identity)
@@ -858,6 +862,7 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 
     override func constructImpl() throws -> ResolvedProduct {
         return ResolvedProduct(
+            packageIdentity: packageBuilder.package.identity,
             product: product,
             targets: try targets.map{ try $0.construct() }
         )
@@ -866,7 +871,6 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 
 /// Builder for resolved target.
 private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
-
     /// Enumeration to represent target dependencies.
     enum Dependency {
 
@@ -877,11 +881,11 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         case product(_ product: ResolvedProductBuilder, conditions: [PackageCondition])
     }
 
+    /// The reference to its package.
+    let packageIdentity: PackageIdentity
+
     /// The target reference.
     let target: Target
-
-    /// DiagnosticsEmitter with which to emit diagnostics
-    let diagnosticsEmitter: DiagnosticsEmitter
 
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
@@ -892,36 +896,31 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The platforms supported by this package.
     var supportedPlatforms: [SupportedPlatform] = []
 
+    let observabilityScope: ObservabilityScope
     let platformVersionProvider: PlatformVersionProvider
 
     init(
+        packageIdentity: PackageIdentity,
         target: Target,
         observabilityScope: ObservabilityScope,
         platformVersionProvider: PlatformVersionProvider
     ) {
+        self.packageIdentity = packageIdentity
         self.target = target
-        self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
+        self.observabilityScope = observabilityScope
+        self.platformVersionProvider = platformVersionProvider
+    }
+
+    override func constructImpl() throws -> ResolvedTarget {
+        let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
             metadata.targetName = target.name
             return metadata
         }
-        self.platformVersionProvider = platformVersionProvider
-    }
 
-    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
-        // Diagnose if any target in this product uses an unsafe flag.
-        for target in try product.recursiveTargetDependencies() {
-            if target.underlyingTarget.usesUnsafeFlags {
-                self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
-            }
-        }
-    }
-
-    override func constructImpl() throws -> ResolvedTarget {
         let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
-                try self.target.validateDependency(target: targetBuilder.target)
                 return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
                 try self.target.validateDependency(
@@ -930,14 +929,15 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
                 )
                 let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
-                    try self.diagnoseInvalidUseOfUnsafeFlags(product)
+                    try product.diagnoseInvalidUseOfUnsafeFlags(diagnosticsEmitter)
                 }
                 return .product(product, conditions: conditions)
             }
         }
 
         return ResolvedTarget(
-            target: self.target,
+            packageIdentity: self.packageIdentity,
+            underlying: self.target,
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
@@ -947,21 +947,30 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
 }
 
 extension Target {
+    func validateDependency(target: Target) throws {
+        if self.type == .plugin && target.type == .library {
+            throw PackageGraphError.unsupportedPluginDependency(
+                targetName: self.name,
+                dependencyName: target.name,
+                dependencyType: target.type.rawValue,
+                dependencyPackage: nil
+            )
+        }
+    }
 
-  func validateDependency(target: Target) throws {
-    if self.type == .plugin && target.type == .library {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
+    func validateDependency(product: Product, productPackage: PackageIdentity) throws {
+        if self.type == .plugin && product.type.isLibrary {
+            throw PackageGraphError.unsupportedPluginDependency(
+                targetName: self.name,
+                dependencyName: product.name,
+                dependencyType: product.type.description,
+                dependencyPackage: productPackage.description
+            )
+        }
     }
-  }
-  func validateDependency(product: Product, productPackage: PackageIdentity) throws {
-    if self.type == .plugin && product.type.isLibrary {
-      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
-    }
-  }
 }
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
-
     /// The package reference.
     let package: Package
 
@@ -1013,7 +1022,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     override func constructImpl() throws -> ResolvedPackage {
         return ResolvedPackage(
-            package: self.package,
+            underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: try self.dependencies.map{ try $0.construct() },

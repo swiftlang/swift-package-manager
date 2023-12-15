@@ -14,20 +14,20 @@
 public enum TargetBuildSettingDescription {
 
     /// The tool for which a build setting is declared.
-    public enum Tool: String, Codable, Equatable, CaseIterable, Sendable {
+    public enum Tool: String, Codable, Hashable, CaseIterable, Sendable {
         case c
         case cxx
         case swift
         case linker
     }
 
-    public enum InteroperabilityMode: String, Codable, Equatable, Sendable {
+    public enum InteroperabilityMode: String, Codable, Hashable, Sendable {
         case C
         case Cxx
     }
 
     /// The kind of the build setting, with associate configuration
-    public enum Kind: Codable, Equatable, Sendable {
+    public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
         case define(String)
         case linkedLibrary(String)
@@ -52,8 +52,7 @@ public enum TargetBuildSettingDescription {
     }
 
     /// An individual build setting.
-    public struct Setting: Codable, Equatable, Sendable {
-
+    public struct Setting: Codable, Hashable, Sendable {
         /// The tool associated with this setting.
         public let tool: Tool
 

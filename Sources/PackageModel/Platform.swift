@@ -13,7 +13,7 @@
 import struct TSCUtility.Version
 
 /// Represents a platform.
-public struct Platform: Equatable, Hashable, Codable {
+public struct Platform: Equatable, Hashable, Codable, Sendable {
     /// The name of the platform.
     public let name: String
 
@@ -53,7 +53,7 @@ public struct Platform: Equatable, Hashable, Codable {
 }
 
 /// Represents a platform supported by a target.
-public struct SupportedPlatform: Equatable, Codable {
+public struct SupportedPlatform: Hashable, Codable, Sendable {
     /// The platform.
     public let platform: Platform
 
@@ -71,8 +71,8 @@ public struct SupportedPlatform: Equatable, Codable {
 }
 
 /// Represents a platform version.
-public struct PlatformVersion: Equatable, Hashable, Codable {
-
+public struct PlatformVersion: Equatable, Hashable, Codable, Sendable {
+    // FIXME: this should be optional
     /// The unknown platform version.
     public static let unknown: PlatformVersion = .init("0.0.0")
 

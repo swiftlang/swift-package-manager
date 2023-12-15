@@ -1149,9 +1149,9 @@ extension Workspace {
 
         self.loadManifest(
             packageIdentity: identity,
-            packageKind: previousPackage.underlyingPackage.manifest.packageKind,
+            packageKind: previousPackage.underlying.manifest.packageKind,
             packagePath: previousPackage.path,
-            packageLocation: previousPackage.underlyingPackage.manifest.packageLocation,
+            packageLocation: previousPackage.underlying.manifest.packageLocation,
             observabilityScope: observabilityScope
         ) { result in
             let result = result.tryMap { manifest -> Package in
