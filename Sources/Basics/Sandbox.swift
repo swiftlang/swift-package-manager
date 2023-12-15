@@ -102,7 +102,7 @@ fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
 
     var directories: [AbsolutePath] = []
     try? directories.append(AbsolutePath(validating: "/private/var/tmp"))
-    (try? TSCBasic.determineTempDirectory()).map { directories.append(AbsolutePath($0)) }
+    try? (try? TSCBasic.determineTempDirectory()).map { try directories.append(AbsolutePath(validating: $0.pathString)) }
     GetConfStr(_CS_DARWIN_USER_TEMP_DIR).map { directories.append($0) }
     GetConfStr(_CS_DARWIN_USER_CACHE_DIR).map { directories.append($0) }
     return directories

@@ -41,11 +41,11 @@ public struct ZipArchiver: Archiver, Cancellable {
     ) {
         do {
             guard self.fileSystem.exists(archivePath) else {
-                throw FileSystemError(.noEntry, archivePath.underlying)
+                throw FileSystemError(.noEntry, .init(archivePath.pathString))
             }
 
             guard self.fileSystem.isDirectory(destinationPath) else {
-                throw FileSystemError(.notDirectory, destinationPath.underlying)
+                throw FileSystemError(.notDirectory, .init(destinationPath))
             }
 
             #if os(Windows)
@@ -81,7 +81,7 @@ public struct ZipArchiver: Archiver, Cancellable {
     ) {
         do {
             guard self.fileSystem.isDirectory(directory) else {
-                throw FileSystemError(.notDirectory, directory.underlying)
+                throw FileSystemError(.notDirectory, .init(directory.pathString))
             }
 
             #if os(Windows)
@@ -93,7 +93,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             #else
             let process = TSCBasic.Process(
                 arguments: ["zip", "-r", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
+                workingDirectory: .init(directory.parentDirectory.pathString)
             )
             #endif
 
@@ -119,7 +119,7 @@ public struct ZipArchiver: Archiver, Cancellable {
     public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
             guard self.fileSystem.exists(path) else {
-                throw FileSystemError(.noEntry, path.underlying)
+                throw FileSystemError(.noEntry, .init(path.pathString))
             }
 
             #if os(Windows)

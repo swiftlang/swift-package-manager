@@ -32,53 +32,53 @@ public var localFileSystem = TSCBasic.localFileSystem
 extension FileSystem {
     /// Check whether the given path exists and is accessible.
     public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
-        self.exists(path.underlying, followSymlink: followSymlink)
+        self.exists(path.asTSCAbsolutePath, followSymlink: followSymlink)
     }
 
     /// exists override with default value.
     public func exists(_ path: AbsolutePath) -> Bool {
-        self.exists(path.underlying)
+        self.exists(path.asTSCAbsolutePath)
     }
 
     /// Check whether the given path is accessible and a directory.
     public func isDirectory(_ path: AbsolutePath) -> Bool {
-        self.isDirectory(path.underlying)
+        self.isDirectory(path.asTSCAbsolutePath)
     }
 
     /// Check whether the given path is accessible and a file.
     public func isFile(_ path: AbsolutePath) -> Bool {
-        self.isFile(path.underlying)
+        self.isFile(path.asTSCAbsolutePath)
     }
 
     /// Check whether the given path is an accessible and executable file.
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        self.isExecutableFile(path.underlying)
+        self.isExecutableFile(path.asTSCAbsolutePath)
     }
 
     /// Check whether the given path is accessible and is a symbolic link.
     public func isSymlink(_ path: AbsolutePath) -> Bool {
-        self.isSymlink(path.underlying)
+        self.isSymlink(path.asTSCAbsolutePath)
     }
 
     /// Check whether the given path is accessible and readable.
     public func isReadable(_ path: AbsolutePath) -> Bool {
-        self.isReadable(path.underlying)
+        self.isReadable(path.asTSCAbsolutePath)
     }
 
     /// Check whether the given path is accessible and writable.
     public func isWritable(_ path: AbsolutePath) -> Bool {
-        self.isWritable(path.underlying)
+        self.isWritable(path.asTSCAbsolutePath)
     }
 
     /// Returns `true` if a given path has a quarantine attribute applied if when file system supports this attribute.
     /// Returns `false` if such attribute is not applied or it isn't supported.
     public func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool {
-        self.hasAttribute(name, path.underlying)
+        self.hasAttribute(name, path.asTSCAbsolutePath)
     }
 
     /// Get the contents of the given directory, in an undefined order.
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        try self.getDirectoryContents(path.underlying)
+        try self.getDirectoryContents(path.asTSCAbsolutePath)
     }
 
     /// Get the current working directory (similar to `getcwd(3)`), which can be
@@ -94,7 +94,7 @@ extension FileSystem {
     /// - Parameters:
     ///   - path: The path to the directory to change the current working directory to.
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        try self.changeCurrentWorkingDirectory(to: path.underlying)
+        try self.changeCurrentWorkingDirectory(to: path.asTSCAbsolutePath)
     }
 
     /// Get the home directory of current user
@@ -118,14 +118,14 @@ extension FileSystem {
 
     /// Create the given directory.
     public func createDirectory(_ path: AbsolutePath) throws {
-        try self.createDirectory(path.underlying)
+        try self.createDirectory(path.asTSCAbsolutePath)
     }
 
     /// Create the given directory.
     ///
     /// - recursive: If true, create missing parent directories if possible.
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        try self.createDirectory(path.underlying, recursive: recursive)
+        try self.createDirectory(path.asTSCAbsolutePath, recursive: recursive)
     }
 
     /// Creates a symbolic link of the source path at the target path
@@ -135,29 +135,29 @@ extension FileSystem {
     ///   - relative: If `relative` is true, the symlink contents will be a relative path, otherwise it will be
     /// absolute.
     public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
-        try self.createSymbolicLink(path.underlying, pointingAt: destination.underlying, relative: relative)
+        try self.createSymbolicLink(path.asTSCAbsolutePath, pointingAt: destination.asTSCAbsolutePath, relative: relative)
     }
 
     /// Get the contents of a file.
     ///
     /// - Returns: The file contents as bytes, or nil if missing.
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
-        try self.readFileContents(path.underlying)
+        try self.readFileContents(path.asTSCAbsolutePath)
     }
 
     /// Write the contents of a file.
     public func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        try self.writeFileContents(path.underlying, bytes: bytes)
+        try self.writeFileContents(path.asTSCAbsolutePath, bytes: bytes)
     }
 
     /// Write the contents of a file.
     public func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
-        try self.writeFileContents(path.underlying, bytes: bytes, atomically: atomically)
+        try self.writeFileContents(path.asTSCAbsolutePath, bytes: bytes, atomically: atomically)
     }
 
     /// Write to a file from a stream producer.
     public func writeFileContents(_ path: AbsolutePath, body: (WritableByteStream) -> Void) throws {
-        try self.writeFileContents(path.underlying, body: body)
+        try self.writeFileContents(path.asTSCAbsolutePath, body: body)
     }
 
     /// Recursively deletes the file system entity at `path`.
@@ -165,45 +165,45 @@ extension FileSystem {
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
     /// to be an error).
     public func removeFileTree(_ path: AbsolutePath) throws {
-        try self.removeFileTree(path.underlying)
+        try self.removeFileTree(path.asTSCAbsolutePath)
     }
 
     /// Change file mode.
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
-        try self.chmod(mode, path: path.underlying, options: options)
+        try self.chmod(mode, path: path.asTSCAbsolutePath, options: options)
     }
 
     // Change file mode.
     public func chmod(_ mode: FileMode, path: AbsolutePath) throws {
-        try self.chmod(mode, path: path.underlying)
+        try self.chmod(mode, path: path.asTSCAbsolutePath)
     }
 
     /// Returns the file info of the given path.
     ///
     /// The method throws if the underlying stat call fails.
     public func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        try self.getFileInfo(path.underlying)
+        try self.getFileInfo(path.asTSCAbsolutePath)
     }
 
     /// Copy a file or directory.
     public func copy(from source: AbsolutePath, to destination: AbsolutePath) throws {
-        try self.copy(from: source.underlying, to: destination.underlying)
+        try self.copy(from: source.asTSCAbsolutePath, to: destination.asTSCAbsolutePath)
     }
 
     /// Move a file or directory.
     public func move(from source: AbsolutePath, to destination: AbsolutePath) throws {
-        try self.move(from: source.underlying, to: destination.underlying)
+        try self.move(from: source.asTSCAbsolutePath, to: destination.asTSCAbsolutePath)
     }
 
     /// Execute the given block while holding the lock.
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
-        try self.withLock(on: path.underlying, type: type, body)
+        try self.withLock(on: path.asTSCAbsolutePath, type: type, body)
     }
 
     /// Returns any known item replacement directories for a given path. These may be used by platform-specific
     /// libraries to handle atomic file system operations, such as deletion.
     func itemReplacementDirectories(for path: AbsolutePath) throws -> [AbsolutePath] {
-        return try self.itemReplacementDirectories(for: path.underlying).compactMap { AbsolutePath($0) }
+        return try self.itemReplacementDirectories(for: path.asTSCAbsolutePath).compactMap { AbsolutePath($0) }
     }
 }
 

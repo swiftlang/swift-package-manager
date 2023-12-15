@@ -35,7 +35,7 @@ final class ResolvedFileWatcher {
     }
 
     init(resolvedFile: AbsolutePath, onChange: @escaping () -> ()) throws {
-        let resolvedFile = TSCAbsolutePath(resolvedFile)
+        let resolvedFile = resolvedFile.asTSCAbsolutePath
         self.resolvedFile = resolvedFile
 
         let block = { [weak self] (paths: [TSCAbsolutePath]) in
