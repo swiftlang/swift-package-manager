@@ -25,8 +25,8 @@ internal struct PluginContextSerializer {
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
     let sdkRootPath: AbsolutePath?
-    var paths: [WireInput.Path] = []
-    var pathsToIds: [AbsolutePath: WireInput.Path.Id] = [:]
+    var paths: [WireInput.URL] = []
+    var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
     var targetsToIds: [ResolvedTarget: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
@@ -36,7 +36,7 @@ internal struct PluginContextSerializer {
     
     /// Adds a path to the serialized structure, if it isn't already there.
     /// Either way, this function returns the path's wire ID.
-    mutating func serialize(path: AbsolutePath) throws -> WireInput.Path.Id {
+    mutating func serialize(path: AbsolutePath) throws -> WireInput.URL.Id {
         // If we've already seen the path, just return the wire ID we already assigned to it.
         if let id = pathsToIds[path] { return id }
         
@@ -47,7 +47,7 @@ internal struct PluginContextSerializer {
         
         // Finally assign the next wire ID to the path, and append a serialized Path record.
         let id = paths.count
-        paths.append(.init(basePathId: basePathId, subpath: subpathString))
+        paths.append(.init(baseURLId: basePathId, subpath: subpathString))
         pathsToIds[path] = id
         return id
     }

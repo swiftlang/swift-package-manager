@@ -152,6 +152,7 @@ class PluginInvocationTests: XCTestCase {
                         let message = Data("""
                         {   "defineBuildCommand": {
                                 "configuration": {
+                                    "version": 2,
                                     "displayName": "Do something",
                                     "executable": "/bin/FooTool",
                                     "arguments": [

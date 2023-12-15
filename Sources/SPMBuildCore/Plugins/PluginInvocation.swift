@@ -232,23 +232,29 @@ extension PluginTarget {
                     self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
                     
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
+                    if config.version != 2 {
+                        throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
+                    }
                     self.invocationDelegate.pluginDefinedBuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable),
+                        executable: try AbsolutePath(validating: config.executable.path),
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0) },
-                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
-                    
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
+                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0.path) },
+                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0.path) })
+
                 case .definePrebuildCommand(let config, let outputFilesDir):
+                    if config.version != 2 {
+                        throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
+                    }
                     let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable),
+                        executable: try AbsolutePath(validating: config.executable.path),
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
+                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir.path))
 
                     if !success {
                         exitEarly = true
@@ -711,6 +717,7 @@ public enum PluginEvaluationError: Swift.Error {
     case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
+    case pluginUsesIncompatibleVersion(expected: Int, actual: Int)
 }
 
 public protocol PluginInvocationDelegate {
@@ -930,7 +937,7 @@ fileprivate extension HostToPluginMessage.BuildResult {
 
 fileprivate extension HostToPluginMessage.BuildResult.BuiltArtifact {
     init(_ artifact: PluginInvocationBuildResult.BuiltArtifact) {
-        self.path = .init(artifact.path)
+        self.path = .init(fileURLWithPath: artifact.path)
         self.kind = .init(artifact.kind)
     }
 }
@@ -1036,7 +1043,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
 
 fileprivate extension HostToPluginMessage.SymbolGraphResult {
     init(_ result: PluginInvocationSymbolGraphResult) {
-        self.directoryPath = .init(result.directoryPath)
+        self.directoryPath = .init(fileURLWithPath: result.directoryPath)
     }
 }
 
