@@ -17,7 +17,7 @@ import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
 import struct LLBuildManifest.LLBuildManifest
 import struct SPMBuildCore.BuildParameters
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
@@ -212,8 +212,8 @@ extension LLBuildManifestBuilder {
                 // product into its constituent targets.
                 continue
             }
-            guard target.underlyingTarget.type != .systemModule,
-                  target.underlyingTarget.type != .binary
+            guard target.underlying.type != .systemModule,
+                  target.underlying.type != .binary
             else {
                 // Much like non-Swift targets, system modules will consist of a modulemap
                 // somewhere in the filesystem, with the path to that module being either
@@ -386,7 +386,7 @@ extension LLBuildManifestBuilder {
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
-            importPath: target.buildParameters.buildPath,
+            importPath: target.modulesPath,
             tempsPath: target.tempsPath,
             objects: try target.objects,
             otherArguments: try target.compileArguments(),
@@ -416,11 +416,11 @@ extension LLBuildManifestBuilder {
 
         func addStaticTargetInputs(_ target: ResolvedTarget) throws {
             // Ignore C Modules.
-            if target.underlyingTarget is SystemLibraryTarget { return }
+            if target.underlying is SystemLibraryTarget { return }
             // Ignore Binary Modules.
-            if target.underlyingTarget is BinaryTarget { return }
+            if target.underlying is BinaryTarget { return }
             // Ignore Plugin Targets.
-            if target.underlyingTarget is PluginTarget { return }
+            if target.underlying is PluginTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {
@@ -522,7 +522,7 @@ extension LLBuildManifestBuilder {
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString,
         ]
-        moduleWrapArgs += try target.buildParameters.buildTripleArgs(for: target.target)
+        moduleWrapArgs += try target.buildParameters.tripleArgs(for: target.target)
         self.manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",

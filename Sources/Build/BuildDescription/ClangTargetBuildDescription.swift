@@ -13,7 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
@@ -26,9 +26,7 @@ public final class ClangTargetBuildDescription {
     public let target: ResolvedTarget
 
     /// The underlying clang target.
-    public var clangTarget: ClangTarget {
-        target.underlyingTarget as! ClangTarget
-    }
+    public let clangTarget: ClangTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
@@ -45,7 +43,7 @@ public final class ClangTargetBuildDescription {
 
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
-        self.target.underlyingTarget.resources + self.pluginDerivedResources
+        self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// Path to the bundle generated for this module (if any).
@@ -54,7 +52,7 @@ public final class ClangTargetBuildDescription {
             return .none
         }
 
-        if let bundleName = target.underlyingTarget.potentialBundleName {
+        if let bundleName = target.underlying.potentialBundleName {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
@@ -119,10 +117,11 @@ public final class ClangTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlyingTarget is ClangTarget else {
+        guard let clangTarget = target.underlying as? ClangTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target
         self.toolsVersion = toolsVersion
@@ -219,7 +218,7 @@ public final class ClangTargetBuildDescription {
         if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try self.buildParameters.buildTripleArgs(for: target)
+        args += try self.buildParameters.tripleArgs(for: target)
 
         args += optimizationArguments
         args += activeCompilationConditions
@@ -318,6 +317,42 @@ public final class ClangTargetBuildDescription {
             args += ["-I", includeSearchPath.pathString]
         }
 
+        return args
+    }
+
+    public func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
+        let standards = [
+            (clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
+            (clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
+        ]
+
+        guard let path = try self.compilePaths().first(where: { $0.source == filePath }) else {
+            throw BuildDescriptionError.requestedFileNotPartOfTarget(
+                targetName: self.target.name,
+                requestedFilePath: filePath
+            )
+        }
+
+        let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
+        let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
+
+        var args = try basicArguments(isCXX: isCXX, isC: isC)
+
+        args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
+
+        // Add language standard flag if needed.
+        if let ext = path.source.extension {
+            for (standard, validExtensions) in standards {
+                if let standard, validExtensions.contains(ext) {
+                    args += ["-std=\(standard)"]
+                }
+            }
+        }
+
+        args += ["-c", path.source.pathString, "-o", path.object.pathString]
+
+        let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
+        args.insert(clangCompiler, at: 0)
         return args
     }
 

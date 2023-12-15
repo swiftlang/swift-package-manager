@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 /// A message that the host can send to the plugin, including definitions of the corresponding serializable data structures.
 enum HostToPluginMessage: Codable {
     
@@ -20,26 +22,26 @@ enum HostToPluginMessage: Codable {
     case performCommand(context: InputContext, rootPackageId: InputContext.Package.Id, arguments: [String])
 
         struct InputContext: Codable {
-            let paths: [Path]
+            let paths: [URL]
             let targets: [Target]
             let products: [Product]
             let packages: [Package]
-            let pluginWorkDirId: Path.Id
-            let toolSearchDirIds: [Path.Id]
+            let pluginWorkDirId: URL.Id
+            let toolSearchDirIds: [URL.Id]
             let accessibleTools: [String: Tool]
 
             // Wrapper struct for encoding information about a tool that's accessible to the plugin.
             struct Tool: Codable {
-                let path: Path.Id
+                let path: URL.Id
                 let triples: [String]?
             }
 
             /// A single absolute path in the wire structure, represented as a tuple
             /// consisting of the ID of the base path and subpath off of that path.
             /// This avoids repetition of path components in the wire representation.
-            struct Path: Codable {
+            struct URL: Codable {
                 typealias Id = Int
-                let basePathId: Path.Id?
+                let baseURLId: URL.Id?
                 let subpath: String
             }
 
@@ -49,7 +51,7 @@ enum HostToPluginMessage: Codable {
                 typealias Id = Int
                 let identity: String
                 let displayName: String
-                let directoryId: Path.Id
+                let directoryId: URL.Id
                 let origin: Origin
                 let toolsVersion: ToolsVersion
                 let dependencies: [Dependency]
@@ -59,7 +61,7 @@ enum HostToPluginMessage: Codable {
                 enum Origin: Codable {
                     case root
                     case local(
-                        path: Path.Id)
+                        path: URL.Id)
                     case repository(
                         url: String,
                         displayVersion: String,
@@ -111,7 +113,7 @@ enum HostToPluginMessage: Codable {
             struct Target: Codable {
                 typealias Id = Int
                 let name: String
-                let directoryId: Path.Id
+                let directoryId: URL.Id
                 let dependencies: [Dependency]
                 let info: TargetInfo
 
@@ -141,22 +143,22 @@ enum HostToPluginMessage: Codable {
                         sourceFiles: [File],
                         preprocessorDefinitions: [String],
                         headerSearchPaths: [String],
-                        publicHeadersDirId: Path.Id?,
+                        publicHeadersDirId: URL.Id?,
                         linkedLibraries: [String],
                         linkedFrameworks: [String])
                     
                     case binaryArtifactInfo(
                         kind: BinaryArtifactKind,
                         origin: BinaryArtifactOrigin,
-                        artifactId: Path.Id)
-                    
+                        artifactId: URL.Id)
+
                     case systemLibraryInfo(
                         pkgConfig: String?,
                         compilerFlags: [String],
                         linkerFlags: [String])
 
                     struct File: Codable {
-                        let basePathId: Path.Id
+                        let basePathId: URL.Id
                         let name: String
                         let type: FileType
 
@@ -198,7 +200,7 @@ enum HostToPluginMessage: Codable {
             var builtArtifacts: [BuiltArtifact]
             
             struct BuiltArtifact: Codable {
-                var path: String
+                var path: URL
                 var kind: Kind
                 
                 enum Kind: String, Codable {
@@ -244,7 +246,7 @@ enum HostToPluginMessage: Codable {
     case symbolGraphResponse(result: SymbolGraphResult)
     
         struct SymbolGraphResult: Codable {
-            var directoryPath: String
+            var directoryPath: URL
         }
     
     /// A response of an error while trying to complete a request.
@@ -263,17 +265,18 @@ enum PluginToHostMessage: Codable {
         }
     
     /// The plugin defines a build command.
-    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [String], outputFiles: [String])
-    
+    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
+
     /// The plugin defines a prebuild command.
-    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: String)
+    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
     
         struct CommandConfiguration: Codable {
+            var version = 2
             var displayName: String?
-            var executable: String
+            var executable: URL
             var arguments: [String]
             var environment: [String: String]
-            var workingDirectory: String?
+            var workingDirectory: URL?
         }
     
     /// The plugin is requesting that a build operation be run.

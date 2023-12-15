@@ -13,7 +13,7 @@
 import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import PackageModel
 
 extension LLBuildManifestBuilder {
@@ -21,11 +21,6 @@ extension LLBuildManifestBuilder {
     func createClangCompileCommand(
         _ target: ClangTargetBuildDescription
     ) throws {
-        let standards = [
-            (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
-            (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
-        ]
-
         var inputs: [Node] = []
 
         // Add resources node as the input to the target. This isn't great because we
@@ -79,26 +74,7 @@ extension LLBuildManifestBuilder {
         var objectFileNodes: [Node] = []
 
         for path in try target.compilePaths() {
-            let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
-            let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
-
-            var args = try target.basicArguments(isCXX: isCXX, isC: isC)
-
-            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
-
-            // Add language standard flag if needed.
-            if let ext = path.source.extension {
-                for (standard, validExtensions) in standards {
-                    if let standard, validExtensions.contains(ext) {
-                        args += ["-std=\(standard)"]
-                    }
-                }
-            }
-
-            args += ["-c", path.source.pathString, "-o", path.object.pathString]
-
-            let clangCompiler = try target.buildParameters.toolchain.getClangCompiler().pathString
-            args.insert(clangCompiler, at: 0)
+            let args = try target.emitCommandLine(for: path.source)
 
             let objectFileNode: Node = .file(path.object)
             objectFileNodes.append(objectFileNode)

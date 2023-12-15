@@ -94,7 +94,7 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.plan.productsBuildParameters.driverParameters.useExplicitModuleBuild {
+        if self.plan.destinationBuildParameters.driverParameters.useExplicitModuleBuild {
             // Explicit module builds use the integrated driver directly and
             // require that every target's build jobs specify its dependencies explicitly to plan
             // its build.
@@ -113,7 +113,7 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        if self.plan.productsBuildParameters.testingParameters.library == .xctest {
+        if self.plan.destinationBuildParameters.testingParameters.library == .xctest {
             try self.addTestDiscoveryGenerationCommand()
         }
         try self.addTestEntryPointGenerationCommand()
@@ -271,7 +271,7 @@ extension LLBuildManifestBuilder {
             let outputs = testEntryPointTarget.target.sources.paths
 
             let mainFileName = TestEntryPointTool.mainFileName(
-                for: self.plan.productsBuildParameters.testingParameters.library
+                for: self.plan.destinationBuildParameters.testingParameters.library
             )
             guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
                 throw InternalError("main output (\(mainFileName)) not found")

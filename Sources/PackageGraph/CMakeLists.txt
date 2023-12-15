@@ -32,6 +32,7 @@ add_library(PackageGraph
   Resolution/DependencyResolverBinding.swift
   Resolution/DependencyResolverDelegate.swift
   Resolution/DependencyResolverError.swift
+  Resolution/PlatformVersionProvider.swift
   Resolution/ResolvedPackage.swift
   Resolution/ResolvedProduct.swift
   Resolution/ResolvedTarget.swift
@@ -49,10 +50,8 @@ target_link_libraries(PackageGraph PRIVATE
 set_target_properties(PackageGraph PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS PackageGraph
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageGraph)

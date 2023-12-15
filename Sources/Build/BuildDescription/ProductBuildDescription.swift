@@ -236,7 +236,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
-            if let target = executableTarget.underlyingTarget as? SwiftTarget, 
+            if let target = executableTarget.underlying as? SwiftTarget, 
                 self.toolsVersion >= .v5_5,
                 self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
                 target.supportsTestableExecutablesFeature
@@ -286,7 +286,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
             if useStdlibRpath, triple.isMacOSX {
-                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
+                let macOSSupportedPlatform = self.package.getSupportedPlatform(for: .macOS, usingXCTest: product.isLinkingXCTest)
+
                 if macOSSupportedPlatform.version.major < 12 {
                     let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
                         .parentDirectory
@@ -310,7 +311,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.buildTripleArgs(for: self.product.targets[0])
+        args += try self.buildParameters.tripleArgs(for: self.product.targets[0])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags
@@ -326,6 +327,16 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += self.buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags()
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
+
+        // Enable the correct lto mode if requested.
+        switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
+        case nil:
+            break
+        case .full:
+            args += ["-lto=llvm-full"]
+        case .thin:
+            args += ["-lto=llvm-thin"]
+        }
 
         // Pass default library paths from the toolchain.
         for librarySearchPath in self.buildParameters.toolchain.librarySearchPaths {

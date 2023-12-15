@@ -91,6 +91,6 @@ extension SourceModuleTarget {
     /// A possibly empty list of source files in the target that have the given
     /// filename suffix.
     public func sourceFiles(withSuffix suffix: String) -> FileList {
-        return FileList(self.sourceFiles.filter{ $0.path.lastComponent.hasSuffix(suffix) })
+        return FileList(self.sourceFiles.filter{ $0.url.lastPathComponent.hasSuffix(suffix) })
     }
 }

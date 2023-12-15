@@ -98,7 +98,7 @@ struct APIDiff: SwiftCommand {
         let baselineDumper = try APIDigesterBaselineDumper(
             baselineRevision: baselineRevision,
             packageRoot: swiftTool.getPackageRoot(),
-            productsBuildParameters: try buildSystem.buildPlan.productsBuildParameters,
+            productsBuildParameters: try buildSystem.buildPlan.destinationBuildParameters,
             toolsBuildParameters: try buildSystem.buildPlan.toolsBuildParameters,
             apiDigesterTool: apiDigesterTool,
             observabilityScope: swiftTool.observabilityScope
@@ -114,7 +114,7 @@ struct APIDiff: SwiftCommand {
 
         let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
         let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.productsBuildParameters.workers))
+        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.destinationBuildParameters.workers))
         var skippedModules: Set<String> = []
 
         for module in modulesToDiff {
@@ -177,7 +177,7 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(productName)' is not a library product")
                     continue
                 }
-                modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
+                modulesToDiff.formUnion(product.targets.filter { $0.underlying is SwiftTarget }.map(\.c99name))
             }
             for targetName in targets {
                 guard let target = packageGraph
@@ -191,7 +191,7 @@ struct APIDiff: SwiftCommand {
                     observabilityScope.emit(error: "'\(targetName)' is not a library target")
                     continue
                 }
-                guard target.underlyingTarget is SwiftTarget else {
+                guard target.underlying is SwiftTarget else {
                     observabilityScope.emit(error: "'\(targetName)' is not a Swift language target")
                     continue
                 }

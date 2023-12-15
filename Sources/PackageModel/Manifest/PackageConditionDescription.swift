@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Represents a manifest condition.
-public struct PackageConditionDescription: Codable, Equatable, Sendable {
+public struct PackageConditionDescription: Codable, Hashable, Sendable {
     public let platformNames: [String]
     public let config: String?
 
@@ -77,7 +77,7 @@ struct PackageConditionWrapper: Codable, Equatable, Hashable {
 
 /// One of possible conditions used in package manifests to restrict targets from being built for certain platforms or
 /// build configurations.
-public enum PackageCondition: Hashable {
+public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
     case configuration(ConfigurationCondition)
 
@@ -116,7 +116,7 @@ public enum PackageCondition: Hashable {
 }
 
 /// Platforms condition implies that an assignment is valid on these platforms.
-public struct PlatformsCondition: PackageConditionProtocol, Equatable, Hashable {
+public struct PlatformsCondition: PackageConditionProtocol, Hashable, Sendable {
     public let platforms: [Platform]
 
     public init(platforms: [Platform]) {
@@ -131,7 +131,7 @@ public struct PlatformsCondition: PackageConditionProtocol, Equatable, Hashable 
 
 /// A configuration condition implies that an assignment is valid on
 /// a particular build configuration.
-public struct ConfigurationCondition: PackageConditionProtocol, Equatable, Hashable {
+public struct ConfigurationCondition: PackageConditionProtocol, Hashable, Sendable {
     public let configuration: BuildConfiguration
 
     public init(configuration: BuildConfiguration) {

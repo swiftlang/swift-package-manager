@@ -48,22 +48,23 @@ public func testWithTemporaryDirectory(
     )
 }
 
-public func testWithTemporaryDirectory(
+@discardableResult
+public func testWithTemporaryDirectory<Result>(
     function: StaticString = #function,
-    body: (AbsolutePath) async throws -> Void
-) async throws {
+    body: (AbsolutePath) async throws -> Result
+) async throws -> Result {
     let cleanedFunction = function.description
         .replacingOccurrences(of: "(", with: "")
         .replacingOccurrences(of: ")", with: "")
         .replacingOccurrences(of: ".", with: "")
         .replacingOccurrences(of: ":", with: "_")
-    try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+    return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
         }
-        try await body(tmpDirPath)
+        return try await body(tmpDirPath)
     }
 }
 
@@ -444,12 +445,13 @@ extension InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
+        supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
         destinationPath: AbsolutePath,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
-            options: InitPackageOptions(packageType: packageType),
+            options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem

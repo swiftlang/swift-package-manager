@@ -20,6 +20,7 @@ import PackageGraph
 public protocol PluginScriptRunner {
     
     /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callback queue when compilation ends.
+    @available(*, noasync, message: "Use the async alternative")
     func compilePluginScript(
         sourceFiles: [AbsolutePath],
         pluginName: String,
@@ -59,6 +60,29 @@ public protocol PluginScriptRunner {
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
     var hostTriple: Triple { get throws }
+}
+
+public extension PluginScriptRunner {
+    func compilePluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginScriptCompilerDelegate
+    ) async throws -> PluginCompilationResult {
+        try await safe_async {
+            self.compilePluginScript(
+                sourceFiles: sourceFiles,
+                pluginName: pluginName,
+                toolsVersion: toolsVersion,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                delegate: delegate,
+                completion: $0
+            )
+        }
+    }
 }
 
 /// Protocol by which `PluginScriptRunner` communicates back to the caller as it compiles plugins.

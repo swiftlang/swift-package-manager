@@ -53,7 +53,7 @@ struct SharedTargetBuildDescription {
             additionalFileRules: additionalFileRules,
             defaultLocalization: target.defaultLocalization,
             targetName: target.name,
-            targetPath: target.underlyingTarget.path,
+            targetPath: target.underlying.path,
             observabilityScope: observabilityScope
         )
         let pluginDerivedResources = derivedResources

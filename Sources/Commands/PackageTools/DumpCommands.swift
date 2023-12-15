@@ -65,7 +65,7 @@ struct DumpSymbolGraph: SwiftCommand {
 
         // Run the tool once for every library and executable target in the root package.
         let buildPlan = try buildSystem.buildPlan
-        let symbolGraphDirectory = buildPlan.productsBuildParameters.dataPath.appending("symbolgraph")
+        let symbolGraphDirectory = buildPlan.destinationBuildParameters.dataPath.appending("symbolgraph")
         let targets = try buildSystem.getPackageGraph().rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library }
         for target in targets {
             print("-- Emitting symbol graph for", target.name)
@@ -78,11 +78,12 @@ struct DumpSymbolGraph: SwiftCommand {
             )
 
             if result.exitStatus != .terminated(code: 0) {
+                let commandline = "\nUsing commandline: \(result.arguments)"
                 switch result.output {
                 case .success(let value):
-                    swiftTool.observabilityScope.emit(error: "Failed to emit symbol graph for '\(target.c99name)': \(String(decoding: value, as: UTF8.self))")
+                    swiftTool.observabilityScope.emit(error: "Failed to emit symbol graph for '\(target.c99name)': \(String(decoding: value, as: UTF8.self))\(commandline)")
                 case .failure(let error):
-                    swiftTool.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(target.c99name)': \(error)")
+                    swiftTool.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(target.c99name)': \(error)\(commandline)")
                 }
             }
         }
@@ -96,24 +97,21 @@ enum ExtensionBlockSymbolBehavior: String, EnumerableFlag {
     case omitExtensionBlockSymbols
 }
 
-struct DumpPackage: SwiftCommand {
+struct DumpPackage: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "Print parsed Package.swift as JSON")
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    func run(_ swiftTool: SwiftTool) throws {
+    func run(_ swiftTool: SwiftTool) async throws {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
 
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftTool.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftTool.observabilityScope
+        )
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }

@@ -98,7 +98,7 @@ extension BuildParameters {
         public var testProductStyle: TestProductStyle
 
         /// The testing libraries supported by the package manager.
-        public enum Library: String, Codable {
+        public enum Library: String, Codable, CustomStringConvertible {
             /// The XCTest library.
             ///
             /// This case represents both the open-source swift-corelibs-xctest
@@ -107,6 +107,10 @@ extension BuildParameters {
 
             /// The swift-testing library.
             case swiftTesting = "swift-testing"
+
+            public var description: String {
+                rawValue
+            }
         }
 
         /// Which testing library to use for this build.

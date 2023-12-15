@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The configuration of the build environment.
-public enum BuildConfiguration: String, CaseIterable, Codable {
+public enum BuildConfiguration: String, CaseIterable, Codable, Sendable {
     case debug
     case release
 
