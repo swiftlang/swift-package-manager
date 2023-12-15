@@ -484,14 +484,14 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        try self.addBuildToolPlugins(.swift(target))
+        let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
             try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.buildParameters.buildConfig)))
         }
 
-        return inputs
+        return inputs + additionalInputs
     }
 
     /// Adds a top-level phony command that builds the entire target.
