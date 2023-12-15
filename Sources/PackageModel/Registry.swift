@@ -16,10 +16,12 @@ import struct Foundation.URL
 public struct Registry: Hashable, CustomStringConvertible, Sendable {
     public var url: URL
     public var supportsAvailability: Bool
+    public var allowInsecureHTTP: Bool
 
-    public init(url: URL, supportsAvailability: Bool) {
+    public init(url: URL, supportsAvailability: Bool, allowInsecureHTTP: Bool = false) {
         self.url = url
         self.supportsAvailability = supportsAvailability
+        self.allowInsecureHTTP = allowInsecureHTTP
     }
 
     public var description: String {
