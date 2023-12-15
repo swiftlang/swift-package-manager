@@ -278,7 +278,7 @@ public struct BuildParameters: Encodable {
             #if BUILD_MACROS_AS_DYLIBS
             return try potentialDynamicLibraryPath(for: product)
             #else
-            return try RelativePath(validating: "\(product.name)\(self.triple.executableExtension)")
+            return potentialExecutablePath
             #endif
         }
     }
