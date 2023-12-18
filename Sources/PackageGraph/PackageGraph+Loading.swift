@@ -371,24 +371,24 @@ private func createResolvedPackages(
         )
 
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map {
+        var targetBuilders = package.targets.map {
             ResolvedTargetBuilder(
                 packageIdentity: package.identity,
                 target: $0,
+                defaultLocalization: packageBuilder.defaultLocalization,
+                supportedPlatforms: packageBuilder.supportedPlatforms,
                 observabilityScope: packageObservabilityScope,
                 platformVersionProvider: platformVersionProvider
             )
-        }
-        packageBuilder.targets = targetBuilders
+        }.spm_createDictionary({ ($0.target, $0) })
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
-        let targetMap = targetBuilders.spm_createDictionary({ ($0.target, $0) })
-        for targetBuilder in targetBuilders {
-            targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
+        for target in package.targets {
+            let dependencies = try target.dependencies.compactMap { dependency -> ResolvedTargetBuilder.Dependency? in
                 switch dependency {
                 case .target(let target, let conditions):
-                    try targetBuilder.target.validateDependency(target: target)
-                    guard let targetBuilder = targetMap[target] else {
+                    try target.validateDependency(target: target)
+                    guard let targetBuilder = targetBuilders[target] else {
                         throw InternalError("unknown target \(target.name)")
                     }
                     return .target(targetBuilder, conditions: conditions)
@@ -396,14 +396,14 @@ private func createResolvedPackages(
                     return nil
                 }
             }
-            targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
-            targetBuilder.supportedPlatforms = packageBuilder.supportedPlatforms
+            targetBuilders[target]?.dependencies += dependencies
         }
+        packageBuilder.targets = Array(targetBuilders.values)
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
-        packageBuilder.products = try package.products.map{
+        packageBuilder.products = try package.products.map {
             try ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map {
-                guard let target = targetMap[$0] else {
+                guard let target = targetBuilders[$0] else {
                     throw InternalError("unknown target \($0)")
                 }
                 return target
@@ -490,12 +490,12 @@ private func createResolvedPackages(
         }
 
         // Establish dependencies in each target.
-        for targetBuilder in packageBuilder.targets {
+        for (i, targetBuilder) in packageBuilder.targets.enumerated() {
             // Record if we see a duplicate target.
             foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
 
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
+            packageBuilder.targets[i].dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
@@ -552,7 +552,7 @@ private func createResolvedPackages(
                     }
                 }
 
-                targetBuilder.dependencies.append(.product(product, conditions: conditions))
+                packageBuilder.targets[i].dependencies.append(.product(product, conditions: conditions))
             }
         }
     }
@@ -819,32 +819,8 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
     return true
 }
 
-/// A generic builder for `Resolved` models.
-private class ResolvedBuilder<T> {
-    /// The constructed object, available after the first call to `construct()`.
-    private var _constructedObject: T?
-
-    /// Construct the object with the accumulated data.
-    ///
-    /// Note that once the object is constructed, future calls to
-    /// this method will return the same object.
-    final func construct() throws -> T {
-        if let _constructedObject {
-            return _constructedObject
-        }
-        let constructedObject = try self.constructImpl()
-        _constructedObject = constructedObject
-        return constructedObject
-    }
-
-    /// The object construction implementation.
-    func constructImpl() throws -> T {
-        fatalError("Should be implemented by subclasses")
-    }
-}
-
 /// Builder for resolved product.
-private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
+private struct ResolvedProductBuilder {
     /// The reference to its package.
     unowned let packageBuilder: ResolvedPackageBuilder
 
@@ -860,17 +836,17 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
         self.targets = targets
     }
 
-    override func constructImpl() throws -> ResolvedProduct {
+    func construct() throws -> ResolvedProduct {
         return ResolvedProduct(
             packageIdentity: packageBuilder.package.identity,
             product: product,
-            targets: try targets.map{ try $0.construct() }
+            targets: try targets.map { try $0.construct() }
         )
     }
 }
 
 /// Builder for resolved target.
-private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
+private struct ResolvedTargetBuilder {
     /// Enumeration to represent target dependencies.
     enum Dependency {
 
@@ -891,10 +867,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     var dependencies: [Dependency] = []
 
     /// The defaultLocalization for this package
-    var defaultLocalization: String? = nil
+    let defaultLocalization: String?
 
     /// The platforms supported by this package.
-    var supportedPlatforms: [SupportedPlatform] = []
+    let supportedPlatforms: [SupportedPlatform]
 
     let observabilityScope: ObservabilityScope
     let platformVersionProvider: PlatformVersionProvider
@@ -902,16 +878,20 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     init(
         packageIdentity: PackageIdentity,
         target: Target,
+        defaultLocalization: String?,
+        supportedPlatforms: [SupportedPlatform],
         observabilityScope: ObservabilityScope,
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.packageIdentity = packageIdentity
         self.target = target
+        self.defaultLocalization = defaultLocalization
+        self.supportedPlatforms = supportedPlatforms
         self.observabilityScope = observabilityScope
         self.platformVersionProvider = platformVersionProvider
     }
 
-    override func constructImpl() throws -> ResolvedTarget {
+    func construct() throws -> ResolvedTarget {
         let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
             metadata.targetName = target.name
@@ -970,7 +950,7 @@ extension Target {
     }
 }
 /// Builder for resolved package.
-private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
+private final class ResolvedPackageBuilder {
     /// The package reference.
     let package: Package
 
@@ -1020,7 +1000,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         self.platformVersionProvider = platformVersionProvider
     }
 
-    override func constructImpl() throws -> ResolvedPackage {
+    func construct() throws -> ResolvedPackage {
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
