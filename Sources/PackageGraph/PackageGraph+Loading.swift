@@ -426,8 +426,10 @@ private func createResolvedPackages(
     )
     try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
-    // The set of all target names.
+    // The set of all target names, lowercased.
     var allTargetNames = Set<String>()
+    // Lookup table for the original casing of target names.
+    var originalTargetNames = [String: String]()
 
     // Track if multiple targets are found with the same name.
     var foundDuplicateTarget = false
@@ -492,7 +494,8 @@ private func createResolvedPackages(
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
             // Record if we see a duplicate target.
-            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
+            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name.lowercased()).inserted
+            originalTargetNames[targetBuilder.target.name.lowercased()] = targetBuilder.target.name
 
             // Directly add all the system module dependencies.
             targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
@@ -516,14 +519,14 @@ private func createResolvedPackages(
                         }
                         
                         // Find a product name from the available product dependencies that is most similar to the required product name.
-                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
+                        let bestMatchedProductName = bestMatch(for: productRef.name.lowercased(), from: Array(allTargetNames))
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             targetName: targetBuilder.target.name,
                             dependencyProductName: productRef.name,
                             dependencyPackageName: productRef.package,
                             dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                            similarProductName: bestMatchedProductName
+                            similarProductName: bestMatchedProductName.map { originalTargetNames[$0] ?? $0 }
                         )
                         packageObservabilityScope.emit(error)
                     }
@@ -562,7 +565,7 @@ private func createResolvedPackages(
         var duplicateTargets = [String: [Package]]()
         for targetName in allTargetNames.sorted() {
             let packages = packageBuilders
-                .filter({ $0.targets.contains(where: { $0.target.name == targetName }) })
+                .filter({ $0.targets.contains(where: { $0.target.name.lowercased() == targetName }) })
                 .map{ $0.package }
             if packages.count > 1 {
                 duplicateTargets[targetName, default: []].append(contentsOf: packages)
@@ -581,17 +584,19 @@ private func createResolvedPackages(
         for potentiallyDuplicatePackage in potentiallyDuplicatePackages {
             // more than three target matches, or all targets in the package match
             if potentiallyDuplicatePackage.value.count > 3 ||
-                (potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package1.targets.map({ $0.name }).sorted()
+                (potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package1.targets.map({ $0.name.lowercased() }).sorted()
                 &&
-                potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package2.targets.map({ $0.name }).sorted())
+                 potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package2.targets.map({ $0.name.lowercased() }).sorted())
             {
+                let targets = potentiallyDuplicatePackage.value.map { originalTargetNames[$0] ?? $0 }
+
                 switch (potentiallyDuplicatePackage.key.package1.identity.registry, potentiallyDuplicatePackage.key.package2.identity.registry) {
                 case (.some(let registryIdentity), .none):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
                             regsitryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package2.identity,
-                            targets: potentiallyDuplicatePackage.value
+                            targets: targets
                         )
                     )
                 case (.none, .some(let registryIdentity)):
@@ -599,7 +604,7 @@ private func createResolvedPackages(
                         ModuleError.duplicateModulesScmAndRegistry(
                             regsitryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package1.identity,
-                            targets: potentiallyDuplicatePackage.value
+                            targets: targets
                         )
                     )
                 default:
@@ -607,7 +612,7 @@ private func createResolvedPackages(
                         ModuleError.duplicateModules(
                             package: potentiallyDuplicatePackage.key.package1.identity,
                             otherPackage: potentiallyDuplicatePackage.key.package2.identity,
-                            targets: potentiallyDuplicatePackage.value
+                            targets: targets
                         )
                     )
                 }
@@ -618,7 +623,7 @@ private func createResolvedPackages(
         for entry in duplicateTargets.filter({ !duplicateTargetsAddressed.contains($0.key) }) {
             observabilityScope.emit(
                 ModuleError.duplicateModule(
-                    targetName: entry.key,
+                    targetName: originalTargetNames[entry.key] ?? entry.key,
                     packages: entry.value.map{ $0.identity })
             )
         }

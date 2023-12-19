@@ -2669,6 +2669,41 @@ class PackageGraphTests: XCTestCase {
 
         XCTAssertEqual(observability.diagnostics.count, 0, "unexpected diagnostics: \(observability.diagnostics.map { $0.description })")
     }
+
+    func testDuplicatedTargetNamesDifferentCasing() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/foo/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    products: [
+                        ProductDescription(name: "FooProduct", type: .library(.automatic), targets: ["Foo"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo"),
+                    ]),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "foo", dependencies: [.product(name: "FooProduct", package: "Foo")]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.map { $0.message }, ["multiple targets named 'Foo' in: 'bar', 'foo'"])
+    }
 }
 
 
