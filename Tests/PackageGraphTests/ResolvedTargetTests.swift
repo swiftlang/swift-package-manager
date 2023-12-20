@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2018 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,49 +14,23 @@ import XCTest
 
 import PackageGraph
 @testable import PackageModel
+import SPMTestSupport
 
-extension ResolvedTarget {
-    fileprivate init(
-        packageIdentity: String,
-        name: String,
-        deps: ResolvedTarget...,
-        conditions: [PackageCondition] = []
-    ) {
-        self.init(
-            packageIdentity: .init(packageIdentity),
-            underlying: SwiftTarget(
-                name: name,
-                type: .library,
-                path: .root,
-                sources: Sources(paths: [], root: "/"),
-                dependencies: [],
-                packageAccess: false,
-                swiftVersion: .v4,
-                usesUnsafeFlags: false
-            ),
-            dependencies: deps.map { .target($0, conditions: conditions) },
-            defaultLocalization: nil,
-            supportedPlatforms: [],
-            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)
-        )
-    }
-}
-
-class TargetDependencyTests: XCTestCase {
+final class ResolvedTargetDependencyTests: XCTestCase {
     func test1() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t3 = ResolvedTarget(packageIdentity: "pkg", name: "t3", deps: t2)
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t3 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t3", deps: t2)
 
         XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
         XCTAssertEqual(try t2.recursiveTargetDependencies(), [t1])
     }
 
     func test2() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t3 = ResolvedTarget(packageIdentity: "pkg", name: "t3", deps: t2, t1)
-        let t4 = ResolvedTarget(packageIdentity: "pkg", name: "t4", deps: t2, t3, t1)
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t3 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t3", deps: t2, t1)
+        let t4 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t4", deps: t2, t3, t1)
 
         XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
         XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
@@ -64,10 +38,10 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test3() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t3 = ResolvedTarget(packageIdentity: "pkg", name: "t3", deps: t2, t1)
-        let t4 = ResolvedTarget(packageIdentity: "pkg", name: "t4", deps: t1, t2, t3)
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t3 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t3", deps: t2, t1)
+        let t4 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t4", deps: t1, t2, t3)
 
         XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
         XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
@@ -75,10 +49,10 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test4() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t3 = ResolvedTarget(packageIdentity: "pkg", name: "t3", deps: t2)
-        let t4 = ResolvedTarget(packageIdentity: "pkg", name: "t4", deps: t3)
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t3 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t3", deps: t2)
+        let t4 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t4", deps: t3)
 
         XCTAssertEqual(try t4.recursiveTargetDependencies(), [t3, t2, t1])
         XCTAssertEqual(try t3.recursiveTargetDependencies(), [t2, t1])
@@ -86,12 +60,12 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test5() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t3 = ResolvedTarget(packageIdentity: "pkg", name: "t3", deps: t2)
-        let t4 = ResolvedTarget(packageIdentity: "pkg", name: "t4", deps: t3)
-        let t5 = ResolvedTarget(packageIdentity: "pkg", name: "t5", deps: t2)
-        let t6 = ResolvedTarget(packageIdentity: "pkg", name: "t6", deps: t5, t4)
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t3 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t3", deps: t2)
+        let t4 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t4", deps: t3)
+        let t5 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t5", deps: t2)
+        let t6 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t6", deps: t5, t4)
 
         // precise order is not important, but it is important that the following are true
         let t6rd = try t6.recursiveTargetDependencies()
@@ -108,12 +82,12 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func test6() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t3 = ResolvedTarget(packageIdentity: "pkg", name: "t3", deps: t2)
-        let t4 = ResolvedTarget(packageIdentity: "pkg", name: "t4", deps: t3)
-        let t5 = ResolvedTarget(packageIdentity: "pkg", name: "t5", deps: t2)
-        let t6 = ResolvedTarget(
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t3 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t3", deps: t2)
+        let t4 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t4", deps: t3)
+        let t5 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t5", deps: t2)
+        let t6 = ResolvedTarget.mock(
             packageIdentity: "pkg",
             name: "t6",
             deps: t4,
@@ -135,10 +109,10 @@ class TargetDependencyTests: XCTestCase {
     }
 
     func testConditions() throws {
-        let t1 = ResolvedTarget(packageIdentity: "pkg", name: "t1")
-        let t2 = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t2NoConditions = ResolvedTarget(packageIdentity: "pkg", name: "t2", deps: t1)
-        let t2WithConditions = ResolvedTarget(
+        let t1 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t1")
+        let t2 = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t2NoConditions = ResolvedTarget.mock(packageIdentity: "pkg", name: "t2", deps: t1)
+        let t2WithConditions = ResolvedTarget.mock(
             packageIdentity: "pkg",
             name: "t2",
             deps: t1,
