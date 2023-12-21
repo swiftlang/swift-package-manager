@@ -12,8 +12,6 @@
 
 import PackageModel
 
-import func TSCBasic.topologicalSort
-
 /// Represents a fully resolved target. All the dependencies for this target are also stored as resolved.
 public struct ResolvedTarget: Hashable {
     /// Represents dependency of a resolved target.
@@ -72,7 +70,7 @@ public struct ResolvedTarget: Hashable {
 
     /// The name of this target.
     public var name: String {
-        return underlying.name
+        self.underlying.name
     }
 
     /// Returns dependencies which satisfy the input build environment, based on their conditions.
@@ -84,12 +82,12 @@ public struct ResolvedTarget: Hashable {
 
     /// Returns the recursive dependencies, across the whole package-graph.
     public func recursiveDependencies() throws -> [Dependency] {
-        return try TSCBasic.topologicalSort(self.dependencies) { $0.dependencies }
+        try topologicalSort(self.dependencies) { $0.dependencies }
     }
 
     /// Returns the recursive target dependencies, across the whole package-graph.
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
-        return try TSCBasic.topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
+        try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
     }
 
     /// Returns the recursive dependencies, across the whole package-graph, which satisfy the input build environment,
@@ -97,36 +95,36 @@ public struct ResolvedTarget: Hashable {
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
     public func recursiveDependencies(satisfying environment: BuildEnvironment) throws -> [Dependency] {
-        return try TSCBasic.topologicalSort(dependencies(satisfying: environment)) { dependency in
-            return dependency.dependencies.filter { $0.satisfies(environment) }
+        try topologicalSort(dependencies(satisfying: environment)) { dependency in
+            dependency.dependencies.filter { $0.satisfies(environment) }
         }
     }
 
     /// The language-level target name.
     public var c99name: String {
-        return underlying.c99name
+        self.underlying.c99name
     }
 
     /// Module aliases for dependencies of this target. The key is an
     /// original target name and the value is a new unique name mapped
     /// to the name of its .swiftmodule binary.
     public var moduleAliases: [String: String]? {
-      return underlying.moduleAliases
+        self.underlying.moduleAliases
     }
 
     /// Allows access to package symbols from other targets in the package
     public var packageAccess: Bool {
-        return underlying.packageAccess
+        self.underlying.packageAccess
     }
 
     /// The "type" of target.
     public var type: Target.Kind {
-        return underlying.type
+        self.underlying.type
     }
 
     /// The sources for the target.
     public var sources: Sources {
-        return underlying.sources
+        self.underlying.sources
     }
 
     let packageIdentity: PackageIdentity
