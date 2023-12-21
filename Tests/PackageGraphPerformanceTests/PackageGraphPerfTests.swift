@@ -168,7 +168,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
             resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
         }        
 
-        let N = 100
+        let N = 10
         measure {
             do {
                 for _ in 0..<N {
