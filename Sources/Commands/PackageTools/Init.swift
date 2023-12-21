@@ -83,7 +83,7 @@ extension SwiftPackageTool {
     }
 }
 
-#if swift(<5.10)
+#if swift(<5.11)
 extension InitPackage.PackageType: ExpressibleByArgument {}
 #else
 extension InitPackage.PackageType: @retroactive ExpressibleByArgument {}

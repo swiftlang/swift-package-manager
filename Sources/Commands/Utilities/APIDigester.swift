@@ -328,7 +328,7 @@ extension SerializedDiagnostics.SourceLocation {
     }
 }
 
-#if swift(<5.10)
+#if swift(<5.11)
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
 #else
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}

@@ -243,7 +243,7 @@ extension SignatureFormat {
     }
 }
 
-#if swift(<5.10)
+#if swift(<5.11)
 extension SignatureFormat: ExpressibleByArgument {}
 #else
 extension SignatureFormat: @retroactive ExpressibleByArgument {}

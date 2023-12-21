@@ -247,7 +247,7 @@ extension FileSystemError {
     }
 }
 
-#if swift(<5.10)
+#if swift(<5.11)
 extension FileSystemError: CustomStringConvertible {}
 #else
 extension FileSystemError: @retroactive CustomStringConvertible {}

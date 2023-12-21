@@ -201,7 +201,7 @@ extension ProductFilter {
     }
 }
 
-#if swift(<5.10)
+#if swift(<5.11)
 extension ProductFilter: JSONSerializable, JSONMappable {}
 #else
 extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}
