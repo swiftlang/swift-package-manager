@@ -536,13 +536,13 @@ public struct LinkerOptions: ParsableArguments {
 
 // MARK: - Extensions
 
-extension BuildConfiguration: ExpressibleByArgument {
+extension BuildConfiguration {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }
 }
 
-extension AbsolutePath: ExpressibleByArgument {
+extension AbsolutePath {
     public init?(argument: String) {
         if let cwd = localFileSystem.currentWorkingDirectory {
             guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
@@ -564,13 +564,13 @@ extension AbsolutePath: ExpressibleByArgument {
     }
 }
 
-extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {
+extension WorkspaceConfiguration.CheckingMode {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }
 }
 
-extension Sanitizer: ExpressibleByArgument {
+extension Sanitizer {
     public init?(argument: String) {
         if let sanitizer = Sanitizer(rawValue: argument) {
             self = sanitizer
@@ -591,18 +591,34 @@ extension Sanitizer: ExpressibleByArgument {
     }
 }
 
-extension BuildSystemProvider.Kind: ExpressibleByArgument {}
-
-extension Version: ExpressibleByArgument {}
-
-extension PackageIdentity: ExpressibleByArgument {
+extension PackageIdentity {
     public init?(argument: String) {
         self = .plain(argument)
     }
 }
 
-extension URL: ExpressibleByArgument {
+extension URL {
     public init?(argument: String) {
         self.init(string: argument)
     }
 }
+
+#if swift(<5.10)
+extension BuildConfiguration: ExpressibleByArgument {}
+extension AbsolutePath: ExpressibleByArgument {}
+extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
+extension Sanitizer: ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
+extension Version: ExpressibleByArgument {}
+extension PackageIdentity: ExpressibleByArgument {}
+extension URL: ExpressibleByArgument {}
+#else
+extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+extension AbsolutePath: @retroactive ExpressibleByArgument {}
+extension WorkspaceConfiguration.CheckingMode: @retroactive ExpressibleByArgument {}
+extension Sanitizer: @retroactive ExpressibleByArgument {}
+extension BuildSystemProvider.Kind: @retroactive ExpressibleByArgument {}
+extension Version: @retroactive ExpressibleByArgument {}
+extension PackageIdentity: @retroactive ExpressibleByArgument {}
+extension URL: @retroactive ExpressibleByArgument {}
+#endif

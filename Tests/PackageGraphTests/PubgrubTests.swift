@@ -3240,7 +3240,7 @@ class DependencyGraphBuilder {
     }
 }
 
-extension Term: ExpressibleByStringLiteral {
+extension Term {
     init(_ value: String) {
         self.init(stringLiteral: value)
     }
@@ -3285,12 +3285,21 @@ extension Term: ExpressibleByStringLiteral {
 }
 
 
-extension PackageReference: ExpressibleByStringLiteral {
+extension PackageReference {
     public init(stringLiteral value: String) {
         let ref = PackageReference.localSourceControl(identity: .plain(value), path: .root)
         self = ref
     }
 }
+
+#if swift(<5.10)
+extension Term: ExpressibleByStringLiteral {}
+extension PackageReference: ExpressibleByStringLiteral {}
+#else
+extension Term: @retroactive ExpressibleByStringLiteral {}
+extension PackageReference: @retroactive ExpressibleByStringLiteral {}
+#endif
+
 extension Result where Success == [DependencyResolverBinding] {
     var errorMsg: String? {
         switch self {

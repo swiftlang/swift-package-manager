@@ -182,7 +182,7 @@ private extension VersionSetSpecifier {
     }
 }
 
-extension ProductFilter: JSONSerializable, JSONMappable {
+extension ProductFilter {
     public func toJSON() -> JSON {
         switch self {
         case .everything:
@@ -200,3 +200,9 @@ extension ProductFilter: JSONSerializable, JSONMappable {
         }
     }
 }
+
+#if swift(<5.10)
+extension ProductFilter: JSONSerializable, JSONMappable {}
+#else
+extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}
+#endif

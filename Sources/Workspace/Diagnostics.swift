@@ -195,7 +195,7 @@ extension Basics.Diagnostic {
     }
 }
 
-extension FileSystemError: CustomStringConvertible {
+extension FileSystemError {
     public var description: String {
         guard let path else {
             switch self.kind {
@@ -246,3 +246,9 @@ extension FileSystemError: CustomStringConvertible {
         }
     }
 }
+
+#if swift(<5.10)
+extension FileSystemError: CustomStringConvertible {}
+#else
+extension FileSystemError: @retroactive CustomStringConvertible {}
+#endif
