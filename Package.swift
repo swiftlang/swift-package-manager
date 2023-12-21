@@ -42,7 +42,6 @@ let swiftPMDataModelProduct = (
         "PackageMetadata",
         "PackageModel",
         "SourceControl",
-        "SourceKitLSPAPI",
         "Workspace",
     ]
 )
@@ -58,6 +57,7 @@ let swiftPMProduct = (
     targets: swiftPMDataModelProduct.targets + [
         "Build",
         "LLBuildManifest",
+        "SourceKitLSPAPI",
         "SPMLLBuild",
     ]
 )
