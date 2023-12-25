@@ -194,6 +194,168 @@ final class TestToolTests: CommandsTestCase {
         }
     }
 
+    func testSwiftTestQuiet() throws {
+        try fixture(name: "Miscellaneous/TestQuietPass") { fixturePath in
+            let (stdout, _) = try SwiftPM.Test.execute(["--quiet"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
+            XCTAssertNoMatch(stdout, .contains("testPass1"))
+            XCTAssertNoMatch(stdout, .contains("testPass2"))
+            XCTAssertEqual(stdout, "")
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietPass") { fixturePath in
+            let (stdout, _) = try SwiftPM.Test.execute(["--quiet", "--parallel"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
+            XCTAssertNoMatch(stdout, .contains("testPass1"))
+            XCTAssertNoMatch(stdout, .contains("testPass2"))
+            XCTAssertEqual(stdout, "")
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(["--quiet"], packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(["--quiet", "--parallel"], packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietPassFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(["--quiet"], packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testPass1"))
+                    XCTAssertMatch(stdout, .contains("testPass2"))
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietPassFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(["--quiet", "--parallel"], packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testPass1"))
+                    XCTAssertMatch(stdout, .contains("testPass2"))
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+    }
+
+    func testSwiftTestDefaultNoQuiet() throws {
+        try fixture(name: "Miscellaneous/TestQuietPass") { fixturePath in
+            let (stdout, _) = try SwiftPM.Test.execute(packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("testPass1"))
+            XCTAssertMatch(stdout, .contains("testPass2"))
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietPass") { fixturePath in
+            let (stdout, _) = try SwiftPM.Test.execute(["--parallel"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("testPass1"))
+            XCTAssertMatch(stdout, .contains("testPass2"))
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(["--parallel"], packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietPassFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testPass1"))
+                    XCTAssertMatch(stdout, .contains("testPass2"))
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestQuietPassFail") { fixturePath in
+            XCTAssertThrows(try SwiftPM.Test.execute(["--parallel"], packagePath: fixturePath)) { (error: SwiftPMError) in
+                switch error {
+                case .packagePathNotFound:
+                    return false
+
+                case .executionFailure(_, let stdout, _):
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(stdout, .contains("testPass1"))
+                    XCTAssertMatch(stdout, .contains("testPass2"))
+                    XCTAssertMatch(stdout, .contains("testFail1"))
+                    XCTAssertMatch(stdout, .contains("testFail2"))
+                    return true
+                }
+            }
+        }
+    }
+
     func testEnableTestDiscoveryDeprecation() throws {
         let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
         #if canImport(Darwin)
