@@ -18,7 +18,9 @@ import PackageGraph
 import SPMBuildCore
 import XCBuildSupport
 
+import class TSCBasic.BufferedOutputByteStream
 import class TSCBasic.Process
+import class TSCBasic.ThreadSafeOutputByteStream
 import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics
@@ -129,17 +131,37 @@ public struct SwiftBuildTool: SwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
             throw ExitCode.failure
         }
+
+        let outputStream = globalOptions.logging.quiet
+            ? ThreadSafeOutputByteStream(BufferedOutputByteStream())
+            // command result output goes on stdout
+            // ie "swift build" should output to stdout
+            : stdoutStream
+
+        func flushQuietBufferToStdout() {
+            // Only flush the output stream if the quiet flag is set
+            guard globalOptions.logging.quiet, let buffer = outputStream.stream as? BufferedOutputByteStream else {
+                return
+            }
+            buffer.flush()
+            stdoutStream.write(sequence: buffer.bytes.contents)
+            stdoutStream.flush()
+        }
+
         let buildSystem = try swiftTool.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-            // command result output goes on stdout
-            // ie "swift build" should output to stdout
-            outputStream: TSCBasic.stdoutStream
+            outputStream: outputStream
         )
+
         do {
             try buildSystem.build(subset: subset)
         } catch _ as Diagnostics {
+            flushQuietBufferToStdout()
             throw ExitCode.failure
+        } catch {
+            flushQuietBufferToStdout()
+            throw error
         }
     }
 
