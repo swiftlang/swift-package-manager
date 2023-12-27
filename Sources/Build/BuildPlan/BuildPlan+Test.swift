@@ -16,8 +16,8 @@ import struct Basics.AbsolutePath
 import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
 import struct PackageGraph.PackageGraph
-import class PackageGraph.ResolvedProduct
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedProduct
+import struct PackageGraph.ResolvedTarget
 import struct PackageModel.Sources
 import class PackageModel.SwiftTarget
 import class PackageModel.Target
@@ -59,7 +59,7 @@ extension BuildPlan {
             // tests into a separate target/module named "<PackageName>PackageDiscoveredTests". Then, that entry point file may import that module and
             // obtain that list to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
             if testProduct.testEntryPointTarget != nil && explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly {
-                let testEntryPointName = testProduct.underlyingProduct.testEntryPointPath?.basename ?? SwiftTarget.defaultTestEntryPointName
+                let testEntryPointName = testProduct.underlying.testEntryPointPath?.basename ?? SwiftTarget.defaultTestEntryPointName
                 observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testEntryPointName)' entry point file for '\(testProduct.name)' will be ignored and an entry point will be generated automatically. To use test discovery with a custom entry point file, pass '--experimental-test-entry-point-path <file>'.")
             } else if testProduct.testEntryPointTarget == nil, let testEntryPointPath = explicitlySpecifiedPath, !fileSystem.exists(testEntryPointPath) {
                 observabilityScope.emit(error: "'--experimental-test-entry-point-path' was specified but the file '\(testEntryPointPath)' could not be found.")
@@ -80,15 +80,17 @@ extension BuildPlan {
 
                 let discoveryTarget = SwiftTarget(
                     name: discoveryTargetName,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
+                    dependencies: testProduct.underlying.targets.map { .target($0, conditions: []) },
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
                 let discoveryResolvedTarget = ResolvedTarget(
-                    target: discoveryTarget,
+                    packageIdentity: testProduct.packageIdentity,
+                    underlying: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: testProduct.defaultLocalization,
-                    platforms: testProduct.platforms
+                    supportedPlatforms: testProduct.supportedPlatforms,
+                    platformVersionProvider: testProduct.platformVersionProvider
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -118,15 +120,17 @@ extension BuildPlan {
                 let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
                     type: .library,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + swiftTargetDependencies,
+                    dependencies: testProduct.underlying.targets.map { .target($0, conditions: []) } + swiftTargetDependencies,
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(
-                    target: entryPointTarget,
+                    packageIdentity: testProduct.packageIdentity,
+                    underlying: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
                     defaultLocalization: testProduct.defaultLocalization,
-                    platforms: testProduct.platforms
+                    supportedPlatforms: testProduct.supportedPlatforms,
+                    platformVersionProvider: testProduct.platformVersionProvider
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -151,7 +155,7 @@ extension BuildPlan {
                 resolvedTargetDependencies = [.target(discoveryTargets!.resolved, conditions: [])]
             case .swiftTesting:
                 discoveryTargets = nil
-                swiftTargetDependencies = testProduct.targets.map { .target($0.underlyingTarget, conditions: []) }
+                swiftTargetDependencies = testProduct.targets.map { .target($0.underlying, conditions: []) }
                 resolvedTargetDependencies = testProduct.targets.map { .target($0, conditions: []) }
             }
 
@@ -160,16 +164,18 @@ extension BuildPlan {
                     if isEntryPointPathSpecifiedExplicitly {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let entryPointTarget = SwiftTarget(
-                            name: entryPointResolvedTarget.underlyingTarget.name,
-                            dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + swiftTargetDependencies,
+                            name: entryPointResolvedTarget.underlying.name,
+                            dependencies: entryPointResolvedTarget.underlying.dependencies + swiftTargetDependencies,
                             packageAccess: entryPointResolvedTarget.packageAccess,
-                            testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
+                            testEntryPointSources: entryPointResolvedTarget.underlying.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
-                            target: entryPointTarget,
+                            packageIdentity: testProduct.packageIdentity,
+                            underlying: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
                             defaultLocalization: testProduct.defaultLocalization,
-                            platforms: testProduct.platforms
+                            supportedPlatforms: testProduct.supportedPlatforms,
+                            platformVersionProvider: testProduct.platformVersionProvider
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,

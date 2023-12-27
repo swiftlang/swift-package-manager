@@ -3921,6 +3921,7 @@ final class BuildPlanTests: XCTestCase {
             "/A/Sources/cbar/barcpp.cpp",
             "/A/Sources/cbar/bar.c",
             "/A/Sources/cbar/include/bar.h",
+            "/A/Tests/MySwiftTests/test.swift",
 
             "/B/Sources/t1/dep.swift",
             "/B/Sources/t2/dep.swift",
@@ -3931,6 +3932,7 @@ final class BuildPlanTests: XCTestCase {
             displayName: "A",
             path: "/A",
             toolsVersion: .v5,
+            cxxLanguageStandard: "c++17",
             dependencies: [
                 .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
             ],
@@ -4001,6 +4003,12 @@ final class BuildPlanTests: XCTestCase {
                             condition: .init(platformNames: ["macos"])
                         ),
                         .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "MySwiftTests", type: .test,
+                    settings: [
+                        .init(tool: .swift, kind: .interoperabilityMode(.Cxx)),
                     ]
                 ),
             ]
@@ -4080,6 +4088,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Isfoo",
                     "-L", "sbar",
                     "-cxx-interoperability-mode=default",
+                    "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-g",
                     "-Xcc", "-g",
@@ -4093,6 +4102,9 @@ final class BuildPlanTests: XCTestCase {
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
+
+            let testDiscovery = try result.target(for: "APackageDiscoveredTests").swiftTarget().compileArguments()
+            XCTAssertMatch(testDiscovery, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17"])
         }
 
         // omit frame pointers explicitly set to true
@@ -4137,6 +4149,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Isfoo",
                     "-L", "sbar",
                     "-cxx-interoperability-mode=default",
+                    "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-g",
@@ -4192,6 +4205,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Isfoo",
                     "-L", "sbar",
                     "-cxx-interoperability-mode=default",
+                    "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
                     "-g",
@@ -4234,6 +4248,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Isfoo",
                     "-L", "sbar",
                     "-cxx-interoperability-mode=default",
+                    "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
                     "-g",
@@ -4243,7 +4258,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17", "-g", "-Xcc", "-g", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(

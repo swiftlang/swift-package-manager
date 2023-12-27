@@ -24,6 +24,46 @@ public enum PluginAction {
 }
 
 extension PluginTarget {
+    public func invoke(
+        action: PluginAction,
+        buildEnvironment: BuildEnvironment,
+        scriptRunner: PluginScriptRunner,
+        workingDirectory: AbsolutePath,
+        outputDirectory: AbsolutePath,
+        toolSearchDirectories: [AbsolutePath],
+        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginInvocationDelegate
+    ) async throws -> Bool {
+        try await safe_async {
+            self.invoke(
+                action: action,
+                buildEnvironment: buildEnvironment,
+                scriptRunner: scriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: outputDirectory,
+                toolSearchDirectories: toolSearchDirectories,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections,
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                delegate: delegate,
+                completion: $0
+            )
+        }
+    }
     /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
     /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
     /// determine the context that is available to the plugin.
@@ -47,6 +87,7 @@ extension PluginTarget {
     ///   - fileSystem: The file system to which all of the paths refers.
     ///
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
+    @available(*, noasync, message: "Use the async alternative")
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
@@ -191,23 +232,29 @@ extension PluginTarget {
                     self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
                     
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
+                    if config.version != 2 {
+                        throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
+                    }
                     self.invocationDelegate.pluginDefinedBuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable),
+                        executable: try AbsolutePath(validating: config.executable.path),
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0) },
-                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
-                    
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
+                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0.path) },
+                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0.path) })
+
                 case .definePrebuildCommand(let config, let outputFilesDir):
+                    if config.version != 2 {
+                        throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
+                    }
                     let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable),
+                        executable: try AbsolutePath(validating: config.executable.path),
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
+                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir.path))
 
                     if !success {
                         exitEarly = true
@@ -348,15 +395,15 @@ extension PackageGraph {
             for dependency in target.dependencies(satisfying: buildEnvironment) {
                 switch dependency {
                 case .target(let target, _):
-                    if let pluginTarget = target.underlyingTarget as? PluginTarget {
+                    if let pluginTarget = target.underlying as? PluginTarget {
                         assert(pluginTarget.capability == .buildTool)
                         pluginTargets.append(pluginTarget)
                     }
                     else {
-                        dependencyTargets.append(target.underlyingTarget)
+                        dependencyTargets.append(target.underlying)
                     }
                 case .product(let product, _):
-                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? PluginTarget })
+                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlying as? PluginTarget })
                 }
             }
 
@@ -537,7 +584,10 @@ public extension PluginTarget {
                 builtToolName = target.name
                 executableOrBinaryTarget = target
             case .product(let productRef, _):
-                guard let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }), let executableTarget = product.targets.map({ $0.underlyingTarget }).executables.spm_only else {
+                guard
+                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
+                else {
                     throw StringError("no product named \(productRef.name)")
                 }
                 builtToolName = productRef.name
@@ -670,6 +720,7 @@ public enum PluginEvaluationError: Swift.Error {
     case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
+    case pluginUsesIncompatibleVersion(expected: Int, actual: Int)
 }
 
 public protocol PluginInvocationDelegate {
@@ -889,7 +940,7 @@ fileprivate extension HostToPluginMessage.BuildResult {
 
 fileprivate extension HostToPluginMessage.BuildResult.BuiltArtifact {
     init(_ artifact: PluginInvocationBuildResult.BuiltArtifact) {
-        self.path = .init(artifact.path)
+        self.path = .init(fileURLWithPath: artifact.path)
         self.kind = .init(artifact.kind)
     }
 }
@@ -995,7 +1046,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
 
 fileprivate extension HostToPluginMessage.SymbolGraphResult {
     init(_ result: PluginInvocationSymbolGraphResult) {
-        self.directoryPath = .init(result.directoryPath)
+        self.directoryPath = .init(fileURLWithPath: result.directoryPath)
     }
 }
 

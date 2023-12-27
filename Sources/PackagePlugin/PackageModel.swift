@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 /// Represents a single package in the graph (either the root or a dependency).
 public struct Package {
     /// Unique identifier for the package.
@@ -20,7 +22,12 @@ public struct Package {
     public let displayName: String
 
     /// The absolute path of the package directory in the local file system.
+    @available(_PackageDescription, deprecated: 5.11)
     public let directory: Path
+
+    /// The absolute path of the package directory in the local file system.
+    @available(_PackageDescription, introduced: 5.11)
+    public let directoryURL: URL
 
     /// The origin of the package (root, local, repository, registry, etc).
     public let origin: PackageOrigin
@@ -242,8 +249,13 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     public let kind: ModuleKind
 
     /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, deprecated: 5.11)
     public let directory: Path
-    
+
+    /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, introduced: 5.11)
+    public let directoryURL: URL
+
     /// Any other targets on which this target depends, in the same order as
     /// they are specified in the package manifest. Conditional dependencies
     /// that do not apply have already been filtered out.
@@ -284,8 +296,13 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     public let kind: ModuleKind
 
     /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, deprecated: 5.11)
     public let directory: Path
-    
+
+    /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, introduced: 5.11)
+    public let directoryURL: URL
+
     /// Any other targets on which this target depends, in the same order as
     /// they are specified in the package manifest. Conditional dependencies
     /// that do not apply have already been filtered out.
@@ -307,7 +324,13 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
 
     /// The directory containing public C headers, if applicable. This will
     /// only be set for targets that have a directory of a public headers.
+    @available(_PackageDescription, deprecated: 5.11)
     public let publicHeadersDirectory: Path?
+
+    /// The directory containing public C headers, if applicable. This will
+    /// only be set for targets that have a directory of a public headers.
+    @available(_PackageDescription, deprecated: 5.11)
+    public let publicHeadersDirectoryURL: URL?
 
     /// Any custom linked libraries required by the module, as specified in the
     /// package manifest.
@@ -329,8 +352,13 @@ public struct BinaryArtifactTarget: Target {
     public let name: String
     
     /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, deprecated: 5.11)
     public let directory: Path
-    
+
+    /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, introduced: 5.11)
+    public let directoryURL: URL
+
     /// Any other targets on which this target depends, in the same order as
     /// they are specified in the package manifest. Conditional dependencies
     /// that do not apply have already been filtered out.
@@ -343,7 +371,12 @@ public struct BinaryArtifactTarget: Target {
     public let origin: Origin
     
     /// The location of the binary artifact in the local file system.
+    @available(_PackageDescription, deprecated: 5.11)
     public let artifact: Path
+
+    /// The location of the binary artifact in the local file system.
+    @available(_PackageDescription, introduced: 5.11)
+    public let artifactURL: URL
 
     /// Represents a kind of binary artifact.
     public enum Kind {
@@ -373,8 +406,13 @@ public struct SystemLibraryTarget: Target {
     public var name: String
     
     /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, deprecated: 5.11)
     public var directory: Path
-    
+
+    /// The absolute path of the target directory in the local file system.
+    @available(_PackageDescription, introduced: 5.11)
+    public var directoryURL: URL
+
     /// Any other targets on which this target depends, in the same order as
     /// they are specified in the package manifest. Conditional dependencies
     /// that do not apply have already been filtered out.
@@ -428,8 +466,13 @@ extension FileList: RandomAccessCollection {
 /// Provides information about a single file in a FileList.
 public struct File {
     /// The path of the file.
+    @available(_PackageDescription, deprecated: 5.11)
     public let path: Path
-    
+
+    /// The path of the file.
+    @available(_PackageDescription, introduced: 5.11)
+    public let url: URL
+
     /// File type, as determined by SwiftPM.
     public let type: FileType
 }

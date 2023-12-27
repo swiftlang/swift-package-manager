@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Dispatch
 
 import protocol TSCUtility.PolymorphicCodableProtocol
 
@@ -42,9 +41,9 @@ public class Target: PolymorphicCodableProtocol {
         case package
         case excluded
     }
+
     /// A reference to a product from a target dependency.
     public struct ProductReference: Codable {
-
         /// The name of the product dependency.
         public let name: String
 

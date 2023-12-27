@@ -1081,14 +1081,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         for toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
+        let libraryPath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
+        let modulesPath = self.toolchain.swiftPMLibrariesLocation.manifestModulesPath
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if runtimePath.extension == "framework" {
-            cmd += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
+        if modulesPath.extension == "framework" {
+            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
         } else {
-            cmd += ["-I", runtimePath.pathString]
+            cmd += ["-I", modulesPath.pathString]
         }
       #if os(macOS)
         if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {

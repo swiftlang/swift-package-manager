@@ -33,6 +33,8 @@ public final class SwiftTargetBuildDescription {
     /// The target described by this target.
     public let target: ResolvedTarget
 
+    private let swiftTarget: SwiftTarget
+
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
@@ -57,7 +59,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        if let bundleName = target.underlyingTarget.potentialBundleName, needsResourceBundle {
+        if let bundleName = target.underlying.potentialBundleName, needsResourceBundle {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
@@ -83,7 +85,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
-        self.target.underlyingTarget.resources + self.pluginDerivedResources
+        self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// The objects in this target, containing either machine code or bitcode
@@ -139,7 +141,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The swift version for this target.
     var swiftVersion: SwiftLanguageVersion {
-        (self.target.underlyingTarget as! SwiftTarget).swiftVersion
+        self.swiftTarget.swiftVersion
     }
 
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
@@ -257,10 +259,11 @@ public final class SwiftTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlyingTarget is SwiftTarget else {
+        guard let swiftTarget = target.underlying as? SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.swiftTarget = swiftTarget
         self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
@@ -514,7 +517,7 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if (self.target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true
+        if (self.target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true
             && !self.isTestTarget && self.toolsVersion >= .v5_5
         {
             // We only do this if the linker supports it, as indicated by whether we
@@ -553,6 +556,27 @@ public final class SwiftTargetBuildDescription {
         // Add arguments to colorize output if stdout is tty
         if self.buildParameters.outputParameters.isColorized {
             args += ["-color-diagnostics"]
+        }
+
+        // If this is a generated test discovery target, it might import a test
+        // target that is built with C++ interop enabled. In that case, the test
+        // discovery target must enable C++ interop as well
+        switch testTargetRole {
+        case .discovery:
+            for dependency in try self.target.recursiveTargetDependencies() {
+                let dependencyScope = self.buildParameters.createScope(for: dependency)
+                let dependencySwiftFlags = dependencyScope.evaluate(.OTHER_SWIFT_FLAGS)
+                if let interopModeFlag = dependencySwiftFlags.first(where: { $0.hasPrefix("-cxx-interoperability-mode=") }) {
+                    args += [interopModeFlag]
+                    if interopModeFlag != "-cxx-interoperability-mode=off" {
+                        if let cxxStandard = self.package.manifest.cxxLanguageStandard {
+                            args += ["-Xcc", "-std=\(cxxStandard)"]
+                        }
+                    }
+                    break
+                }
+            }
+        default: break
         }
 
         // Add arguments from declared build settings.

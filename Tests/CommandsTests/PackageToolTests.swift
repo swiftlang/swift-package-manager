@@ -74,7 +74,8 @@ final class PackageToolTests: CommandsTestCase {
 	
 	func testInitUsage() throws {
 		let stdout = try execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] [--name <name>]"))
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
+		XCTAssertMatch(stdout, .contains(" [--name <name>]"))
 	}
 	
 	func testInitOptionsHelp() throws {
@@ -2903,11 +2904,11 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
-    func testSinglePluginTarget() throws {
+    func testSinglePluginTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -2956,13 +2957,10 @@ final class PackageToolTests: CommandsTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.

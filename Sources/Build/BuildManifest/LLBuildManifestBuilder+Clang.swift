@@ -13,7 +13,7 @@
 import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import PackageModel
 
 extension LLBuildManifestBuilder {

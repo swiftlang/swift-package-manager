@@ -152,6 +152,7 @@ class PluginInvocationTests: XCTestCase {
                         let message = Data("""
                         {   "defineBuildCommand": {
                                 "configuration": {
+                                    "version": 2,
                                     "displayName": "Do something",
                                     "executable": "/bin/FooTool",
                                     "arguments": [
@@ -229,8 +230,8 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }
     
-    func testCompilationDiagnostics() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    func testCompilationDiagnostics() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -285,13 +286,10 @@ class PluginInvocationTests: XCTestCase {
             
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -300,7 +298,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlying).first{ $0.name == "MyPlugin" } as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -335,16 +333,14 @@ class PluginInvocationTests: XCTestCase {
             // Try to compile the broken plugin script.
             do {
                 let delegate = Delegate()
-                let result = try temp_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        delegate: delegate,
-                        completion: $0)
-                }
+                let result = try await pluginScriptRunner.compilePluginScript(
+                    sourceFiles: buildToolPlugin.sources.paths,
+                    pluginName: buildToolPlugin.name,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope,
+                    callbackQueue: DispatchQueue.sharedConcurrent,
+                    delegate: delegate
+                )
 
                 // This should invoke the compiler but should fail.
                 XCTAssert(result.succeeded == false)
@@ -389,16 +385,14 @@ class PluginInvocationTests: XCTestCase {
             let firstExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try temp_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        delegate: delegate,
-                        completion: $0)
-                }
+                let result = try await pluginScriptRunner.compilePluginScript(
+                    sourceFiles: buildToolPlugin.sources.paths,
+                    pluginName: buildToolPlugin.name,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope,
+                    callbackQueue: DispatchQueue.sharedConcurrent,
+                    delegate: delegate
+                )
 
                 // This should invoke the compiler and this time should succeed.
                 XCTAssert(result.succeeded == true)
@@ -441,16 +435,14 @@ class PluginInvocationTests: XCTestCase {
             let secondExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try temp_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        delegate: delegate,
-                        completion: $0)
-                }
+                let result = try await pluginScriptRunner.compilePluginScript(
+                    sourceFiles: buildToolPlugin.sources.paths,
+                    pluginName: buildToolPlugin.name,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope,
+                    callbackQueue: DispatchQueue.sharedConcurrent,
+                    delegate: delegate
+                )
 
                 // This should not invoke the compiler (just reuse the cached executable).
                 XCTAssert(result.succeeded == true)
@@ -499,22 +491,20 @@ class PluginInvocationTests: XCTestCase {
             // NTFS does not have nanosecond granularity (nor is this is a guaranteed file 
             // system feature on all file systems). Add a sleep before the execution to ensure that we have sufficient 
             // precision to read a difference.
-            Thread.sleep(forTimeInterval: 1)
+            try await Task.sleep(nanoseconds: UInt64(SendableTimeInterval.seconds(1).nanoseconds()!))
 
             // Recompile the plugin again.
             let thirdExecModTime: Date
             do {
                 let delegate = Delegate()
-                let result = try temp_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        delegate: delegate,
-                        completion: $0)
-                }
+                let result = try await pluginScriptRunner.compilePluginScript(
+                    sourceFiles: buildToolPlugin.sources.paths,
+                    pluginName: buildToolPlugin.name,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope,
+                    callbackQueue: DispatchQueue.sharedConcurrent,
+                    delegate: delegate
+                )
 
                 // This should invoke the compiler and not use the cache.
                 XCTAssert(result.succeeded == true)
@@ -560,16 +550,14 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the plugin again.
             do {
                 let delegate = Delegate()
-                let result = try temp_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        delegate: delegate,
-                        completion: $0)
-                }
+                let result = try await pluginScriptRunner.compilePluginScript(
+                    sourceFiles: buildToolPlugin.sources.paths,
+                    pluginName: buildToolPlugin.name,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope,
+                    callbackQueue: DispatchQueue.sharedConcurrent,
+                    delegate: delegate
+                )
 
                 // This should again invoke the compiler but should fail.
                 XCTAssert(result.succeeded == false)
@@ -598,11 +586,11 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func testUnsupportedDependencyProduct() throws {
+    func testUnsupportedDependencyProduct() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library product and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -675,13 +663,10 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -696,11 +681,11 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func testUnsupportedDependencyTarget() throws {
+    func testUnsupportedDependencyTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -754,13 +739,10 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -775,11 +757,11 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func testPrebuildPluginShouldNotUseExecTarget() throws {
+    func testPrebuildPluginShouldNotUseExecTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -864,13 +846,10 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -879,7 +858,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlyingTarget).filter{ $0.name == "X" }.first as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlying).filter{ $0.name == "X" }.first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "X")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -1048,13 +1027,10 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
@@ -1090,11 +1066,11 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple, pluginResultChecker: ([ResolvedTarget: [BuildToolPluginInvocationResult]]) throws -> ()) throws {
+    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple) async throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        return try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -1192,13 +1168,10 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
@@ -1207,7 +1180,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Find the build tool plugin.
             let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets
-                .map(\.underlyingTarget)
+                .map(\.underlying)
                 .filter { $0.name == "Foo" }
                 .first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "Foo")
@@ -1235,7 +1208,7 @@ class PluginInvocationTests: XCTestCase {
             // Invoke build tool plugin
             let outputDir = packageDir.appending(".build")
             let builtToolsDir = outputDir.appending("debug")
-            let result = try packageGraph.invokeBuildToolPlugins(
+            return try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
@@ -1246,54 +1219,50 @@ class PluginInvocationTests: XCTestCase {
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem
             )
-            try pluginResultChecker(result)
         }
     }
 
-    func testParseArtifactNotSupportedOnTargetPlatform() throws {
+    func testParseArtifactNotSupportedOnTargetPlatform() async throws {
         let hostTriple = try UserToolchain.default.targetTriple
         let artifactSupportedTriples = try [Triple("riscv64-apple-windows-android")]
 
         var checked = false
-        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
-            if let pluginResult = result.first,
-               let diag = pluginResult.value.first?.diagnostics,
-               diag.description == "[[error]: Tool ‘LocalBinaryTool’ is not supported on the target platform]" {
-                checked = true
-            }
+        let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
+        if let pluginResult = result.first,
+           let diag = pluginResult.value.first?.diagnostics,
+           diag.description == "[[error]: Tool ‘LocalBinaryTool’ is not supported on the target platform]" {
+            checked = true
         }
         XCTAssertTrue(checked)
     }
 
-    func testParseArtifactsDoesNotCheckPlatformVersion() throws {
+    func testParseArtifactsDoesNotCheckPlatformVersion() async throws {
         #if !os(macOS)
         throw XCTSkip("platform versions are only available if the host is macOS")
         #else
         let hostTriple = try UserToolchain.default.targetTriple
         let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion().tripleString)20.0")]
 
-        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
-            result.forEach {
-                $0.value.forEach {
-                    XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
-                    XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
-                }
+        let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
+        result.forEach {
+            $0.value.forEach {
+                XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
+                XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
             }
         }
         #endif
     }
 
-    func testParseArtifactsConsidersAllSupportedTriples() throws {
+    func testParseArtifactsConsidersAllSupportedTriples() async throws {
         let hostTriple = try UserToolchain.default.targetTriple
         let artifactSupportedTriples = [hostTriple, try Triple("riscv64-apple-windows-android")]
 
-        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
-            result.forEach {
-                $0.value.forEach {
-                    XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
-                    XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
-                    XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool\(hostTriple.tripleString).sh")
-                }
+        let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
+        result.forEach {
+            $0.value.forEach {
+                XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
+                XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
+                XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool\(hostTriple.tripleString).sh")
             }
         }
     }

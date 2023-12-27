@@ -22,8 +22,7 @@ import class TSCBasic.InMemoryFileSystem
 
 import class TSCTestSupport.XCTestCasePerf
 
-class PackageGraphPerfTests: XCTestCasePerf {
-
+final class PackageGraphPerfTests: XCTestCasePerf {
     func testLoading100Packages() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
@@ -49,8 +48,16 @@ class PackageGraphPerfTests: XCTestCasePerf {
             } else {
                 let depName = "Foo\(pkg + 1)"
                 let depUrl = "/\(depName)"
-                dependencies = [.localSourceControl(deprecatedName: depName, path: try .init(validating: depUrl), requirement: .upToNextMajor(from: "1.0.0"))]
-                targets = [try TargetDescription(name: name, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
+                dependencies = [.localSourceControl(
+                    deprecatedName: depName,
+                    path: try .init(validating: depUrl),
+                    requirement: .upToNextMajor(from: "1.0.0")
+                )]
+                targets = [try TargetDescription(
+                    name: name,
+                    dependencies: [.byName(name: depName, condition: nil)],
+                    path: "."
+                )]
             }
             // Create manifest.
             let isRoot = pkg == 1
@@ -79,7 +86,11 @@ class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             let observability = ObservabilitySystem.makeForTesting()
             let g = try! PackageGraph.load(
-                root: PackageGraphRoot(input: PackageGraphRootInput(packages: [rootManifest.path]), manifests: [rootManifest.path: rootManifest], observabilityScope: observability.topScope),
+                root: PackageGraphRoot(
+                    input: PackageGraphRootInput(packages: [rootManifest.path]),
+                    manifests: [rootManifest.path: rootManifest],
+                    observabilityScope: observability.topScope
+                ),
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 binaryArtifacts: [:],
@@ -95,7 +106,10 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let lastPackageNumber = 20
         let packageNumberSequence = (1...lastPackageNumber)
 
-        let fs = InMemoryFileSystem(emptyFiles: packageNumberSequence.map({ "/Package\($0)/Sources/Target\($0)/s.swift" }) + ["/PackageA/Sources/TargetA/s.swift"])
+        let fs = InMemoryFileSystem(
+            emptyFiles: packageNumberSequence.map({ "/Package\($0)/Sources/Target\($0)/s.swift" }) + 
+                ["/PackageA/Sources/TargetA/s.swift"]
+        )
 
         let packageSequence: [Manifest] = try packageNumberSequence.map { (sequenceNumber: Int) -> Manifest in
             let dependencySequence = sequenceNumber < lastPackageNumber ? Array((sequenceNumber + 1)...lastPackageNumber) : []
@@ -105,10 +119,19 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 toolsVersion: .v5_7,
                 dependencies: try dependencySequence.map({ .fileSystem(path: try .init(validating: "/Package\($0)")) }),
                 products: [
-                    try .init(name: "Package\(sequenceNumber)", type: .library(.dynamic), targets: ["Target\(sequenceNumber)"])
+                    try .init(
+                        name: "Package\(sequenceNumber)",
+                        type: .library(.dynamic),
+                        targets: ["Target\(sequenceNumber)"]
+                    )
                 ],
                 targets: [
-                    try .init(name: "Target\(sequenceNumber)", dependencies: dependencySequence.map { .product(name: "Target\($0)", package: "Package\($0)") })
+                    try .init(
+                        name: "Target\(sequenceNumber)",
+                        dependencies: dependencySequence.map {
+                            .product(name: "Target\($0)", package: "Package\($0)")
+                        }
+                    )
                 ]
             )
         }
@@ -127,7 +150,11 @@ class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try loadPackageGraph(fileSystem: fs, manifests: [root] + packageSequence, observabilityScope: observability.topScope)
+                    _ = try loadPackageGraph(
+                        fileSystem: fs,
+                        manifests: [root] + packageSequence,
+                        observabilityScope: observability.topScope
+                    )
                 }
             } catch {
                 XCTFail("Loading package graph is not expected to fail in this test.")
