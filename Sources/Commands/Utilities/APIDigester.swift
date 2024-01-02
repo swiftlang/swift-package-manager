@@ -322,8 +322,14 @@ extension PackageGraph {
     }
 }
 
-extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
+extension SerializedDiagnostics.SourceLocation {
     public var description: String {
         return "\(filename):\(line):\(column)"
     }
 }
+
+#if swift(<5.11)
+extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
+#else
+extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}
+#endif

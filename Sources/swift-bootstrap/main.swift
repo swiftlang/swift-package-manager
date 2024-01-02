@@ -443,7 +443,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 }
 
 // TODO: move to shared area
-extension AbsolutePath: ExpressibleByArgument {
+extension AbsolutePath {
     public init?(argument: String) {
         if let cwd: AbsolutePath = localFileSystem.currentWorkingDirectory {
             guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
@@ -465,8 +465,16 @@ extension AbsolutePath: ExpressibleByArgument {
     }
 }
 
-extension BuildConfiguration: ExpressibleByArgument {
+extension BuildConfiguration {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }
 }
+
+#if swift(<5.11)
+extension AbsolutePath: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument {}
+#else
+extension AbsolutePath: @retroactive ExpressibleByArgument {}
+extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+#endif

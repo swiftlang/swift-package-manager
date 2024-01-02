@@ -1456,7 +1456,11 @@ private func warnToStderr(_ message: String) {
 }
 
 // used for manifest validation
+#if swift(<5.11)
 extension RepositoryManager: ManifestSourceControlValidator {}
+#else
+extension RepositoryManager: @retroactive ManifestSourceControlValidator {}
+#endif
 
 extension ContainerUpdateStrategy {
     var repositoryUpdateStrategy: RepositoryUpdateStrategy {
