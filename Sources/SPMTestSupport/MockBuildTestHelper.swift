@@ -139,14 +139,11 @@ public struct BuildPlanResult {
 
     public init(plan: Build.BuildPlan) throws {
         self.plan = plan
-        self
-            .productMap = try Dictionary(
-                throwingUniqueKeysWithValues: plan.buildProducts
-                    .compactMap { $0 as? Build.ProductBuildDescription }.map { (
-                        $0.product.name,
-                        $0
-                    ) }
-            )
+        self.productMap = try Dictionary(
+            throwingUniqueKeysWithValues: plan.buildProducts
+                .compactMap { $0 as? Build.ProductBuildDescription }
+                .map { ($0.product.name, $0) }
+        )
         self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map { ($0.0.name, $0.1) })
     }
 
