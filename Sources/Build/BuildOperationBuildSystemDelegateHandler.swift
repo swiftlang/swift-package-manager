@@ -956,11 +956,18 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         }
     }
 
-    func buildComplete(success: Bool, duration: DispatchTimeInterval) {
+    func buildComplete(success: Bool, duration: DispatchTimeInterval, subsetDescriptor: String? = nil) {
+        let subsetString: String
+        if let subsetDescriptor {
+            subsetString = "of \(subsetDescriptor) "
+        } else {
+            subsetString = ""
+        }
+
         queue.sync {
             self.progressAnimation.complete(success: success)
             if success {
-                let message = cancelled ? "Build cancelled!" : "Build complete!"
+                let message = cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
                 self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")
                 self.outputStream.flush()

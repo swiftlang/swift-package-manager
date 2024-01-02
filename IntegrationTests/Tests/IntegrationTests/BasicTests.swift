@@ -249,7 +249,7 @@ final class BasicTests: XCTestCase {
             XCTAssertContents(runError) { checker in
                 checker.check(.regex("Compiling .*secho.*"))
                 checker.check(.regex("Linking .*secho"))
-                checker.check(.contains("Build complete"))
+                checker.check(.contains("Build of product 'secho' complete"))
             }
             XCTAssertEqual(runOutput, "1 \"two\"\n")
         }

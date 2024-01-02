@@ -30,7 +30,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -43,7 +43,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -56,7 +56,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -125,7 +125,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -138,7 +138,7 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -151,7 +151,7 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -164,7 +164,7 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("BinaryToolProductPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
     
@@ -525,7 +525,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stderr.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stderr.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stderr.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
-            XCTAssert(stderr.contains("Build complete!"), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stderr.contains("Build of product 'ImpliedLocalTool' complete!"), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
@@ -1065,7 +1065,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 

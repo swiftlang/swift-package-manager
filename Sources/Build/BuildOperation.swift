@@ -286,7 +286,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let duration = buildStartTime.distance(to: .now())
 
-        self.buildSystemDelegate?.buildComplete(success: success, duration: duration)
+        let subsetDescriptor: String?
+        switch subset {
+        case .product(let productName):
+            subsetDescriptor = "product '\(productName)'"
+        case .target(let targetName):
+            subsetDescriptor = "target: '\(targetName)'"
+        case .allExcludingTests, .allIncludingTests:
+            subsetDescriptor = nil
+        }
+
+        self.buildSystemDelegate?.buildComplete(
+            success: success,
+            duration: duration,
+            subsetDescriptor: subsetDescriptor
+        )
         self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
