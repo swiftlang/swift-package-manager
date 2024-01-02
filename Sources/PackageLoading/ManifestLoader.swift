@@ -1081,7 +1081,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         for toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let libraryPath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
         let modulesPath = self.toolchain.swiftPMLibrariesLocation.manifestModulesPath
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode

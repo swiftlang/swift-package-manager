@@ -30,9 +30,15 @@ private func XCTAssertThrows<T: Swift.Error>(
     }
 }
 
-extension Int: Identifiable {
+extension Int {
     public var id: Self { self }
 }
+
+#if swift(<5.11)
+extension Int: Identifiable {}
+#else
+extension Int: @retroactive Identifiable {}
+#endif
 
 private func topologicalSort(_ nodes: [Int], _ successors: [Int: [Int]]) throws -> [Int] {
     return try topologicalSort(nodes, successors: { successors[$0] ?? [] })
