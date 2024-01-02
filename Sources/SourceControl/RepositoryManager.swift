@@ -40,6 +40,8 @@ public class RepositoryManager: Cancellable {
     private let concurrencySemaphore: DispatchSemaphore
     /// OperationQueue to park pending lookups
     private let lookupQueue: OperationQueue
+    /// Serial queue to manage order of lookup callbacks
+    private let lookupCallbackSerialQueue = DispatchQueue(label: "org.swift.swiftpm.repository-manager.serial-callback")
 
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
@@ -87,7 +89,7 @@ public class RepositoryManager: Cancellable {
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
         let maxConcurrentOperations = max(1, maxConcurrentOperations ?? 3*Concurrency.maxOperations/4)
         self.lookupQueue = OperationQueue()
-        self.lookupQueue.name = "org.swift.swiftpm.repository-manager"
+        self.lookupQueue.name = "org.swift.swiftpm.repository-manager.concurrent"
         self.lookupQueue.maxConcurrentOperationCount = maxConcurrentOperations
         self.concurrencySemaphore = DispatchSemaphore(value: maxConcurrentOperations)
     }
@@ -170,7 +172,8 @@ public class RepositoryManager: Cancellable {
             if let pendingLookup = self.pendingLookups[repository] {
                 self.pendingLookupsLock.unlock()
                 // chain onto the pending lookup
-                return pendingLookup.notify(queue: .sharedConcurrent) {
+                // note the notification is done on a serial queue as the internal lookup assumes no concurrent access
+                return pendingLookup.notify(queue: self.lookupCallbackSerialQueue) {
                     // at this point the previous lookup should be complete and we can re-lookup
                     completion(.init(catching: {
                         try self.lookup(
