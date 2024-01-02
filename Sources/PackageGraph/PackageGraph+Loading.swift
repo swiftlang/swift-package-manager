@@ -15,7 +15,6 @@ import OrderedCollections
 import PackageLoading
 import PackageModel
 
-import func TSCBasic.topologicalSort
 import func TSCBasic.bestMatch
 
 extension PackageGraph {

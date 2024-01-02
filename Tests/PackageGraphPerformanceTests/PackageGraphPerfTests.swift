@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -155,6 +155,24 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                         manifests: [root] + packageSequence,
                         observabilityScope: observability.topScope
                     )
+                }
+            } catch {
+                XCTFail("Loading package graph is not expected to fail in this test.")
+            }
+        }
+    }
+
+    func testRecursiveDependencies() throws {
+        var resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t0")
+        for i in 1..<1000 {
+            resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
+        }        
+
+        let N = 10
+        measure {
+            do {
+                for _ in 0..<N {
+                    _ = try resolvedTarget.recursiveTargetDependencies()
                 }
             } catch {
                 XCTFail("Loading package graph is not expected to fail in this test.")
