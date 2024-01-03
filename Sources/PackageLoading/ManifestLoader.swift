@@ -968,7 +968,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // This provides some safety against arbitrary code execution when parsing manifest files.
                         // We only allow the permissions which are absolutely necessary.
                         if self.isManifestSandboxEnabled {
-                            let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                            let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
                                 cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
