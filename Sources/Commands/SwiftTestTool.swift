@@ -101,15 +101,16 @@ struct SharedOptions: ParsableArguments {
                 completion: $0
             )
         }
-        return rootManifests.values.contains { manifest in
-            manifest.dependencies.contains { dependency in
-                if case let .sourceControl(sourceControl) = dependency,
-                   case let .remote(url) = sourceControl.location {
-                    return url.absoluteString == "https://github.com/apple/swift-testing.git"
-                }
-                return false
-            }
+        let isEnabledByDependency = rootManifests.values.contains { manifest in
+            manifest.dependencies.lazy
+                .map(\.identity)
+                .map(String.init(describing:))
+                .contains("swift-testing")
         }
+        if isEnabledByDependency {
+            swiftTool.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
+        }
+        return isEnabledByDependency
     }
 }
 
