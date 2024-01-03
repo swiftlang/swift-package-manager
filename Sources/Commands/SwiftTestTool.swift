@@ -101,12 +101,11 @@ struct SharedOptions: ParsableArguments {
                 completion: $0
             )
         }
-        let isEnabledByDependency = rootManifests.values.contains { manifest in
-            manifest.dependencies.lazy
-                .map(\.identity)
-                .map(String.init(describing:))
-                .contains("swift-testing")
-        }
+        let isEnabledByDependency = rootManifests.values.lazy
+            .flatMap(\.dependencies)
+            .map(\.identity)
+            .map(String.init(describing:))
+            .contains("swift-testing")
         if isEnabledByDependency {
             swiftTool.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
         }
