@@ -366,12 +366,12 @@ public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeatin
 extension FileSystem {
     @_disfavoredOverload
     public func createEmptyFiles(at root: AbsolutePath, files: String...) {
-        self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
+        self.createEmptyFiles(at: root.asTSCAbsolutePath, files: files)
     }
 
     @_disfavoredOverload
     public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
-        self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
+        self.createEmptyFiles(at: root.asTSCAbsolutePath, files: files)
     }
 }
 

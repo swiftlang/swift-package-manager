@@ -119,10 +119,10 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         case .xctest:
             let index = self.context.productsBuildParameters.indexStore
             let api = try self.context.indexStoreAPI.get()
-            let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
+            let store = try IndexStore.open(store: index.asTSCAbsolutePath, api: api)
 
             // FIXME: We can speed this up by having one llbuild command per object file.
-            let tests = try store.listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
+            let tests = try store.listTests(in: tool.inputs.map { try AbsolutePath(validating: $0.name).asTSCAbsolutePath })
 
             let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
 
@@ -502,7 +502,7 @@ public final class BuildExecutionContext {
                 let indexStoreLib = try toolsBuildParameters.toolchain.toolchainLibDir
                     .appending("libIndexStore" + ext)
                 #endif
-                return try .success(IndexStoreAPI(dylib: TSCAbsolutePath(indexStoreLib)))
+                return try .success(IndexStoreAPI(dylib: indexStoreLib.asTSCAbsolutePath))
             } catch {
                 return .failure(error)
             }

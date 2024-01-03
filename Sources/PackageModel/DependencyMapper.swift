@@ -97,12 +97,10 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 if dependencyLocation.hasPrefix("~/") {
                     return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
                 }
-
                 // check if already absolute path
                 if let path = try? AbsolutePath(validating: dependencyLocation) {
                     return path.pathString
                 }
-
                 // otherwise treat as relative path to the parent package
                 return try AbsolutePath(validating: dependencyLocation, relativeTo: parentPackagePath).pathString
             // SwiftPM can't handle file locations with file:// scheme so we need to

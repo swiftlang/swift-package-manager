@@ -27,15 +27,15 @@ import struct TSCUtility.Version
 @_exported import func TSCTestSupport.XCTAssertThrows
 
 public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    TSCTestSupport.XCTAssertFileExists(TSCAbsolutePath(path), file: file, line: line)
+    TSCTestSupport.XCTAssertFileExists(path.asTSCAbsolutePath, file: file, line: line)
 }
 
 public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    TSCTestSupport.XCTAssertDirectoryExists(TSCAbsolutePath(path), file: file, line: line)
+    TSCTestSupport.XCTAssertDirectoryExists(path.asTSCAbsolutePath, file: file, line: line)
 }
 
 public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    TSCTestSupport.XCTAssertNoSuchPath(TSCAbsolutePath(path), file: file, line: line)
+    TSCTestSupport.XCTAssertNoSuchPath(path.asTSCAbsolutePath, file: file, line: line)
 }
 
 

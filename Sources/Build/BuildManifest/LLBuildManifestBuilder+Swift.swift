@@ -360,7 +360,7 @@ extension LLBuildManifestBuilder {
         }
         dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(targetDescription.target.c99name)] =
             SwiftDriver.ExternalTargetModuleDetails(
-                path: TSCAbsolutePath(dependencySwiftTargetDescription.moduleOutputPath),
+                path: dependencySwiftTargetDescription.moduleOutputPath.asTSCAbsolutePath,
                 isFramework: false
             )
         try self.collectTargetDependencyModuleDetails(

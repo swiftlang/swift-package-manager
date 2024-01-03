@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import Foundation
 import PackageModel
-import TSCBasic
 
 extension SwiftPackageTool {
     struct Install: SwiftCommand {
@@ -125,7 +125,7 @@ private struct InstalledPackageProduct {
             .map { binPath.appending($0) }
 
         return contents.map { path in
-            InstalledPackageProduct(path: .init(path))
+            InstalledPackageProduct(path: path)
         }
     }
 
