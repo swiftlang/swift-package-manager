@@ -167,7 +167,67 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
-    
+
+    func testBuildToolWithoutOutputs() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        func createPackageUnderTest(packageDir: AbsolutePath, toolsVersion: ToolsVersion) throws {
+            let manifestFile = packageDir.appending("Package.swift")
+            try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                manifestFile,
+                string: """
+                // swift-tools-version: \(toolsVersion.description)
+                import PackageDescription
+                let package = Package(name: "MyPackage",
+                    targets: [
+                        .target(name: "SomeTarget", plugins: ["Plugin"]),
+                        .plugin(name: "Plugin", capability: .buildTool),
+                    ])
+                """)
+
+            let targetSourceFile = packageDir.appending(components: "Sources", "SomeTarget", "dummy.swift")
+            try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(targetSourceFile, string: "")
+
+            let pluginSourceFile = packageDir.appending(components: "Plugins", "Plugin", "plugin.swift")
+            try localFileSystem.createDirectory(pluginSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(pluginSourceFile, string: """
+            import PackagePlugin
+            @main
+            struct Plugin: BuildToolPlugin {
+                func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                    return [
+                        .buildCommand(
+                            displayName: "empty",
+                            executable: .init("/usr/bin/touch"),
+                            arguments: [context.pluginWorkDirectory.appending("best.txt")],
+                            inputFiles: [],
+                            outputFiles: []
+                        )
+                    ]
+                }
+            }
+            """)
+        }
+
+        try testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "Plugin", "best.txt"])
+
+            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
+            let (_, stderr) = try executeSwiftBuild(packageDir)
+            XCTAssertTrue(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
+            XCTAssertFalse(localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
+
+            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_11)
+            let (_, stderr2) = try executeSwiftBuild(packageDir)
+            XCTAssertEqual("", stderr2)
+            XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
+        }
+    }
+
     func testCommandPluginInvocation() async throws {
         try XCTSkipIf(true, "test is disabled because it isn't stable, see rdar://117870608")
 
