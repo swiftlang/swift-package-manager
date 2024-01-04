@@ -395,6 +395,10 @@ public final class SwiftTool {
             return workspace
         }
 
+        if options.resolver.skipDependencyUpdate {
+            self.observabilityScope.emit(warning: "'--skip-update' option is deprecated and will be removed in a future release")
+        }
+
         let delegate = self.workspaceDelegateProvider(
             self.observabilityScope,
             self.observabilityHandler.print,
