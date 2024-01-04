@@ -1138,4 +1138,13 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    func testDependentPlugins() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath)
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }

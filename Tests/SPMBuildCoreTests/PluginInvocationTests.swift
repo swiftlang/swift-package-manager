@@ -188,15 +188,16 @@ class PluginInvocationTests: XCTestCase {
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
-        let builtToolsDir = AbsolutePath("/Foo/.build/debug")
+        let builtToolsDir = AbsolutePath("/path/to/build/debug")
         let pluginRunner = MockPluginScriptRunner()
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
-            builtToolsDir: builtToolsDir,
-            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildParameters: mockBuildParameters(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+            ),
+            additionalFileRules: [],
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
             pkgConfigDirectories: [],
-            sdkRootPath: UserToolchain.default.sdkRootPath,
             pluginScriptRunner: pluginRunner,
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
@@ -873,14 +874,14 @@ class PluginInvocationTests: XCTestCase {
             // Invoke build tool plugin
             do {
                 let outputDir = packageDir.appending(".build")
-                let builtToolsDir = outputDir.appending("debug")
                 let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
-                    builtToolsDir: builtToolsDir,
-                    buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    buildParameters: mockBuildParameters(
+                        environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    ),
+                    additionalFileRules: [],
                     toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                     pkgConfigDirectories: [],
-                    sdkRootPath: UserToolchain.default.sdkRootPath,
                     pluginScriptRunner: pluginScriptRunner,
                     observabilityScope: observability.topScope,
                     fileSystem: localFileSystem
@@ -1207,14 +1208,14 @@ class PluginInvocationTests: XCTestCase {
 
             // Invoke build tool plugin
             let outputDir = packageDir.appending(".build")
-            let builtToolsDir = outputDir.appending("debug")
             return try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
-                builtToolsDir: builtToolsDir,
-                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                buildParameters: mockBuildParameters(
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                ),
+                additionalFileRules: [],
                 toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: [],
-                sdkRootPath: UserToolchain.default.sdkRootPath,
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem

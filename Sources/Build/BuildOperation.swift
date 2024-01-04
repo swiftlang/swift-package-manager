@@ -469,11 +469,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                builtToolsDir: self.toolsBuildParameters.buildPath,
-                buildEnvironment: self.toolsBuildParameters.buildEnvironment,
+                buildParameters: self.toolsBuildParameters,
+                additionalFileRules: self.additionalFileRules,
                 toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
-                sdkRootPath: self.toolsBuildParameters.toolchain.sdkRootPath,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
