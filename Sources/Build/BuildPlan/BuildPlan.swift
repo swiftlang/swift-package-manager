@@ -229,6 +229,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for  tools information.
     var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
+    /// Whether to disable sandboxing (e.g. for macros).
+    private let disableSandbox: Bool
+
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -242,6 +245,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        disableSandbox: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -249,6 +253,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
+        self.disableSandbox = disableSandbox
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
@@ -331,6 +336,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     requiredMacroProducts: requiredMacroProducts,
                     shouldGenerateTestObservation: generateTestObservation,
+                    disableSandbox: self.disableSandbox,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
@@ -377,6 +383,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             let derivedTestTargets = try Self.makeDerivedTestTargets(
                 buildParameters,
                 graph,
+                self.disableSandbox,
                 self.fileSystem,
                 self.observabilityScope
             )
