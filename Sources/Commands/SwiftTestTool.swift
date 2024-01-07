@@ -399,12 +399,12 @@ public struct SwiftTestTool: SwiftCommand {
 
         // No need to close this stream.
         // Buffered output's close method is a no-op.
-        var outputStream = BufferedOutputByteStream()
+        var quietAccumulator = ""
 
         // Finally, run the tests.
         let ranSuccessfully = runner.test(outputHandler: {
             if runQuietly {
-                print($0, terminator: "", to: &outputStream)
+                print($0, terminator: "", to: &quietAccumulator)
             } else {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
@@ -414,10 +414,9 @@ public struct SwiftTestTool: SwiftCommand {
 
         if !ranSuccessfully {
             if runQuietly {
-                let bytes = outputStream.bytes
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
-                print(bytes.validDescription ?? bytes.description, terminator: "")
+                print(quietAccumulator, terminator: "")
             }
             swiftTool.executionStatus = .failure
         }
@@ -920,9 +919,11 @@ final class ParallelTestRunner {
     private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
         // Skip updating progress animation if running quietly
-        if !loggingOptions.quiet {
-            progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
-        }
+        guard !loggingOptions.quiet else { return }
+
+        // TODO: Adjust the progress animation's output stream if quiet
+
+        progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
@@ -1014,7 +1015,9 @@ final class ParallelTestRunner {
 
         // Print test results.
         for test in testResults {
-            if (!test.success || shouldOutputSuccess || (atLeastOneTestFailed && loggingOptions.quiet)) && !buildParameters.testingParameters.experimentalTestOutput {
+            if (
+                !test.success || shouldOutputSuccess || (atLeastOneTestFailed && loggingOptions.quiet)
+            ) && !buildParameters.testingParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print(test.output)
