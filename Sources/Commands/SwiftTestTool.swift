@@ -101,6 +101,9 @@ struct SharedOptions: ParsableArguments {
                 completion: $0
             )
         }
+
+        // Is swift-testing among the dependencies of the package being built?
+        // If so, enable support.
         let isEnabledByDependency = rootManifests.values.lazy
             .flatMap(\.dependencies)
             .map(\.identity)
@@ -108,8 +111,22 @@ struct SharedOptions: ParsableArguments {
             .contains("swift-testing")
         if isEnabledByDependency {
             swiftTool.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
+            return true
         }
-        return isEnabledByDependency
+
+        // Is swift-testing the package being built itself (unlikely)? If so,
+        // enable support.
+        let isEnabledByName = root.packages.lazy
+            .map(PackageIdentity.init(path:))
+            .map(String.init(describing:))
+            .contains("swift-testing")
+        if isEnabledByName {
+            swiftTool.observabilityScope.emit(debug: "Enabling swift-testing support because it is a root package.")
+            return true
+        }
+
+        // Default to disabled since swift-testing is experimental (opt-in.)
+        return false
     }
 }
 
