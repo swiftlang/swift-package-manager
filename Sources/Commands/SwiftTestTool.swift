@@ -122,6 +122,7 @@ struct TestToolOptions: ParsableArguments {
 
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
+          inversion: .prefixedNo,
           help: "Run the tests in parallel.")
     var shouldRunInParallel: Bool = false
 
@@ -553,7 +554,9 @@ public struct SwiftTestTool: SwiftCommand {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
 
-            // The --num-worker option should be called with --parallel.
+            // The --num-worker option should be called with --parallel. Since
+            // this option does not affect swift-testing at this time, we can
+            // effectively ignore that it defaults to enabling parallelization.
             guard options.shouldRunInParallel else {
                 throw StringError("--num-workers must be used with --parallel")
             }

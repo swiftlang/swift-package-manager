@@ -92,6 +92,14 @@ final class TestToolTests: CommandsTestCase {
             XCTAssertThrowsCommandExecutionError(try SwiftPM.Test.execute(packagePath: fixturePath)) { error in
                 // in "swift test" test output goes to stdout
                 XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
+                XCTAssertNoMatch(error.stdout, .contains("[3/3]"))
+            }
+
+            // Try --no-parallel.
+            XCTAssertThrowsCommandExecutionError(try SwiftPM.Test.execute(["--no-parallel"], packagePath: fixturePath)) { error in
+                // in "swift test" test output goes to stdout
+                XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
+                XCTAssertNoMatch(error.stdout, .contains("[3/3]"))
             }
 
             // Run tests in parallel.
