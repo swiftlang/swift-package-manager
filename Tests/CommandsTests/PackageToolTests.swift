@@ -1874,6 +1874,115 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    // Test reporting of plugin diagnostic messages at different verbosity levels
+    func testCommandPluginDiagnostics() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        // Match patterns for expected messages
+        let isEmpty = StringPattern.equal("")
+        let isOnlyPrint = StringPattern.equal("command plugin: print\n")
+        let containsRemark = StringPattern.contains("command plugin: Diagnostics.remark")
+        let containsWarning = StringPattern.contains("command plugin: Diagnostics.warning")
+        let containsError = StringPattern.contains("command plugin: Diagnostics.error")
+
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginDiagnosticsStub") { fixturePath in
+            func runPlugin(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
+                let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)
+                completion(stdout, stderr)
+            }
+
+            // Diagnostics.error causes SwiftPM to return a non-zero exit code, but we still need to check stdout and stderr
+            func runPluginWithError(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
+                XCTAssertThrowsError(try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)) { error in
+                    guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    completion(stdout, stderr)
+                }
+            }
+
+            // Default verbosity
+            //   - stdout is always printed
+            //   - Diagnostics below 'warning' are suppressed
+
+            try runPlugin(flags: [], diagnostics: ["print"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: [], diagnostics: ["print", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: [], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsWarning)
+            }
+
+         	try runPluginWithError(flags: [], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsWarning)
+                XCTAssertMatch(stderr, containsError)
+            }
+
+            // Quiet Mode
+            //   - stdout is always printed
+            //   - Diagnostics below 'error' are suppressed
+
+            try runPlugin(flags: ["-q"], diagnostics: ["print"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPluginWithError(flags: ["-q"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertNoMatch(stderr, containsRemark)
+                XCTAssertNoMatch(stderr, containsWarning)
+                XCTAssertMatch(stderr, containsError)
+            }
+
+            // Verbose Mode
+            //   - stdout is always printed
+            //   - All diagnostics are printed
+            //   - Substantial amounts of additional compiler output are also printed
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                // At this level stderr contains extra compiler output even if the plugin does not print diagnostics
+            }
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsRemark)
+            }
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsRemark)
+                XCTAssertMatch(stderr, containsWarning)
+            }
+
+            try runPluginWithError(flags: ["-v"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsRemark)
+                XCTAssertMatch(stderr, containsWarning)
+                XCTAssertMatch(stderr, containsError)
+            }
+        }
+    }
+
     func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
