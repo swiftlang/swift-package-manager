@@ -229,7 +229,15 @@ public struct TargetSourcesBuilder {
         return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: [], declaredSources: nil, observabilityScope: observabilityScope)
     }
 
-    private static func computeRule(for path: AbsolutePath, toolsVersion: ToolsVersion, rules: [FileRuleDescription], declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)], declaredSources: [AbsolutePath]?, matchingResourceRuleHandler: (AbsolutePath) -> () = { _ in }, observabilityScope: ObservabilityScope) -> FileRuleDescription.Rule {
+    private static func computeRule(
+        for path: AbsolutePath, 
+        toolsVersion: ToolsVersion,
+        rules: [FileRuleDescription],
+        declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)],
+        declaredSources: [AbsolutePath]?,
+        matchingResourceRuleHandler: (AbsolutePath) -> () = { _ in },
+        observabilityScope: ObservabilityScope
+    ) -> FileRuleDescription.Rule {
         var matchedRule: FileRuleDescription.Rule = .none
 
         // First match any resources explicitly declared in the manifest file.
