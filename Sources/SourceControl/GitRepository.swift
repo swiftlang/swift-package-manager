@@ -623,6 +623,17 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func getCurrentTag() -> String? {
+        self.lock.withLock {
+            try? callGit(
+                "describe",
+                "--exact-match",
+                "--tags",
+                failureMessage: "Couldn’t get current tag"
+            )
+        }
+    }
+
     public func checkout(tag: String) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
