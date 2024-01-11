@@ -60,7 +60,10 @@ class PackageDescription5_11LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    private func loadRootManifestWithBasicGitRepository(manifestContent: String, validator: (Manifest, TestingObservability) throws -> ()) throws {
+    private func loadRootManifestWithBasicGitRepository(
+        manifestContent: String, 
+        validator: (Manifest, TestingObservability) throws -> ()
+    ) throws {
         let observability = ObservabilitySystem.makeForTesting()
 
         try testWithTemporaryDirectory { tmpdir in
