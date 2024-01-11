@@ -13,6 +13,10 @@ struct diagnostics_stub: CommandPlugin {
         }
 
         // Diagnostics are collected by SwiftPM and printed to standard error, depending on the current log verbosity level.
+        if arguments.contains("progress") {
+           Diagnostics.progress("command plugin: Diagnostics.progress")     // prefixed with [plugin_name]
+        }
+
         if arguments.contains("remark") {
            Diagnostics.remark("command plugin: Diagnostics.remark")     // prefixed with 'info:' when printed
         }

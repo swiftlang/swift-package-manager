@@ -240,7 +240,10 @@ extension PluginTarget {
                         diagnostic = .info(message, metadata: metadata)
                     }
                     self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
-                    
+
+                case .emitProgress(let message):
+                    self.invocationDelegate.pluginEmittedProgress(message)
+
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
@@ -485,7 +488,9 @@ extension PackageGraph {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         outputData.append(contentsOf: data)
                     }
-                    
+
+                    func pluginEmittedProgress(_ message: String) {}
+
                     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         diagnostics.append(diagnostic)
@@ -818,6 +823,9 @@ public protocol PluginInvocationDelegate {
     
     /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
     func pluginEmittedDiagnostic(_: Basics.Diagnostic)
+
+    /// Called when a plugin emits a progress message through the PackagePlugin APIs.
+    func pluginEmittedProgress(_: String)
 
     /// Called when a plugin defines a build command through the PackagePlugin APIs.
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath])

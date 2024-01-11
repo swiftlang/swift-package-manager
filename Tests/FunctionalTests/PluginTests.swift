@@ -478,6 +478,8 @@ class PluginTests: XCTestCase {
                     print("[DIAG] \(diagnostic)")
                     diagnostics.append(diagnostic)
                 }
+
+                func pluginEmittedProgress(_ message: String) {}
             }
 
             // Helper function to invoke a plugin with given input and to check its outputs.
@@ -767,6 +769,8 @@ class PluginTests: XCTestCase {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     diagnostics.append(diagnostic)
                 }
+
+                func pluginEmittedProgress(_ message: String) {}
             }
 
             // Find the relevant plugin.

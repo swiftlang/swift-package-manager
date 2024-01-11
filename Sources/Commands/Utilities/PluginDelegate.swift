@@ -53,6 +53,11 @@ final class PluginDelegate: PluginInvocationDelegate {
         swiftTool.observabilityScope.emit(diagnostic)
     }
 
+    func pluginEmittedProgress(_ message: String) {
+        swiftTool.outputStream.write("[\(plugin.name)] \(message)\n")
+        swiftTool.outputStream.flush()
+    }
+
     func pluginRequestedBuildOperation(
         subset: PluginInvocationBuildSubset,
         parameters: PluginInvocationBuildParameters,
