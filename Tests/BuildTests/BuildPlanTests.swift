@@ -1353,11 +1353,11 @@ final class BuildPlanTests: XCTestCase {
         args += ["-target", defaultTargetTriple]
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         args += ["-fmodules", "-fmodule-name=extlib"]
         #endif
         args += ["-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
         #endif
 
@@ -1382,7 +1382,7 @@ final class BuildPlanTests: XCTestCase {
 
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         args += ["-fmodules", "-fmodule-name=exe"]
         #endif
         args += [
@@ -1392,7 +1392,7 @@ final class BuildPlanTests: XCTestCase {
             "-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString,
             "-fmodule-map-file=\(buildPath.appending(components: "extlib.build", "module.modulemap"))",
         ]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
         #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
@@ -1710,11 +1710,11 @@ final class BuildPlanTests: XCTestCase {
 
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         args += ["-fmodules", "-fmodule-name=lib"]
         #endif
         args += ["-I", Pkg.appending(components: "Sources", "lib", "include").pathString]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
         #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
@@ -2866,11 +2866,11 @@ final class BuildPlanTests: XCTestCase {
         var expectedExeBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
         expectedExeBasicArgs += ["-target", defaultTargetTriple]
         expectedExeBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         expectedExeBasicArgs += ["-fmodules", "-fmodule-name=exe"]
         #endif
         expectedExeBasicArgs += ["-I", Pkg.appending(components: "Sources", "exe", "include").pathString]
-        #if !os(Windows) // FIXME(5473) - modules flags on Windows dropped
+        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         expectedExeBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
         #endif
 
@@ -2889,7 +2889,7 @@ final class BuildPlanTests: XCTestCase {
         var expectedLibBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
         expectedLibBasicArgs += ["-target", defaultTargetTriple]
         expectedLibBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
-        let shouldHaveModules = !(triple.isDarwin() || triple.isWindows() || triple.isAndroid())
+        let shouldHaveModules = triple.isDarwin()
         if shouldHaveModules {
             expectedLibBasicArgs += ["-fmodules", "-fmodule-name=lib"]
         }
@@ -3455,9 +3455,8 @@ final class BuildPlanTests: XCTestCase {
         let args = [
             "-target", "wasm32-unknown-wasi",
             "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1",
-            "-fblocks", "-fmodules", "-fmodule-name=lib",
+            "-fblocks",
             "-I", Pkg.appending(components: "Sources", "lib", "include").pathString,
-            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
             "-g",
         ]
         XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
