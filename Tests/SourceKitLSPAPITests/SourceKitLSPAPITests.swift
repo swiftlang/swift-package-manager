@@ -58,7 +58,7 @@ class SourceKitLSPAPITests: XCTestCase {
 
 extension SourceKitLSPAPI.BuildDescription {
     @discardableResult func checkArguments(for targetName: String, graph: PackageGraph, partialArguments: [String]) throws -> Bool {
-        let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
+        let target = try XCTUnwrap(graph.allTargets.first(where: { $1.name == targetName })?.value)
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target))
 
         guard let file = buildTarget.sources.first else {

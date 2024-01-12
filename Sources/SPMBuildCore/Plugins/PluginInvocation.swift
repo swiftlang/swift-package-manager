@@ -395,9 +395,9 @@ extension PackageGraph {
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
-    ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
-        var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
-        for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
+    ) throws -> [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] {
+        var pluginResultsByTarget: [ResolvedTarget.ID: (ResolvedTarget, [BuildToolPluginInvocationResult])] = [:]
+        for target in self.allTargets.values.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
@@ -587,7 +587,7 @@ extension PackageGraph {
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            pluginResultsByTarget[target] = buildToolPluginResults
+            pluginResultsByTarget[target.id] = (target, buildToolPluginResults)
         }
         return pluginResultsByTarget
     }

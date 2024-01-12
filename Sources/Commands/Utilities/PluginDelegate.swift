@@ -335,7 +335,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+        guard let target = packageGraph.allTargets.first(where: { $1.name == targetName })?.value else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 

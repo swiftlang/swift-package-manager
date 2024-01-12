@@ -191,8 +191,9 @@ extension LLBuildManifestBuilder {
     public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedTarget.Dependency] = self.plan.targetMap.keys.map {
-            ResolvedTarget.Dependency.target($0, conditions: [])
+        let nodes: [ResolvedTarget.Dependency] = self.plan.targetMap.keys.compactMap {
+            guard let target = self.plan.graph.allTargets[$0] else { return nil }
+            return ResolvedTarget.Dependency.target(target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -225,7 +226,7 @@ extension LLBuildManifestBuilder {
                 // be able to detect such targets' modules.
                 continue
             }
-            guard let description = plan.targetMap[target] else {
+            guard let description = plan.targetMap[target.id] else {
                 throw InternalError("Expected description for target \(target)")
             }
             switch description {
@@ -327,7 +328,7 @@ extension LLBuildManifestBuilder {
                     throw InternalError("unknown dependency product for \(dependency)")
                 }
                 for dependencyProductTarget in dependencyProduct.targets {
-                    guard let dependencyTargetDescription = self.plan.targetMap[dependencyProductTarget] else {
+                    guard let dependencyTargetDescription = self.plan.targetMap[dependencyProductTarget.id] else {
                         throw InternalError("unknown dependency target for \(dependencyProductTarget)")
                     }
                     try self.addTargetDependencyInfo(
@@ -339,7 +340,7 @@ extension LLBuildManifestBuilder {
                 // Product dependencies are broken down into the targets that make them up.
                 guard
                     let dependencyTarget = dependency.target,
-                    let dependencyTargetDescription = self.plan.targetMap[dependencyTarget]
+                    let dependencyTargetDescription = self.plan.targetMap[dependencyTarget.id]
                 else {
                     throw InternalError("unknown dependency target for \(dependency)")
                 }
@@ -426,7 +427,7 @@ extension LLBuildManifestBuilder {
             if target.type == .executable {
                 // FIXME: Optimize.
                 let product = try plan.graph.allProducts.first {
-                    try $0.type == .executable && $0.executableTarget == target
+                    try $0.type == .executable && $0.executableTarget.id == target.id
                 }
                 if let product {
                     guard let planProduct = plan.productMap[product] else {
@@ -437,7 +438,7 @@ extension LLBuildManifestBuilder {
                 return
             }
 
-            switch self.plan.targetMap[target] {
+            switch self.plan.targetMap[target.id] {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:

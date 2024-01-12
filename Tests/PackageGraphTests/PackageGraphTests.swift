@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -20,7 +20,6 @@ import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
 class PackageGraphTests: XCTestCase {
-
     func testBasic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
@@ -81,13 +80,13 @@ class PackageGraphTests: XCTestCase {
             result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
 
-        let fooPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Foo") })
-        let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
-        let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
+        let fooPackage = try XCTUnwrap(g.packages.first { $0.identity == .plain("Foo") })
+        let fooTarget = try XCTUnwrap(g.allTargets.first { $1.name == "Foo" }).value
+        let fooDepTarget = try XCTUnwrap(g.allTargets.first { $1.name == "FooDep" }).value
         XCTAssert(g.package(for: fooTarget) == fooPackage)
         XCTAssert(g.package(for: fooDepTarget) == fooPackage)
-        let barPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Bar") })
-        let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
+        let barPackage = try XCTUnwrap(g.packages.first { $0.identity == .plain("Bar") })
+        let barTarget = try XCTUnwrap(g.allTargets.first { $1.name == "Bar" }).value
         XCTAssert(g.package(for: barTarget) == barPackage)
     }
 

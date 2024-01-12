@@ -47,8 +47,9 @@ public final class PackageGraphResult {
     public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.allTargets
-                .filter{ $0.type != .test }
-                .map{ $0.name }
+                .values
+                .filter { $0.type != .test }
+                .map { $0.name }
                 .sorted(), targets.sorted(), file: file, line: line)
     }
 
@@ -57,7 +58,14 @@ public final class PackageGraphResult {
     }
 
     public func check(reachableTargets: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(Set(graph.reachableTargets.map { $0.name }), Set(reachableTargets), file: file, line: line)
+        XCTAssertEqual(
+            Set(self.graph.reachableTargets.compactMap {
+                self.graph.allTargets[$0]?.name
+            }),
+            Set(reachableTargets),
+            file: file,
+            line: line
+        )
     }
 
     public func check(reachableProducts: String..., file: StaticString = #file, line: UInt = #line) {
@@ -70,7 +78,7 @@ public final class PackageGraphResult {
         file: StaticString = #file,
         line: UInt = #line
     ) throws {
-        let targets = Set(try self.reachableBuildTargets(in: environment).map({ $0.name }))
+        let targets = Set(try self.reachableBuildTargets(in: environment).compactMap { self.graph.allTargets[$0]?.name })
         XCTAssertEqual(targets, Set(reachableBuildTargets), file: file, line: line)
     }
 
@@ -111,13 +119,13 @@ public final class PackageGraphResult {
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.allTargets
-                .filter{ $0.type == .test }
-                .map{ $0.name }
+                .filter { $1.type == .test }
+                .map { $1.name }
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
     public func find(target: String) -> ResolvedTarget? {
-        return graph.allTargets.first(where: { $0.name == target })
+        return graph.allTargets.values.first(where: { $0.name == target })
     }
 
     public func find(product: String) -> ResolvedProduct? {
@@ -128,12 +136,12 @@ public final class PackageGraphResult {
         return graph.packages.first(where: { $0.identity == package })
     }
 
-    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> Set<ResolvedTarget> {
+    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> Set<ResolvedTarget.ID> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
         let recursiveBuildTargetDependencies = try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
-            .compactMap { $0.target }
-        return Set(inputTargets).union(recursiveBuildTargetDependencies)
+            .compactMap { $0.target?.id }
+        return Set(inputTargets.map(\.id)).union(recursiveBuildTargetDependencies)
     }
 
     private func reachableBuildProducts(in environment: BuildEnvironment) throws -> Set<ResolvedProduct> {

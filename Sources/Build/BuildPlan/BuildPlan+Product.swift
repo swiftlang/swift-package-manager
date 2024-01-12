@@ -70,7 +70,7 @@ extension BuildPlan {
             switch target.underlying {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = targetMap[target] else {
+                guard case .swift(let description) = targetMap[target.id] else {
                     throw InternalError("unknown target \(target)")
                 }
 
@@ -97,9 +97,9 @@ extension BuildPlan {
             }
             return product
         }
-        buildProduct.objects += try dependencies.staticTargets.flatMap { targetName -> [AbsolutePath] in
-            guard let target = targetMap[targetName] else {
-                throw InternalError("unknown target \(targetName)")
+        buildProduct.objects += try dependencies.staticTargets.flatMap { target -> [AbsolutePath] in
+            guard let target = targetMap[target.id] else {
+                throw InternalError("unknown target \(target)")
             }
             return try target.objects
         }
@@ -149,7 +149,7 @@ extension BuildPlan {
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
-                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
+                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.contains(targetID: target.id)
                 let topLevelIsMacro = isTopLevel && product.type == .macro
                 let topLevelIsPlugin = isTopLevel && product.type == .plugin
                 let topLevelIsTest = isTopLevel && product.type == .test
@@ -198,18 +198,18 @@ extension BuildPlan {
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
                 case .executable, .snippet, .macro:
-                    if product.targets.contains(target) {
+                    if product.contains(targetID: target.id) {
                         staticTargets.append(target)
                     } else if product.type == .test && (target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
                         // Only "top-level" targets should really be considered here, not transitive ones.
-                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
+                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.contains(targetID: target.id)
                         if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
                             staticTargets.append(target)
                         }
                     }
                 // Test targets should be included only if they are directly in the product's target list.
                 case .test:
-                    if product.targets.contains(target) {
+                    if product.contains(targetID: target.id) {
                         staticTargets.append(target)
                     }
                 // Library targets should always be included.

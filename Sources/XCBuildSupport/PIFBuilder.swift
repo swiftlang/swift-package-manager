@@ -232,7 +232,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private var binaryGroup: PIFGroupBuilder!
-    private let executableTargetProductMap: [ResolvedTarget: ResolvedProduct]
+    private let executableTargetProductMap: [ResolvedTarget.ID: ResolvedProduct]
 
     var isRootPackage: Bool { package.manifest.packageKind.isRoot }
 
@@ -250,8 +250,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             metadata: package.underlying.diagnosticsMetadata
         )
 
-        executableTargetProductMap = try Dictionary(throwingUniqueKeysWithValues:
-            package.products.filter { $0.type == .executable }.map { ($0.mainTarget, $0) }
+        executableTargetProductMap = try Dictionary(
+            throwingUniqueKeysWithValues: package.products
+                .filter { $0.type == .executable }
+                .map { ($0.mainTarget.id, $0)
+            }
         )
 
         super.init()
@@ -791,7 +794,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         } else {
             // If this is an executable target, the dependency should be to the PIF target created from the its
             // product, as we don't have PIF targets corresponding to executable targets.
-            let targetGUID = executableTargetProductMap[target]?.pifTargetGUID ?? target.pifTargetGUID
+            let targetGUID = executableTargetProductMap[target.id]?.pifTargetGUID ?? target.pifTargetGUID
             let linkProduct = linkProduct && target.type != .systemModule && target.type != .executable
             pifTarget.addDependency(
                 toTargetWithGUID: targetGUID,

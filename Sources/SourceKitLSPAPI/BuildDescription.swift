@@ -64,7 +64,7 @@ public struct BuildDescription {
 
     // FIXME: should not use `ResolvedTarget` in the public interface
     public func getBuildTarget(for target: ResolvedTarget) -> BuildTarget? {
-        if let description = buildPlan.targetMap[target] {
+        if let description = self.buildPlan.targetMap[target.id] {
             switch description {
             case .clang(let description):
                 return description

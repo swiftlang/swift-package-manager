@@ -58,13 +58,13 @@ public struct PackageGraph {
     public let packages: [ResolvedPackage]
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: Set<ResolvedTarget>
+    public let reachableTargets: Set<ResolvedTarget.ID>
 
     /// The list of all products reachable from root targets.
     public let reachableProducts: Set<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: Set<ResolvedTarget>
+    public let allTargets: [ResolvedTarget.ID: ResolvedTarget]
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
     public let allProducts: Set<ResolvedProduct>
@@ -78,20 +78,20 @@ public struct PackageGraph {
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.flatMap({ (package: ResolvedPackage) -> Set<ResolvedTarget> in
+        return rootPackages.flatMap({ (package: ResolvedPackage) -> Set<ResolvedTarget.ID> in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
+            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget.ID? in
                 switch dep {
                 case .target(let target, _):
-                    return target
+                    return target.id
                 default:
                     return nil
                 }
             }
 
-            return Set(package.targets).subtracting(unsatisfiedDependencyTargets)
-        }).contains(target)
+            return Set(package.targets.map(\.id)).subtracting(unsatisfiedDependencyTargets)
+        }).contains(target.id)
     }
 
     public func isRootPackage(_ package: ResolvedPackage) -> Bool {
@@ -99,10 +99,10 @@ public struct PackageGraph {
         return rootPackages.contains(package)
     }
 
-    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
+    private let targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
     /// Returns the package that contains the target, or nil if the target isn't in the graph.
     public func package(for target: ResolvedTarget) -> ResolvedPackage? {
-        return self.targetsToPackages[target]
+        return self.targetsToPackages[target.id]
     }
 
 
@@ -135,27 +135,27 @@ public struct PackageGraph {
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
         self.targetsToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0] = package }
+            package.targets.forEach{ partial[$0.id] = package }
         })
 
-        allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
+        self.allTargets = Dictionary(pickLastWhenDuplicateFound: self.packages.flatMap({ package -> [ResolvedTarget] in
             if rootPackages.contains(package) {
                 return package.targets
             } else {
                 // Don't include tests targets from non-root packages so swift-test doesn't
                 // try to run them.
-                return package.targets.filter({ $0.type != .test })
+                return package.targets.filter { $0.type != .test }
             }
         }))
 
         // Create a mapping from products to the packages that define them.  Here
         // we include all products, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
-        self.productsToPackages = packages.reduce(into: [:], { partial, package in
+        self.productsToPackages = self.packages.reduce(into: [:], { partial, package in
             package.products.forEach{ partial[$0] = package }
         })
 
-        allProducts = Set(packages.flatMap({ package -> [ResolvedProduct] in
+        self.allProducts = Set(self.packages.flatMap { package -> [ResolvedProduct] in
             if rootPackages.contains(package) {
                 return package.products
             } else {
@@ -163,44 +163,54 @@ public struct PackageGraph {
                 // try to run them.
                 return package.products.filter({ $0.type != .test })
             }
-        }))
+        })
 
         // Compute the reachable targets and products.
         let inputTargets = inputPackages.flatMap { $0.targets }
         let inputProducts = inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
-        self.reachableTargets = Set(inputTargets).union(recursiveDependencies.compactMap { $0.target })
+        self.reachableTargets = Set(inputTargets.map(\.id)).union(recursiveDependencies.compactMap { $0.target?.id })
         self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget: [ResolvedTarget]] {
-        var result = [ResolvedTarget: [ResolvedTarget]]()
+    func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
+        var result = [ResolvedTarget.ID: [ResolvedTarget]]()
 
-        let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
+        let rootTargets = Dictionary(pickLastWhenDuplicateFound: self.rootPackages.flatMap { $0.targets })
 
-        // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
-            let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
-                ($0, Set($0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }))
-            })
+        // Create map of test target IDs to set of their direct dependencies.
+        let testTargetIDsToDirectDependencies: [ResolvedTarget.ID: [ResolvedTarget.ID: ResolvedTarget]] = try {
+            let testTargetDeps = rootTargets
+                .filter { $1.type == .test }
+                .map {
+                    ($0, Dictionary(
+                        pickLastWhenDuplicateFound: $1.dependencies
+                            .compactMap(\.target)
+                            .filter { target in target.type != .plugin }
+                    ))
+                }
             return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
 
-        for target in rootTargets where target.type == .executable {
+        for target in rootTargets.values where target.type == .executable {
             // Find all dependencies of this target within its package. Note that we do not traverse plugin usages.
-            let dependencies = try topologicalSort(target.dependencies, successors: {
-                $0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }.map{ .target($0, conditions: []) }
+            let executableDirectDependencies = try topologicalSort(target.dependencies, successors: {
+                $0.dependencies
+                    .compactMap(\.target)
+                    .filter { $0.type != .plugin }
+                    .map { .target($0, conditions: []) }
             }).compactMap({ $0.target })
 
             // Include the test targets whose dependencies intersect with the
             // current target's (recursive) dependencies.
-            let testTargets = testTargetDepMap.filter({ (testTarget, deps) in
-                !deps.intersection(dependencies + [target]).isEmpty
-            }).map({ $0.key })
+            let testTargets = testTargetIDsToDirectDependencies.filter { (testTarget, testTargetDirectDependencies) in
+                let uniqueTargets = Dictionary(pickLastWhenDuplicateFound: executableDirectDependencies + [target])
+                return !testTargetDirectDependencies.intersection(uniqueTargets).isEmpty
+            }.map { $0.key }
 
-            result[target] = testTargets
+            result[target.id] = testTargets.compactMap { rootTargets[$0] }
         }
 
         return result

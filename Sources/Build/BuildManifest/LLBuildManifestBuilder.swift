@@ -253,7 +253,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.target).compactMap { self.plan.targetMap[$0] }
+                .compactMap(\.target?.id).compactMap { self.plan.targetMap[$0] }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -280,7 +280,7 @@ extension LLBuildManifestBuilder {
             // Get the Swift target build descriptions of all discovery targets this synthesized entry point target
             // depends on.
             let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
-                .compactMap(\.target)
+                .compactMap(\.target?.id)
                 .compactMap { self.plan.targetMap[$0] }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 

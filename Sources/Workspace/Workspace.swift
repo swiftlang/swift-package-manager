@@ -1097,7 +1097,7 @@ extension Workspace {
     public func loadPluginImports(
         packageGraph: PackageGraph
     ) async throws -> [PackageIdentity: [String: [String]]] {
-        let pluginTargets = packageGraph.allTargets.filter { $0.type == .plugin }
+        let pluginTargets = packageGraph.allTargets.values.filter { $0.type == .plugin }
         let scanner = SwiftcImportScanner(
             swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment,
             swiftCompilerFlags: self.hostToolchain

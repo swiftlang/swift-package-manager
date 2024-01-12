@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -113,9 +113,9 @@ public struct ResolvedProduct: Hashable {
     }
 
     /// Returns the recursive target dependencies.
-    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
-        let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
-        return Array(Set(self.targets).union(recursiveDependencies))
+    public func recursiveTargetDependencies() throws -> some Sequence<ResolvedTarget> {
+        let dependencies = try self.targets.lazy.flatMap({ try $0.recursiveTargetDependencies() })
+        return Dictionary(pickLastWhenDuplicateFound: (self.targets + dependencies)).values
     }
 
     private static func computePlatforms(targets: [ResolvedTarget]) -> ([SupportedPlatform], PlatformVersionProvider) {
@@ -135,6 +135,10 @@ public struct ResolvedProduct: Hashable {
             for: platform,
             usingXCTest: usingXCTest
         )
+    }
+
+    package func contains(targetID: ResolvedTarget.ID) -> Bool {
+        self.targets.contains { $0.id == targetID }
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ diagnosticsEmitter: DiagnosticsEmitter) throws {

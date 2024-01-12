@@ -13,7 +13,7 @@
 /// Triple for which code should be compiled for.
 /// > Note: We're not using "host" and "target" triple terminology in this enum, as that clashes with build
 /// > system "targets" and can lead to confusion in this context.
-public enum BuildTriple {
+public enum BuildTriple: Hashable {
     /// Triple for which build tools are compiled (the host triple).
     case tools
 

@@ -43,7 +43,9 @@ struct Example {
         print("Executable targets:", executables)
 
         // PackageGraph
-        let numberOfFiles = graph.reachableTargets.reduce(0, { $0 + $1.sources.paths.count })
+        let numberOfFiles = graph.reachableTargets
+            .compactMap { graph.allTargets[$0] }
+            .reduce(0, { $0 + $1.sources.paths.count })
         print("Total number of source files (including dependencies):", numberOfFiles)
     }
 }

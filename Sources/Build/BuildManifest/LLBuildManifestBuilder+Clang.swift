@@ -33,7 +33,7 @@ extension LLBuildManifestBuilder {
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
+            if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
