@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Build
+@testable import Build
 import PackageModel
 import SPMBuildCore
 import TSCUtility
@@ -146,7 +146,12 @@ public struct BuildPlanResult {
         )
         self.targetMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.targetMap.compactMap {
-                guard let target = plan.graph.allTargets[$0] else { return nil }
+                guard 
+                    let target = plan.graph.allTargets[$0] ??
+                        IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
+                else {
+                    throw BuildError.error("Target \($0) not found.")
+                }
                 return (target.name, $1)
             }
         )
