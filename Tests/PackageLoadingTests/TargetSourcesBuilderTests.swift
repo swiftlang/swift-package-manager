@@ -986,6 +986,56 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
+    func testResourcesAreSorted() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: [
+                .init(rule: .copy, path: "a.txt"),
+                .init(rule: .copy, path: "c.txt"),
+                .init(rule: .copy, path: "b.txt"),
+            ],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
+            "/File.swift",
+            "/a.txt",
+            "/b.txt",
+            "/c.txt",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageKind: .root(.root),
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            toolsVersion: .v5_5,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
+        XCTAssertEqual(outputs.resources, [
+            .init(rule: .copy, path: try .init(validating: "/a.txt")),
+            .init(rule: .copy, path: try .init(validating: "/b.txt")),
+            .init(rule: .copy, path: try .init(validating: "/c.txt")),
+        ])
+        XCTAssertEqual(outputs.ignored, [])
+        XCTAssertEqual(outputs.others, [])
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
     // MARK: -  Utilities
 
     private func build(

@@ -200,10 +200,12 @@ public struct TargetSourcesBuilder {
 
         let headers = pathToRule.lazy.filter { $0.value == .header }.map { $0.key }.sorted()
         let compilePaths = pathToRule.lazy.filter { $0.value == .compile }.map { $0.key }
-        let sources = Sources(paths: Array(compilePaths), root: targetPath)
-        let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) } + additionalResources
-        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }
-        let others = pathToRule.filter { $0.value == .none }.map { $0.key }
+        let sources = Sources(paths: Array(compilePaths).sorted(), root: targetPath)
+        let resources: [Resource] = (pathToRule.compactMap { resource(for: $0.key, with: $0.value) } + additionalResources).sorted { a, b in
+            a.path.pathString < b.path.pathString
+        }
+        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }.sorted()
+        let others = pathToRule.filter { $0.value == .none }.map { $0.key }.sorted()
 
         try diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
