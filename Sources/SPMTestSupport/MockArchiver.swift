@@ -12,22 +12,22 @@
 
 import Basics
 
-package class MockArchiver: Archiver {
-    package typealias ExtractionHandler = (
+public class MockArchiver: Archiver {
+    public typealias ExtractionHandler = (
         MockArchiver,
         AbsolutePath,
         AbsolutePath,
         (Result<Void, Error>) -> Void
     ) throws -> Void
-    package typealias CompressionHandler = (
+    public typealias CompressionHandler = (
         MockArchiver,
         AbsolutePath,
         AbsolutePath,
         (Result<Void, Error>) -> Void
     ) throws -> Void
-    package typealias ValidationHandler = (MockArchiver, AbsolutePath, (Result<Bool, Error>) -> Void) throws -> Void
+    public typealias ValidationHandler = (MockArchiver, AbsolutePath, (Result<Bool, Error>) -> Void) throws -> Void
 
-    package struct Extraction: Equatable {
+    public struct Extraction: Equatable {
         public let archivePath: AbsolutePath
         public let destinationPath: AbsolutePath
 
@@ -37,7 +37,7 @@ package class MockArchiver: Archiver {
         }
     }
 
-    package struct Compression: Equatable {
+    public struct Compression: Equatable {
         public let directory: AbsolutePath
         public let destinationPath: AbsolutePath
 
@@ -47,18 +47,18 @@ package class MockArchiver: Archiver {
         }
     }
 
-    package let supportedExtensions: Set<String> = ["zip"]
-    package let extractions = ThreadSafeArrayStore<Extraction>()
-    package let compressions = ThreadSafeArrayStore<Compression>()
-    package let extractionHandler: ExtractionHandler?
-    package let compressionHandler: CompressionHandler?
-    package let validationHandler: ValidationHandler?
+    public let supportedExtensions: Set<String> = ["zip"]
+    public let extractions = ThreadSafeArrayStore<Extraction>()
+    public let compressions = ThreadSafeArrayStore<Compression>()
+    public let extractionHandler: ExtractionHandler?
+    public let compressionHandler: CompressionHandler?
+    public let validationHandler: ValidationHandler?
 
-    package convenience init(handler: ExtractionHandler? = .none) {
+    public convenience init(handler: ExtractionHandler? = .none) {
         self.init(extractionHandler: handler, compressionHandler: .none, validationHandler: .none)
     }
 
-    package init(
+    public init(
         extractionHandler: ExtractionHandler? = .none,
         compressionHandler: CompressionHandler? = .none,
         validationHandler: ValidationHandler? = .none
@@ -68,7 +68,7 @@ package class MockArchiver: Archiver {
         self.validationHandler = validationHandler
     }
 
-    package func extract(
+    public func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -85,7 +85,7 @@ package class MockArchiver: Archiver {
         }
     }
 
-    package func compress(
+    public func compress(
         directory: AbsolutePath,
         to destinationPath: AbsolutePath,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -102,7 +102,7 @@ package class MockArchiver: Archiver {
         }
     }
 
-    package func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
             if let handler = self.validationHandler {
                 try handler(self, path, completion)
