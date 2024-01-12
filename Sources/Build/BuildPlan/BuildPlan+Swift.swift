@@ -21,7 +21,7 @@ extension BuildPlan {
         // depends on.
         let environment = swiftTarget.buildParameters.buildEnvironment
         for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: environment) {
-            switch dependency.underlyingTarget {
+            switch dependency.underlying {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {
                     throw InternalError("unexpected clang target \(underlyingTarget)")

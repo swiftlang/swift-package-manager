@@ -25,8 +25,8 @@ internal struct PluginContextSerializer {
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
     let sdkRootPath: AbsolutePath?
-    var paths: [WireInput.Path] = []
-    var pathsToIds: [AbsolutePath: WireInput.Path.Id] = [:]
+    var paths: [WireInput.URL] = []
+    var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
     var targetsToIds: [ResolvedTarget: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
@@ -36,7 +36,7 @@ internal struct PluginContextSerializer {
     
     /// Adds a path to the serialized structure, if it isn't already there.
     /// Either way, this function returns the path's wire ID.
-    mutating func serialize(path: AbsolutePath) throws -> WireInput.Path.Id {
+    mutating func serialize(path: AbsolutePath) throws -> WireInput.URL.Id {
         // If we've already seen the path, just return the wire ID we already assigned to it.
         if let id = pathsToIds[path] { return id }
         
@@ -47,7 +47,7 @@ internal struct PluginContextSerializer {
         
         // Finally assign the next wire ID to the path, and append a serialized Path record.
         let id = paths.count
-        paths.append(.init(basePathId: basePathId, subpath: subpathString))
+        paths.append(.init(baseURLId: basePathId, subpath: subpathString))
         pathsToIds[path] = id
         return id
     }
@@ -61,26 +61,25 @@ internal struct PluginContextSerializer {
         
         // Construct the FileList
         var targetFiles: [WireInput.Target.TargetInfo.File] = []
-        targetFiles.append(contentsOf: try target.underlyingTarget.sources.paths.map {
+        targetFiles.append(contentsOf: try target.underlying.sources.paths.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
         })
-        targetFiles.append(contentsOf: try target.underlyingTarget.resources.map {
+        targetFiles.append(contentsOf: try target.underlying.resources.map {
             .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
         })
-        targetFiles.append(contentsOf: try target.underlyingTarget.ignored.map {
+        targetFiles.append(contentsOf: try target.underlying.ignored.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
-        targetFiles.append(contentsOf: try target.underlyingTarget.others.map {
+        targetFiles.append(contentsOf: try target.underlying.others.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
         
         // Create a scope for evaluating build settings.
-        let scope = BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
+        let scope = BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
         
         // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
         let targetInfo: WireInput.Target.TargetInfo
-        switch target.underlyingTarget {
-            
+        switch target.underlying {
         case let target as SwiftTarget:
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,

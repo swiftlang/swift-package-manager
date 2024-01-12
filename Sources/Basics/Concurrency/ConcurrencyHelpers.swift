@@ -41,7 +41,7 @@ public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
 
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
-    public static var sharedConcurrent = DispatchQueue(
+    public static let sharedConcurrent = DispatchQueue(
         label: "swift.org.swiftpm.shared.concurrent",
         attributes: .concurrent
     )

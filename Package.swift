@@ -42,7 +42,6 @@ let swiftPMDataModelProduct = (
         "PackageMetadata",
         "PackageModel",
         "SourceControl",
-        "SourceKitLSPAPI",
         "Workspace",
     ]
 )
@@ -58,6 +57,7 @@ let swiftPMProduct = (
     targets: swiftPMDataModelProduct.targets + [
         "Build",
         "LLBuildManifest",
+        "SourceKitLSPAPI",
         "SPMLLBuild",
     ]
 )
@@ -224,7 +224,8 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel"
+                "PackageModel",
+                "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),

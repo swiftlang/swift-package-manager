@@ -15,9 +15,9 @@ import Basics
 
 // This is a helper class that tracks module aliases in a package dependency graph
 // and handles overriding upstream aliases where aliases themselves conflict.
-class ModuleAliasTracker {
-    var aliasMap = [String: [ModuleAliasModel]]()
-    var idToAliasMap = [PackageIdentity: [String: [ModuleAliasModel]]]()
+struct ModuleAliasTracker {
+    fileprivate var aliasMap = [String: [ModuleAliasModel]]()
+    fileprivate var idToAliasMap = [PackageIdentity: [String: [ModuleAliasModel]]]()
     var idToProductToAllTargets = [PackageIdentity: [String: [Target]]]()
     var productToDirectTargets = [String: [Target]]()
     var productToAllTargets = [String: [Target]]()
@@ -27,7 +27,7 @@ class ModuleAliasTracker {
     var appliedAliases = Set<String>()
 
     init() {}
-    func addTargetAliases(targets: [Target], package: PackageIdentity) throws {
+    mutating func addTargetAliases(targets: [Target], package: PackageIdentity) throws {
         let targetDependencies = targets.map{$0.dependencies}.flatMap{$0}
         for dep in targetDependencies {
             if case let .product(productRef, _) = dep,
@@ -47,11 +47,13 @@ class ModuleAliasTracker {
         }
     }
 
-    func addAliases(_ aliases: [String: String],
-                    productID: String,
-                    productName: String,
-                    originPackage: PackageIdentity,
-                    consumingPackage: PackageIdentity) throws {
+    mutating func addAliases(
+        _ aliases: [String: String],
+        productID: String,
+        productName: String,
+        originPackage: PackageIdentity,
+        consumingPackage: PackageIdentity
+    ) throws {
         if let aliasDict = idToAliasMap[originPackage] {
             let existingAliases = aliasDict.values.flatMap{$0}.filter {  aliases.keys.contains($0.name) }
             for existingAlias in existingAliases {
@@ -70,8 +72,7 @@ class ModuleAliasTracker {
         }
     }
 
-    func addPackageIDChain(parent: PackageIdentity,
-                           child: PackageIdentity) {
+    mutating func addPackageIDChain(parent: PackageIdentity, child: PackageIdentity) {
         if parentToChildIDs[parent]?.contains(child) ?? false {
             // Already added
         } else {
@@ -82,8 +83,7 @@ class ModuleAliasTracker {
     }
 
     // This func should be called once per product
-    func trackTargetsPerProduct(product: Product,
-                                package: PackageIdentity) {
+    mutating func trackTargetsPerProduct(product: Product, package: PackageIdentity) {
         let targetDeps = product.targets.map{$0.dependencies}.flatMap{$0}
         var allTargetDeps = product.targets.map{$0.recursiveDependentTargets.map{$0.dependencies}}.flatMap{$0}.flatMap{$0}
         allTargetDeps.append(contentsOf: targetDeps)
@@ -114,7 +114,7 @@ class ModuleAliasTracker {
         }
     }
 
-    func propagateAliases(observabilityScope: ObservabilityScope) {
+    mutating func propagateAliases(observabilityScope: ObservabilityScope) {
         // First get the root package ID
         var pkgID = childToParentID.first?.key
         var rootPkg = pkgID
@@ -144,9 +144,11 @@ class ModuleAliasTracker {
 
     // Propagate defined aliases upstream. If they are chained, the final
     // alias value will be applied
-    func propagate(productID: String,
-                   observabilityScope: ObservabilityScope,
-                   aliasBuffer: inout [String: ModuleAliasModel]) {
+    mutating private func propagate(
+        productID: String,
+        observabilityScope: ObservabilityScope,
+        aliasBuffer: inout [String: ModuleAliasModel]
+    ) {
         let productAliases = aliasMap[productID] ?? []
         for aliasModel in productAliases {
             // Alias buffer is used to carry down aliases defined upstream
@@ -197,8 +199,7 @@ class ModuleAliasTracker {
     }
 
     // Merge all the upstream aliases and override them if necessary
-    func merge(productID: String,
-               observabilityScope: ObservabilityScope) {
+    mutating func merge(productID: String, observabilityScope: ObservabilityScope) {
         guard let children = parentToChildProducts[productID] else {
             return
         }
@@ -259,7 +260,7 @@ class ModuleAliasTracker {
     // chain but not in a product consumed by other packages. Such targets still
     // need to have aliases applied to them so they can be built with correct
     // dependent binary names
-    func fillInRest(package: PackageIdentity) {
+    mutating func fillInRest(package: PackageIdentity) {
         if let productToTargets = idToProductToAllTargets[package] {
             for (_, productTargets) in productToTargets {
                 let unAliased = productTargets.contains{$0.moduleAliases == nil}
@@ -290,13 +291,15 @@ class ModuleAliasTracker {
         }
     }
 
-    private func chainModuleAliases(targets: [Target],
-                                    checkedTargets: [Target],
-                                    targetAliases: [String: [String]],
-                                    childTargets: [Target],
-                                    childAliases: [String: [String]],
-                                    childPrechainAliases: [String: [String]],
-                                    observabilityScope: ObservabilityScope) {
+    private mutating func chainModuleAliases(
+        targets: [Target],
+        checkedTargets: [Target],
+        targetAliases: [String: [String]],
+        childTargets: [Target],
+        childAliases: [String: [String]],
+        childPrechainAliases: [String: [String]],
+        observabilityScope: ObservabilityScope
+    ) {
         guard !targets.isEmpty else { return }
         var aliasDict = [String: String]()
         var prechainAliasDict = [String: [String]]()
@@ -419,7 +422,7 @@ class ModuleAliasTracker {
 }
 
 // Used to keep track of module alias info for each package
-class ModuleAliasModel {
+private class ModuleAliasModel {
     let name: String
     var alias: String
     let originPackage: PackageIdentity

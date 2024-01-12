@@ -48,28 +48,3 @@ struct ShowConfiguration: ConfigurationSubcommand {
         print(swiftSDK.pathsConfiguration)
     }
 }
-
-extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
-    public var description: String {
-        """
-        sdkRootPath: \(sdkRootPath.configurationString)
-        swiftResourcesPath: \(swiftResourcesPath.configurationString)
-        swiftStaticResourcesPath: \(swiftStaticResourcesPath.configurationString)
-        includeSearchPaths: \(includeSearchPaths.configurationString)
-        librarySearchPaths: \(librarySearchPaths.configurationString)
-        toolsetPaths: \(toolsetPaths.configurationString)
-        """
-    }
-}
-
-extension Optional where Wrapped == AbsolutePath {
-    fileprivate var configurationString: String {
-        self?.pathString ?? "not set"
-    }
-}
-
-extension Optional where Wrapped == [AbsolutePath] {
-    fileprivate var configurationString: String {
-        self?.map(\.pathString).description ?? "not set"
-    }
-}

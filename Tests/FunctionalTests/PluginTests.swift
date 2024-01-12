@@ -30,7 +30,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -43,7 +43,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -56,7 +56,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -125,7 +125,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -138,7 +138,7 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -151,7 +151,7 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -164,10 +164,70 @@ class PluginTests: XCTestCase {
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("BinaryToolProductPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
     }
-    
+
+    func testBuildToolWithoutOutputs() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        func createPackageUnderTest(packageDir: AbsolutePath, toolsVersion: ToolsVersion) throws {
+            let manifestFile = packageDir.appending("Package.swift")
+            try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                manifestFile,
+                string: """
+                // swift-tools-version: \(toolsVersion.description)
+                import PackageDescription
+                let package = Package(name: "MyPackage",
+                    targets: [
+                        .target(name: "SomeTarget", plugins: ["Plugin"]),
+                        .plugin(name: "Plugin", capability: .buildTool),
+                    ])
+                """)
+
+            let targetSourceFile = packageDir.appending(components: "Sources", "SomeTarget", "dummy.swift")
+            try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(targetSourceFile, string: "")
+
+            let pluginSourceFile = packageDir.appending(components: "Plugins", "Plugin", "plugin.swift")
+            try localFileSystem.createDirectory(pluginSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(pluginSourceFile, string: """
+            import PackagePlugin
+            @main
+            struct Plugin: BuildToolPlugin {
+                func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                    return [
+                        .buildCommand(
+                            displayName: "empty",
+                            executable: .init("/usr/bin/touch"),
+                            arguments: [context.pluginWorkDirectory.appending("best.txt")],
+                            inputFiles: [],
+                            outputFiles: []
+                        )
+                    ]
+                }
+            }
+            """)
+        }
+
+        try testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "Plugin", "best.txt"])
+
+            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
+            let (_, stderr) = try executeSwiftBuild(packageDir)
+            XCTAssertTrue(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
+            XCTAssertFalse(localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
+
+            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_11)
+            let (_, stderr2) = try executeSwiftBuild(packageDir)
+            XCTAssertEqual("", stderr2)
+            XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
+        }
+    }
+
     func testCommandPluginInvocation() async throws {
         try XCTSkipIf(true, "test is disabled because it isn't stable, see rdar://117870608")
 
@@ -380,7 +440,7 @@ class PluginTests: XCTestCase {
             let package = try XCTUnwrap(packageGraph.rootPackages.first)
             
             // Find the regular target in our test package.
-            let libraryTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyLibrary" } as? SwiftTarget)
+            let libraryTarget = try XCTUnwrap(package.targets.map(\.underlying).first{ $0.name == "MyLibrary" } as? SwiftTarget)
             XCTAssertEqual(libraryTarget.type, .library)
             
             // Set up a delegate to handle callbacks from the command plugin.
@@ -433,7 +493,7 @@ class PluginTests: XCTestCase {
                 diagnosticsChecker: (DiagnosticsTestResult) throws -> Void
             ) async {
                 // Find the named plugin.
-                let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
+                let plugins = package.targets.compactMap{ $0.underlying as? PluginTarget }
                 guard let plugin = plugins.first(where: { $0.name == pluginName }) else {
                     return XCTFail("There is no plugin target named ‘\(pluginName)’")
                 }
@@ -442,7 +502,7 @@ class PluginTests: XCTestCase {
                 // Find the named input targets to the plugin.
                 var targets: [ResolvedTarget] = []
                 for targetName in targetNames {
-                    guard let target = package.targets.first(where: { $0.underlyingTarget.name == targetName }) else {
+                    guard let target = package.targets.first(where: { $0.underlying.name == targetName }) else {
                         return XCTFail("There is no target named ‘\(targetName)’")
                     }
                     XCTAssertTrue(target.type != .plugin, "Target \(target) is a plugin")
@@ -525,7 +585,7 @@ class PluginTests: XCTestCase {
             XCTAssert(stderr.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stderr.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stderr.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
-            XCTAssert(stderr.contains("Build complete!"), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stderr.contains("Build of product 'ImpliedLocalTool' complete!"), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
@@ -657,7 +717,7 @@ class PluginTests: XCTestCase {
             // Find the regular target in our test package.
             let libraryTarget = try XCTUnwrap(
                 package.targets
-                    .map(\.underlyingTarget)
+                    .map(\.underlying)
                     .first{ $0.name == "MyLibrary" } as? SwiftTarget
             )
             XCTAssertEqual(libraryTarget.type, .library)
@@ -710,7 +770,7 @@ class PluginTests: XCTestCase {
             }
 
             // Find the relevant plugin.
-            let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
+            let plugins = package.targets.compactMap { $0.underlying as? PluginTarget }
             guard let plugin = plugins.first(where: { $0.name == "NeverendingPlugin" }) else {
                 return XCTFail("There is no plugin target named ‘NeverendingPlugin’")
             }
@@ -1065,6 +1125,16 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+        }
+    }
+
+    func testURLBasedPluginAPI() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath, configuration: .Debug)
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }

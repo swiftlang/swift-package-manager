@@ -74,7 +74,8 @@ final class PackageToolTests: CommandsTestCase {
 	
 	func testInitUsage() throws {
 		let stdout = try execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] [--name <name>]"))
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
+		XCTAssertMatch(stdout, .contains(" [--name <name>]"))
 	}
 	
 	func testInitOptionsHelp() throws {
@@ -2397,7 +2398,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertNoMatch(stdout, .contains("Building for production..."))
                 XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
                 XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("debug/MyExecutable")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
@@ -2409,7 +2410,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/MyExecutable")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
@@ -2421,7 +2422,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyStaticLibrary.")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
@@ -2433,7 +2434,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyDynamicLibrary.")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))

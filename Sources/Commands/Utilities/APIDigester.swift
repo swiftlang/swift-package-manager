@@ -317,13 +317,19 @@ extension PackageGraph {
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
             .flatMap(\.targets)
-            .filter { $0.underlyingTarget is SwiftTarget }
+            .filter { $0.underlying is SwiftTarget }
             .map { $0.c99name }
     }
 }
 
-extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
+extension SerializedDiagnostics.SourceLocation {
     public var description: String {
         return "\(filename):\(line):\(column)"
     }
 }
+
+#if swift(<5.11)
+extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
+#else
+extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}
+#endif

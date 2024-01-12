@@ -15,6 +15,7 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
+import SourceControl
 
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
@@ -950,14 +951,30 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 #endif
 
                 let packageDirectory = manifestPath.parentDirectory.pathString
-                let contextModel = ContextModel(packageDirectory: packageDirectory)
+
+                let gitInformation: ContextModel.GitInformation?
+                do {
+                    let repo = GitRepository(path: manifestPath.parentDirectory)
+                    gitInformation = ContextModel.GitInformation(
+                        currentTag: repo.getCurrentTag(),
+                        currentCommit: try repo.getCurrentRevision().identifier,
+                        hasUncommittedChanges: repo.hasUncommittedChanges()
+                    )
+                } catch {
+                    gitInformation = nil
+                }
+
+                let contextModel = ContextModel(
+                    packageDirectory: packageDirectory,
+                    gitInformation: gitInformation
+                )
                 try cmd += ["-context", contextModel.encode()]
 
                 // If enabled, run command in a sandbox.
                 // This provides some safety against arbitrary code execution when parsing manifest files.
                 // We only allow the permissions which are absolutely necessary.
                 if self.isManifestSandboxEnabled {
-                    let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap { $0 }
+                    let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap { $0 }
                     let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                     cmd = try Sandbox.apply(
                         command: cmd,

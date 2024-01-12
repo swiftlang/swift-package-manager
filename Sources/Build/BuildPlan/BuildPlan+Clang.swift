@@ -21,7 +21,7 @@ extension BuildPlan {
         let dependencies = try clangTarget.target.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
 
         for case .target(let dependency, _) in dependencies {
-            switch dependency.underlyingTarget {
+            switch dependency.underlying {
             case is SwiftTarget:
                 if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {

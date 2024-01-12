@@ -13,7 +13,7 @@
 import struct TSCUtility.Version
 
 /// Represents a platform.
-public struct Platform: Equatable, Hashable, Codable {
+public struct Platform: Equatable, Hashable, Codable, Sendable {
     /// The name of the platform.
     public let name: String
 
@@ -52,63 +52,8 @@ public struct Platform: Equatable, Hashable, Codable {
 
 }
 
-public struct SupportedPlatforms {
-    public let declared: [SupportedPlatform]
-    private let derivedXCTestPlatformProvider: ((Platform) -> PlatformVersion?)?
-
-    public init(declared: [SupportedPlatform], derivedXCTestPlatformProvider: ((_ declared: Platform) -> PlatformVersion?)?) {
-        self.declared = declared
-        self.derivedXCTestPlatformProvider = derivedXCTestPlatformProvider
-    }
-
-    /// Returns the supported platform instance for the given platform.
-    public func getDerived(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
-        // derived platform based on known minimum deployment target logic
-        if let declaredPlatform = self.declared.first(where: { $0.platform == platform }) {
-            var version = declaredPlatform.version
-
-            if usingXCTest, let xcTestMinimumDeploymentTarget = derivedXCTestPlatformProvider?(platform), version < xcTestMinimumDeploymentTarget {
-                version = xcTestMinimumDeploymentTarget
-            }
-
-            // If the declared version is smaller than the oldest supported one, we raise the derived version to that.
-            if version < platform.oldestSupportedVersion {
-                version = platform.oldestSupportedVersion
-            }
-
-            return SupportedPlatform(
-                platform: declaredPlatform.platform,
-                version: version,
-                options: declaredPlatform.options
-            )
-        } else {
-            let minimumSupportedVersion: PlatformVersion
-            if usingXCTest, let xcTestMinimumDeploymentTarget = derivedXCTestPlatformProvider?(platform), xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion {
-                minimumSupportedVersion = xcTestMinimumDeploymentTarget
-            } else {
-                minimumSupportedVersion = platform.oldestSupportedVersion
-            }
-
-            let oldestSupportedVersion: PlatformVersion
-            if platform == .macCatalyst {
-                let iOS = getDerived(for: .iOS, usingXCTest: usingXCTest)
-                // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
-                oldestSupportedVersion = max(minimumSupportedVersion, iOS.version)
-            } else {
-                oldestSupportedVersion = minimumSupportedVersion
-            }
-
-            return SupportedPlatform(
-                platform: platform,
-                version: oldestSupportedVersion,
-                options: []
-            )
-        }
-    }
-}
-
 /// Represents a platform supported by a target.
-public struct SupportedPlatform: Equatable, Codable {
+public struct SupportedPlatform: Hashable, Codable, Sendable {
     /// The platform.
     public let platform: Platform
 
@@ -126,8 +71,8 @@ public struct SupportedPlatform: Equatable, Codable {
 }
 
 /// Represents a platform version.
-public struct PlatformVersion: Equatable, Hashable, Codable {
-
+public struct PlatformVersion: Equatable, Hashable, Codable, Sendable {
+    // FIXME: this should be optional
     /// The unknown platform version.
     public static let unknown: PlatformVersion = .init("0.0.0")
 

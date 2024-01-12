@@ -232,23 +232,29 @@ extension PluginTarget {
                     self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
                     
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
+                    if config.version != 2 {
+                        throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
+                    }
                     self.invocationDelegate.pluginDefinedBuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable),
+                        executable: try AbsolutePath(validating: config.executable.path),
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0) },
-                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
-                    
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
+                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0.path) },
+                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0.path) })
+
                 case .definePrebuildCommand(let config, let outputFilesDir):
+                    if config.version != 2 {
+                        throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
+                    }
                     let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
-                        executable: try AbsolutePath(validating: config.executable),
+                        executable: try AbsolutePath(validating: config.executable.path),
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0.path) },
+                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir.path))
 
                     if !success {
                         exitEarly = true
@@ -389,15 +395,15 @@ extension PackageGraph {
             for dependency in target.dependencies(satisfying: buildEnvironment) {
                 switch dependency {
                 case .target(let target, _):
-                    if let pluginTarget = target.underlyingTarget as? PluginTarget {
+                    if let pluginTarget = target.underlying as? PluginTarget {
                         assert(pluginTarget.capability == .buildTool)
                         pluginTargets.append(pluginTarget)
                     }
                     else {
-                        dependencyTargets.append(target.underlyingTarget)
+                        dependencyTargets.append(target.underlying)
                     }
                 case .product(let product, _):
-                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? PluginTarget })
+                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlying as? PluginTarget })
                 }
             }
 
@@ -578,7 +584,10 @@ public extension PluginTarget {
                 builtToolName = target.name
                 executableOrBinaryTarget = target
             case .product(let productRef, _):
-                guard let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }), let executableTarget = product.targets.map({ $0.underlyingTarget }).executables.spm_only else {
+                guard
+                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
+                else {
                     throw StringError("no product named \(productRef.name)")
                 }
                 builtToolName = productRef.name
@@ -711,6 +720,7 @@ public enum PluginEvaluationError: Swift.Error {
     case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
+    case pluginUsesIncompatibleVersion(expected: Int, actual: Int)
 }
 
 public protocol PluginInvocationDelegate {
@@ -930,7 +940,7 @@ fileprivate extension HostToPluginMessage.BuildResult {
 
 fileprivate extension HostToPluginMessage.BuildResult.BuiltArtifact {
     init(_ artifact: PluginInvocationBuildResult.BuiltArtifact) {
-        self.path = .init(artifact.path)
+        self.path = .init(fileURLWithPath: artifact.path)
         self.kind = .init(artifact.kind)
     }
 }
@@ -1036,7 +1046,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
 
 fileprivate extension HostToPluginMessage.SymbolGraphResult {
     init(_ result: PluginInvocationSymbolGraphResult) {
-        self.directoryPath = .init(result.directoryPath)
+        self.directoryPath = .init(fileURLWithPath: result.directoryPath)
     }
 }
 

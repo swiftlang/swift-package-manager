@@ -236,7 +236,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
-            if let target = executableTarget.underlyingTarget as? SwiftTarget, 
+            if let target = executableTarget.underlying as? SwiftTarget, 
                 self.toolsVersion >= .v5_5,
                 self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
                 target.supportsTestableExecutablesFeature
@@ -286,7 +286,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // When deploying to macOS prior to macOS 12, add an rpath to the
             // back-deployed concurrency libraries.
             if useStdlibRpath, triple.isMacOSX {
-                let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS, usingXCTest: product.isLinkingXCTest)
+                let macOSSupportedPlatform = self.package.getSupportedPlatform(for: .macOS, usingXCTest: product.isLinkingXCTest)
+
                 if macOSSupportedPlatform.version.major < 12 {
                     let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
                         .parentDirectory

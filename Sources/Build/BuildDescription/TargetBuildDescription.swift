@@ -11,10 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct SPMBuildCore.BuildParameters
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
+import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
+import struct SPMBuildCore.BuildParameters
 
 public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)
@@ -103,6 +104,15 @@ public enum TargetBuildDescription {
             return swiftTargetBuildDescription.buildParameters
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.buildParameters
+        }
+    }
+
+    var toolsVersion: ToolsVersion {
+        switch self {
+        case .swift(let swiftTargetBuildDescription):
+            return swiftTargetBuildDescription.toolsVersion
+        case .clang(let clangTargetBuildDescription):
+            return clangTargetBuildDescription.toolsVersion
         }
     }
 }

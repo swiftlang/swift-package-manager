@@ -25,7 +25,7 @@ struct SwiftPM {
     static func main() async {
         switch execName {
         case "swift-package":
-            SwiftPackageTool.main()
+            await SwiftPackageTool.main()
         case "swift-build":
             SwiftBuildTool.main()
         case "swift-experimental-sdk":
@@ -35,9 +35,9 @@ struct SwiftPM {
         case "swift-run":
             SwiftRunTool.main()
         case "swift-package-collection":
-            SwiftPackageCollectionsTool.main()
+            await SwiftPackageCollectionsTool.main()
         case "swift-package-registry":
-            SwiftPackageRegistryTool.main()
+            await SwiftPackageRegistryTool.main()
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }

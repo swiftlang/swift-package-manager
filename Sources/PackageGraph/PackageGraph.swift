@@ -10,10 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import OrderedCollections
 import PackageLoading
 import PackageModel
-
-import func TSCBasic.topologicalSort
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
@@ -275,4 +274,70 @@ extension PackageGraphError: CustomStringConvertible {
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
         }
     }
+}
+
+enum GraphError: Error {
+    /// A cycle was detected in the input.
+    case unexpectedCycle
+}
+
+/// Perform a topological sort of an graph.
+///
+/// This function is optimized for use cases where cycles are unexpected, and
+/// does not attempt to retain information on the exact nodes in the cycle.
+///
+/// - Parameters:
+///   - nodes: The list of input nodes to sort.
+///   - successors: A closure for fetching the successors of a particular node.
+///
+/// - Returns: A list of the transitive closure of nodes reachable from the
+/// inputs, ordered such that every node in the list follows all of its
+/// predecessors.
+///
+/// - Throws: GraphError.unexpectedCycle
+///
+/// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
+/// reachable from the input nodes via the relation.
+func topologicalSort<T: Identifiable>(
+    _ nodes: [T], successors: (T) throws -> [T]
+) throws -> [T] {
+    // Implements a topological sort via recursion and reverse postorder DFS.
+    func visit(_ node: T,
+               _ stack: inout OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
+               _ successors: (T) throws -> [T]) throws {
+        // Mark this node as visited -- we are done if it already was.
+        if !visited.insert(node.id).inserted {
+            return
+        }
+
+        // Otherwise, visit each adjacent node.
+        for succ in try successors(node) {
+            guard stack.append(succ.id).inserted else {
+                // If the successor is already in this current stack, we have found a cycle.
+                //
+                // FIXME: We could easily include information on the cycle we found here.
+                throw GraphError.unexpectedCycle
+            }
+            try visit(succ, &stack, &visited, &result, successors)
+            let popped = stack.removeLast()
+            assert(popped == succ.id)
+        }
+
+        // Add to the result.
+        result.append(node)
+    }
+
+    // FIXME: This should use a stack not recursion.
+    var visited = Set<T.ID>()
+    var result = [T]()
+    var stack = OrderedSet<T.ID>()
+    for node in nodes {
+        precondition(stack.isEmpty)
+        stack.append(node.id)
+        try visit(node, &stack, &visited, &result, successors)
+        let popped = stack.removeLast()
+        assert(popped == node.id)
+    }
+
+    return result.reversed()
 }

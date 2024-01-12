@@ -63,6 +63,27 @@ public struct ToolsVersionParser {
     }
 
     public static func parse(utf8String: String) throws -> ToolsVersion {
+        do {
+            return try Self._parse(utf8String: utf8String)
+        } catch {
+            // Keep scanning in case the tools-version is specified somewhere further down in the file.
+            var string = utf8String
+            while let newlineIndex = string.firstIndex(where: { $0.isNewline }) {
+                string = String(string[newlineIndex...].dropFirst())
+                if !string.isEmpty, let result = try? Self._parse(utf8String: string) {
+                    if result >= ToolsVersion.v5_11 {
+                        return result
+                    } else {
+                        throw Error.backwardIncompatiblePre5_11(.toolsVersionNeedsToBeFirstLine, specifiedVersion: result)
+                    }
+                }
+            }
+            // If we fail to find a tools-version in the entire manifest, throw the original error.
+            throw error
+        }
+    }
+
+    private static func _parse(utf8String: String) throws -> ToolsVersion {
         assert(!utf8String.isEmpty, "empty manifest should've been diagnosed before parsing the tools version specification")
         /// The manifest represented in its constituent parts.
         let manifestComponents = Self.split(utf8String)
@@ -483,6 +504,12 @@ extension ToolsVersionParser {
             case unidentified
         }
 
+        /// Details of backward-incompatible contents with Swift tools version < 5.11.
+        public enum BackwardIncompatibilityPre5_11 {
+            /// Tools-versions on subsequent lines of the manifest are only accepted by 5.11 or later.
+            case toolsVersionNeedsToBeFirstLine
+        }
+
         /// Package directory is inaccessible (missing, unreadable, etc).
         case inaccessiblePackage(path: AbsolutePath, reason: String)
         /// Package manifest file is inaccessible (missing, unreadable, etc).
@@ -493,6 +520,8 @@ extension ToolsVersionParser {
         case malformedToolsVersionSpecification(_ malformationLocation: ToolsVersionSpecificationMalformationLocation)
         /// Backward-incompatible contents with Swift tools version < 5.4.
         case backwardIncompatiblePre5_4(_ incompatibility: BackwardIncompatibilityPre5_4, specifiedVersion: ToolsVersion)
+        /// Backward-incompatible contents with Swift tools version < 5.11.
+        case backwardIncompatiblePre5_11(_ incompatibility: BackwardIncompatibilityPre5_11, specifiedVersion: ToolsVersion)
 
         public var description: String {
 
@@ -558,6 +587,11 @@ extension ToolsVersionParser {
                     return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift ≥ 5.4; consider removing the sequence for Swift \(specifiedVersion)"
                 case .unidentified:
                     return "the manifest is backward-incompatible with Swift < 5.4, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '\(specifiedVersion.specification())' to specify Swift \(specifiedVersion) as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
+                }
+            case let .backwardIncompatiblePre5_11(incompatibility, _):
+                switch incompatibility {
+                case .toolsVersionNeedsToBeFirstLine:
+                    return "the manifest is backward-incompatible with Swift < 5.11 because the tools-version was specified in a subsequent line of the manifest, not the first line. Either move the tools-version specification or increase the required tools-version of your manifest"
                 }
             }
 

@@ -152,6 +152,7 @@ class PluginInvocationTests: XCTestCase {
                         let message = Data("""
                         {   "defineBuildCommand": {
                                 "configuration": {
+                                    "version": 2,
                                     "displayName": "Do something",
                                     "executable": "/bin/FooTool",
                                     "arguments": [
@@ -297,7 +298,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlying).first{ $0.name == "MyPlugin" } as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -857,7 +858,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlyingTarget).filter{ $0.name == "X" }.first as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets.map(\.underlying).filter{ $0.name == "X" }.first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "X")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -1179,7 +1180,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Find the build tool plugin.
             let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.targets
-                .map(\.underlyingTarget)
+                .map(\.underlying)
                 .filter { $0.name == "Foo" }
                 .first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "Foo")
