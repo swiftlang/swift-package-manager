@@ -206,7 +206,7 @@ class PluginInvocationTests: XCTestCase {
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
-        let (evalTarget, evalResults) = try XCTUnwrap(results.first)
+        let (evalTargetID, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
 
         XCTAssertEqual(evalResults.count, 1)
@@ -887,7 +887,7 @@ class PluginInvocationTests: XCTestCase {
                     fileSystem: localFileSystem
                 )
 
-                let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
+                let diags = result.flatMap(\.value.results).flatMap(\.diagnostics)
                 testDiagnostics(diags) { result in
                     let msg = "a prebuild command cannot use executables built from source, including executable target 'Y'"
                     result.check(diagnostic: .contains(msg), severity: .error)
@@ -1067,7 +1067,10 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple) async throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]  {
+    func checkParseArtifactsPlatformCompatibility(
+        artifactSupportedTriples: [Triple],
+        hostTriple: Triple
+    ) async throws -> [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1219,7 +1222,7 @@ class PluginInvocationTests: XCTestCase {
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem
-            )
+            ).mapValues(\.results)
         }
     }
 

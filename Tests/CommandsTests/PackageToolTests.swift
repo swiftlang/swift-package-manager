@@ -638,7 +638,11 @@ final class PackageToolTests: CommandsTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let output = BufferedOutputByteStream()
-        SwiftPackageTool.ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
+        SwiftPackageTool.ShowDependencies.dumpDependenciesOf(
+            rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
+            mode: .dot,
+            on: output
+        )
         let dotFormat = output.bytes.description
 
         var alreadyPutOut: Set<Substring> = []

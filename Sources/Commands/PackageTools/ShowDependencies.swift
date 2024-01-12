@@ -40,7 +40,11 @@ extension SwiftPackageTool {
             // command's result output goes on stdout
             // ie "swift package show-dependencies" should output to stdout
             let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream
-            Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+            Self.dumpDependenciesOf(
+                rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
+                mode: format,
+                on: stream
+            )
         }
 
         static func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {

@@ -144,7 +144,12 @@ public struct BuildPlanResult {
                 .compactMap { $0 as? Build.ProductBuildDescription }
                 .map { ($0.product.name, $0) }
         )
-        self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map { ($0.0.name, $0.1) })
+        self.targetMap = try Dictionary(
+            throwingUniqueKeysWithValues: plan.targetMap.compactMap {
+                guard let target = plan.graph.allTargets[$0] else { return nil }
+                return (target.name, $1)
+            }
+        )
     }
 
     public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
