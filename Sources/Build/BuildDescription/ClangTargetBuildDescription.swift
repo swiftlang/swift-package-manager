@@ -13,6 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
+import struct PackageGraph.PackageGraph
 import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
@@ -133,7 +134,7 @@ public final class ClangTargetBuildDescription {
         if toolsVersion >= .v5_9 {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
-            (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+            (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
                 target: target,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,

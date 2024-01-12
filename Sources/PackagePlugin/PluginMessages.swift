@@ -16,8 +16,14 @@ import Foundation
 enum HostToPluginMessage: Codable {
     
     /// The host requests that the plugin create build commands (corresponding to a `.buildTool` capability) for a target in the package graph.
-    case createBuildToolCommands(context: InputContext, rootPackageId: InputContext.Package.Id, targetId: InputContext.Target.Id)
-    
+    case createBuildToolCommands(
+        context: InputContext,
+        rootPackageId: InputContext.Package.Id,
+        targetId: InputContext.Target.Id,
+        pluginGeneratedSources: [InputContext.URL.Id],
+        pluginGeneratedResources: [InputContext.URL.Id]
+    )
+
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
     case performCommand(context: InputContext, rootPackageId: InputContext.Package.Id, arguments: [String])
 
