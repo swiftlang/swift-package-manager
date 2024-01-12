@@ -64,7 +64,7 @@ public struct ResolvedProduct {
     }
 
     public init(packageIdentity: PackageIdentity, product: Product, targets: IdentifiableSet<ResolvedTarget>) {
-        assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
+        assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
         self.underlying = product
         self.targets = targets
