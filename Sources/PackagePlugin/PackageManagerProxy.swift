@@ -59,7 +59,10 @@ public struct PackageManager {
         
         /// Controls the amount of detail in the log returned in the build result.
         public var logging: BuildLogVerbosity
-        
+
+        /// Whether to print build logs to the console
+        public var echoLogs: Bool
+
         /// Additional flags to pass to all C compiler invocations.
         public var otherCFlags: [String] = []
 
@@ -72,9 +75,10 @@ public struct PackageManager {
         /// Additional flags to pass to all linker invocations.
         public var otherLinkerFlags: [String] = []
 
-        public init(configuration: BuildConfiguration = .debug, logging: BuildLogVerbosity = .concise) {
+        public init(configuration: BuildConfiguration = .debug, logging: BuildLogVerbosity = .concise, echoLogs: Bool = false) {
             self.configuration = configuration
             self.logging = logging
+            self.echoLogs = echoLogs
         }
     }
     
@@ -314,6 +318,7 @@ fileprivate extension PluginToHostMessage.BuildParameters {
     init(_ parameters: PackageManager.BuildParameters) {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
+        self.echoLogs = parameters.echoLogs
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags

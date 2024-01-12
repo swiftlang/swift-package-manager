@@ -16,6 +16,7 @@ import Foundation
 import PackageModel
 import SPMBuildCore
 
+import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
@@ -66,6 +67,40 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
     }
 
+    class TeeOutputByteStream: OutputByteStream {
+        var downstreams: [OutputByteStream]
+
+        public init(_ downstreams: [OutputByteStream]) {
+            self.downstreams = downstreams
+        }
+
+        var position: Int {
+            return 0 // should be related to the downstreams somehow
+        }
+
+        public func write(_ byte: UInt8) {
+            for downstream in downstreams {
+                downstream.write(byte)
+            }
+        }
+
+        func write<C: Collection>(_ bytes: C) where C.Element == UInt8 {
+            for downstream in downstreams {
+                downstream.write(bytes)
+            }
+		}
+
+        public func flush() {
+            for downstream in downstreams {
+                downstream.flush()
+            }
+        }
+
+        public func addStream(_ stream: OutputByteStream) {
+            self.downstreams.append(stream)
+        }
+    }
+
     private func performBuildForPlugin(
         subset: PluginInvocationBuildSubset,
         parameters: PluginInvocationBuildParameters
@@ -112,7 +147,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         // Create a build operation. We have to disable the cache in order to get a build plan created.
-        let outputStream = BufferedOutputByteStream()
+        let bufferedOutputStream = BufferedOutputByteStream()
+        let outputStream = TeeOutputByteStream([bufferedOutputStream])
+        if parameters.echoLogs {
+            outputStream.addStream(swiftTool.outputStream)
+        }
+
         let buildSystem = try swiftTool.createBuildSystem(
             explicitBuildSystem: .native,
             explicitProduct: explicitProduct,
@@ -151,7 +191,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
         return PluginInvocationBuildResult(
             succeeded: success,
-            logText: outputStream.bytes.cString,
+            logText: bufferedOutputStream.bytes.cString,
             builtArtifacts: builtArtifacts)
     }
 

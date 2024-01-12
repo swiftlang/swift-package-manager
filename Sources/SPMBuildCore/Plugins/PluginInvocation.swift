@@ -867,6 +867,7 @@ public struct PluginInvocationBuildParameters {
     public enum LogVerbosity: String {
         case concise, verbose, debug
     }
+    public var echoLogs: Bool
     public var otherCFlags: [String]
     public var otherCxxFlags: [String]
     public var otherSwiftcFlags: [String]
@@ -979,6 +980,7 @@ fileprivate extension PluginInvocationBuildParameters {
     init(_ parameters: PluginToHostMessage.BuildParameters) {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
+        self.echoLogs = parameters.echoLogs
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags
