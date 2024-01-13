@@ -51,8 +51,5 @@ find_package(dispatch QUIET)
 find_package(Foundation QUIET)
 find_package(SQLite3 REQUIRED)
 
-# Enable `package` modifier for the whole package.
-add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>")
-
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)
