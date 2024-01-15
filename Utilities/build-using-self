@@ -36,6 +36,8 @@ swift package update
 $SWIFTPM_BIN_DIR/swift-test --parallel
 
 if [ "$(uname)" == "Darwin" ]; then
+  cd ..
+  echo "Current working directory is ${PWD}"
   echo "Bootstrapping with the XCBuild codepath..."
   rm -rf .build
   ./Utilities/bootstrap build --release --cross-compile-hosts macosx-arm64
