@@ -88,6 +88,10 @@ def add_build_args(parser):
     """Configures the parser with the arguments necessary for build-related actions."""
     add_global_args(parser)
     parser.add_argument(
+        "--swift-build-path",
+        help="path to the prebuilt SwiftPM `swift-build` binary",
+        metavar="PATH")
+    parser.add_argument(
         "--swiftc-path",
         help="path to the swift compiler",
         metavar="PATH")
@@ -154,7 +158,7 @@ def add_build_args(parser):
         default=[])
     parser.add_argument(
         "--cross-compile-config",
-        help="Swift flags to cross-compile SPM with itself")
+        help="Swift flags to cross-compile SwiftPM with itself")
 
 def add_test_args(parser):
     """Configures the parser with the arguments necessary for the test action."""
@@ -640,7 +644,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
         swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-bootstrap"))
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")
-        swiftpm_args.append(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
+        swiftpm_args.append(args.swift_build_path or os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
         swiftpm_args.append("--disable-sandbox")
 
         # Enforce resolved versions to avoid stray dependencies that aren't local.

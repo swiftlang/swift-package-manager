@@ -44,6 +44,6 @@ if [ "$(uname)" == "Darwin" ]; then
   rm -rf .build
   ./Utilities/bootstrap build --release \
     --cross-compile-hosts macosx-arm64 \
-    --cmake-path $(which cmake) \
-    --ninja-path $(which ninja)
+    --skip-cmake-bootstrap \
+    --swift-build-path "${SWIFTPM_BIN_DIR}/swift-build"
 fi
