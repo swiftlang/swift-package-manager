@@ -224,8 +224,9 @@ def parse_build_args(args):
 
     args.swiftc_path = get_swiftc_path(args)
     args.clang_path = get_tool_path(args, "clang")
-    args.cmake_path = get_tool_path(args, "cmake")
-    args.ninja_path = get_tool_path(args, "ninja")
+    if not args.skip_cmake_bootstrap:
+        args.cmake_path = get_tool_path(args, "cmake")
+        args.ninja_path = get_tool_path(args, "ninja")
     args.ar_path = get_tool_path(args, "ar")
     args.ranlib_path = get_tool_path(args, "ranlib")
     if args.cross_compile_hosts:
