@@ -42,5 +42,8 @@ if [ "$(uname)" == "Darwin" ]; then
   export PATH="/usr/local/bin:/opt/homebrew/bin:${PATH}"
   echo "Bootstrapping with the XCBuild codepath..."
   rm -rf .build
-  ./Utilities/bootstrap build --release --cross-compile-hosts macosx-arm64 --cmake-path $(which cmake)
+  ./Utilities/bootstrap build --release \
+    --cross-compile-hosts macosx-arm64 \
+    --cmake-path $(which cmake) \
+    --ninja-path $(which ninja)
 fi
