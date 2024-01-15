@@ -24,12 +24,12 @@ export SWIFTCI_IS_SELF_HOSTED=1
 set -x
 
 # Perform package update in order to get the latest commits for the dependencies.
-#swift package update
-#swift build -c $CONFIGURATION
+swift package update
+swift build -c $CONFIGURATION
 #swift test -c $CONFIGURATION --parallel
 
 # Run the integration tests with just built SwiftPM.
-#export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
+export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
 cd IntegrationTests
 # Perform package update in order to get the latest commits for the dependencies.
 #swift package update
