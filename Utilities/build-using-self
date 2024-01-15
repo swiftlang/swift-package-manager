@@ -37,5 +37,6 @@ $SWIFTPM_BIN_DIR/swift-test --parallel
 
 if [ "$(uname)" == "Darwin" ]; then
   echo "Bootstrapping with the XCBuild codepath..."
-  ./Utilities/bootstrap --release --cross-compile-hosts macosx-arm64
+  rm -rf .build
+  ./Utilities/bootstrap build --release --cross-compile-hosts macosx-arm64
 fi
