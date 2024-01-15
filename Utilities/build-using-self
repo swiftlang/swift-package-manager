@@ -38,8 +38,8 @@ cd IntegrationTests
 if [ "$(uname)" == "Darwin" ]; then
   cd ..
   echo "Current working directory is ${PWD}"
-  echo "Current PATH is ${PATH}"
-  echo "Possible CMake paths:\n$(ls -l /usr/local/bin/cmake /opt/homebrew/bin/cmake)"
+  # Make sure Homebrew installation of CMake can be found
+  export PATH="/usr/local/bin:/opt/homebrew/bin:${PATH}"
   echo "Bootstrapping with the XCBuild codepath..."
   rm -rf .build
   ./Utilities/bootstrap build --release --cross-compile-hosts macosx-arm64 --cmake-path $(which cmake)
