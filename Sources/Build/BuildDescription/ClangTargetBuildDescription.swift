@@ -13,6 +13,7 @@
 import Basics
 import PackageLoading
 import PackageModel
+import struct PackageGraph.PackageGraph
 import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
@@ -133,7 +134,7 @@ public final class ClangTargetBuildDescription {
         if toolsVersion >= .v5_9 {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
-            (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+            (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
                 target: target,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -238,23 +239,15 @@ public final class ClangTargetBuildDescription {
         }
 
         // Enable Clang module flags, if appropriate.
-        let enableModules: Bool
         let triple = self.buildParameters.triple
-        if toolsVersion < .v5_8 {
-            // For version < 5.8, we enable them except in these cases:
-            // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
-            // 2. on Windows when compiling for any language, because of issues with the Windows SDK
-            // 3. on Android when compiling for any language, because of issues with the Android SDK
-            enableModules = !(triple.isDarwin() && isCXX) && !triple.isWindows() && !triple.isAndroid()
-        } else {
-            // For version >= 5.8, we disable them when compiling for C++ regardless of platforms, see:
-            // https://github.com/llvm/llvm-project/issues/55980 for clang frontend crash when module
-            // enabled for C++ on c++17 standard and above.
-            enableModules = !isCXX && !triple.isWindows() && !triple.isAndroid()
-        }
-
+        // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
+        // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't
+        // support clang modules.
+        // Note that if modules get enabled for other platforms later, we'll need to verify that
+        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed, or don't
+        // enable modules in the affected modes.
+        let enableModules = triple.isDarwin()
         if enableModules {
-            // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
 
