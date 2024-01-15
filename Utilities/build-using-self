@@ -38,8 +38,6 @@ $SWIFTPM_BIN_DIR/swift-test --parallel
 if [ "$(uname)" == "Darwin" ]; then
   cd ..
   echo "Current working directory is ${PWD}"
-  # Make sure Homebrew installation of CMake can be found
-  export PATH="/usr/local/bin:/opt/homebrew/bin:${PATH}"
   echo "Bootstrapping with the XCBuild codepath..."
   ./Utilities/bootstrap build --release \
     --cross-compile-hosts macosx-arm64 \
