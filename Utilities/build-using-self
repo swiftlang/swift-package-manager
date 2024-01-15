@@ -40,5 +40,5 @@ if [ "$(uname)" == "Darwin" ]; then
   echo "Current working directory is ${PWD}"
   echo "Bootstrapping with the XCBuild codepath..."
   rm -rf .build
-  ./Utilities/bootstrap build --release --cross-compile-hosts macosx-arm64
+  ./Utilities/bootstrap build --release --cross-compile-hosts macosx-arm64 --cmake-path $(which cmake)
 fi
