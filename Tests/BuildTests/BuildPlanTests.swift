@@ -4282,11 +4282,9 @@ final class BuildPlanTests: XCTestCase {
                     .anySequence,
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
-                    "-Xcc",
-                    "-std=c++17",
+                    "-Xcc", "-std=c++17",
                     "-g",
-                    "-Xcc",
-                    "-g",
+                    "-Xcc", "-g",
                     .end,
                 ]
             )
@@ -5809,7 +5807,7 @@ final class BuildPlanTests: XCTestCase {
                         }
                     }
                 }
-                """
+            """
         )
 
         let observability = ObservabilitySystem.makeForTesting()
