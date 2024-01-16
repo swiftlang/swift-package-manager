@@ -643,8 +643,9 @@ final class BuildPlanTests: XCTestCase {
             }
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
-    }    
+    }
 
+    #if os(macOS)
     func testPackageNameFlagXCBuild() throws {
         try XCTSkipIfCI() // test is disabled because it isn't stable, see rdar://118239206
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
@@ -674,6 +675,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(stdout, .contains("Build succeeded"))
         }
     }
+    #endif
 
     func testTargetsWithPackageAccess() throws {
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
