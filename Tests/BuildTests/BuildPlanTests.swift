@@ -1018,18 +1018,21 @@ final class BuildPlanTests: XCTestCase {
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
-            XCTAssertMatch(contents, .contains("""
+            XCTAssertMatch(
+                contents,
+                .contains("""
                 inputs: ["\(
                     Pkg.appending(components: "Sources", "exe", "main.swift")
                         .escapedPathString
-            )","\(swiftGetVersionFilePath.escapedPathString)","\(
+                )","\(swiftGetVersionFilePath.escapedPathString)","\(
                 buildPath
                     .appending(components: "Modules", "PkgLib.swiftmodule").escapedPathString
-            )","\(
+                )","\(
                 buildPath
                     .appending(components: "exe.build", "sources").escapedPathString
-            )"]
-                """))
+                )"]
+                """)
+            )
         }
 
         do {
@@ -5250,83 +5253,94 @@ final class BuildPlanTests: XCTestCase {
         let contents: String = try fs.readFileContents(yaml)
 
         if result.plan.destinationBuildParameters.triple.isWindows() {
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(
-                    buildPath.appending(components: "rary.build", "rary.swift.o")
+            XCTAssertMatch(
+                contents,
+                .contains("""
+                "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(
+                        buildPath.appending(components: "rary.build", "rary.swift.o")
+                            .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.build", "rary.swiftmodule.o")
                         .escapedPathString
-            )","\(
-                buildPath.appending(components: "rary.build", "rary.swiftmodule.o")
-                    .escapedPathString
-            )","\(
-                buildPath.appending(components: "rary.product", "Objects.LinkFileList")
-                    .escapedPathString
-            )"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                args: ["\(
-                    result.plan.destinationBuildParameters.toolchain.librarianPath
+                    )","\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
                         .escapedPathString
-            )","/LIB","/OUT:\(
-                buildPath.appending(components: "library.a")
-                    .escapedPathString
-            )","@\(
-                buildPath.appending(components: "rary.product", "Objects.LinkFileList")
-                    .escapedPathString
-            )"]
-                """))
+                    )"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(
+                        result.plan.destinationBuildParameters.toolchain.librarianPath
+                            .escapedPathString
+                    )","/LIB","/OUT:\(
+                    buildPath.appending(components: "library.a")
+                        .escapedPathString
+                    )","@\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                """)
+            )
         } else if result.plan.destinationBuildParameters.triple.isDarwin() {
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(
-                    buildPath.appending(components: "rary.build", "rary.swift.o")
+            XCTAssertMatch(
+                contents,
+                .contains(
+                """
+                "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(
+                        buildPath.appending(components: "rary.build", "rary.swift.o")
+                            .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
                         .escapedPathString
-            )","\(
-                buildPath.appending(components: "rary.product", "Objects.LinkFileList")
-                    .escapedPathString
-            )"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                args: ["\(
-                    result.plan.destinationBuildParameters.toolchain.librarianPath
+                    )"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(
+                        result.plan.destinationBuildParameters.toolchain.librarianPath
+                            .escapedPathString
+                    )","-static","-o","\(
+                    buildPath.appending(components: "library.a")
                         .escapedPathString
-            )","-static","-o","\(
-                buildPath.appending(components: "library.a")
-                    .escapedPathString
-            )","@\(
-                buildPath.appending(components: "rary.product", "Objects.LinkFileList")
-                    .escapedPathString
-            )"]
-                """))
+                    )","@\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                """)
+            )
         } else { // assume `llvm-ar` is the librarian
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(
-                    buildPath.appending(components: "rary.build", "rary.swift.o")
+            XCTAssertMatch(
+                contents,
+                .contains(
+                """
+                "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(
+                        buildPath.appending(components: "rary.build", "rary.swift.o")
+                            .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.build", "rary.swiftmodule.o")
                         .escapedPathString
-            )","\(
-                buildPath.appending(components: "rary.build", "rary.swiftmodule.o")
-                    .escapedPathString
-            )","\(
-                buildPath.appending(components: "rary.product", "Objects.LinkFileList")
-                    .escapedPathString
-            )"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                args: ["\(
-                    result.plan.destinationBuildParameters.toolchain.librarianPath
+                    )","\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
                         .escapedPathString
-            )","crs","\(
-                buildPath.appending(components: "library.a")
-                    .escapedPathString
-            )","@\(
-                buildPath.appending(components: "rary.product", "Objects.LinkFileList")
-                    .escapedPathString
-            )"]
-                """))
+                    )"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(
+                        result.plan.destinationBuildParameters.toolchain.librarianPath
+                            .escapedPathString
+                    )","crs","\(
+                    buildPath.appending(components: "library.a")
+                        .escapedPathString
+                    )","@\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                """)
+            )
         }
     }
 
@@ -5789,14 +5803,13 @@ final class BuildPlanTests: XCTestCase {
                                     "path": "all-platforms/mytool",
                                     "supportedTriples": ["\(
                                         artifactTriples.map(\.tripleString)
-                                            .joined(separator: "\", \"")
-            )"]
+                                            .joined(separator: "\", \""))"]
                                 }
                             ]
                         }
                     }
                 }
-                                    """
+                """
         )
 
         let observability = ObservabilitySystem.makeForTesting()
