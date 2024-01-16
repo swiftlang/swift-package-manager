@@ -18,6 +18,7 @@ target_link_libraries(XCBuildSupport PUBLIC
   TSCBasic
   TSCUtility
   PackageGraph
+  SwiftDriver
 )
 
 set_target_properties(XCBuildSupport PROPERTIES
