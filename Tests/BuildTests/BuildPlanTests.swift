@@ -647,7 +647,6 @@ final class BuildPlanTests: XCTestCase {
 
     #if os(macOS)
     func testPackageNameFlagXCBuild() throws {
-        try XCTSkipIfCI() // test is disabled because it isn't stable, see rdar://118239206
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,

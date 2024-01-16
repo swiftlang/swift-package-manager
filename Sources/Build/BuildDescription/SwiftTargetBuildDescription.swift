@@ -419,18 +419,6 @@ public final class SwiftTargetBuildDescription {
         try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
-    private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
-        let flag = "-package-name"
-        if pkg.manifest.usePackageNameFlag,
-           DriverSupport.isPackageNameSupported(toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem) {
-            if packageAccess {
-                let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
-                return [flag, pkgID]
-            } 
-        }
-        return []
-    }
-
     private func macroArguments() throws -> [String] {
         var args = [String]()
 
@@ -631,7 +619,10 @@ public final class SwiftTargetBuildDescription {
             args += ["-user-module-version", version.description]
         }
 
-        args += self.packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess)
+        args += self.package.packageNameArgument(
+            target: self.target,
+            isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
+        )
         args += try self.macroArguments()
         
         // rdar://117578677
@@ -656,7 +647,12 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
+        result.append(
+            contentsOf: self.package.packageNameArgument(
+                target: self.target,
+                isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
+            )
+        )
         if !scanInvocation {
             result.append("-emit-dependencies")
 
