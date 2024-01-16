@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2019-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2019 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -129,7 +129,6 @@ extension SwiftPM {
         }
         completeArgs += args
 
-        print(completeArgs)
         return try Process.popen(arguments: completeArgs, environment: environment)
     }
 }

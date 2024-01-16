@@ -1681,7 +1681,6 @@ private extension PIF.BuildSettings {
         if !packageOptions.isEmpty {
             self[.OTHER_SWIFT_FLAGS] = packageOptions
         }
-
     }
 }
 
