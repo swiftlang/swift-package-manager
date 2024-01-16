@@ -1987,6 +1987,68 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    // Test target builds requested by a command plugin
+    func testCommandPluginTargetBuilds() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        let debugTarget = [".build", "debug", "placeholder"]
+        let releaseTarget = [".build", "release", "placeholder"]
+
+        func AssertIsExecutableFile(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
+            XCTAssert(
+                localFileSystem.isExecutableFile(fixturePath),
+                "\(fixturePath) does not exist",
+                file: file,
+                line: line
+            )
+        }
+
+        func AssertNotExists(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
+            XCTAssertFalse(
+                localFileSystem.exists(fixturePath),
+                "\(fixturePath) should not exist",
+                file: file,
+                line: line
+            )
+        }
+
+        // By default, a plugin-requested build produces a debug binary
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "release", "build-target"], packagePath: fixturePath)
+            AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
+            AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "release", "build-target", "build-debug"], packagePath: fixturePath)
+            AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
+            AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "debug", "build-target", "build-release"], packagePath: fixturePath)
+            AssertNotExists(fixturePath.appending(components: debugTarget))
+            AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin inherits the overall build configuration, that is what will be built
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "debug", "build-target", "build-inherit"], packagePath: fixturePath)
+            AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
+            AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin inherits the overall build configuration, that is what will be built
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "release", "build-target", "build-inherit"], packagePath: fixturePath)
+            AssertNotExists(fixturePath.appending(components: debugTarget))
+            AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
+        }
+    }
+
     func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
