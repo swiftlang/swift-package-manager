@@ -2258,7 +2258,15 @@ class PackageGraphTests: XCTestCase {
                     try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
                     try ProductDescription(name: "cbar", type: .library(.automatic), targets: ["cbar"]),
                     try ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"]),
-                    try ProductDescription(name: "multi-target", type: .library(.automatic), targets: ["bar", "cbar", "bar", "test"]),
+                    try ProductDescription(
+                        name: "multi-target",
+                        type: .library(.automatic),
+                        targets: [
+                            "bar",
+                            "cbar",
+                            "test"
+                        ]
+                    ),
                 ],
                 targets: [
                     try TargetDescription(name: "foo", type: .system),
