@@ -22,7 +22,7 @@ extension os.OSLog {
 #endif
 
 /// Emits a signpost.
-@inlinable public func os_signpost(
+@inlinable package func os_signpost(
     _ type: SignpostType,
     name: StaticString,
     signpostID: SignpostID = .exclusive
@@ -39,8 +39,8 @@ extension os.OSLog {
     #endif
 }
 
-
-public enum SignpostType {
+@usableFromInline
+package enum SignpostType {
     case begin
     case end
     case event
@@ -61,7 +61,8 @@ public enum SignpostType {
     #endif
 }
 
-public enum SignpostID {
+@usableFromInline
+package enum SignpostID {
     case exclusive
 
     #if canImport(os)
@@ -77,7 +78,7 @@ public enum SignpostID {
 }
 
 
-public enum SignpostName {
+package enum SignpostName {
     public static let updatingDependencies: StaticString = "updating"
     public static let resolvingDependencies: StaticString = "resolving"
     public static let pubgrub: StaticString = "pubgrub"
