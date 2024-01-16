@@ -225,7 +225,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
     public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
-    private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
+    package private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
