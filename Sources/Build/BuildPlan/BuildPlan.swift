@@ -245,6 +245,28 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// ObservabilityScope with which to emit diagnostics
     let observabilityScope: ObservabilityScope
 
+    @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
+    public convenience init(
+        buildParameters: BuildParameters,
+        graph: PackageGraph,
+        additionalFileRules: [FileRuleDescription] = [],
+        buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.init(
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
+            graph: graph,
+            additionalFileRules: additionalFileRules,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
     /// Create a build plan with a package graph and explicitly distinct build parameters for products and tools.
     public init(
         productsBuildParameters: BuildParameters,
