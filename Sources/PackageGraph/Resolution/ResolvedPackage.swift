@@ -14,7 +14,7 @@ import Basics
 import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.
-public struct ResolvedPackage: Hashable {
+public struct ResolvedPackage {
     // The identity of the package.
     public var identity: PackageIdentity {
         return self.underlying.identity
@@ -91,3 +91,6 @@ extension ResolvedPackage: CustomStringConvertible {
 extension ResolvedPackage: Identifiable {
     public var id: PackageIdentity { self.underlying.identity }
 }
+
+@available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
+extension ResolvedPackage: Hashable {}

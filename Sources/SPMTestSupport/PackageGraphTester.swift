@@ -12,6 +12,8 @@
 
 import XCTest
 
+import struct Basics.IdentifiableSet
+
 import PackageModel
 import PackageGraph
 
@@ -128,21 +130,21 @@ public final class PackageGraphResult {
         return graph.packages.first(where: { $0.identity == package })
     }
 
-    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> Set<ResolvedTarget> {
+    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedTarget> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
         let recursiveBuildTargetDependencies = try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.target }
-        return Set(inputTargets).union(recursiveBuildTargetDependencies)
+        return IdentifiableSet(inputTargets).union(recursiveBuildTargetDependencies)
     }
 
-    private func reachableBuildProducts(in environment: BuildEnvironment) throws -> Set<ResolvedProduct> {
+    private func reachableBuildProducts(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedProduct> {
         let recursiveBuildProductDependencies = try graph.inputPackages
             .lazy
             .flatMap { $0.targets }
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.product }
-        return Set(graph.inputPackages.flatMap { $0.products }).union(recursiveBuildProductDependencies)
+        return IdentifiableSet(graph.inputPackages.flatMap { $0.products }).union(recursiveBuildProductDependencies)
     }
 }
 

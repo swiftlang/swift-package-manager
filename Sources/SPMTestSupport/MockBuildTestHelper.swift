@@ -144,7 +144,17 @@ public struct BuildPlanResult {
                 .compactMap { $0 as? Build.ProductBuildDescription }
                 .map { ($0.product.name, $0) }
         )
-        self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map { ($0.0.name, $0.1) })
+        self.targetMap = try Dictionary(
+            throwingUniqueKeysWithValues: plan.targetMap.compactMap {
+                guard 
+                    let target = plan.graph.allTargets[$0] ??
+                        IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
+                else {
+                    throw BuildError.error("Target \($0) not found.")
+                }
+                return (target.name, $1)
+            }
+        )
     }
 
     public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
