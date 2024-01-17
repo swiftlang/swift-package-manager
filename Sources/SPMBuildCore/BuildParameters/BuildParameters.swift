@@ -29,9 +29,6 @@ public struct BuildParameters: Encodable {
     /// The path to the data directory.
     public var dataPath: AbsolutePath
 
-    /// The path to the SDKROOT directory.
-    public var sdkPath: AbsolutePath?
-
     /// The build configuration.
     public var configuration: BuildConfiguration
 
@@ -122,7 +119,6 @@ public struct BuildParameters: Encodable {
 
     public init(
         dataPath: AbsolutePath,
-        sdkPath: AbsolutePath?,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
@@ -149,7 +145,6 @@ public struct BuildParameters: Encodable {
         )
 
         self.dataPath = dataPath
-        self.sdkPath = toolchain.sdkRootPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple

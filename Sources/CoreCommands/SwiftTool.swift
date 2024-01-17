@@ -695,7 +695,6 @@ public final class SwiftTool {
 
         return try BuildParameters(
             dataPath: dataPath,
-            sdkPath: toolchain.sdkRootPath,
             configuration: options.build.configuration,
             toolchain: toolchain,
             triple: triple,
