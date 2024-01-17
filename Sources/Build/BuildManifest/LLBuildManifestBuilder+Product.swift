@@ -26,7 +26,7 @@ extension LLBuildManifestBuilder {
             testInputs = [testBundleInfoPlistPath]
 
             self.manifest.addWriteInfoPlistCommand(
-                principalClass: "\(buildProduct.product.targets[0].c99name).SwiftPMXCTestObserver",
+                principalClass: "\(buildProduct.product.targets[buildProduct.product.targets.startIndex].c99name).SwiftPMXCTestObserver",
                 outputPath: testBundleInfoPlistPath
             )
         } else {
@@ -107,7 +107,7 @@ extension LLBuildManifestBuilder {
             outputs: [output]
         )
 
-        if self.plan.graph.reachableProducts.contains(buildProduct.product) {
+        if self.plan.graph.reachableProducts.contains(id: buildProduct.product.id) {
             if buildProduct.product.type != .test {
                 self.addNode(output, toTarget: .main)
             }

@@ -23,7 +23,7 @@ extension BuildPlan {
         for case .target(let dependency, _) in dependencies {
             switch dependency.underlying {
             case is SwiftTarget:
-                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .swift(dependencyTargetDescription)? = targetMap[dependency.id] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -34,7 +34,7 @@ extension BuildPlan {
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
                 // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .clang(dependencyTargetDescription)? = targetMap[dependency.id] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
