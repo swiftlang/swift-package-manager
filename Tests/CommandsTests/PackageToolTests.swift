@@ -1890,7 +1890,7 @@ final class PackageToolTests: CommandsTestCase {
         let containsWarning = StringPattern.contains("command plugin: Diagnostics.warning")
         let containsError = StringPattern.contains("command plugin: Diagnostics.error")
 
-        try fixture(name: "Miscellaneous/Plugins/CommandPluginDiagnosticsStub") { fixturePath in
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             func runPlugin(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
                 let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)
                 completion(stdout, stderr)
