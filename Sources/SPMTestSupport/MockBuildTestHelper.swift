@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import Build
+
 import PackageModel
 import SPMBuildCore
 import TSCUtility

@@ -67,7 +67,7 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     }
 
     public func intersection(_ otherSequence: some Sequence<Element>) -> Self {
-        var keysToRemove = Set(self.storage.keys).subtracting(otherSequence.map(\.id))
+        let keysToRemove = Set(self.storage.keys).subtracting(otherSequence.map(\.id))
         var result = Self()
         for key in keysToRemove {
             result.storage.removeValue(forKey: key)
