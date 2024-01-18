@@ -2889,14 +2889,14 @@ final class BuildPlanTests: XCTestCase {
         var expectedLibBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
         expectedLibBasicArgs += ["-target", defaultTargetTriple]
         expectedLibBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
-        let shouldHaveModules = triple.isDarwin()
-        if shouldHaveModules {
-            expectedLibBasicArgs += ["-fmodules", "-fmodule-name=lib"]
-        }
+//        let shouldHaveModules = false // FIXME(5473) - support modules on non-Apple platforms, and also for C++ on any platform
+//        if shouldHaveModules {
+//            expectedLibBasicArgs += ["-fmodules", "-fmodule-name=lib"]
+//        }
         expectedLibBasicArgs += ["-I", Pkg.appending(components: "Sources", "lib", "include").pathString]
-        if shouldHaveModules {
-            expectedLibBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        }
+//        if shouldHaveModules {
+//            expectedLibBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
+//        }
         expectedLibBasicArgs += [
             triple.isWindows() ? "-gdwarf" : "-g",
             triple.isWindows() ? "-gdwarf" : "-g",
