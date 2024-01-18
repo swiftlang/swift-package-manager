@@ -861,7 +861,7 @@ public enum PluginInvocationBuildSubset {
 public struct PluginInvocationBuildParameters {
     public var configuration: Configuration
     public enum Configuration: String {
-        case debug, release
+        case debug, release, inherit
     }
     public var logging: LogVerbosity
     public enum LogVerbosity: String {
@@ -993,6 +993,8 @@ fileprivate extension PluginInvocationBuildParameters.Configuration {
             self = .debug
         case .release:
             self = .release
+        case .inherit:
+            self = .inherit
         }
     }
 }
