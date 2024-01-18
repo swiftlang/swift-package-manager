@@ -478,8 +478,8 @@ public struct SwiftSDK: Equatable {
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = lookupExecutablePath(filename: ProcessEnv.vars["SDKROOT"]) {
-            sdkPath = value
+        if let value = ProcessEnv.vars["SDKROOT"] {
+            sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
