@@ -64,7 +64,7 @@ extension EnvironmentVariables {
 // rdar://107029374
 extension EnvironmentVariables {
     // internal for testing
-    internal static let nonCachableKeys: Set<String> = [
+    static let nonCachableKeys: Set<String> = [
         "TERM",
         "TERM_PROGRAM",
         "TERM_PROGRAM_VERSION",
@@ -79,6 +79,7 @@ extension EnvironmentVariables {
         "LS_COLORS",
         "VSCODE_IPC_HOOK_CLI",
         "HYPERFINE_RANDOMIZED_ENVIRONMENT_OFFSET",
+        "SSH_AUTH_SOCK",
     ]
 
     public var cachable: EnvironmentVariables {

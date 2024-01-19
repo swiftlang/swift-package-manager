@@ -33,7 +33,7 @@ extension LLBuildManifestBuilder {
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
+            if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
@@ -46,7 +46,7 @@ extension LLBuildManifestBuilder {
             case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
+                    guard let planProduct = plan.productMap[product.id] else {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.

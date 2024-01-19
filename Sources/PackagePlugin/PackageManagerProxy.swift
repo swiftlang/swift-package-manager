@@ -81,7 +81,7 @@ public struct PackageManager {
     /// Represents an overall purpose of the build, which affects such things
     /// as optimization and generation of debug symbols.
     public enum BuildConfiguration: String {
-        case debug, release
+        case debug, release, inherit
     }
     
     /// Represents the amount of detail in a build log.
@@ -328,6 +328,8 @@ fileprivate extension PluginToHostMessage.BuildParameters.Configuration {
             self = .debug
         case .release:
             self = .release
+        case .inherit:
+            self = .inherit
         }
     }
 }

@@ -311,7 +311,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[0])
+        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[self.product.targets.startIndex])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags

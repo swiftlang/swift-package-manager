@@ -395,8 +395,8 @@ extension PackageGraph {
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
-    ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
-        var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
+    ) throws -> [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] {
+        var pluginResultsByTarget: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] = [:]
         for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
@@ -587,7 +587,7 @@ extension PackageGraph {
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            pluginResultsByTarget[target] = buildToolPluginResults
+            pluginResultsByTarget[target.id] = (target, buildToolPluginResults)
         }
         return pluginResultsByTarget
     }
@@ -861,7 +861,7 @@ public enum PluginInvocationBuildSubset {
 public struct PluginInvocationBuildParameters {
     public var configuration: Configuration
     public enum Configuration: String {
-        case debug, release
+        case debug, release, inherit
     }
     public var logging: LogVerbosity
     public enum LogVerbosity: String {
@@ -993,6 +993,8 @@ fileprivate extension PluginInvocationBuildParameters.Configuration {
             self = .debug
         case .release:
             self = .release
+        case .inherit:
+            self = .inherit
         }
     }
 }

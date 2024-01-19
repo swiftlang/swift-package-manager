@@ -382,8 +382,8 @@ public struct BuildDescription: Codable {
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
-        for (target, description) in plan.targetMap {
-            guard case .swift(let desc) = description else {
+        for (targetID, description) in plan.targetMap {
+            guard case .swift(let desc) = description, let target = plan.graph.allTargets[targetID] else {
                 continue
             }
             let buildParameters = plan.buildParameters(for: target)
