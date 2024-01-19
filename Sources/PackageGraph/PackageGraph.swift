@@ -180,7 +180,7 @@ public struct PackageGraph {
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    package func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
+    func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
         var result = [ResolvedTarget.ID: [ResolvedTarget]]()
 
         let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
