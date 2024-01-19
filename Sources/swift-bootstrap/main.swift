@@ -14,7 +14,10 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
+
+@_spi(SwiftPMInternal)
 import DriverSupport
+
 import Foundation
 import OrderedCollections
 import PackageGraph

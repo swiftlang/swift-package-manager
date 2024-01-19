@@ -11,10 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
+import DriverSupport
+
 import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -438,7 +444,14 @@ public final class SwiftTargetBuildDescription {
         #endif
 
         // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, DriverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
+        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, 
+            DriverSupport.checkSupportedFrontendFlags(
+                flags: ["-external-plugin-path"],
+                toolchain: self.buildParameters.toolchain,
+                fileSystem: self.fileSystem
+            ), 
+            let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath
+        {
             let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
             let pluginPathComponents = ["lib", "swift", "host", "plugins"]
 

@@ -12,7 +12,11 @@
 
 @testable import Basics
 @testable import Build
-@testable import DriverSupport
+
+@testable
+@_spi(SwiftPMInternal)
+import DriverSupport
+
 @testable import PackageGraph
 import PackageLoading
 @testable import PackageModel

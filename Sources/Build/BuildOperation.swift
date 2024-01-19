@@ -31,10 +31,16 @@ import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-@_implementationOnly import SwiftDriver
-#else
+@_implementationOnly
+@_spi(SwiftPMInternal)
 import DriverSupport
+
+@_implementationOnly
+import SwiftDriver
+#else
+@_spi(SwiftPMInternal)
+import DriverSupport
+
 import SwiftDriver
 #endif
 

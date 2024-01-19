@@ -15,6 +15,8 @@ import Dispatch
 import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream

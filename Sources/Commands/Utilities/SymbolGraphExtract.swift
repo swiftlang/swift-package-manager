@@ -17,8 +17,11 @@ import PackageModel
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
+@_implementationOnly
+@_spi(SwiftPMInternal)
+import DriverSupport
 #else
+@_spi(SwiftPMInternal)
 import DriverSupport
 #endif
 
