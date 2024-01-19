@@ -243,10 +243,10 @@ public final class ClangTargetBuildDescription {
         // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
         // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't
         // support clang modules.
-        // Note that if modules get enabled for other platforms later, we'll need to verify that
-        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed, or don't
-        // enable modules in the affected modes.
-        let enableModules = triple.isDarwin()
+        // Note that if modules get enabled for other platforms later, they can't be used with C++ until
+        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed.
+        // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
+        let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }

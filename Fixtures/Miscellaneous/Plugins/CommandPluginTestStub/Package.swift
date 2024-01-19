@@ -12,6 +12,13 @@ let package = Package(
                 description: "Writes diagnostic messages for testing"
             ))
         ),
+        .plugin(
+            name: "targetbuild-stub",
+            capability: .command(intent: .custom(
+                verb: "build-target",
+                description: "Build a target for testing"
+            ))
+        ),
         .executableTarget(
             name: "placeholder"
         ),

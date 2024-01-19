@@ -297,7 +297,7 @@ enum PluginToHostMessage: Codable {
         struct BuildParameters: Codable {
             var configuration: Configuration
             enum Configuration: String, Codable {
-                case debug, release
+                case debug, release, inherit
             }
             var logging: LogVerbosity
             enum LogVerbosity: String, Codable {
