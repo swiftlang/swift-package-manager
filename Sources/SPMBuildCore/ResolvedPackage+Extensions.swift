@@ -14,7 +14,8 @@ import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedTarget
 
 extension ResolvedPackage {
-    package func packageNameArgument(target: ResolvedTarget, isPackageNameSupported: Bool) -> [String] {
+    @_spi(SwiftPMInternal)
+    public func packageNameArgument(target: ResolvedTarget, isPackageNameSupported: Bool) -> [String] {
         if self.manifest.usePackageNameFlag, target.packageAccess {
             ["-package-name", self.identity.description.spm_mangledToC99ExtendedIdentifier()]
         } else {
