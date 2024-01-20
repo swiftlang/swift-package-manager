@@ -455,9 +455,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
+            // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
+            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
+            // done, which makes it hard to realign them all at once.
+            var pluginsBuildParameters = self.toolsBuildParameters
+            pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
             let buildOperationForPluginDependencies = BuildOperation(
-                productsBuildParameters: self.productsBuildParameters,
-                toolsBuildParameters: self.toolsBuildParameters,
+                // FIXME: this doesn't maintain the products/tools split cleanly
+                productsBuildParameters: pluginsBuildParameters,
+                toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: { return graph },
                 additionalFileRules: self.additionalFileRules,
@@ -469,7 +476,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                buildParameters: self.toolsBuildParameters,
+                buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
                 toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
