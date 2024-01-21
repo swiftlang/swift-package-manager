@@ -13,7 +13,8 @@
 import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
-import class PackageGraph.ResolvedTarget
+import class Basics.ObservabilityScope
+import struct PackageGraph.ResolvedTarget
 import PackageModel
 
 extension LLBuildManifestBuilder {
@@ -25,11 +26,6 @@ extension LLBuildManifestBuilder {
         inputs: [Node] = [],
         createResourceBundle: Bool = true
     ) throws -> [Node] {
-        let standards = [
-            (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
-            (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
-        ]
-
         var inputs: [Node] = inputs
 
         if createResourceBundle {
@@ -43,14 +39,14 @@ extension LLBuildManifestBuilder {
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
+            if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
-            } else if case .mixed(let desc)? = plan.targetMap[target], target.type == .library {
+            } else if case .mixed(let desc)? = plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.swiftTargetBuildDescription.moduleOutputPath)
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: self.buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 addStaticTargetInputs(target)
@@ -58,7 +54,7 @@ extension LLBuildManifestBuilder {
             case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
+                    guard let planProduct = plan.productMap[product.id] else {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
@@ -76,7 +72,7 @@ extension LLBuildManifestBuilder {
         }
 
         for binaryPath in target.libraryBinaryPaths {
-            let path = destinationPath(forBinaryAt: binaryPath)
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
@@ -87,26 +83,7 @@ extension LLBuildManifestBuilder {
         var objectFileNodes: [Node] = []
 
         for path in try target.compilePaths() {
-            let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
-            let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
-
-            var args = try target.basicArguments(isCXX: isCXX, isC: isC)
-
-            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
-
-            // Add language standard flag if needed.
-            if let ext = path.source.extension {
-                for (standard, validExtensions) in standards {
-                    if let standard, validExtensions.contains(ext) {
-                        args += ["-std=\(standard)"]
-                    }
-                }
-            }
-
-            args += ["-c", path.source.pathString, "-o", path.object.pathString]
-
-            let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
-            args.insert(clangCompiler, at: 0)
+            let args = try target.emitCommandLine(for: path.source)
 
             let objectFileNode: Node = .file(path.object)
             objectFileNodes.append(objectFileNode)
@@ -121,13 +98,13 @@ extension LLBuildManifestBuilder {
             )
         }
 
-        try addBuildToolPlugins(.clang(target))
+        let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         if addTargetCmd {
             self.addTargetCmd(
-                target: target.target,
+                target: .clang(target),
                 isTestTarget: target.isTestTarget,
-                inputs: objectFileNodes
+                inputs: objectFileNodes + additionalInputs
             )
         }
 

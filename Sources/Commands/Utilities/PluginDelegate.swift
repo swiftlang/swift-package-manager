@@ -71,12 +71,16 @@ final class PluginDelegate: PluginInvocationDelegate {
         parameters: PluginInvocationBuildParameters
     ) throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
-        var buildParameters = try self.swiftTool.buildParameters()
+        var buildParameters = try self.swiftTool.productsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
         case .release:
             buildParameters.configuration = .release
+        case .inherit:
+            // The top level argument parser set buildParameters.configuration according to the
+            // --configuration command line parameter.   We don't need to do anything to inherit it.
+            break
         }
         buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags)
         buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags)
@@ -113,9 +117,9 @@ final class PluginDelegate: PluginInvocationDelegate {
             explicitBuildSystem: .native,
             explicitProduct: explicitProduct,
             cacheBuildManifest: false,
-            customBuildParameters: buildParameters,
-            customOutputStream: outputStream,
-            customLogLevel: logLevel
+            productsBuildParameters: buildParameters,
+            outputStream: outputStream,
+            logLevel: logLevel
         )
 
         // Run the build. This doesn't return until the build is complete.
@@ -170,23 +174,23 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) throws -> PluginInvocationTestResult {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know
         // which ones they are until we've built them and can examine the binaries.
-        let toolchain = try swiftTool.getTargetToolchain()
-        var buildParameters = try swiftTool.buildParameters()
-        buildParameters.testingParameters.enableTestability = true
-        buildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
-        let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
+        let toolchain = try swiftTool.getHostToolchain()
+        var toolsBuildParameters = try swiftTool.toolsBuildParameters
+        toolsBuildParameters.testingParameters.enableTestability = true
+        toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
+        let buildSystem = try swiftTool.createBuildSystem(toolsBuildParameters: toolsBuildParameters)
         try buildSystem.build(subset: .allIncludingTests)
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
         if parameters.enableCodeCoverage {
-            try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
+            try swiftTool.fileSystem.removeFileTree(toolsBuildParameters.codeCovPath)
         }
 
         // Construct the environment we'll pass down to the tests.
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
-            buildParameters: buildParameters,
+            buildParameters: toolsBuildParameters,
             sanitizers: swiftTool.options.build.sanitizers
         )
 
@@ -271,12 +275,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         let codeCoverageDataFile: AbsolutePath?
         if parameters.enableCodeCoverage {
             // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
-            let mergedCovFile = buildParameters.codeCovDataFile
-            let codeCovFileNames = try swiftTool.fileSystem.getDirectoryContents(buildParameters.codeCovPath)
+            let mergedCovFile = toolsBuildParameters.codeCovDataFile
+            let codeCovFileNames = try swiftTool.fileSystem.getDirectoryContents(toolsBuildParameters.codeCovPath)
             var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
             llvmProfCommand += ["merge", "-sparse"]
             for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
-                let filePath = buildParameters.codeCovPath.appending(component: fileName)
+                let filePath = toolsBuildParameters.codeCovPath.appending(component: fileName)
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
@@ -291,8 +295,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
             let jsonOutput = try TSCBasic.Process.checkNonZeroExit(arguments: llvmCovCommand)
-            let jsonCovFile = buildParameters.codeCovDataFile.parentDirectory.appending(
-                component: buildParameters.codeCovDataFile.basenameWithoutExt + ".json"
+            let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
+                component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
             )
             try swiftTool.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
 
@@ -369,7 +373,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         guard let package = packageGraph.package(for: target) else {
             throw StringError("could not determine the package for target “\(target.name)”")
         }
-        let outputDir = try buildSystem.buildPlan.buildParameters.dataPath.appending(
+        let outputDir = try buildSystem.buildPlan.toolsBuildParameters.dataPath.appending(
             components: "extracted-symbols",
             package.identity.description,
             target.name

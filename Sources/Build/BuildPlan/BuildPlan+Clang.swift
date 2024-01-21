@@ -19,10 +19,12 @@ import class PackageModel.SystemLibraryTarget
 extension BuildPlan {
     /// Plan a Clang target.
     func plan(clangTarget: ClangTargetBuildDescription) throws {
-        for case .target(let dependency, _) in try clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
-            switch dependency.underlyingTarget {
+        let dependencies = try clangTarget.target.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
+
+        for case .target(let dependency, _) in dependencies {
+            switch dependency.underlying {
             case is SwiftTarget:
-                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .swift(dependencyTargetDescription)? = targetMap[dependency.id] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -33,7 +35,7 @@ extension BuildPlan {
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
                 // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .clang(dependencyTargetDescription)? = targetMap[dependency.id] {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
@@ -59,7 +61,7 @@ extension BuildPlan {
                 clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
-                    let libraries = try self.parseXCFramework(for: target)
+                    let libraries = try self.parseXCFramework(for: target, triple: clangTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
                             clangTarget.additionalFlags += ["-I", $0.pathString]

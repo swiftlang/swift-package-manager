@@ -109,7 +109,7 @@ public struct SwiftBuildTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
-            return try print(swiftTool.buildParameters().buildPath.description)
+            return try print(swiftTool.productsBuildParameters.buildPath.description)
         }
 
         if options.printManifestGraphviz {
@@ -134,7 +134,7 @@ public struct SwiftBuildTool: SwiftCommand {
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
-            customOutputStream: TSCBasic.stdoutStream
+            outputStream: TSCBasic.stdoutStream
         )
         do {
             try buildSystem.build(subset: subset)

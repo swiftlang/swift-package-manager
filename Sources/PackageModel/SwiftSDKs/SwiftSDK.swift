@@ -478,8 +478,8 @@ public struct SwiftSDK: Equatable {
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = lookupExecutablePath(filename: ProcessEnv.vars["SDKROOT"]) {
-            sdkPath = value
+        if let value = ProcessEnv.vars["SDKROOT"] {
+            sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
@@ -924,4 +924,29 @@ struct SwiftSDKMetadataV4: Decodable {
 
     /// Mapping of triple strings to corresponding properties of such target triple.
     let targetTriples: [String: TripleProperties]
+}
+
+extension Optional where Wrapped == AbsolutePath {
+    fileprivate var configurationString: String {
+        self?.pathString ?? "not set"
+    }
+}
+
+extension Optional where Wrapped == [AbsolutePath] {
+    fileprivate var configurationString: String {
+        self?.map(\.pathString).description ?? "not set"
+    }
+}
+
+extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
+    public var description: String {
+        """
+        sdkRootPath: \(sdkRootPath.configurationString)
+        swiftResourcesPath: \(swiftResourcesPath.configurationString)
+        swiftStaticResourcesPath: \(swiftStaticResourcesPath.configurationString)
+        includeSearchPaths: \(includeSearchPaths.configurationString)
+        librarySearchPaths: \(librarySearchPaths.configurationString)
+        toolsetPaths: \(toolsetPaths.configurationString)
+        """
+    }
 }

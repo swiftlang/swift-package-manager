@@ -6,6 +6,8 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+add_compile_definitions(USE_IMPL_ONLY_IMPORTS)
+
 add_subdirectory(SPMSQLite3)
 add_subdirectory(Basics)
 add_subdirectory(Build)
@@ -26,6 +28,7 @@ add_subdirectory(PackageSigning)
 add_subdirectory(SPMBuildCore)
 add_subdirectory(SPMLLBuild)
 add_subdirectory(SourceControl)
+add_subdirectory(SourceKitLSPAPI)
 add_subdirectory(swift-bootstrap)
 add_subdirectory(swift-build)
 add_subdirectory(swift-experimental-sdk)

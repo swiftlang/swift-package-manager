@@ -22,7 +22,7 @@ import class TSCBasic.InMemoryFileSystem
 import struct TSCUtility.Version
 
 final class FilePackageFingerprintStorageTests: XCTestCase {
-    func testHappyCase() throws {
+    func testHappyCase() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -31,12 +31,12 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Add fingerprints for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
         )
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -45,7 +45,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .sourceCode
             )
         )
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.1.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.1.0", contentType: .sourceCode)
@@ -53,7 +53,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Fingerprint for another package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
-        try storage.put(
+        try await storage.put(
             package: otherPackage,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
@@ -68,7 +68,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Fingerprints should be saved
         do {
-            let fingerprints = try storage.get(package: package, version: Version("1.0.0"))
+            let fingerprints = try await storage.get(package: package, version: Version("1.0.0"))
             XCTAssertEqual(fingerprints.count, 2)
 
             let registryFingerprints = fingerprints[.registry]
@@ -83,7 +83,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         do {
-            let fingerprints = try storage.get(package: package, version: Version("1.1.0"))
+            let fingerprints = try await storage.get(package: package, version: Version("1.1.0"))
             XCTAssertEqual(fingerprints.count, 1)
 
             let registryFingerprints = fingerprints[.registry]
@@ -93,7 +93,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         do {
-            let fingerprints = try storage.get(package: otherPackage, version: Version("1.0.0"))
+            let fingerprints = try await storage.get(package: otherPackage, version: Version("1.0.0"))
             XCTAssertEqual(fingerprints.count, 1)
 
             let registryFingerprints = fingerprints[.registry]
@@ -103,21 +103,21 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
     }
 
-    func testNotFound() throws {
+    func testNotFound() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL("https://example.packages.com")
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
         )
 
         // No fingerprints found for the content type
-        XCTAssertThrowsError(try storage.get(
+        await XCTAssertAsyncThrowsError(try await storage.get(
             package: package,
             version: Version("1.0.0"),
             kind: .registry,
@@ -129,7 +129,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // No fingerprints found for the version
-        XCTAssertThrowsError(try storage.get(package: package, version: Version("1.1.0"))) { error in
+        await XCTAssertAsyncThrowsError(try await storage.get(package: package, version: Version("1.1.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.notFound, got \(error)")
             }
@@ -137,14 +137,14 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // No fingerprints found for the package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
-        XCTAssertThrowsError(try storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
+        await XCTAssertAsyncThrowsError(try await storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.notFound, got \(error)")
             }
         }
     }
 
-    func testSingleFingerprintPerKindAndContentType() throws {
+    func testSingleFingerprintPerKindAndContentType() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -152,14 +152,14 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         let package = PackageIdentity.plain("mona.LinkedList")
         // Write registry checksum for v1.0.0
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
         )
 
         // Writing for the same version and kind and content type but different checksum should fail
-        XCTAssertThrowsError(try storage.put(
+        await XCTAssertAsyncThrowsError(try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -174,7 +174,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // Writing for the same version and kind and content type same checksum should not fail
-        XCTAssertNoThrow(try storage.put(
+        _ = try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -182,10 +182,10 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 value: "checksum-1.0.0",
                 contentType: .sourceCode
             )
-        ))
+        )
     }
 
-    func testHappyCase_PackageReferenceAPI() throws {
+    func testHappyCase_PackageReferenceAPI() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -195,7 +195,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             url: sourceControlURL
         )
 
-        try storage.put(
+        try await storage.put(
             package: packageRef,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -204,7 +204,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .sourceCode
             )
         )
-        try storage.put(
+        try await storage.put(
             package: packageRef,
             version: Version("1.1.0"),
             fingerprint: .init(
@@ -215,7 +215,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Fingerprints should be saved
-        let fingerprints = try storage.get(package: packageRef, version: Version("1.1.0"))
+        let fingerprints = try await storage.get(package: packageRef, version: Version("1.1.0"))
         XCTAssertEqual(fingerprints.count, 1)
 
         let scmFingerprints = fingerprints[.sourceControl]
@@ -225,7 +225,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         XCTAssertEqual(scmFingerprints?[.sourceCode]?.value, "gitHash-1.1.0")
     }
 
-    func testDifferentRepoURLsThatHaveSameIdentity() throws {
+    func testDifferentRepoURLsThatHaveSameIdentity() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -236,13 +236,13 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let barRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: barURL), url: barURL)
 
-        try storage.put(
+        try await storage.put(
             package: fooRef,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo", contentType: .sourceCode)
         )
         // This should succeed because they get written to different files
-        try storage.put(
+        try await storage.put(
             package: barRef,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .sourceControl(barURL), value: "abcde-bar", contentType: .sourceCode)
@@ -261,7 +261,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // This should fail because fingerprint for 1.0.0 already exists and it's different
-        XCTAssertThrowsError(try storage.put(
+        await XCTAssertAsyncThrowsError(try await storage.put(
             package: fooRef,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -276,14 +276,14 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // This should succeed because fingerprint for 2.0.0 doesn't exist yet
-        try storage.put(
+        try await storage.put(
             package: fooRef,
             version: Version("2.0.0"),
             fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo", contentType: .sourceCode)
         )
     }
 
-    func testConvertingFromV1ToV2() throws {
+    func testConvertingFromV1ToV2() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         try mockFileSystem.createDirectory(directoryPath, recursive: true)
@@ -314,7 +314,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         try mockFileSystem.writeFileContents(fingerprintsPath, string: v1Fingerprints)
 
         // v1 fingerprints file should be converted to v2 when read
-        let fingerprints = try storage.get(package: package, version: Version("1.0.3"))
+        let fingerprints = try await storage.get(package: package, version: Version("1.0.3"))
         XCTAssertEqual(fingerprints.count, 1)
 
         let scmFingerprints = fingerprints[.sourceControl]
@@ -324,7 +324,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         XCTAssertEqual(scmFingerprints?[.sourceCode]?.value, "e394bf350e38cb100b6bc4172834770ede1b7232")
     }
 
-    func testFingerprintsOfDifferentContentTypes() throws {
+    func testFingerprintsOfDifferentContentTypes() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -333,7 +333,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Add fingerprints for 1.0.0 source archive/code
         let package = PackageIdentity.plain("mona.LinkedList")
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -342,7 +342,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .sourceCode
             )
         )
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -353,7 +353,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Add fingerprints for 1.0.0 manifests
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -362,7 +362,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .manifest(.none)
             )
         )
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -373,7 +373,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Add fingerprint for 1.1.0 source archive
-        try storage.put(
+        try await storage.put(
             package: package,
             version: Version("1.1.0"),
             fingerprint: .init(
@@ -383,7 +383,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             )
         )
 
-        let fingerprints = try storage.get(package: package, version: Version("1.0.0"))
+        let fingerprints = try await storage.get(package: package, version: Version("1.0.0"))
         XCTAssertEqual(fingerprints.count, 2)
 
         let registryFingerprints = fingerprints[.registry]
@@ -406,8 +406,8 @@ extension PackageFingerprintStorage {
     fileprivate func get(
         package: PackageIdentity,
         version: Version
-    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try temp_await {
+    ) async throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        try await safe_async {
             self.get(
                 package: package,
                 version: version,
@@ -423,8 +423,8 @@ extension PackageFingerprintStorage {
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
-    ) throws -> Fingerprint {
-        try temp_await {
+    ) async throws -> Fingerprint {
+        try await safe_async {
             self.get(
                 package: package,
                 version: version,
@@ -441,8 +441,8 @@ extension PackageFingerprintStorage {
         package: PackageIdentity,
         version: Version,
         fingerprint: Fingerprint
-    ) throws {
-        try temp_await {
+    ) async throws {
+        try await safe_async {
             self.put(
                 package: package,
                 version: version,
@@ -457,8 +457,8 @@ extension PackageFingerprintStorage {
     fileprivate func get(
         package: PackageReference,
         version: Version
-    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try temp_await {
+    ) async throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        try await safe_async {
             self.get(
                 package: package,
                 version: version,
@@ -474,8 +474,8 @@ extension PackageFingerprintStorage {
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
-    ) throws -> Fingerprint {
-        try temp_await {
+    ) async throws -> Fingerprint {
+        try await safe_async {
             self.get(
                 package: package,
                 version: version,
@@ -492,8 +492,8 @@ extension PackageFingerprintStorage {
         package: PackageReference,
         version: Version,
         fingerprint: Fingerprint
-    ) throws {
-        try temp_await {
+    ) async throws {
+        try await safe_async {
             self.put(
                 package: package,
                 version: version,

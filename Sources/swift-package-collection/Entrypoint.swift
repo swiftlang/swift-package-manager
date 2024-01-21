@@ -13,4 +13,10 @@
 import Commands
 import PackageCollectionsTool
 
-SwiftPackageCollectionsTool.main()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftPackageCollectionsTool.main()
+    }
+}
+

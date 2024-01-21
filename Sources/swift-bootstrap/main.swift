@@ -281,8 +281,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 dataPath: dataPath,
                 configuration: configuration,
                 toolchain: self.targetToolchain,
-                hostTriple: self.hostToolchain.targetTriple,
-                targetTriple: self.targetToolchain.targetTriple,
+                triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
@@ -308,7 +307,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             switch buildSystem {
             case .native:
                 return BuildOperation(
-                    buildParameters: buildParameters,
+                    // when building `swift-bootstrap`, host and target build parameters are the same
+                    productsBuildParameters: buildParameters,
+                    toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: packageGraphLoader,
                     additionalFileRules: [],
@@ -442,7 +443,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 }
 
 // TODO: move to shared area
-extension AbsolutePath: ExpressibleByArgument {
+extension AbsolutePath {
     public init?(argument: String) {
         if let cwd: AbsolutePath = localFileSystem.currentWorkingDirectory {
             guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
@@ -464,8 +465,16 @@ extension AbsolutePath: ExpressibleByArgument {
     }
 }
 
-extension BuildConfiguration: ExpressibleByArgument {
+extension BuildConfiguration {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }
 }
+
+#if swift(<5.11)
+extension AbsolutePath: ExpressibleByArgument {}
+extension BuildConfiguration: ExpressibleByArgument {}
+#else
+extension AbsolutePath: @retroactive ExpressibleByArgument {}
+extension BuildConfiguration: @retroactive ExpressibleByArgument {}
+#endif

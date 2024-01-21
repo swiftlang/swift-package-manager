@@ -12,8 +12,11 @@ add_library(Basics
   Archiver/ZipArchiver.swift
   Archiver/UniversalArchiver.swift
   AuthorizationProvider.swift
-  ByteString+Extensions.swift
   Cancellator.swift
+  Collections/ByteString+Extensions.swift
+  Collections/Dictionary+Extensions.swift
+  Collections/IdentifiableSet.swift
+  Collections/String+Extensions.swift
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
   Concurrency/SendableBox.swift
@@ -21,7 +24,6 @@ add_library(Basics
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift
   Concurrency/TokenBucket.swift
-  Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
   EnvironmentVariables.swift
   Errors.swift
@@ -53,7 +55,6 @@ add_library(Basics
   Sandbox.swift
   SendableTimeInterval.swift
   Serialization/SerializedJSON.swift
-  String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Triple+Basics.swift
@@ -76,10 +77,8 @@ set_target_properties(Basics PROPERTIES
 target_link_options(Basics PRIVATE
     "$<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>")
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS Basics
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Basics)

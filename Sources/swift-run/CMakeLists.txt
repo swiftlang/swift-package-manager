@@ -11,7 +11,5 @@ add_executable(swift-run
 target_link_libraries(swift-run PRIVATE
   Commands)
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS swift-run
   RUNTIME DESTINATION bin)
-endif()

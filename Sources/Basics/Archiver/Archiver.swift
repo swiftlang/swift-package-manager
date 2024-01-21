@@ -56,29 +56,43 @@ public protocol Archiver {
 }
 
 extension Archiver {
+    /// Asynchronously extracts the contents of an archive to a destination folder.
+    ///
+    /// - Parameters:
+    ///   - archivePath: The `AbsolutePath` to the archive to extract.
+    ///   - destinationPath: The `AbsolutePath` to the directory to extract to.
     public func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-        try await safe_async {
-            self.extract(from: archivePath, to: destinationPath, completion: $0)
+        try await withCheckedThrowingContinuation {
+            self.extract(from: archivePath, to: destinationPath, completion: $0.resume(with:))
         }
     }
 
+    /// Asynchronously compresses the contents of a directory to a destination archive.
+    ///
+    /// - Parameters:
+    ///   - directory: The `AbsolutePath` to the archive to extract.
+    ///   - destinationPath: The `AbsolutePath` to the directory to extract to.
     public func compress(
         directory: AbsolutePath,
-        to: AbsolutePath
+        to destinationPath: AbsolutePath
     ) async throws {
-        try await safe_async {
-            self.compress(directory: directory, to: to, completion: $0)
+        try await withCheckedThrowingContinuation {
+            self.compress(directory: directory, to: destinationPath, completion: $0.resume(with:))
         }
     }
 
+    /// Asynchronously validates if a file is an archive.
+    ///
+    /// - Parameters:
+    ///   - path: The `AbsolutePath` to the archive to validate.
     public func validate(
         path: AbsolutePath
     ) async throws -> Bool {
-        try await safe_async {
-            self.validate(path: path, completion: $0)
+        try await withCheckedThrowingContinuation {
+            self.validate(path: path, completion: $0.resume(with:))
         }
     }
 }

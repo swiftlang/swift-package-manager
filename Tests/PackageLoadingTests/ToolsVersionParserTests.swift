@@ -149,6 +149,67 @@ class ToolsVersionParserTests: XCTestCase {
         }
     }
 
+    func testToolsVersionAllowsComments() throws {
+        try self.parse(
+        """
+        // comment 1
+        // comment 2
+        // swift-tools-version: 5.11
+        // comment
+        let package = ..
+        """
+        ) { toolsVersion in
+            XCTAssertEqual(toolsVersion.description, "5.11.0")
+        }
+
+        do {
+            try self.parse(
+            """
+            // comment 1
+            // comment 2
+            // swift-tools-version:5.0
+            // comment
+            let package = ..
+            """
+            ) { _ in
+                XCTFail("expected an error to be thrown")
+            }
+        } catch ToolsVersionParser.Error.backwardIncompatiblePre5_11(let incompatibility, _) {
+            XCTAssertEqual(incompatibility, .toolsVersionNeedsToBeFirstLine)
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+
+        do {
+            try self.parse(
+            """
+            // comment 1
+            // comment 2
+            let package = ..
+            """
+            ) { _ in
+                XCTFail("expected an error to be thrown")
+            }
+        } catch ToolsVersionParser.Error.malformedToolsVersionSpecification(.label(.isMisspelt(let label))) {
+            XCTAssertEqual(label, "comment")
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+
+        try self.parse(
+        """
+        /*
+        this is a multiline comment
+        */
+        // swift-tools-version: 5.11
+        // comment
+        let package = ..
+        """
+        ) { toolsVersion in
+            XCTAssertEqual(toolsVersion.description, "5.11.0")
+        }
+    }
+
     /// Verifies that if a manifest appears empty to SwiftPM, a distinct error is thrown.
     func testEmptyManifest() throws {
         let fs = InMemoryFileSystem()

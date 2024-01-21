@@ -1182,11 +1182,10 @@ public final class PackageBuilder {
     }
 
     func buildConditions(from condition: PackageConditionDescription?) -> [PackageCondition] {
-        var conditions = [PackageCondition]()
+        var conditions: [PackageCondition] = []
 
         if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
-            let condition = ConfigurationCondition(configuration: config)
-            conditions.append(.configuration(condition))
+            conditions.append(.init(configuration: config))
         }
 
         if let platforms = condition?.platformNames.map({
@@ -1195,11 +1194,9 @@ public final class PackageBuilder {
             } else {
                 return PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
             }
-        }),
-           !platforms.isEmpty
+        }), !platforms.isEmpty
         {
-            let condition = PlatformsCondition(platforms: platforms)
-            conditions.append(.platforms(condition))
+            conditions.append(.init(platforms: platforms))
         }
 
         return conditions

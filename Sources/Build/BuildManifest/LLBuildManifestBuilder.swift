@@ -65,10 +65,6 @@ public class LLBuildManifestBuilder {
 
     public internal(set) var manifest: LLBuildManifest = .init()
 
-    var buildConfig: String { self.buildParameters.configuration.dirname }
-    var buildParameters: BuildParameters { self.plan.buildParameters }
-    var buildEnvironment: BuildEnvironment { self.buildParameters.buildEnvironment }
-
     /// Mapping from Swift compiler path to Swift get version files.
     var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 
@@ -85,9 +81,9 @@ public class LLBuildManifestBuilder {
         self.observabilityScope = observabilityScope
     }
 
-    // MARK: - Generate Manifest
+    // MARK: - Generate Build Manifest
 
-    /// Generate manifest at the given path.
+    /// Generate build manifest at the given path.
     @discardableResult
     public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
@@ -98,7 +94,7 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.buildParameters.driverParameters.useExplicitModuleBuild {
+        if self.plan.destinationBuildParameters.driverParameters.useExplicitModuleBuild {
             // Explicit module builds use the integrated driver directly and
             // require that every target's build jobs specify its dependencies explicitly to plan
             // its build.
@@ -119,7 +115,7 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        if self.buildParameters.testingParameters.library == .xctest {
+        if self.plan.destinationBuildParameters.testingParameters.library == .xctest {
             try self.addTestDiscoveryGenerationCommand()
         }
         try self.addTestEntryPointGenerationCommand()
@@ -183,10 +179,16 @@ extension LLBuildManifestBuilder {
 extension LLBuildManifestBuilder {
     // Creates commands for copying all binary artifacts depended on in the plan.
     private func addBinaryDependencyCommands() {
-        let binaryPaths = Set(plan.targetMap.values.flatMap(\.libraryBinaryPaths))
-        for binaryPath in binaryPaths {
-            let destination = destinationPath(forBinaryAt: binaryPath)
-            addCopyCommand(from: binaryPath, to: destination)
+        // Make sure we don't have multiple copy commands for each destination by mapping each destination to 
+        // its source binary.
+        var destinations = [AbsolutePath: AbsolutePath]()
+        for target in self.plan.targetMap.values {
+            for binaryPath in target.libraryBinaryPaths {
+                destinations[target.buildParameters.destinationPath(forBinaryAt: binaryPath)] = binaryPath
+            }
+        }
+        for (destination, source) in destinations {
+            self.addCopyCommand(from: source, to: destination)
         }
     }
 }
@@ -194,7 +196,12 @@ extension LLBuildManifestBuilder {
 // MARK: - Compilation
 
 extension LLBuildManifestBuilder {
-    func addBuildToolPlugins(_ target: TargetBuildDescription) throws {
+    func addBuildToolPlugins(_ target: TargetBuildDescription) throws -> [Node] {
+        // For any build command that doesn't declare any outputs, we need to create a phony output to ensure they will still be run by the build system.
+        var phonyOutputs = [Node]()
+        // If we have multiple commands with no output files and no display name, this serves as a way to disambiguate the virtual nodes being created.
+        var pluginNumber = 1
+
         // Add any regular build commands created by plugins for the target.
         for result in target.buildToolPluginInvocationResults {
             // Only go through the regular build commands — prebuild commands are handled separately.
@@ -213,17 +220,32 @@ extension LLBuildManifestBuilder {
                         writableDirectories: [result.pluginOutputDirectory]
                     )
                 }
+                let additionalOutputs: [Node]
+                if command.outputFiles.isEmpty {
+                    if target.toolsVersion >= .v5_11 {
+                        additionalOutputs = [.virtual("\(target.target.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
+                        phonyOutputs += additionalOutputs
+                    } else {
+                        additionalOutputs = []
+                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 5.11 (or higher) which would run such a build tool command even without declared outputs.")
+                    }
+                    pluginNumber += 1
+                } else {
+                    additionalOutputs = []
+                }
                 self.manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
                     description: displayName,
                     inputs: command.inputFiles.map { .file($0) },
-                    outputs: command.outputFiles.map { .file($0) },
+                    outputs: command.outputFiles.map { .file($0) } + additionalOutputs,
                     arguments: commandLine,
                     environment: command.configuration.environment,
                     workingDirectory: command.configuration.workingDirectory?.pathString
                 )
             }
         }
+
+        return phonyOutputs
     }
 }
 
@@ -233,7 +255,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.target).compactMap { self.plan.targetMap[$0] }
+                .compactMap(\.target).compactMap { self.plan.targetMap[$0.id] }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -260,7 +282,7 @@ extension LLBuildManifestBuilder {
             // Get the Swift target build descriptions of all discovery targets this synthesized entry point target
             // depends on.
             let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
-                .compactMap(\.target)
+                .compactMap(\.target?.id)
                 .compactMap { self.plan.targetMap[$0] }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
@@ -270,7 +292,9 @@ extension LLBuildManifestBuilder {
 
             let outputs = testEntryPointTarget.target.sources.paths
 
-            let mainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+            let mainFileName = TestEntryPointTool.mainFileName(
+                for: self.plan.destinationBuildParameters.testingParameters.library
+            )
             guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
                 throw InternalError("main output (\(mainFileName)) not found")
             }
@@ -355,10 +379,14 @@ extension LLBuildManifestBuilder {
         self.manifest.addCopyCmd(name: destination.pathString, inputs: [inputNode], outputs: [outputNode])
         return (inputNode, outputNode)
     }
+}
 
+extension BuildParameters {
     func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
-        self.plan.buildParameters.buildPath.appending(component: path.basename)
+        self.buildPath.appending(component: path.basename)
     }
+
+    var buildConfig: String { self.configuration.dirname }
 }
 
 extension Sequence where Element: Hashable {

@@ -14,24 +14,24 @@ import Basics
 import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.
-public final class ResolvedPackage {
-    /// The underlying package reference.
-    public let underlyingPackage: Package
-
+public struct ResolvedPackage {
     // The identity of the package.
     public var identity: PackageIdentity {
-        return self.underlyingPackage.identity
+        return self.underlying.identity
     }
 
     /// The manifest describing the package.
     public var manifest: Manifest {
-        return self.underlyingPackage.manifest
+        return self.underlying.manifest
     }
 
     /// The local path of the package.
     public var path: AbsolutePath {
-        return self.underlyingPackage.path
+        return self.underlying.path
     }
+
+    /// The underlying package reference.
+    public let underlying: Package
 
     /// The targets contained in the package.
     public let targets: [ResolvedTarget]
@@ -46,37 +46,39 @@ public final class ResolvedPackage {
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public let platforms: SupportedPlatforms
+    public let supportedPlatforms: [SupportedPlatform]
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     public let registryMetadata: RegistryReleaseMetadata?
 
+    private let platformVersionProvider: PlatformVersionProvider
+
     public init(
-        package: Package,
+        underlying: Package,
         defaultLocalization: String?,
-        platforms: SupportedPlatforms,
+        supportedPlatforms: [SupportedPlatform],
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
         products: [ResolvedProduct],
-        registryMetadata: RegistryReleaseMetadata?
+        registryMetadata: RegistryReleaseMetadata?,
+        platformVersionProvider: PlatformVersionProvider
     ) {
-        self.underlyingPackage = package
-        self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
-        self.dependencies = dependencies
+        self.underlying = underlying
         self.targets = targets
         self.products = products
+        self.dependencies = dependencies
+        self.defaultLocalization = defaultLocalization
+        self.supportedPlatforms = supportedPlatforms
         self.registryMetadata = registryMetadata
-    }
-}
-
-extension ResolvedPackage: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        self.platformVersionProvider = platformVersionProvider
     }
 
-    public static func == (lhs: ResolvedPackage, rhs: ResolvedPackage) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+    public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        self.platformVersionProvider.getDerived(
+            declared: self.supportedPlatforms,
+            for: platform,
+            usingXCTest: usingXCTest
+        )
     }
 }
 
@@ -85,3 +87,10 @@ extension ResolvedPackage: CustomStringConvertible {
         return "<ResolvedPackage: \(self.identity)>"
     }
 }
+
+extension ResolvedPackage: Identifiable {
+    public var id: PackageIdentity { self.underlying.identity }
+}
+
+@available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
+extension ResolvedPackage: Hashable {}

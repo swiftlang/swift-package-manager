@@ -34,6 +34,9 @@ public struct TargetSourcesBuilder {
     /// The list of declared sources in the package manifest.
     public let declaredSources: [AbsolutePath]?
 
+    /// The list of declared resources in the package manifest.
+    public let declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)]
+
     /// The default localization.
     public let defaultLocalization: String?
 
@@ -103,6 +106,10 @@ public struct TargetSourcesBuilder {
         }
         self.declaredSources = declaredSources?.spm_uniqueElements()
 
+        self.declaredResources = (try? target.resources.map {
+            (path: try AbsolutePath(validating: $0.path, relativeTo: path), rule: $0.rule)
+        }) ?? []
+
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude), self.packageKind.emitAuthorWarnings {
                 let warning = "Invalid Exclude '\(exclude)': \(message)."
@@ -162,16 +169,43 @@ public struct TargetSourcesBuilder {
         let contents = self.computeContents()
         var pathToRule: [AbsolutePath: FileRuleDescription.Rule] = [:]
 
+        var handledResources = [AbsolutePath]()
         for path in contents {
-            pathToRule[path] = try self.computeRule(for: path)
+            pathToRule[path] = Self.computeRule(
+                for: path,
+                toolsVersion: toolsVersion,
+                rules: rules,
+                declaredResources: declaredResources,
+                declaredSources: declaredSources,
+                matchingResourceRuleHandler: {
+                    handledResources.append($0)
+                },
+                observabilityScope: observabilityScope
+            )
+        }
+
+        let additionalResources: [Resource]
+        if toolsVersion >= .v5_11 {
+            additionalResources = declaredResources.compactMap { resource in
+                if handledResources.contains(resource.path) {
+                    return nil
+                } else {
+                    print("Found unhandled resource at \(resource.path)")
+                    return self.resource(for: resource.path, with: .init(resource.rule))
+                }
+            }
+        } else {
+            additionalResources = []
         }
 
         let headers = pathToRule.lazy.filter { $0.value == .header }.map { $0.key }.sorted()
         let compilePaths = pathToRule.lazy.filter { $0.value == .compile }.map { $0.key }
-        let sources = Sources(paths: Array(compilePaths), root: targetPath)
-        let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) }
-        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }
-        let others = pathToRule.filter { $0.value == .none }.map { $0.key }
+        let sources = Sources(paths: Array(compilePaths).sorted(), root: targetPath)
+        let resources: [Resource] = (pathToRule.compactMap { resource(for: $0.key, with: $0.value) } + additionalResources).sorted { a, b in
+            a.path.pathString < b.path.pathString
+        }
+        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }.sorted()
+        let others = pathToRule.filter { $0.value == .none }.map { $0.key }.sorted()
 
         try diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
@@ -198,7 +232,15 @@ public struct TargetSourcesBuilder {
         return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: [], declaredSources: nil, observabilityScope: observabilityScope)
     }
 
-    private static func computeRule(for path: AbsolutePath, toolsVersion: ToolsVersion, rules: [FileRuleDescription], declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)], declaredSources: [AbsolutePath]?, observabilityScope: ObservabilityScope) -> FileRuleDescription.Rule {
+    private static func computeRule(
+        for path: AbsolutePath, 
+        toolsVersion: ToolsVersion,
+        rules: [FileRuleDescription],
+        declaredResources: [(path: AbsolutePath, rule: TargetDescription.Resource.Rule)],
+        declaredSources: [AbsolutePath]?,
+        matchingResourceRuleHandler: (AbsolutePath) -> () = { _ in },
+        observabilityScope: ObservabilityScope
+    ) -> FileRuleDescription.Rule {
         var matchedRule: FileRuleDescription.Rule = .none
 
         // First match any resources explicitly declared in the manifest file.
@@ -209,6 +251,7 @@ public struct TargetSourcesBuilder {
                     observabilityScope.emit(error: "duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'")
                 }
                 matchedRule = .init(declaredResource.rule)
+                matchingResourceRuleHandler(declaredResource.path)
             }
         }
 
@@ -258,11 +301,6 @@ public struct TargetSourcesBuilder {
         }
 
         return matchedRule
-    }
-
-    private func computeRule(for path: AbsolutePath) throws -> FileRuleDescription.Rule {
-        let declaredResources = try target.resources.map { (path: try AbsolutePath(validating: $0.path, relativeTo: self.targetPath), rule: $0.rule) }
-        return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: declaredResources, declaredSources: declaredSources, observabilityScope: observabilityScope)
     }
 
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.

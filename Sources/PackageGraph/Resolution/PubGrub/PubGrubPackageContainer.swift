@@ -79,9 +79,17 @@ internal final class PubGrubPackageContainer {
         var versionSet = term.requirement
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
-        if let pinnedVersion {
+        if let pinnedVersion = self.pinnedVersion {
             if versionSet.contains(pinnedVersion) {
-                versionSet = .exact(pinnedVersion)
+                if !self.underlying.shouldInvalidatePinnedVersions {
+                    versionSet = .exact(pinnedVersion)
+                } else {
+                    // Make sure the pinned version is still available
+                    let version = try self.underlying.versionsDescending().first { pinnedVersion == $0 }
+                    if version != nil {
+                        return version
+                    }
+                }
             }
         }
 

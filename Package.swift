@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.8
 
 //===----------------------------------------------------------------------===//
 //
@@ -57,6 +57,7 @@ let swiftPMProduct = (
     targets: swiftPMDataModelProduct.targets + [
         "Build",
         "LLBuildManifest",
+        "SourceKitLSPAPI",
         "SPMLLBuild",
     ]
 )
@@ -148,6 +149,14 @@ let package = Package(
             linkerSettings: packageLibraryLinkSettings
         ),
 
+        .target(
+            name: "SourceKitLSPAPI",
+            dependencies: [
+                "Build",
+                "SPMBuildCore"
+            ]
+        ),
+
         // MARK: SwiftPM specific support libraries
 
         .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
@@ -215,7 +224,8 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel"
+                "PackageModel",
+                "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -518,6 +528,7 @@ let package = Package(
             name: "SPMTestSupport",
             dependencies: [
                 "Basics",
+                "Build",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -536,6 +547,14 @@ let package = Package(
             dependencies: []),
 
         // MARK: SwiftPM tests
+
+        .testTarget(
+            name: "SourceKitLSPAPITests",
+            dependencies: [
+                "SourceKitLSPAPI",
+                "SPMTestSupport",
+            ]
+        ),
 
         .testTarget(
             name: "BasicsTests",

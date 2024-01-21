@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,10 +12,8 @@
 
 import PackageModel
 
-import func TSCBasic.topologicalSort
-
-/// Represents a fully resolved target. All the dependencies for the target are resolved.
-public final class ResolvedTarget {
+/// Represents a fully resolved target. All the dependencies for this target are also stored as resolved.
+public struct ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
@@ -70,16 +68,10 @@ public final class ResolvedTarget {
         }
     }
 
-    /// The underlying target represented in this resolved target.
-    public let underlyingTarget: Target
-
     /// The name of this target.
     public var name: String {
-        return underlyingTarget.name
+        self.underlying.name
     }
-
-    /// The dependencies of this target.
-    public let dependencies: [Dependency]
 
     /// Returns dependencies which satisfy the input build environment, based on their conditions.
     /// - Parameters:
@@ -90,12 +82,12 @@ public final class ResolvedTarget {
 
     /// Returns the recursive dependencies, across the whole package-graph.
     public func recursiveDependencies() throws -> [Dependency] {
-        return try topologicalSort(self.dependencies) { $0.dependencies }
+        try topologicalSort(self.dependencies) { $0.dependencies }
     }
 
     /// Returns the recursive target dependencies, across the whole package-graph.
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
-        return try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
+        try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
     }
 
     /// Returns the recursive dependencies, across the whole package-graph, which satisfy the input build environment,
@@ -103,95 +95,87 @@ public final class ResolvedTarget {
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
     public func recursiveDependencies(satisfying environment: BuildEnvironment) throws -> [Dependency] {
-        return try topologicalSort(dependencies(satisfying: environment)) { dependency in
-            return dependency.dependencies.filter { $0.satisfies(environment) }
+        try topologicalSort(dependencies(satisfying: environment)) { dependency in
+            dependency.dependencies.filter { $0.satisfies(environment) }
         }
     }
 
     /// The language-level target name.
     public var c99name: String {
-        return underlyingTarget.c99name
+        self.underlying.c99name
     }
 
     /// Module aliases for dependencies of this target. The key is an
     /// original target name and the value is a new unique name mapped
     /// to the name of its .swiftmodule binary.
     public var moduleAliases: [String: String]? {
-      return underlyingTarget.moduleAliases
+        self.underlying.moduleAliases
     }
 
     /// Allows access to package symbols from other targets in the package
     public var packageAccess: Bool {
-        return underlyingTarget.packageAccess
+        self.underlying.packageAccess
     }
 
     /// The "type" of target.
     public var type: Target.Kind {
-        return underlyingTarget.type
+        self.underlying.type
     }
 
     /// The sources for the target.
     public var sources: Sources {
-        return underlyingTarget.sources
+        self.underlying.sources
     }
+
+    let packageIdentity: PackageIdentity
+
+    /// The underlying target represented in this resolved target.
+    public let underlying: Target
+
+    /// The dependencies of this target.
+    public let dependencies: [Dependency]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
 
     /// The list of platforms that are supported by this target.
-    public let platforms: SupportedPlatforms
+    public let supportedPlatforms: [SupportedPlatform]
+
+    private let platformVersionProvider: PlatformVersionProvider
+
+    /// Triple for which this resolved target should be compiled for.
+    public let buildTriple: BuildTriple
 
     /// Create a resolved target instance.
     public init(
-        target: Target,
-        dependencies: [Dependency],
-        defaultLocalization: String?,
-        platforms: SupportedPlatforms
+        packageIdentity: PackageIdentity,
+        underlying: Target,
+        dependencies: [ResolvedTarget.Dependency],
+        defaultLocalization: String? = nil,
+        supportedPlatforms: [SupportedPlatform],
+        platformVersionProvider: PlatformVersionProvider
     ) {
-        self.underlyingTarget = target
+        self.packageIdentity = packageIdentity
+        self.underlying = underlying
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
-    }
-}
-
-extension ResolvedTarget: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        self.supportedPlatforms = supportedPlatforms
+        self.platformVersionProvider = platformVersionProvider
+        self.buildTriple = .destination
     }
 
-    public static func == (lhs: ResolvedTarget, rhs: ResolvedTarget) -> Bool {
-        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+    public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
+        self.platformVersionProvider.getDerived(
+            declared: self.supportedPlatforms,
+            for: platform,
+            usingXCTest: usingXCTest
+        )
     }
 }
 
 extension ResolvedTarget: CustomStringConvertible {
     public var description: String {
         return "<ResolvedTarget: \(name)>"
-    }
-}
-
-extension ResolvedTarget.Dependency: Equatable {
-    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
-        switch (lhs, rhs) {
-        case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
-            return lhsTarget == rhsTarget
-        case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
-            return lhsProduct == rhsProduct
-        case (.product, .target), (.target, .product):
-            return false
-        }
-    }
-}
-
-extension ResolvedTarget.Dependency: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        switch self {
-        case .target(let target, _):
-            hasher.combine(target)
-        case .product(let product, _):
-            hasher.combine(product)
-        }
     }
 }
 
@@ -208,3 +192,65 @@ extension ResolvedTarget.Dependency: CustomStringConvertible {
         return str
     }
 }
+
+extension ResolvedTarget.Dependency: Identifiable {
+    public struct ID: Hashable {
+        enum Kind: Hashable {
+            case target
+            case product
+        }
+
+        let kind: Kind
+        let packageIdentity: PackageIdentity
+        let name: String
+    }
+
+    public var id: ID {
+        switch self {
+        case .target(let target, _):
+            return .init(kind: .target, packageIdentity: target.packageIdentity, name: target.name)
+        case .product(let product, _):
+            return .init(kind: .product, packageIdentity: product.packageIdentity, name: product.name)
+        }
+    }
+}
+
+extension ResolvedTarget.Dependency: Equatable {
+    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
+        switch (lhs, rhs) {
+        case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
+            return lhsTarget.id == rhsTarget.id
+        case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
+            return lhsProduct.id == rhsProduct.id
+        case (.product, .target), (.target, .product):
+            return false
+        }
+    }
+}
+
+extension ResolvedTarget.Dependency: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .target(let target, _):
+            hasher.combine(target.id)
+        case .product(let product, _):
+            hasher.combine(product.id)
+        }
+    }
+}
+
+extension ResolvedTarget: Identifiable {
+    /// Resolved target identity that uniquely identifies it in a resolution graph.
+    public struct ID: Hashable {
+        public let targetName: String
+        let packageIdentity: PackageIdentity
+        public let buildTriple: BuildTriple
+    }
+
+    public var id: ID {
+        ID(targetName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
+    }
+}
+
+@available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
+extension ResolvedTarget: Hashable {}

@@ -39,8 +39,11 @@ struct APIDigesterBaselineDumper {
     /// The root package path.
     let packageRoot: AbsolutePath
 
-    /// The input build parameters.
-    let inputBuildParameters: BuildParameters
+    /// Parameters used when building end products.
+    let productsBuildParameters: BuildParameters
+
+    /// Parameters used when building tools (plugins and macros).
+    let toolsBuildParameters: BuildParameters
 
     /// The API digester tool.
     let apiDigesterTool: SwiftAPIDigester
@@ -51,13 +54,15 @@ struct APIDigesterBaselineDumper {
     init(
         baselineRevision: Revision,
         packageRoot: AbsolutePath,
-        buildParameters: BuildParameters,
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
         apiDigesterTool: SwiftAPIDigester,
         observabilityScope: ObservabilityScope
     ) {
         self.baselineRevision = baselineRevision
         self.packageRoot = packageRoot
-        self.inputBuildParameters = buildParameters
+        self.productsBuildParameters = productsBuildParameters
+        self.toolsBuildParameters = toolsBuildParameters
         self.apiDigesterTool = apiDigesterTool
         self.observabilityScope = observabilityScope
     }
@@ -71,7 +76,7 @@ struct APIDigesterBaselineDumper {
         swiftTool: SwiftTool
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
-        let apiDiffDir = inputBuildParameters.apiDiff
+        let apiDiffDir = productsBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
         let baselinePath: (String)->AbsolutePath = { module in
             baselineDir.appending(component: module + ".json")
@@ -127,23 +132,24 @@ struct APIDigesterBaselineDumper {
         }
 
         // Update the data path input build parameters so it's built in the sandbox.
-        var buildParameters = inputBuildParameters
-        buildParameters.dataPath = workspace.location.scratchDirectory
+        var productsBuildParameters = productsBuildParameters
+        productsBuildParameters.dataPath = workspace.location.scratchDirectory
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildSystem = try swiftTool.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
-            customBuildParameters: buildParameters,
-            customPackageGraphLoader: { graph }
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            packageGraphLoader: { graph }
         )
         try buildSystem.build()
 
         // Dump the SDK JSON.
         try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(buildParameters.workers))
+        let semaphore = DispatchSemaphore(value: Int(productsBuildParameters.workers))
         let errors = ThreadSafeArrayStore<Swift.Error>()
         for module in modulesToDiff {
             semaphore.wait()
@@ -311,13 +317,19 @@ extension PackageGraph {
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
             .flatMap(\.targets)
-            .filter { $0.underlyingTarget is SwiftTarget }
+            .filter { $0.underlying is SwiftTarget }
             .map { $0.c99name }
     }
 }
 
-extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
+extension SerializedDiagnostics.SourceLocation {
     public var description: String {
         return "\(filename):\(line):\(column)"
     }
 }
+
+#if swift(<5.11)
+extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
+#else
+extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}
+#endif

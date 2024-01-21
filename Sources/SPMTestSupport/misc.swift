@@ -48,22 +48,23 @@ public func testWithTemporaryDirectory(
     )
 }
 
-public func testWithTemporaryDirectory(
+@discardableResult
+public func testWithTemporaryDirectory<Result>(
     function: StaticString = #function,
-    body: (AbsolutePath) async throws -> Void
-) async throws {
+    body: (AbsolutePath) async throws -> Result
+) async throws -> Result {
     let cleanedFunction = function.description
         .replacingOccurrences(of: "(", with: "")
         .replacingOccurrences(of: ")", with: "")
         .replacingOccurrences(of: ".", with: "")
         .replacingOccurrences(of: ":", with: "_")
-    try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+    return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
         }
-        try await body(tmpDirPath)
+        return try await body(tmpDirPath)
     }
 }
 
@@ -374,21 +375,19 @@ extension FileSystem {
     }
 }
 
-extension URL: ExpressibleByStringLiteral {
+extension URL {
     public init(_ value: StringLiteralType) {
         self.init(string: value)!
     }
 }
 
-extension URL: ExpressibleByStringInterpolation {
+extension URL {
     public init(stringLiteral value: String) {
         self.init(string: value)!
     }
 }
 
-extension PackageIdentity: ExpressibleByStringLiteral {}
-
-extension PackageIdentity: ExpressibleByStringInterpolation {
+extension PackageIdentity {
     public init(stringLiteral value: String) {
         self = Self.plain(value)
     }
@@ -400,13 +399,13 @@ extension PackageIdentity {
     }
 }
 
-extension AbsolutePath: ExpressibleByStringLiteral {
+extension AbsolutePath {
     public init(_ value: StringLiteralType) {
         try! self.init(validating: value)
     }
 }
 
-extension AbsolutePath: ExpressibleByStringInterpolation {
+extension AbsolutePath {
     public init(stringLiteral value: String) {
         try! self.init(validating: value)
     }
@@ -428,13 +427,13 @@ extension RelativePath {
     }
 }
 
-extension RelativePath: ExpressibleByStringLiteral {
+extension RelativePath {
     public init(_ value: StringLiteralType) {
         try! self.init(validating: value)
     }
 }
 
-extension RelativePath: ExpressibleByStringInterpolation {
+extension RelativePath {
     public init(stringLiteral value: String) {
         try! self.init(validating: value)
     }
@@ -444,15 +443,36 @@ extension InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
+        supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
         destinationPath: AbsolutePath,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
-            options: InitPackageOptions(packageType: packageType),
+            options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem
         )
     }
 }
+
+#if swift(<5.11)
+extension RelativePath: ExpressibleByStringLiteral {}
+extension RelativePath: ExpressibleByStringInterpolation {}
+extension URL: ExpressibleByStringLiteral {}
+extension URL: ExpressibleByStringInterpolation {}
+extension PackageIdentity: ExpressibleByStringLiteral {}
+extension PackageIdentity: ExpressibleByStringInterpolation {}
+extension AbsolutePath: ExpressibleByStringLiteral {}
+extension AbsolutePath: ExpressibleByStringInterpolation {}
+#else
+extension RelativePath: @retroactive ExpressibleByStringLiteral {}
+extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
+extension URL: @retroactive ExpressibleByStringLiteral {}
+extension URL: @retroactive ExpressibleByStringInterpolation {}
+extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
+extension PackageIdentity: @retroactive ExpressibleByStringInterpolation {}
+extension AbsolutePath: @retroactive ExpressibleByStringLiteral {}
+extension AbsolutePath: @retroactive ExpressibleByStringInterpolation {}
+#endif

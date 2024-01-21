@@ -62,7 +62,7 @@ extension SwiftPackageTool {
             case 0:
                 throw StringError("No Executable Products in Package.swift.")
             case 1:
-                productToInstall = possibleCandidates[0].underlyingProduct
+                productToInstall = possibleCandidates[0].underlying
             default:
                 guard let product, let first = possibleCandidates.first(where: { $0.name == product }) else {
                     throw StringError(
@@ -73,7 +73,7 @@ extension SwiftPackageTool {
                     )
                 }
 
-                productToInstall = first.underlyingProduct
+                productToInstall = first.underlying
             }
 
             if let existingPkg = alreadyExisting.first(where: { $0.name == productToInstall.name }) {
@@ -83,7 +83,7 @@ extension SwiftPackageTool {
             try tool.createBuildSystem(explicitProduct: productToInstall.name)
                 .build(subset: .product(productToInstall.name))
 
-            let binPath = try tool.buildParameters().buildPath.appending(component: productToInstall.name)
+            let binPath = try tool.productsBuildParameters.buildPath.appending(component: productToInstall.name)
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try tool.fileSystem.copy(from: binPath, to: finalBinPath)
 

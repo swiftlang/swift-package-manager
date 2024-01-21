@@ -13,7 +13,8 @@
 import Basics
 import PackageLoading
 import PackageModel
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.PackageGraph
+import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
@@ -26,9 +27,7 @@ public final class ClangTargetBuildDescription {
     public let target: ResolvedTarget
 
     /// The underlying clang target.
-    public var clangTarget: ClangTarget {
-        target.underlyingTarget as! ClangTarget
-    }
+    public let clangTarget: ClangTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
@@ -45,7 +44,7 @@ public final class ClangTargetBuildDescription {
 
     /// The list of all resource files in the target, including the derived ones.
     public var resources: [Resource] {
-        self.target.underlyingTarget.resources + self.pluginDerivedResources
+        self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// Path to the bundle generated for this module (if any).
@@ -54,7 +53,7 @@ public final class ClangTargetBuildDescription {
             return .none
         }
 
-        if let bundleName = target.underlyingTarget.potentialBundleName {
+        if let bundleName = target.underlying.potentialBundleName {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
@@ -120,10 +119,11 @@ public final class ClangTargetBuildDescription {
         isWithinMixedTarget: Bool = false,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard target.underlyingTarget is ClangTarget else {
+        guard let clangTarget = target.underlying as? ClangTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target
         self.toolsVersion = toolsVersion
@@ -135,7 +135,7 @@ public final class ClangTargetBuildDescription {
         if toolsVersion >= .v5_9 {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
-            (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+            (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
                 target: target,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -219,7 +219,7 @@ public final class ClangTargetBuildDescription {
 
         var args = [String]()
         // Only enable ARC on macOS.
-        if buildParameters.targetTriple.isDarwin() {
+        if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
         args += try buildParameters.targetTripleArgs(for: target)
@@ -228,36 +228,29 @@ public final class ClangTargetBuildDescription {
         args += activeCompilationConditions
         args += ["-fblocks"]
 
+        let buildTriple = self.buildParameters.triple
         // Enable index store, if appropriate.
         //
         // This feature is not widely available in OSS clang. So, we only enable
         // index store for Apple's clang or if explicitly asked to.
         if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += buildParameters.indexStoreArguments(for: target)
-        } else if buildParameters.targetTriple.isDarwin(),
-                  (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true
+            args += self.buildParameters.indexStoreArguments(for: target)
+        } else if buildTriple.isDarwin(),
+                  (try? self.buildParameters.toolchain._isClangCompilerVendorApple()) == true
         {
-            args += buildParameters.indexStoreArguments(for: target)
+            args += self.buildParameters.indexStoreArguments(for: target)
         }
 
         // Enable Clang module flags, if appropriate.
-        let enableModules: Bool
-        if toolsVersion < .v5_8 {
-            // For version < 5.8, we enable them except in these cases:
-            // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
-            // 2. on Windows when compiling for any language, because of issues with the Windows SDK
-            // 3. on Android when compiling for any language, because of issues with the Android SDK
-            enableModules = !(buildParameters.targetTriple.isDarwin() && isCXX) && !buildParameters.targetTriple
-                .isWindows() && !buildParameters.targetTriple.isAndroid()
-        } else {
-            // For version >= 5.8, we disable them when compiling for C++ regardless of platforms, see:
-            // https://github.com/llvm/llvm-project/issues/55980 for clang frontend crash when module
-            // enabled for C++ on c++17 standard and above.
-            enableModules = !isCXX && !buildParameters.targetTriple.isWindows() && !buildParameters.targetTriple.isAndroid()
-        }
-
+        let triple = self.buildParameters.triple
+        // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
+        // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't
+        // support clang modules.
+        // Note that if modules get enabled for other platforms later, they can't be used with C++ until
+        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed.
+        // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
+        let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
-            // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
 
@@ -320,6 +313,42 @@ public final class ClangTargetBuildDescription {
             args += ["-I", includeSearchPath.pathString]
         }
 
+        return args
+    }
+
+    public func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
+        let standards = [
+            (clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
+            (clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
+        ]
+
+        guard let path = try self.compilePaths().first(where: { $0.source == filePath }) else {
+            throw BuildDescriptionError.requestedFileNotPartOfTarget(
+                targetName: self.target.name,
+                requestedFilePath: filePath
+            )
+        }
+
+        let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
+        let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
+
+        var args = try basicArguments(isCXX: isCXX, isC: isC)
+
+        args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
+
+        // Add language standard flag if needed.
+        if let ext = path.source.extension {
+            for (standard, validExtensions) in standards {
+                if let standard, validExtensions.contains(ext) {
+                    args += ["-std=\(standard)"]
+                }
+            }
+        }
+
+        args += ["-c", path.source.pathString, "-o", path.object.pathString]
+
+        let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
+        args.insert(clangCompiler, at: 0)
         return args
     }
 

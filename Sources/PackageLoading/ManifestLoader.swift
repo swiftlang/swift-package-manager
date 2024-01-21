@@ -15,6 +15,7 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
+import SourceControl
 
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
@@ -958,7 +959,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                         do {
                             let packageDirectory = manifestPath.parentDirectory.pathString
-                            let contextModel = ContextModel(packageDirectory: packageDirectory)
+
+                            let gitInformation: ContextModel.GitInformation?
+                            do {
+                                let repo = GitRepository(path: manifestPath.parentDirectory)
+                                gitInformation = ContextModel.GitInformation(
+                                    currentTag: repo.getCurrentTag(),
+                                    currentCommit: try repo.getCurrentRevision().identifier,
+                                    hasUncommittedChanges: repo.hasUncommittedChanges()
+                                )
+                            } catch {
+                                gitInformation = nil
+                            }
+
+                            let contextModel = ContextModel(
+                                packageDirectory: packageDirectory,
+                                gitInformation: gitInformation
+                            )
                             cmd += ["-context", try contextModel.encode()]
                         } catch {
                             return completion(.failure(error))
@@ -968,7 +985,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // This provides some safety against arbitrary code execution when parsing manifest files.
                         // We only allow the permissions which are absolutely necessary.
                         if self.isManifestSandboxEnabled {
-                            let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                            let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
                                 cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
@@ -1081,14 +1098,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         for toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
+        let modulesPath = self.toolchain.swiftPMLibrariesLocation.manifestModulesPath
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if runtimePath.extension == "framework" {
-            cmd += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
+        if modulesPath.extension == "framework" {
+            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
         } else {
-            cmd += ["-I", runtimePath.pathString]
+            cmd += ["-I", modulesPath.pathString]
         }
       #if os(macOS)
         if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {

@@ -74,28 +74,56 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            return try buildParameters.binaryPath(for: product)
+            return try self.buildParameters.binaryPath(for: product)
         }
     }
 }
 
 public protocol BuildPlan {
-    var buildParameters: BuildParameters { get }
+    /// Parameters used when building end products for the destination platform.
+    var destinationBuildParameters: BuildParameters { get }
+
+    /// Parameters used when building tools (macros and plugins).
+    var toolsBuildParameters: BuildParameters { get }
+
     var buildProducts: AnySequence<ProductBuildDescription> { get }
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
 }
 
+extension BuildPlan {
+    /// Parameters used for building a given target.
+    public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
+        switch target.buildTriple {
+        case .tools:
+            return self.toolsBuildParameters
+        case .destination:
+            return self.destinationBuildParameters
+        }
+    }
+
+    /// Parameters used for building a given product.
+    public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
+        switch product.buildTriple {
+        case .tools:
+            return self.toolsBuildParameters
+        case .destination:
+            return self.destinationBuildParameters
+        }
+    }
+}
+
 public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
-        customBuildParameters: BuildParameters?,
-        customPackageGraphLoader: (() throws -> PackageGraph)?,
-        customOutputStream: OutputByteStream?,
-        customLogLevel: Diagnostic.Severity?,
-        customObservabilityScope: ObservabilityScope?
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> PackageGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem
 }
 
@@ -116,11 +144,12 @@ public struct BuildSystemProvider {
         kind: Kind,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
-        customBuildParameters: BuildParameters? = .none,
-        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
-        customOutputStream: OutputByteStream? = .none,
-        customLogLevel: Diagnostic.Severity? = .none,
-        customObservabilityScope: ObservabilityScope? = .none
+        productsBuildParameters: BuildParameters? = .none,
+        toolsBuildParameters: BuildParameters? = .none,
+        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        outputStream: OutputByteStream? = .none,
+        logLevel: Diagnostic.Severity? = .none,
+        observabilityScope: ObservabilityScope? = .none
     ) throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
@@ -128,11 +157,12 @@ public struct BuildSystemProvider {
         return try buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
-            customBuildParameters: customBuildParameters,
-            customPackageGraphLoader: customPackageGraphLoader,
-            customOutputStream: customOutputStream,
-            customLogLevel: customLogLevel,
-            customObservabilityScope: customObservabilityScope
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            packageGraphLoader: packageGraphLoader,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            observabilityScope: observabilityScope
         )
     }
 }

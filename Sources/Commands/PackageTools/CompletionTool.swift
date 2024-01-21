@@ -66,17 +66,21 @@ extension SwiftPackageTool {
                 let graph = try swiftTool.loadPackageGraph()
                 // command's result output goes on stdout
                 // ie "swift package list-dependencies" should output to stdout
-                ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: TSCBasic.stdoutStream)
+                ShowDependencies.dumpDependenciesOf(
+                    rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
+                    mode: .flatlist,
+                    on: TSCBasic.stdoutStream
+                )
             case .listExecutables:
                 let graph = try swiftTool.loadPackageGraph()
-                let package = graph.rootPackages[0].underlyingPackage
+                let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
                 let executables = package.targets.filter { $0.type == .executable }
                 for executable in executables {
                     print(executable.name)
                 }
             case .listSnippets:
                 let graph = try swiftTool.loadPackageGraph()
-                let package = graph.rootPackages[0].underlyingPackage
+                let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
                 let executables = package.targets.filter { $0.type == .snippet }
                 for executable in executables {
                     print(executable.name)

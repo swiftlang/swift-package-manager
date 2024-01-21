@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import Workspace
+import SPMBuildCore
 
 extension SwiftPackageTool {
     struct Init: SwiftCommand {
@@ -38,6 +39,18 @@ extension SwiftPackageTool {
                 """))
         var initMode: InitPackage.PackageType = .library
 
+        /// Whether to enable support for XCTest.
+        @Flag(name: .customLong("xctest"),
+              inversion: .prefixedEnableDisable,
+              help: "Enable support for XCTest")
+        var enableXCTestSupport: Bool = true
+
+        /// Whether to enable support for swift-testing.
+        @Flag(name: .customLong("experimental-swift-testing"),
+              inversion: .prefixedEnableDisable,
+              help: "Enable experimental support for swift-testing")
+        var enableSwiftTestingLibrarySupport: Bool = false
+
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
 
@@ -46,10 +59,18 @@ extension SwiftPackageTool {
                 throw InternalError("Could not find the current working directory")
             }
 
+            var testingLibraries: Set<BuildParameters.Testing.Library> = []
+            if enableXCTestSupport {
+                testingLibraries.insert(.xctest)
+            }
+            if enableSwiftTestingLibrarySupport {
+                testingLibraries.insert(.swiftTesting)
+            }
             let packageName = self.packageName ?? cwd.basename
             let initPackage = try InitPackage(
                 name: packageName,
                 packageType: initMode,
+                supportedTestingLibraries: testingLibraries,
                 destinationPath: cwd,
                 installedSwiftPMConfiguration: swiftTool.getHostToolchain().installedSwiftPMConfiguration,
                 fileSystem: swiftTool.fileSystem
@@ -62,4 +83,8 @@ extension SwiftPackageTool {
     }
 }
 
+#if swift(<5.11)
 extension InitPackage.PackageType: ExpressibleByArgument {}
+#else
+extension InitPackage.PackageType: @retroactive ExpressibleByArgument {}
+#endif

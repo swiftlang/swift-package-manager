@@ -10,7 +10,6 @@ add_library(Build
   BuildDescription/ClangTargetBuildDescription.swift
   BuildDescription/PluginDescription.swift
   BuildDescription/ProductBuildDescription.swift
-  BuildDescription/SharedTargetBuildDescription.swift
   BuildDescription/SwiftTargetBuildDescription.swift
   BuildDescription/MixedTargetBuildDescription.swift
   BuildDescription/TargetBuildDescription.swift
@@ -45,10 +44,8 @@ target_link_libraries(Build INTERFACE
 set_target_properties(Build PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS Build
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Build)

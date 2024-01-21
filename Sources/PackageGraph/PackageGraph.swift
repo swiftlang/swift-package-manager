@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.IdentifiableSet
+import OrderedCollections
 import PackageLoading
 import PackageModel
-
-import func TSCBasic.topologicalSort
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.
@@ -52,23 +52,24 @@ enum PackageGraphError: Swift.Error {
 /// A collection of packages.
 public struct PackageGraph {
     /// The root packages.
-    public let rootPackages: [ResolvedPackage]
+    public let rootPackages: IdentifiableSet<ResolvedPackage>
 
     /// The complete list of contained packages, in topological order starting
     /// with the root packages.
     public let packages: [ResolvedPackage]
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: Set<ResolvedTarget>
+    public let reachableTargets: IdentifiableSet<ResolvedTarget>
 
     /// The list of all products reachable from root targets.
-    public let reachableProducts: Set<ResolvedProduct>
+    public let reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: Set<ResolvedTarget>
+    public let allTargets: IdentifiableSet<ResolvedTarget>
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-    public let allProducts: Set<ResolvedProduct>
+
+    public let allProducts: IdentifiableSet<ResolvedProduct>
 
     /// Package dependencies required for a fully resolved graph.
     ///
@@ -79,7 +80,7 @@ public struct PackageGraph {
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.flatMap({ (package: ResolvedPackage) -> Set<ResolvedTarget> in
+        return rootPackages.reduce(into: IdentifiableSet<ResolvedTarget>()) { (accumulator: inout IdentifiableSet<ResolvedTarget>, package: ResolvedPackage) in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
             let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
@@ -91,26 +92,26 @@ public struct PackageGraph {
                 }
             }
 
-            return Set(package.targets).subtracting(unsatisfiedDependencyTargets)
-        }).contains(target)
+            accumulator.formUnion(IdentifiableSet(package.targets).subtracting(unsatisfiedDependencyTargets))
+        }.contains(id: target.id)
     }
 
     public func isRootPackage(_ package: ResolvedPackage) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.contains(package)
+        return self.rootPackages.contains(id: package.id)
     }
 
-    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
+    private let targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
     /// Returns the package that contains the target, or nil if the target isn't in the graph.
     public func package(for target: ResolvedTarget) -> ResolvedPackage? {
-        return self.targetsToPackages[target]
+        return self.targetsToPackages[target.id]
     }
 
 
-    private let productsToPackages: [ResolvedProduct: ResolvedPackage]
+    private let productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product]
+        return self.productsToPackages[product.id]
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -126,7 +127,7 @@ public struct PackageGraph {
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
-        self.rootPackages = rootPackages
+        let rootPackages = IdentifiableSet(rootPackages)
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
@@ -136,11 +137,11 @@ public struct PackageGraph {
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
         self.targetsToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0] = package }
+            package.targets.forEach{ partial[$0.id] = package }
         })
 
-        allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
-            if rootPackages.contains(package) {
+        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedTarget] in
+            if rootPackages.contains(id: package.id) {
                 return package.targets
             } else {
                 // Don't include tests targets from non-root packages so swift-test doesn't
@@ -153,11 +154,11 @@ public struct PackageGraph {
         // we include all products, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
         self.productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach{ partial[$0] = package }
+            package.products.forEach { partial[$0.id] = package }
         })
 
-        allProducts = Set(packages.flatMap({ package -> [ResolvedProduct] in
-            if rootPackages.contains(package) {
+        let allProducts = IdentifiableSet(packages.flatMap({ package -> [ResolvedProduct] in
+            if rootPackages.contains(id: package.id) {
                 return package.products
             } else {
                 // Don't include tests products from non-root packages so swift-test doesn't
@@ -171,20 +172,23 @@ public struct PackageGraph {
         let inputProducts = inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
-        self.reachableTargets = Set(inputTargets).union(recursiveDependencies.compactMap { $0.target })
-        self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
+        self.reachableTargets = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.target })
+        self.reachableProducts = IdentifiableSet(inputProducts).union(recursiveDependencies.compactMap { $0.product })
+        self.rootPackages = rootPackages
+        self.allTargets = allTargets
+        self.allProducts = allProducts
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget: [ResolvedTarget]] {
-        var result = [ResolvedTarget: [ResolvedTarget]]()
+    func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
+        var result = [ResolvedTarget.ID: [ResolvedTarget]]()
 
-        let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
+        let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
 
         // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
+        let testTargetDepMap: [ResolvedTarget.ID: IdentifiableSet<ResolvedTarget>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
-                ($0, Set($0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }))
+                ($0.id, IdentifiableSet($0.dependencies.compactMap { $0.target }.filter { $0.type != .plugin }))
             })
             return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
@@ -201,7 +205,7 @@ public struct PackageGraph {
                 !deps.intersection(dependencies + [target]).isEmpty
             }).map({ $0.key })
 
-            result[target] = testTargets
+            result[target.id] = testTargets.compactMap { rootTargets[$0] }
         }
 
         return result
@@ -275,4 +279,70 @@ extension PackageGraphError: CustomStringConvertible {
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
         }
     }
+}
+
+enum GraphError: Error {
+    /// A cycle was detected in the input.
+    case unexpectedCycle
+}
+
+/// Perform a topological sort of an graph.
+///
+/// This function is optimized for use cases where cycles are unexpected, and
+/// does not attempt to retain information on the exact nodes in the cycle.
+///
+/// - Parameters:
+///   - nodes: The list of input nodes to sort.
+///   - successors: A closure for fetching the successors of a particular node.
+///
+/// - Returns: A list of the transitive closure of nodes reachable from the
+/// inputs, ordered such that every node in the list follows all of its
+/// predecessors.
+///
+/// - Throws: GraphError.unexpectedCycle
+///
+/// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
+/// reachable from the input nodes via the relation.
+func topologicalSort<T: Identifiable>(
+    _ nodes: [T], successors: (T) throws -> [T]
+) throws -> [T] {
+    // Implements a topological sort via recursion and reverse postorder DFS.
+    func visit(_ node: T,
+               _ stack: inout OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
+               _ successors: (T) throws -> [T]) throws {
+        // Mark this node as visited -- we are done if it already was.
+        if !visited.insert(node.id).inserted {
+            return
+        }
+
+        // Otherwise, visit each adjacent node.
+        for succ in try successors(node) {
+            guard stack.append(succ.id).inserted else {
+                // If the successor is already in this current stack, we have found a cycle.
+                //
+                // FIXME: We could easily include information on the cycle we found here.
+                throw GraphError.unexpectedCycle
+            }
+            try visit(succ, &stack, &visited, &result, successors)
+            let popped = stack.removeLast()
+            assert(popped == succ.id)
+        }
+
+        // Add to the result.
+        result.append(node)
+    }
+
+    // FIXME: This should use a stack not recursion.
+    var visited = Set<T.ID>()
+    var result = [T]()
+    var stack = OrderedSet<T.ID>()
+    for node in nodes {
+        precondition(stack.isEmpty)
+        stack.append(node.id)
+        try visit(node, &stack, &visited, &result, successors)
+        let popped = stack.removeLast()
+        assert(popped == node.id)
+    }
+
+    return result.reversed()
 }

@@ -17,7 +17,7 @@ import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
 import struct LLBuildManifest.LLBuildManifest
 import struct SPMBuildCore.BuildParameters
-import class PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedTarget
 import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
@@ -47,7 +47,7 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
-        if self.buildParameters.driverParameters.useIntegratedSwiftDriver {
+        if target.buildParameters.driverParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
@@ -59,7 +59,7 @@ extension LLBuildManifestBuilder {
 
         if addTargetCmd {
             self.addTargetCmd(
-                target: target.target,
+                target: .swift(target),
                 isTestTarget: target.isTestTarget,
                 inputs: cmdOutputs
             )
@@ -78,7 +78,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try target.emitCommandLine()
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
+        commandLine.append(target.buildParameters.toolchain.swiftCompilerPath.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
         let resolver = try ArgsResolver(fileSystem: target.fileSystem)
@@ -142,7 +142,7 @@ extension LLBuildManifestBuilder {
             // common intermediate dependency modules, such dependencies can lead
             // to cycles in the resulting manifest.
             var manifestNodeInputs: [Node] = []
-            if self.buildParameters.driverParameters.useExplicitModuleBuild && !isMainModule(job) {
+            if targetDescription.buildParameters.driverParameters.useExplicitModuleBuild && !isMainModule(job) {
                 manifestNodeInputs = jobInputs
             } else {
                 manifestNodeInputs = (inputs + jobInputs).uniqued()
@@ -201,8 +201,9 @@ extension LLBuildManifestBuilder {
     public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedTarget.Dependency] = self.plan.targetMap.keys.map {
-            ResolvedTarget.Dependency.target($0, conditions: [])
+        let nodes: [ResolvedTarget.Dependency] = try self.plan.targetMap.keys.compactMap {
+            guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
+            return ResolvedTarget.Dependency.target(target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -222,8 +223,8 @@ extension LLBuildManifestBuilder {
                 // product into its constituent targets.
                 continue
             }
-            guard target.underlyingTarget.type != .systemModule,
-                  target.underlyingTarget.type != .binary
+            guard target.underlying.type != .systemModule,
+                  target.underlying.type != .binary
             else {
                 // Much like non-Swift targets, system modules will consist of a modulemap
                 // somewhere in the filesystem, with the path to that module being either
@@ -235,7 +236,7 @@ extension LLBuildManifestBuilder {
                 // be able to detect such targets' modules.
                 continue
             }
-            guard let description = plan.targetMap[target] else {
+            guard let description = plan.targetMap[target.id] else {
                 throw InternalError("Expected description for target \(target)")
             }
             switch description {
@@ -275,7 +276,7 @@ extension LLBuildManifestBuilder {
         )
 
         self.addTargetCmd(
-            target: description.target,
+            target: .swift(description),
             isTestTarget: description.isTestTarget,
             inputs: cmdOutputs
         )
@@ -292,7 +293,7 @@ extension LLBuildManifestBuilder {
         var dependencyModuleDetailsMap: SwiftDriver.ExternalTargetModuleDetailsMap = [:]
         // Collect paths for target dependencies of this target (direct and transitive)
         try self.collectTargetDependencyModuleDetails(
-            for: targetDescription.target,
+            for: .swift(targetDescription),
             dependencyModuleDetailsMap: &dependencyModuleDetailsMap
         )
 
@@ -300,7 +301,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try targetDescription.emitCommandLine()
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
+        commandLine.append(targetDescription.buildParameters.toolchain.swiftCompilerPath.pathString)
         commandLine.append("-experimental-explicit-module-build")
         let resolver = try ArgsResolver(fileSystem: self.fileSystem)
         let executor = SPMSwiftDriverExecutor(
@@ -332,10 +333,10 @@ extension LLBuildManifestBuilder {
     /// dependency,
     /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
     private func collectTargetDependencyModuleDetails(
-        for target: ResolvedTarget,
+        for targetDescription: TargetBuildDescription,
         dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
-        for dependency in target.dependencies(satisfying: self.buildEnvironment) {
+        for dependency in targetDescription.target.dependencies(satisfying: targetDescription.buildParameters.buildEnvironment) {
             switch dependency {
             case .product:
                 // Product dependencies are broken down into the targets that make them up.
@@ -343,18 +344,24 @@ extension LLBuildManifestBuilder {
                     throw InternalError("unknown dependency product for \(dependency)")
                 }
                 for dependencyProductTarget in dependencyProduct.targets {
+                    guard let dependencyTargetDescription = self.plan.targetMap[dependencyProductTarget.id] else {
+                        throw InternalError("unknown dependency target for \(dependencyProductTarget)")
+                    }
                     try self.addTargetDependencyInfo(
-                        for: dependencyProductTarget,
+                        for: dependencyTargetDescription,
                         dependencyModuleDetailsMap: &dependencyModuleDetailsMap
                     )
                 }
             case .target:
                 // Product dependencies are broken down into the targets that make them up.
-                guard let dependencyTarget = dependency.target else {
+                guard
+                    let dependencyTarget = dependency.target,
+                    let dependencyTargetDescription = self.plan.targetMap[dependencyTarget.id]
+                else {
                     throw InternalError("unknown dependency target for \(dependency)")
                 }
                 try self.addTargetDependencyInfo(
-                    for: dependencyTarget,
+                    for: dependencyTargetDescription,
                     dependencyModuleDetailsMap: &dependencyModuleDetailsMap
                 )
             }
@@ -362,19 +369,19 @@ extension LLBuildManifestBuilder {
     }
 
     private func addTargetDependencyInfo(
-        for target: ResolvedTarget,
+        for targetDescription: TargetBuildDescription,
         dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
-        guard case .swift(let dependencySwiftTargetDescription) = self.plan.targetMap[target] else {
+        guard case .swift(let dependencySwiftTargetDescription) = targetDescription else {
             return
         }
-        dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
+        dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(targetDescription.target.c99name)] =
             SwiftDriver.ExternalTargetModuleDetails(
                 path: TSCAbsolutePath(dependencySwiftTargetDescription.moduleOutputPath),
                 isFramework: false
             )
         try self.collectTargetDependencyModuleDetails(
-            for: target,
+            for: targetDescription,
             dependencyModuleDetailsMap: &dependencyModuleDetailsMap
         )
     }
@@ -385,7 +392,7 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(config: self.buildConfig)
+        let cmdName = target.target.getCommandName(config: target.buildParameters.buildConfig)
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
@@ -396,7 +403,7 @@ extension LLBuildManifestBuilder {
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
-            importPath: target.buildParameters.buildPath,
+            importPath: target.modulesPath,
             tempsPath: target.tempsPath,
             objects: try target.objects,
             otherArguments: try target.compileArguments(),
@@ -426,20 +433,20 @@ extension LLBuildManifestBuilder {
 
         func addStaticTargetInputs(_ target: ResolvedTarget) throws {
             // Ignore C Modules.
-            if target.underlyingTarget is SystemLibraryTarget { return }
+            if target.underlying is SystemLibraryTarget { return }
             // Ignore Binary Modules.
-            if target.underlyingTarget is BinaryTarget { return }
+            if target.underlying is BinaryTarget { return }
             // Ignore Plugin Targets.
-            if target.underlyingTarget is PluginTarget { return }
+            if target.underlying is PluginTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {
                 // FIXME: Optimize.
                 let product = try plan.graph.allProducts.first {
-                    try $0.type == .executable && $0.executableTarget == target
+                    try $0.type == .executable && $0.executableTarget.id == target.id
                 }
                 if let product {
-                    guard let planProduct = plan.productMap[product] else {
+                    guard let planProduct = plan.productMap[product.id] else {
                         throw InternalError("unknown product \(product)")
                     }
                     try inputs.append(file: planProduct.binaryPath)
@@ -447,7 +454,7 @@ extension LLBuildManifestBuilder {
                 return
             }
 
-            switch self.plan.targetMap[target] {
+            switch self.plan.targetMap[target.id] {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
@@ -465,7 +472,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: self.buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: target.buildParameters.buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 try addStaticTargetInputs(target)
@@ -473,7 +480,7 @@ extension LLBuildManifestBuilder {
             case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
+                    guard let planProduct = plan.productMap[product.id] else {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
@@ -492,7 +499,7 @@ extension LLBuildManifestBuilder {
         }
 
         for binaryPath in target.libraryBinaryPaths {
-            let path = self.destinationPath(forBinaryAt: binaryPath)
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
@@ -500,24 +507,24 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        try self.addBuildToolPlugins(.swift(target))
+        let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.getLLBuildTargetName(config: buildConfig)))
+            try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.buildParameters.buildConfig)))
         }
 
-        return inputs
+        return inputs + additionalInputs
     }
 
     /// Adds a top-level phony command that builds the entire target.
     func addTargetCmd(
-        target: ResolvedTarget,
+        target: TargetBuildDescription, // ResolvedTarget,
         isTestTarget: Bool,
         inputs: [Node]
     ) {
         // Create a phony node to represent the entire target.
-        let targetName = target.getLLBuildTargetName(config: self.buildConfig)
+        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
         let targetOutput: Node = .virtual(targetName)
 
         self.manifest.addNode(targetOutput, toTarget: targetName)
@@ -526,9 +533,9 @@ extension LLBuildManifestBuilder {
             inputs: inputs,
             outputs: [targetOutput]
         )
-        if plan.graph.isInRootPackages(target, satisfying: self.buildEnvironment) {
+        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
             if !isTestTarget {
-                addNode(targetOutput, toTarget: .main)
+                self.addNode(targetOutput, toTarget: .main)
             }
             self.addNode(targetOutput, toTarget: .test)
         }
@@ -536,13 +543,13 @@ extension LLBuildManifestBuilder {
 
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
-        guard self.buildParameters.debuggingStrategy == .modulewrap else { return }
+        guard target.buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
             target.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString,
         ]
-        moduleWrapArgs += try self.buildParameters.targetTripleArgs(for: target.target)
+        moduleWrapArgs += try target.buildParameters.targetTripleArgs(for: target.target)
         self.manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",
@@ -614,7 +621,11 @@ extension LLBuildManifestBuilder {
             // The Swift compile command already created the resource bundle.
             createResourceBundle: false
         )
-        self.addTargetCmd(target: target.target, isTestTarget: target.isTestTarget, inputs: swiftOutputs + clangOutputs)
+        self.addTargetCmd(
+            target: .mixed(target),
+            isTestTarget: target.isTestTarget,
+            inputs: swiftOutputs + clangOutputs
+        )
     }
 }
 

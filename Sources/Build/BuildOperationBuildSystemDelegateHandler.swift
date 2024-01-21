@@ -111,13 +111,13 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     private func execute(fileSystem: Basics.FileSystem, tool: TestDiscoveryTool) throws {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
-        switch self.context.buildParameters.testingParameters.library {
+        switch self.context.productsBuildParameters.testingParameters.library {
         case .swiftTesting:
             for file in outputs {
                 try fileSystem.writeIfChanged(path: file, string: "")
             }
         case .xctest:
-            let index = self.context.buildParameters.indexStore
+            let index = self.context.productsBuildParameters.indexStore
             let api = try self.context.indexStoreAPI.get()
             let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
 
@@ -211,7 +211,9 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
         // Find the main output file
-        let mainFileName = TestEntryPointTool.mainFileName(for: self.context.buildParameters.testingParameters.library)
+        let mainFileName = TestEntryPointTool.mainFileName(
+            for: self.context.productsBuildParameters.testingParameters.library
+        )
         guard let mainFile = outputs.first(where: { path in
             path.basename == mainFileName
         }) else {
@@ -221,7 +223,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
-        switch self.context.buildParameters.testingParameters.library {
+        switch self.context.productsBuildParameters.testingParameters.library {
         case .swiftTesting:
             stream.send(
                 #"""
@@ -244,8 +246,8 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
 
             let testObservabilitySetup: String
-            if self.context.buildParameters.testingParameters.experimentalTestOutput
-                && self.context.buildParameters.targetTriple.supportsTestSummary {
+            let buildParameters = self.context.productsBuildParameters
+            if buildParameters.testingParameters.experimentalTestOutput && buildParameters.triple.supportsTestSummary {
                 testObservabilitySetup = "_ = SwiftPMXCTestObserver()\n"
             } else {
                 testObservabilitySetup = ""
@@ -253,7 +255,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
             stream.send(
                 #"""
-                \#(generateTestObservationCode(buildParameters: self.context.buildParameters))
+                \#(generateTestObservationCode(buildParameters: buildParameters))
 
                 import XCTest
                 \#(discoveryModuleNames.map { "import \($0)" }.joined(separator: "\n"))
@@ -369,23 +371,26 @@ public struct BuildDescription: Codable {
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.writeCommands = writeCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.driverParameters
+        self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
-        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
-            let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment)
+        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
+            let deps = try targetBuildDescription.target.recursiveDependencies(
+                satisfying: plan.buildParameters(for: targetBuildDescription.target).buildEnvironment
+            )
                 .compactMap(\.target).map(\.c99name)
-            $0[$1.target.c99name] = deps
+            partial[targetBuildDescription.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
-        for (target, description) in plan.targetMap {
-            guard case .swift(let desc) = description else {
+        for (targetID, description) in plan.targetMap {
+            guard case .swift(let desc) = description, let target = plan.graph.allTargets[targetID] else {
                 continue
             }
+            let buildParameters = plan.buildParameters(for: target)
             targetCommandLines[target.c99name] =
-                try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
-                                                                  plan.buildParameters.toolchain.swiftCompilerPath
-                                                                      .pathString]
+                try desc.emitCommandLine(scanInvocation: true) + [
+                    "-driver-use-frontend-path", buildParameters.toolchain.swiftCompilerPath.pathString
+                ]
             if case .discovery = desc.testTargetRole {
                 generatedSourceTargets.append(target.c99name)
             }
@@ -429,8 +434,11 @@ public protocol BuildErrorAdviceProvider {
 
 /// The context available during build execution.
 public final class BuildExecutionContext {
-    /// The build parameters.
-    let buildParameters: BuildParameters
+    /// Build parameters for products.
+    let productsBuildParameters: BuildParameters
+
+    /// Build parameters for build tools.
+    let toolsBuildParameters: BuildParameters
 
     /// The build description.
     ///
@@ -449,14 +457,16 @@ public final class BuildExecutionContext {
     let observabilityScope: ObservabilityScope
 
     public init(
-        _ buildParameters: BuildParameters,
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope,
         packageStructureDelegate: PackageStructureDelegate,
         buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
     ) {
-        self.buildParameters = buildParameters
+        self.productsBuildParameters = productsBuildParameters
+        self.toolsBuildParameters = toolsBuildParameters
         self.buildDescription = buildDescription
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -474,7 +484,7 @@ public final class BuildExecutionContext {
             do {
                 #if os(Windows)
                 // The library's runtime component is in the `bin` directory on
-                // Windows rather than the `lib` directory as on unicies.  The `lib`
+                // Windows rather than the `lib` directory as on Unix.  The `lib`
                 // directory contains the import library (and possibly static
                 // archives) which are used for linking.  The runtime component is
                 // not (necessarily) part of the SDK distributions.
@@ -484,12 +494,12 @@ public final class BuildExecutionContext {
                 // library is currently installed as `libIndexStore.dll` rather than
                 // `IndexStore.dll`.  In the future, this may require a fallback
                 // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
-                let indexStoreLib = buildParameters.toolchain.swiftCompilerPath
+                let indexStoreLib = toolsBuildParameters.toolchain.swiftCompilerPath
                     .parentDirectory
                     .appending("libIndexStore.dll")
                 #else
-                let ext = buildParameters.hostTriple.dynamicLibraryExtension
-                let indexStoreLib = try buildParameters.toolchain.toolchainLibDir
+                let ext = toolsBuildParameters.triple.dynamicLibraryExtension
+                let indexStoreLib = try toolsBuildParameters.toolchain.toolchainLibDir
                     .appending("libIndexStore" + ext)
                 #endif
                 return try .success(IndexStoreAPI(dylib: TSCAbsolutePath(indexStoreLib)))
@@ -581,7 +591,8 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         let encoder = JSONEncoder.makeWithDefaults()
         // Include build parameters and process env in the signature.
         var hash = Data()
-        hash += try! encoder.encode(self.context.buildParameters)
+        hash += try! encoder.encode(self.context.productsBuildParameters)
+        hash += try! encoder.encode(self.context.toolsBuildParameters)
         hash += try! encoder.encode(ProcessEnv.vars)
         return [UInt8](hash)
     }
@@ -945,11 +956,18 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         }
     }
 
-    func buildComplete(success: Bool, duration: DispatchTimeInterval) {
+    func buildComplete(success: Bool, duration: DispatchTimeInterval, subsetDescriptor: String? = nil) {
+        let subsetString: String
+        if let subsetDescriptor {
+            subsetString = "of \(subsetDescriptor) "
+        } else {
+            subsetString = ""
+        }
+
         queue.sync {
             self.progressAnimation.complete(success: success)
             if success {
-                let message = cancelled ? "Build cancelled!" : "Build complete!"
+                let message = cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
                 self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")
                 self.outputStream.flush()

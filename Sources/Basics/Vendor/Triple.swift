@@ -426,7 +426,7 @@ extension Triple {
     }
   }
 
-  public enum Arch: String, CaseIterable {
+  public enum Arch: String, CaseIterable, Decodable {
     /// ARM (little endian): arm, armv.*, xscale
     case arm
     // ARM (big endian): armeb

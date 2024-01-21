@@ -92,6 +92,27 @@ public class RepositoryManager: Cancellable {
         self.concurrencySemaphore = DispatchSemaphore(value: maxConcurrentOperations)
     }
 
+    public func lookup(
+        package: PackageIdentity,
+        repository: RepositorySpecifier,
+        updateStrategy: RepositoryUpdateStrategy,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> RepositoryHandle {
+        try await safe_async {
+            self.lookup(
+                package: package,
+                repository: repository,
+                updateStrategy: updateStrategy,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
+
     /// Get a handle to a repository.
     ///
     /// This will initiate a clone of the repository automatically, if necessary.
@@ -107,6 +128,7 @@ public class RepositoryManager: Cancellable {
     ///   - delegateQueue: Dispatch queue for delegate events
     ///   - callbackQueue: Dispatch queue for callbacks
     ///   - completion: The completion block that should be called after lookup finishes.
+    @available(*, noasync, message: "Use the async alternative")
     public func lookup(
         package: PackageIdentity,
         repository: RepositorySpecifier,

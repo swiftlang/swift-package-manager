@@ -74,7 +74,8 @@ final class PackageToolTests: CommandsTestCase {
 	
 	func testInitUsage() throws {
 		let stdout = try execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] [--name <name>]"))
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
+		XCTAssertMatch(stdout, .contains(" [--name <name>]"))
 	}
 	
 	func testInitOptionsHelp() throws {
@@ -637,7 +638,11 @@ final class PackageToolTests: CommandsTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let output = BufferedOutputByteStream()
-        SwiftPackageTool.ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
+        SwiftPackageTool.ShowDependencies.dumpDependenciesOf(
+            rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
+            mode: .dot,
+            on: output
+        )
         let dotFormat = output.bytes.description
 
         var alreadyPutOut: Set<Substring> = []
@@ -1873,6 +1878,177 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    // Test reporting of plugin diagnostic messages at different verbosity levels
+    func testCommandPluginDiagnostics() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        // Match patterns for expected messages
+        let isEmpty = StringPattern.equal("")
+        let isOnlyPrint = StringPattern.equal("command plugin: print\n")
+        let containsRemark = StringPattern.contains("command plugin: Diagnostics.remark")
+        let containsWarning = StringPattern.contains("command plugin: Diagnostics.warning")
+        let containsError = StringPattern.contains("command plugin: Diagnostics.error")
+
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            func runPlugin(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
+                let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)
+                completion(stdout, stderr)
+            }
+
+            // Diagnostics.error causes SwiftPM to return a non-zero exit code, but we still need to check stdout and stderr
+            func runPluginWithError(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
+                XCTAssertThrowsError(try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)) { error in
+                    guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                        return XCTFail("invalid error \(error)")
+                    }
+                    completion(stdout, stderr)
+                }
+            }
+
+            // Default verbosity
+            //   - stdout is always printed
+            //   - Diagnostics below 'warning' are suppressed
+
+            try runPlugin(flags: [], diagnostics: ["print"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: [], diagnostics: ["print", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: [], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsWarning)
+            }
+
+         	try runPluginWithError(flags: [], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsWarning)
+                XCTAssertMatch(stderr, containsError)
+            }
+
+            // Quiet Mode
+            //   - stdout is always printed
+            //   - Diagnostics below 'error' are suppressed
+
+            try runPlugin(flags: ["-q"], diagnostics: ["print"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, isEmpty)
+            }
+
+            try runPluginWithError(flags: ["-q"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertNoMatch(stderr, containsRemark)
+                XCTAssertNoMatch(stderr, containsWarning)
+                XCTAssertMatch(stderr, containsError)
+            }
+
+            // Verbose Mode
+            //   - stdout is always printed
+            //   - All diagnostics are printed
+            //   - Substantial amounts of additional compiler output are also printed
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                // At this level stderr contains extra compiler output even if the plugin does not print diagnostics
+            }
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsRemark)
+            }
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsRemark)
+                XCTAssertMatch(stderr, containsWarning)
+            }
+
+            try runPluginWithError(flags: ["-v"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsRemark)
+                XCTAssertMatch(stderr, containsWarning)
+                XCTAssertMatch(stderr, containsError)
+            }
+        }
+    }
+
+    // Test target builds requested by a command plugin
+    func testCommandPluginTargetBuilds() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        let debugTarget = [".build", "debug", "placeholder"]
+        let releaseTarget = [".build", "release", "placeholder"]
+
+        func AssertIsExecutableFile(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
+            XCTAssert(
+                localFileSystem.isExecutableFile(fixturePath),
+                "\(fixturePath) does not exist",
+                file: file,
+                line: line
+            )
+        }
+
+        func AssertNotExists(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
+            XCTAssertFalse(
+                localFileSystem.exists(fixturePath),
+                "\(fixturePath) should not exist",
+                file: file,
+                line: line
+            )
+        }
+
+        // By default, a plugin-requested build produces a debug binary
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "release", "build-target"], packagePath: fixturePath)
+            AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
+            AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "release", "build-target", "build-debug"], packagePath: fixturePath)
+            AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
+            AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "debug", "build-target", "build-release"], packagePath: fixturePath)
+            AssertNotExists(fixturePath.appending(components: debugTarget))
+            AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin inherits the overall build configuration, that is what will be built
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "debug", "build-target", "build-inherit"], packagePath: fixturePath)
+            AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
+            AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        // If the plugin inherits the overall build configuration, that is what will be built
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let _ = try SwiftPM.Package.execute(["-c", "release", "build-target", "build-inherit"], packagePath: fixturePath)
+            AssertNotExists(fixturePath.appending(components: debugTarget))
+            AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
+        }
+    }
+
     func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -1939,12 +2115,12 @@ final class PackageToolTests: CommandsTestCase {
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: \"internet good\")]",
             permissionError: "all network connections on ports: 23, 42, 443, 8080",
             reason: "internet good",
-            remedy: ["--allow-network-connections", "all"])
+            remedy: ["--allow-network-connections", "all:23,42,443,8080"])
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: 1..<4), reason: \"internet good\")]",
             permissionError: "all network connections on ports: 1, 2, 3",
             reason: "internet good",
-            remedy: ["--allow-network-connections", "all"])
+            remedy: ["--allow-network-connections", "all:1,2,3"])
 
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(), reason: \"localhost good\")]",
@@ -1955,12 +2131,12 @@ final class PackageToolTests: CommandsTestCase {
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42, 443, 8080]), reason: \"localhost good\")]",
             permissionError: "local network connections on ports: 23, 42, 443, 8080",
             reason: "localhost good",
-            remedy: ["--allow-network-connections", "local"])
+            remedy: ["--allow-network-connections", "local:23,42,443,8080"])
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: 1..<4), reason: \"localhost good\")]",
             permissionError: "local network connections on ports: 1, 2, 3",
             reason: "localhost good",
-            remedy: ["--allow-network-connections", "local"])
+            remedy: ["--allow-network-connections", "local:1,2,3"])
 
         try testCommandPluginNetworkingPermissions(
             permissionsManifestFragment: "[.allowNetworkConnections(scope: .docker, reason: \"docker good\")]",
@@ -2397,7 +2573,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertNoMatch(stdout, .contains("Building for production..."))
                 XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
                 XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("debug/MyExecutable")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
@@ -2409,7 +2585,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/MyExecutable")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
@@ -2421,7 +2597,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyStaticLibrary.")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
@@ -2433,7 +2609,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyDynamicLibrary.")))
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
@@ -2903,11 +3079,11 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
-    func testSinglePluginTarget() throws {
+    func testSinglePluginTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        try testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -2956,13 +3132,10 @@ final class PackageToolTests: CommandsTestCase {
 
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: rootInput.packages,
+                observabilityScope: observability.topScope
+            )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.

@@ -35,10 +35,8 @@ target_link_libraries(SPMBuildCore PUBLIC
   PackageGraph)
 
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS SPMBuildCore
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SPMBuildCore)

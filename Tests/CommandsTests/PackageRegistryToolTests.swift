@@ -279,7 +279,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     // TODO: Test example with login and password
 
-    func testArchiving() throws {
+    func testArchiving() async throws {
         #if os(Linux)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
@@ -293,7 +293,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         let metadataFilename = SwiftPackageRegistryTool.Publish.metadataFilename
 
         // git repo
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
@@ -320,12 +320,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observability.topScope
             )
 
-            try validatePackageArchive(at: archivePath)
+            try await validatePackageArchive(at: archivePath)
             XCTAssertTrue(archivePath.isDescendant(of: workingDirectory))
         }
 
         // not a git repo
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
@@ -350,11 +350,11 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observability.topScope
             )
 
-            try validatePackageArchive(at: archivePath)
+            try await validatePackageArchive(at: archivePath)
         }
 
         // canonical metadata location
-        try withTemporaryDirectory { temporaryDirectory in
+        try await withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
@@ -385,17 +385,17 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let extractedPath = try validatePackageArchive(at: archivePath)
+            let extractedPath = try await validatePackageArchive(at: archivePath)
             XCTAssertFileExists(extractedPath.appending(component: metadataFilename))
         }
 
         @discardableResult
-        func validatePackageArchive(at archivePath: AbsolutePath) throws -> AbsolutePath {
+        func validatePackageArchive(at archivePath: AbsolutePath) async throws -> AbsolutePath {
             XCTAssertFileExists(archivePath)
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+            try await archiver.extract(from: archivePath, to: extractPath)
             try localFileSystem.stripFirstLevel(of: extractPath)
             XCTAssertFileExists(extractPath.appending("Package.swift"))
             return extractPath
@@ -550,7 +550,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+            try await archiver.extract(from: archivePath, to: extractPath)
             try localFileSystem.stripFirstLevel(of: extractPath)
 
             let manifestInArchive = try localFileSystem.readFileContents(extractPath.appending(manifestFile)).contents
@@ -643,7 +643,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try testRoots()
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -753,7 +753,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try testRoots()
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -860,7 +860,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Validate signatures
             var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try temp_await { self.testRoots(callback: $0) }
+            verifierConfiguration.trustedRoots = try testRoots()
 
             // archive signature
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -920,15 +920,11 @@ final class PackageRegistryToolTests: CommandsTestCase {
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com:8081/secret-sign-in")
     }
 
-    private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let rootCA = try localFileSystem
-                    .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
-                callback(.success([rootCA]))
-            }
-        } catch {
-            callback(.failure(error))
+    private func testRoots() throws -> [[UInt8]] {
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let rootCA = try localFileSystem
+                .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
+            return [rootCA]
         }
     }
 
@@ -963,7 +959,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         let archiver = ZipArchiver(fileSystem: localFileSystem)
         let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
         try localFileSystem.createDirectory(extractPath)
-        try temp_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+        try await archiver.extract(from: archivePath, to: extractPath)
         try localFileSystem.stripFirstLevel(of: extractPath)
 
         let manifestSignature = try ManifestSignatureParser.parse(
