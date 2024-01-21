@@ -56,7 +56,7 @@ This will cause SwiftPM to call the plugin, passing it a simplified version of t
 Unlike build tool plugins, which are invoked as needed when SwiftPM constructs the build task graph, command plugins are only invoked directly by the user.  This is done through the `swift` `package` command line interface:
 
 ```shell
-❯ swift package my-plugin --my-flag my-parameter
+❯ swift package plugin my-plugin --my-flag my-parameter
 ```
 
 Any command line arguments that appear after the invocation verb defined by the plugin are passed unmodified to the plugin — in this case, `--my-flag` and `my-parameter`.  This is commonly used in order to narrow down the application of a command to one or more targets, through the convention of one or more occurrences of a `--target` option with the name of the target(s).
