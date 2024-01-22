@@ -196,8 +196,8 @@ extension FileSystem {
     }
 
     /// Execute the given block while holding the lock.
-    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, blocking: Bool = true, _ body: () throws -> T) throws -> T {
-        try self.withLock(on: path.underlying, type: type, blocking: blocking, body)
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
+        try self.withLock(on: path.underlying, type: type, body)
     }
 
     /// Returns any known item replacement directories for a given path. These may be used by platform-specific
