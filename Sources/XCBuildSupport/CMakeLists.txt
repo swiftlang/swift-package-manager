@@ -13,12 +13,14 @@ add_library(XCBuildSupport STATIC
   XCBuildMessage.swift
   XCBuildOutputParser.swift
   XcodeBuildSystem.swift)
-target_link_libraries(XCBuildSupport PUBLIC
-  Build
-  TSCBasic
-  TSCUtility
-  PackageGraph
-  SwiftDriver
+target_link_libraries(XCBuildSupport
+  PUBLIC
+    Build
+    TSCBasic
+    TSCUtility
+    PackageGraph
+  PRIVATE
+    SwiftDriver
 )
 
 set_target_properties(XCBuildSupport PROPERTIES
