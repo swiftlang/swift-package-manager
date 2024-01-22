@@ -412,7 +412,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 guard let package = graph.package(for: target) else {
                     throw InternalError("package not found for \(target)")
                 }
-                targetMap[target] = try .mixed(MixedTargetBuildDescription(
+                targetMap[target.id] = try .mixed(MixedTargetBuildDescription(
                     package: package,
                     target: target,
                     toolsVersion: toolsVersion,

@@ -160,7 +160,7 @@ enum HostToPluginMessage: Codable {
                         compilationConditions: [String],
                         preprocessorDefinitions: [String],
                         headerSearchPaths: [String],
-                        publicHeadersDirId: Path.Id?,
+                        publicHeadersDirId: URL.Id?,
                         linkedLibraries: [String],
                         linkedFrameworks: [String])
 

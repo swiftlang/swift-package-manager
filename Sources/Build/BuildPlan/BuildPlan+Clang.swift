@@ -42,7 +42,7 @@ extension BuildPlan {
                 }
             case let target as MixedTarget where target.type == .library:
                 // Add the modulemap of the dependency.
-                if case let .mixed(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .mixed(dependencyTargetDescription)? = targetMap[dependency.id] {
                     // Add the dependency's modulemap.
                     clangTarget.additionalFlags.append(
                         "-fmodule-map-file=\(dependencyTargetDescription.moduleMap.pathString)"

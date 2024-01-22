@@ -50,7 +50,7 @@ extension BuildPlan {
                     }
                 }
             case let underlyingTarget as MixedTarget where underlyingTarget.type == .library:
-                guard case let .mixed(target)? = targetMap[dependency] else {
+                guard case let .mixed(target)? = targetMap[dependency.id] else {
                     throw InternalError("unexpected mixed target \(underlyingTarget)")
                 }
 

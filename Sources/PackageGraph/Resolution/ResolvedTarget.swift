@@ -141,7 +141,7 @@ public struct ResolvedTarget {
     /// The list of platforms that are supported by this target.
     public let supportedPlatforms: [SupportedPlatform]
 
-    private let platformVersionProvider: PlatformVersionProvider
+    public let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved target should be compiled for.
     public let buildTriple: BuildTriple

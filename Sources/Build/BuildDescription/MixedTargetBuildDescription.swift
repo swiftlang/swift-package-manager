@@ -22,10 +22,10 @@ public final class MixedTargetBuildDescription {
     let target: ResolvedTarget
 
     /// The list of all resource files in the target.
-    var resources: [Resource] { self.target.underlyingTarget.resources }
+    var resources: [Resource] { self.target.underlying.resources }
 
     /// If this target is a test target.
-    var isTestTarget: Bool { self.target.underlyingTarget.type == .test }
+    var isTestTarget: Bool { self.target.underlying.type == .test }
 
     /// The objects in this target. This includes both the Swift and Clang object files.
     var objects: [AbsolutePath] {
@@ -81,7 +81,7 @@ public final class MixedTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard let mixedTarget = target.underlyingTarget as? MixedTarget else {
+        guard let mixedTarget = target.underlying as? MixedTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
@@ -89,10 +89,12 @@ public final class MixedTargetBuildDescription {
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
         let clangResolvedTarget = ResolvedTarget(
-            target: mixedTarget.clangTarget,
+            packageIdentity: package.identity,
+            underlying: mixedTarget.clangTarget,
             dependencies: target.dependencies,
             defaultLocalization: target.defaultLocalization,
-            platforms: target.platforms
+            supportedPlatforms: target.supportedPlatforms,
+            platformVersionProvider: target.platformVersionProvider
         )
         self.clangTargetBuildDescription = try ClangTargetBuildDescription(
             target: clangResolvedTarget,
@@ -106,10 +108,12 @@ public final class MixedTargetBuildDescription {
         )
 
         let swiftResolvedTarget = ResolvedTarget(
-            target: mixedTarget.swiftTarget,
+            packageIdentity: package.identity,
+            underlying: mixedTarget.swiftTarget,
             dependencies: target.dependencies,
             defaultLocalization: target.defaultLocalization,
-            platforms: target.platforms
+            supportedPlatforms: target.supportedPlatforms,
+            platformVersionProvider: target.platformVersionProvider
         )
         self.swiftTargetBuildDescription = try SwiftTargetBuildDescription(
             package: package,
@@ -119,6 +123,7 @@ public final class MixedTargetBuildDescription {
             buildParameters: buildParameters,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
+            disableSandbox: false,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             isWithinMixedTarget: true

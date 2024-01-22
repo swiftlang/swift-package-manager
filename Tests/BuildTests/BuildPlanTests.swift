@@ -1732,7 +1732,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath: AbsolutePath = result.plan.productsBuildPath
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         #if os(macOS)
@@ -1810,7 +1810,7 @@ final class BuildPlanTests: XCTestCase {
 
         #if os(macOS)
             XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
                 "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath",
                 "-Xlinker", "@loader_path",
@@ -1822,7 +1822,7 @@ final class BuildPlanTests: XCTestCase {
             ])
         #elseif os(Linux)
             XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
                 "-module-name", "exe", "-static-stdlib", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN",
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1877,7 +1877,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath: AbsolutePath = result.plan.productsBuildPath
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         #if os(macOS)
           XCTAssertMatch(exe, [
@@ -1950,7 +1950,7 @@ final class BuildPlanTests: XCTestCase {
 
         #if os(macOS)
             XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
                 "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath",
                 "-Xlinker", "@loader_path",
@@ -1962,7 +1962,7 @@ final class BuildPlanTests: XCTestCase {
             ])
         #elseif os(Linux)
             XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
                 "-module-name", "exe", "-static-stdlib", "-emit-executable", "-Xlinker", "-rpath=$ORIGIN",
                 "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -3074,14 +3074,14 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath: AbsolutePath = result.plan.productsBuildPath
 
         let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
         let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
 
         #if os(macOS)
             XCTAssertEqual(fooLinkArgs, [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "Foo").pathString,
                 "-module-name", "Foo",
@@ -3096,7 +3096,7 @@ final class BuildPlanTests: XCTestCase {
             ])
 
             XCTAssertEqual(barLinkArgs, [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "libBar-Baz.dylib").pathString,
                 "-module-name", "Bar_Baz",
@@ -3109,7 +3109,7 @@ final class BuildPlanTests: XCTestCase {
             ])
         #elseif os(Linux)
             XCTAssertEqual(fooLinkArgs, [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "Foo").pathString,
                 "-module-name", "Foo",
@@ -3121,7 +3121,7 @@ final class BuildPlanTests: XCTestCase {
             ])
 
             XCTAssertEqual(barLinkArgs, [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "libBar-Baz.so").pathString,
                 "-module-name", "Bar_Baz",
@@ -3192,14 +3192,14 @@ final class BuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+        let buildPath: AbsolutePath = result.plan.productsBuildPath
 
         let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
         let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
 
         #if os(macOS)
             XCTAssertEqual(fooLinkArgs, [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "Foo").pathString,
                 "-module-name", "Foo",
@@ -3213,7 +3213,7 @@ final class BuildPlanTests: XCTestCase {
             ])
         #elseif os(Linux)
             XCTAssertEqual(fooLinkArgs, [
-                result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
                 "-L", buildPath.pathString,
                 "-o", buildPath.appending(components: "Foo").pathString,
                 "-module-name", "Foo",

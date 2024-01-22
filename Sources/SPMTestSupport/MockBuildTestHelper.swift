@@ -202,4 +202,13 @@ extension TargetBuildDescription {
             throw BuildError.error("Unexpected \(self) type")
         }
     }
+    
+    public func mixedTarget() throws -> MixedTargetBuildDescription {
+        switch self {
+        case .mixed(let target):
+            return target
+        default:
+            throw BuildError.error("Unexpected \(self) type")
+        }
+    }
 }

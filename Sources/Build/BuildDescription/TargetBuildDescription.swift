@@ -121,6 +121,9 @@ public enum TargetBuildDescription {
             return swiftTargetBuildDescription.buildParameters
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.buildParameters
+        // TODO(ncooke3): How to handle the mixed case?
+        case .mixed(let mixedTargetBuildDescription):
+            return mixedTargetBuildDescription.clangTargetBuildDescription.buildParameters
         }
     }
 
@@ -130,6 +133,9 @@ public enum TargetBuildDescription {
             return swiftTargetBuildDescription.toolsVersion
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.toolsVersion
+        // TODO(ncooke3): How to handle the mixed case?
+        case .mixed(let mixedTargetBuildDescription):
+            return mixedTargetBuildDescription.clangTargetBuildDescription.toolsVersion
         }
     }
 }

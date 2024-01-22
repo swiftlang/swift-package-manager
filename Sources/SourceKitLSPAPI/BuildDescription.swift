@@ -70,6 +70,9 @@ public struct BuildDescription {
                 return description
             case .swift(let description):
                 return WrappedSwiftTargetBuildDescription(description: description)
+            default:
+                // TODO(ncooke3): What is supposed to happen here?
+                fatalError("`MixedTargetDescription` does not conform to `BuildTarget`.")
             }
         } else {
             if target.type == .plugin, let package = self.buildPlan.graph.package(for: target) {

@@ -148,9 +148,9 @@ internal struct PluginContextDeserializer {
 
 
         case let .mixedSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
-            let publicHeadersDir = try publicHeadersDirId.map { try self.path(for: $0) }
+            let publicHeadersDir = try publicHeadersDirId.map { try self.url(for: $0) }
             let sourceFiles = FileList(try sourceFiles.map {
-                let path = try self.path(for: $0.basePathId).appending($0.name)
+                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
                 let type: FileType
                 switch $0.type {
                 case .source:
@@ -162,13 +162,14 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return File(path: path, type: type)
+                return File(path: Path(url: path), url: path, type: type)
             })
             target = MixedSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
                 kind: .init(kind),
-                directory: directory,
+                directory: Path(url: directory),
+                directoryURL: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
                 sourceFiles: sourceFiles,
@@ -178,7 +179,9 @@ internal struct PluginContextDeserializer {
                     headerSearchPaths: headerSearchPaths,
                     publicHeadersDirectory: publicHeadersDir),
                 linkedLibraries: linkedLibraries,
-                linkedFrameworks: linkedFrameworks
+                linkedFrameworks: linkedFrameworks,
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources
             )
 
         case let .binaryArtifactInfo(kind, origin, artifactId):
