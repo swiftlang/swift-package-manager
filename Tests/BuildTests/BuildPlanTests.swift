@@ -6198,4 +6198,73 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
+
+    // testing of deriving dynamic libraries for explicitly linking rdar://108561857
+    func testDerivingDylibs() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/thisPkg/Sources/exe/main.swift",
+            "/fooPkg/Sources/FooLogging/file.swift",
+            "/barPkg/Sources/BarLogging/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "fooPkg",
+                    path: "/fooPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "FooLogging", type: .library(.dynamic), targets: ["FooLogging"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "FooLogging",
+                            dependencies: [.product(name: "BarLogging", package: "barPkg")]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "barPkg",
+                    path: "/barPkg",
+                    products: [
+                        ProductDescription(name: "BarLogging", type: .library(.dynamic), targets: ["BarLogging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BarLogging", dependencies: []),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "thisPkg",
+                    path: "/thisPkg",
+                    toolsVersion: .v5_8,
+                    dependencies: [
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "exe",
+                            dependencies: [.product(name: "FooLogging", package: "fooPkg"),],
+                            type: .executable
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(3)
+        result.checkTargetsCount(3)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+    }
 }
