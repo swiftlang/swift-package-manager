@@ -41,7 +41,9 @@ add_library(Commands
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
   Utilities/DOTManifestSerializer.swift
+  Utilities/MermaidPackageSerializer.swift
   Utilities/MultiRootSupport.swift
+  Utilities/PlainTextEncoder.swift
   Utilities/PluginDelegate.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
