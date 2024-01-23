@@ -322,7 +322,7 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool.executionStatus = .failure
             }
 
-            if self.options.enableExperimentalTestOutput, !runner.ranSuccessfully {
+            if self.options.enableExperimentalTestOutput {
                 try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
         }
@@ -452,7 +452,7 @@ public struct SwiftTestTool: SwiftCommand {
             try processCodeCoverage(testProducts, swiftTool: swiftTool, library: library)
         }
 
-        if self.options.enableExperimentalTestOutput, !ranSuccessfully {
+        if self.options.enableExperimentalTestOutput {
             try Self.handleTestOutput(buildParameters: buildParameters, packagePath: testProducts[0].packagePath)
         }
     }
@@ -484,8 +484,11 @@ public struct SwiftTestTool: SwiftCommand {
         let startedTests = caseEvents.filter { $0.event == .start }.count
         let finishedTests = caseEvents.filter { $0.event == .finish }.count
         let totalFailures = expectedFailures.count + unexpectedFailures.count
-        print("\nRan \(finishedTests)/\(startedTests) tests, \(totalFailures) failures (\(unexpectedFailures.count) unexpected):\n")
-        print("\(unexpectedFailures.joined(separator: "\n"))")
+        print("\nRan \(finishedTests)/\(startedTests) tests, \(totalFailures) failures (\(unexpectedFailures.count) unexpected)")
+        if !unexpectedFailures.isEmpty {
+            print(":\n")
+            print("\(unexpectedFailures.joined(separator: "\n"))")
+        }
     }
 
     /// Processes the code coverage data and emits a json.
