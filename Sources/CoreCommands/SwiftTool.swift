@@ -41,7 +41,6 @@ import func TSCBasic.exec
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
-import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
@@ -109,27 +108,14 @@ extension SwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider
         )
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
-
-        // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
-        do {
-            try swiftTool.fileSystem.withLock(on: swiftTool.scratchDirectory, type: .exclusive, blocking: false) {}
-        } catch let ProcessLockError.unableToAquireLock(errno) {
-            if errno == EWOULDBLOCK {
-                swiftTool.outputStream.write("Another instance of SwiftPM is already running using '\(swiftTool.scratchDirectory)', waiting until that process has finished execution...".utf8)
-                swiftTool.outputStream.flush()
-            }
-        }
-
         var toolError: Error? = .none
-        try swiftTool.fileSystem.withLock(on: swiftTool.scratchDirectory, type: .exclusive) {
-            do {
-                try self.run(swiftTool)
-                if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
-                    throw ExitCode.failure
-                }
-            } catch {
-                toolError = error
+        do {
+            try self.run(swiftTool)
+            if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
+                throw ExitCode.failure
             }
+        } catch {
+            toolError = error
         }
 
         // wait for all observability items to process
