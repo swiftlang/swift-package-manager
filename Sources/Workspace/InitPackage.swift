@@ -737,6 +737,7 @@ public final class InitPackage {
             import SwiftSyntaxBuilder
             import SwiftSyntaxMacros
             import SwiftSyntaxMacrosTestSupport
+
             """##
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
