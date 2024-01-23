@@ -154,7 +154,8 @@ let package = Package(
             dependencies: [
                 "Build",
                 "SPMBuildCore"
-            ]
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: SwiftPM specific support libraries
