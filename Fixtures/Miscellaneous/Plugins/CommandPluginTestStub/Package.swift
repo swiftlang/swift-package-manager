@@ -19,8 +19,21 @@ let package = Package(
                 description: "Build a target for testing"
             ))
         ),
+        .plugin(
+            name: "plugin-dependencies-stub",
+            capability: .command(intent: .custom(
+                verb: "build-plugin-dependency",
+                description: "Build a plugin dependency for testing"
+            )),
+            dependencies: [
+                .target(name: "plugintool")
+            ]
+        ),
         .executableTarget(
             name: "placeholder"
+        ),
+        .executableTarget(
+            name: "plugintool"
         ),
     ]
 )
