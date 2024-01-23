@@ -47,6 +47,7 @@ add_library(Commands
   Utilities/TestingSupport.swift
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
+  SwiftCollections::OrderedCollections
   ArgumentParser
   Basics
   Build
