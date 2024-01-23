@@ -6266,5 +6266,8 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
+        let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
+        XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
     }
 }
