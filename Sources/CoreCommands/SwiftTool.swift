@@ -767,71 +767,33 @@ public final class SwiftTool {
 
     /// Lazily compute the target toolchain.z
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
-        var swiftSDK: SwiftSDK
+        let swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            outputHandler: { print($0.description) }
+        )
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
-            let hostTriple = hostToolchain.targetTriple
-
-            // Create custom toolchain if present.
-            if let customDestination = self.options.locations.customCompileDestination {
-                let swiftSDKs = try SwiftSDK.decode(
-                    fromFile: customDestination,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
-                )
-                if swiftSDKs.count == 1 {
-                    swiftSDK = swiftSDKs[0]
-                } else if swiftSDKs.count > 1,
-                          let triple = options.build.customCompileTriple,
-                          let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
-                {
-                    swiftSDK = matchingSDK
-                } else {
-                    return .failure(SwiftSDKError.noSwiftSDKDecoded(customDestination))
-                }
-            } else if let triple = options.build.customCompileTriple,
-                      let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
-            {
-                swiftSDK = targetSwiftSDK
-            } else if let swiftSDKSelector = options.build.swiftSDKSelector {
-                let store = SwiftSDKBundleStore(
-                    swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope,
-                    outputHandler: { print($0.description) }
-                )
-                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
-            } else {
-                // Otherwise use the host toolchain.
-                swiftSDK = hostSwiftSDK
-            }
+            swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostToolchain.targetTriple,
+                customCompileDestination: options.locations.customCompileDestination,
+                customCompileTriple: options.build.customCompileTriple,
+                customCompileToolchain: options.build.customCompileToolchain,
+                customCompileSDK: options.build.customCompileSDK,
+                swiftSDKSelector: options.build.swiftSDKSelector,
+                architectures: options.build.architectures,
+                store: store,
+                observabilityScope: self.observabilityScope,
+                fileSystem: self.fileSystem
+            )
         } catch {
             return .failure(error)
         }
-        // Apply any manual overrides.
-        if let triple = options.build.customCompileTriple {
-            swiftSDK.targetTriple = triple
-        }
-        if let binDir = options.build.customCompileToolchain {
-            if !self.fileSystem.exists(binDir) {
-                self.observabilityScope.emit(
-                    warning: """
-                        Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
-                            binDir
-                        )`
-                        """
-                )
-            }
-
-            swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
-        }
-        if let sdk = options.build.customCompileSDK {
-            swiftSDK.pathsConfiguration.sdkRootPath = sdk
-        }
-        swiftSDK.architectures = options.build.architectures.isEmpty ? nil : options.build.architectures
-
         // Check if we ended up with the host toolchain.
         if hostSwiftSDK == swiftSDK {
             return self._hostToolchain
