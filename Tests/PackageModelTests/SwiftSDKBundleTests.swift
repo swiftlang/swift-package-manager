@@ -341,4 +341,73 @@ final class SwiftSDKBundleTests: XCTestCase {
             ),
         ])
     }
+
+    func testTargetSDKDeriviation() async throws {
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: testArtifactID, supportedTriples: [arm64Triple]),
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK()
+        let hostTriple = try! Triple("arm64-apple-macosx14.0")
+        let archiver = MockArchiver()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: { _ in }
+        )
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            // By default, the target SDK is the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK, hostSwiftSDK)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                swiftSDKSelector: testArtifactID,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            // With a target SDK selector, SDK should be chosen from the store.
+            XCTAssertEqual(targetSwiftSDK.targetTriple, targetTriple)
+            // No toolset in the SDK, so it should be the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths)
+        }
+
+        do {
+            // Check explicit overriding options.
+            let customCompileSDK = AbsolutePath("/path/to/sdk")
+            let archs = ["x86_64-apple-macosx10.15"]
+            let customCompileToolchain = AbsolutePath("/path/to/toolchain")
+            try fileSystem.createDirectory(customCompileToolchain, recursive: true)
+
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customCompileToolchain: customCompileToolchain,
+                customCompileSDK: customCompileSDK,
+                architectures: archs,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            XCTAssertEqual(targetSwiftSDK.architectures, archs)
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath, customCompileSDK)
+        }
+    }
 }
