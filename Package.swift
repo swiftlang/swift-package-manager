@@ -154,7 +154,8 @@ let package = Package(
             dependencies: [
                 "Build",
                 "SPMBuildCore"
-            ]
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -386,6 +387,7 @@ let package = Package(
             name: "Commands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "CoreCommands",

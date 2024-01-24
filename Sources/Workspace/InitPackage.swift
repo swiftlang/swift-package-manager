@@ -550,7 +550,7 @@ public final class InitPackage {
                 #if canImport(XcodeProjectPlugin)
                 import XcodeProjectPlugin
 
-                extension MyCommandPlugin: XcodeCommandPlugin {
+                extension \(typeName): XcodeCommandPlugin {
                     // Entry point for command plugins applied to Xcode projects.
                     func performCommand(context: XcodePluginContext, arguments: [String]) throws {
                         print("Hello, World!")
@@ -737,6 +737,7 @@ public final class InitPackage {
             import SwiftSyntaxBuilder
             import SwiftSyntaxMacros
             import SwiftSyntaxMacrosTestSupport
+
             """##
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
