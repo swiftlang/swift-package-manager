@@ -613,6 +613,7 @@ public struct SwiftSDK: Equatable {
       fileSystem: FileSystem
     ) throws -> SwiftSDK {
         var swiftSDK: SwiftSDK
+        var isBasedOnHostSDK: Bool = false
         // Create custom toolchain if present.
         if let customDestination = customCompileDestination {
             let swiftSDKs = try SwiftSDK.decode(
@@ -639,6 +640,7 @@ public struct SwiftSDK: Equatable {
         } else {
             // Otherwise use the host toolchain.
             swiftSDK = hostSwiftSDK
+            isBasedOnHostSDK = true
         }
         // Apply any manual overrides.
         if let triple = customCompileTriple {
@@ -661,6 +663,13 @@ public struct SwiftSDK: Equatable {
             swiftSDK.pathsConfiguration.sdkRootPath = sdk
         }
         swiftSDK.architectures = architectures.isEmpty ? nil : architectures
+
+        if !isBasedOnHostSDK {
+            // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
+            // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
+            // target Swift SDKs).
+            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.add(toolsetRootPath: $0) }
+        }
 
         return swiftSDK
     }
