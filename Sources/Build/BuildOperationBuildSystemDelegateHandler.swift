@@ -787,8 +787,10 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
+        // FIXME: This should really happen at the command-level and is just a stopgap measure.
+        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result.result != .failed
         queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[command.name] {
+            if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
                 self.outputStream.flush()
