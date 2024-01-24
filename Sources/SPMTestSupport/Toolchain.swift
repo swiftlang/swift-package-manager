@@ -111,29 +111,6 @@ extension UserToolchain {
         }
     }
 
-    public func supportsSuppressWarnings() -> Bool {
-        do {
-            try testWithTemporaryDirectory { tmpPath in
-                let inputPath = tmpPath.appending("best.swift")
-                try localFileSystem.writeFileContents(inputPath, string: "let foo: String? = \"bar\"\nprint(foo)\n")
-                let outputPath = tmpPath.appending("foo")
-                let serializedDiagnosticsPath = tmpPath.appending("out.dia")
-                let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
-                try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", serializedDiagnosticsPath.pathString, "-o", outputPath.pathString, "-suppress-warnings"])
-
-                let diaFileContents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
-                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
-
-                if diagnosticsSet.diagnostics.contains(where: { $0.text.contains("warning") }) {
-                    throw StringError("does not support suppressing warnings")
-                }
-            }
-            return true
-        } catch {
-            return false
-        }
-    }
-
     // This builds a trivial program with `-warnings-as-errors`, if it fails, the compiler in use generates warnings by default and is not suitable for testing warnings as errors behaviors.
     public func supportsWarningsAsErrors() -> Bool {
         do {
