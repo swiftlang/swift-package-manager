@@ -23,7 +23,7 @@ extension BuildPlan {
         for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: environment) {
             switch dependency.underlying {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
-                guard case let .clang(target)? = targetMap[dependency] else {
+                guard case let .clang(target)? = targetMap[dependency.id] else {
                     throw InternalError("unexpected clang target \(underlyingTarget)")
                 }
                 // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a

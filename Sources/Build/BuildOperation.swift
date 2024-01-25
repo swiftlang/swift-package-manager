@@ -286,7 +286,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let duration = buildStartTime.distance(to: .now())
 
-        self.buildSystemDelegate?.buildComplete(success: success, duration: duration)
+        let subsetDescriptor: String?
+        switch subset {
+        case .product(let productName):
+            subsetDescriptor = "product '\(productName)'"
+        case .target(let targetName):
+            subsetDescriptor = "target: '\(targetName)'"
+        case .allExcludingTests, .allIncludingTests:
+            subsetDescriptor = nil
+        }
+
+        self.buildSystemDelegate?.buildComplete(
+            success: success,
+            duration: duration,
+            subsetDescriptor: subsetDescriptor
+        )
         self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
@@ -437,13 +451,20 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Load the package graph.
         let graph = try getPackageGraph()
 
-        let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
-        let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
+        let buildToolPluginInvocationResults: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])]
+        let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
+            // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
+            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
+            // done, which makes it hard to realign them all at once.
+            var pluginsBuildParameters = self.toolsBuildParameters
+            pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
             let buildOperationForPluginDependencies = BuildOperation(
-                productsBuildParameters: self.productsBuildParameters,
-                toolsBuildParameters: self.toolsBuildParameters,
+                // FIXME: this doesn't maintain the products/tools split cleanly
+                productsBuildParameters: pluginsBuildParameters,
+                toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: { return graph },
                 additionalFileRules: self.additionalFileRules,
@@ -455,11 +476,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                builtToolsDir: self.toolsBuildParameters.buildPath,
-                buildEnvironment: self.toolsBuildParameters.buildEnvironment,
+                buildParameters: pluginsBuildParameters,
+                additionalFileRules: self.additionalFileRules,
                 toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
-                sdkRootPath: self.toolsBuildParameters.toolchain.sdkRootPath,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
@@ -475,7 +495,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
-            for (target, results) in buildToolPluginInvocationResults {
+            for (_, (target, results)) in buildToolPluginInvocationResults {
                 // There is one result for each plugin that gets applied to a target.
                 for result in results {
                     let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
@@ -500,7 +520,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
             // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
             prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
-                partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
+                partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
+                    try self.runPrebuildCommands(for: $0.results)
+                }
             })
         } else {
             buildToolPluginInvocationResults = [:]
@@ -515,8 +537,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if unhandledFiles.isEmpty { continue }
 
                 // Subtract out any that were inputs to any commands generated by plugins.
-                if let result = buildToolPluginInvocationResults[target] {
-                    let handledFiles = result.flatMap{ $0.buildCommands.flatMap{ $0.inputFiles } }
+                if let result = buildToolPluginInvocationResults[target.id]?.results {
+                    let handledFiles = result.flatMap { $0.buildCommands.flatMap { $0.inputFiles } }
                     unhandledFiles.subtract(handledFiles)
                 }
                 if unhandledFiles.isEmpty { continue }
@@ -543,7 +565,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
-            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults.mapValues(\.results),
             prebuildCommandResults: prebuildCommandResults,
             disableSandbox: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,

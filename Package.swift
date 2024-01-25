@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.8
 
 //===----------------------------------------------------------------------===//
 //
@@ -154,7 +154,8 @@ let package = Package(
             dependencies: [
                 "Build",
                 "SPMBuildCore"
-            ]
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -224,7 +225,8 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel"
+                "PackageModel",
+                "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -385,6 +387,7 @@ let package = Package(
             name: "Commands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "CoreCommands",

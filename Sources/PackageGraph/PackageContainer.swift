@@ -40,6 +40,8 @@ public protocol PackageContainer {
     /// The identifier for the package.
     var package: PackageReference { get }
 
+    var shouldInvalidatePinnedVersions: Bool { get }
+
     /// Returns true if the tools version is compatible at the given version.
     func isToolsVersionCompatible(at version: Version) -> Bool
 
@@ -103,6 +105,10 @@ extension PackageContainer {
 
     public func versionsDescending() throws -> [Version] {
         try self.versionsAscending().reversed()
+    }
+
+    public var shouldInvalidatePinnedVersions: Bool {
+        return true
     }
 }
 

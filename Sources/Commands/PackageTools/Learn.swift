@@ -92,7 +92,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            let package = graph.rootPackages[0]
+            let package = graph.rootPackages[graph.rootPackages.startIndex]
             print(package.products.map { $0.description })
 
             let snippetGroups = try loadSnippetsAndSnippetGroups(fileSystem: swiftTool.fileSystem, from: package)

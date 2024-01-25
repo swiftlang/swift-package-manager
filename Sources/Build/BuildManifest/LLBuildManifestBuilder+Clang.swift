@@ -13,6 +13,7 @@
 import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
+import class Basics.ObservabilityScope
 import struct PackageGraph.ResolvedTarget
 import PackageModel
 
@@ -32,7 +33,7 @@ extension LLBuildManifestBuilder {
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
+            if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
@@ -45,7 +46,7 @@ extension LLBuildManifestBuilder {
             case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
+                    guard let planProduct = plan.productMap[product.id] else {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
@@ -89,7 +90,7 @@ extension LLBuildManifestBuilder {
             )
         }
 
-        try addBuildToolPlugins(.clang(target))
+        let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
         let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
@@ -98,7 +99,7 @@ extension LLBuildManifestBuilder {
         self.manifest.addNode(output, toTarget: targetName)
         self.manifest.addPhonyCmd(
             name: output.name,
-            inputs: objectFileNodes,
+            inputs: objectFileNodes + additionalInputs,
             outputs: [output]
         )
 

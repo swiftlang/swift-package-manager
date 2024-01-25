@@ -96,6 +96,7 @@ private struct LocalPackageContainer: PackageContainer {
     /// The managed dependency if the package is not a root package.
     let dependency: Workspace.ManagedDependency?
     let currentToolsVersion: ToolsVersion
+    let shouldInvalidatePinnedVersions = false
 
     func versionsAscending() throws -> [Version] {
         switch dependency?.state {

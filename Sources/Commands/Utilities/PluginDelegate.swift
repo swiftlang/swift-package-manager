@@ -77,6 +77,10 @@ final class PluginDelegate: PluginInvocationDelegate {
             buildParameters.configuration = .debug
         case .release:
             buildParameters.configuration = .release
+        case .inherit:
+            // The top level argument parser set buildParameters.configuration according to the
+            // --configuration command line parameter.   We don't need to do anything to inherit it.
+            break
         }
         buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags)
         buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags)

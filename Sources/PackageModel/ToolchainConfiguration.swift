@@ -93,7 +93,7 @@ extension ToolchainConfiguration {
             #if os(macOS)
             if let manifestLibraryMinimumDeploymentTarget {
                 self.manifestLibraryMinimumDeploymentTarget = manifestLibraryMinimumDeploymentTarget
-            } else if let manifestLibraryMinimumDeploymentTarget = try? MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: Self.macOSManifestLibraryPath(for: manifestLibraryPath), platform: .macOS) {
+            } else if let manifestLibraryMinimumDeploymentTarget = try? MinimumDeploymentTarget.default.computeMinimumDeploymentTarget(of: Self.macOSManifestLibraryPath(for: manifestLibraryPath), platform: .macOS) {
                 self.manifestLibraryMinimumDeploymentTarget = manifestLibraryMinimumDeploymentTarget
             } else {
                 self.manifestLibraryMinimumDeploymentTarget = nil
@@ -101,7 +101,7 @@ extension ToolchainConfiguration {
 
             if let pluginLibraryMinimumDeploymentTarget {
                 self.pluginLibraryMinimumDeploymentTarget = pluginLibraryMinimumDeploymentTarget
-            } else if let pluginLibraryMinimumDeploymentTarget = try? MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: Self.macOSPluginLibraryPath(for: pluginLibraryPath), platform: .macOS) {
+            } else if let pluginLibraryMinimumDeploymentTarget = try? MinimumDeploymentTarget.default.computeMinimumDeploymentTarget(of: Self.macOSPluginLibraryPath(for: pluginLibraryPath), platform: .macOS) {
                 self.pluginLibraryMinimumDeploymentTarget = pluginLibraryMinimumDeploymentTarget
             } else {
                 self.pluginLibraryMinimumDeploymentTarget = nil

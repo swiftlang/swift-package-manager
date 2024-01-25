@@ -17,11 +17,23 @@ import struct TSCBasic.ProcessResult
 
 
 public struct MinimumDeploymentTarget {
-    public let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform,PlatformVersion>()
+    private struct MinimumDeploymentTargetKey: Hashable {
+        let binaryPath: AbsolutePath
+        let platform: PackageModel.Platform
+    }
+
+    private let minimumDeploymentTargets = ThreadSafeKeyValueStore<MinimumDeploymentTargetKey,PlatformVersion>()
+    private let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform,PlatformVersion>()
 
     public static let `default`: MinimumDeploymentTarget = .init()
 
     private init() {
+    }
+
+    public func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion {
+        try self.minimumDeploymentTargets.memoize(MinimumDeploymentTargetKey(binaryPath: binaryPath, platform: platform)) {
+            return try Self.computeMinimumDeploymentTarget(of: binaryPath, platform: platform) ?? platform.oldestSupportedVersion
+        }
     }
 
     public func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {

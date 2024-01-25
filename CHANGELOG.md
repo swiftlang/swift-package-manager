@@ -3,6 +3,11 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
+* [#7202]
+
+  Package manifests can now access information about the Git repository the given package is in via the context object's 
+  `gitInformation` property. This allows to determine the current tag (if any), the current commit and whether or not there are uncommited changes.
+
 * [#7010]
 
   On macOS, `swift build` and `swift run` now produce binaries that allow backtraces in debug builds. Pass `SWIFT_BACKTRACE=enable=yes` environment variable to enable backtraces on such binaries when running them.

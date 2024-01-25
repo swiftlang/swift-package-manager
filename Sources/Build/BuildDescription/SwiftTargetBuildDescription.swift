@@ -287,7 +287,7 @@ public final class SwiftTargetBuildDescription {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
-        (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+        (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
             target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,

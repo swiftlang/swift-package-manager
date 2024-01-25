@@ -141,7 +141,7 @@ extension Plugin {
     fileprivate static func handleMessage(_ message: HostToPluginMessage) async throws {
         switch message {
             
-        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId):
+        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId, let generatedSources, let generatedResources):
             // Deserialize the context from the wire input structures. The root
             // package is the one we'll set the context's `package` property to.
             let context: PluginContext
@@ -165,7 +165,14 @@ extension Plugin {
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories.map { Path(url: $0) },
                     toolSearchDirectoryURLs: toolSearchDirectories)
-                target = try deserializer.target(for: targetId)
+
+                let pluginGeneratedSources = try generatedSources.map { try deserializer.url(for: $0) }
+                let pluginGeneratedResources = try generatedResources.map { try deserializer.url(for: $0) }
+                target = try deserializer.target(
+                    for: targetId,
+                    pluginGeneratedSources: pluginGeneratedSources,
+                    pluginGeneratedResources: pluginGeneratedResources
+                )
             }
             catch {
                 internalError("Couldn’t deserialize input from host: \(error).")

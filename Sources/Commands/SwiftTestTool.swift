@@ -78,11 +78,56 @@ struct SharedOptions: ParsableArguments {
           help: "Enable support for XCTest")
     var enableXCTestSupport: Bool = true
 
-    /// Whether to enable support for swift-testing.
+    /// Storage for whether to enable support for swift-testing.
     @Flag(name: .customLong("experimental-swift-testing"),
           inversion: .prefixedEnableDisable,
           help: "Enable experimental support for swift-testing")
-    var enableSwiftTestingLibrarySupport: Bool = false
+    var _enableSwiftTestingLibrarySupport: Bool?
+
+    /// Whether to enable support for swift-testing.
+    func enableSwiftTestingLibrarySupport(swiftTool: SwiftTool) throws -> Bool {
+        // Honor the user's explicit command-line selection, if any.
+        if let callerSuppliedValue = _enableSwiftTestingLibrarySupport {
+            return callerSuppliedValue
+        }
+
+        // If the active package has a dependency on swift-testing, automatically enable support for it so that extra steps are not needed.
+        let workspace = try swiftTool.getActiveWorkspace()
+        let root = try swiftTool.getWorkspaceRoot()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: swiftTool.observabilityScope,
+                completion: $0
+            )
+        }
+
+        // Is swift-testing among the dependencies of the package being built?
+        // If so, enable support.
+        let isEnabledByDependency = rootManifests.values.lazy
+            .flatMap(\.dependencies)
+            .map(\.identity)
+            .map(String.init(describing:))
+            .contains("swift-testing")
+        if isEnabledByDependency {
+            swiftTool.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
+            return true
+        }
+
+        // Is swift-testing the package being built itself (unlikely)? If so,
+        // enable support.
+        let isEnabledByName = root.packages.lazy
+            .map(PackageIdentity.init(path:))
+            .map(String.init(describing:))
+            .contains("swift-testing")
+        if isEnabledByName {
+            swiftTool.observabilityScope.emit(debug: "Enabling swift-testing support because it is a root package.")
+            return true
+        }
+
+        // Default to disabled since swift-testing is experimental (opt-in.)
+        return false
+    }
 }
 
 struct TestToolOptions: ParsableArguments {
@@ -94,6 +139,7 @@ struct TestToolOptions: ParsableArguments {
 
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
+          inversion: .prefixedNo,
           help: "Run the tests in parallel.")
     var shouldRunInParallel: Bool = false
 
@@ -359,7 +405,7 @@ public struct SwiftTestTool: SwiftCommand {
             let command = try List.parse()
             try command.run(swiftTool)
         } else {
-            if options.sharedOptions.enableSwiftTestingLibrarySupport {
+            if try options.sharedOptions.enableSwiftTestingLibrarySupport(swiftTool: swiftTool) {
                 try swiftTestingRun(swiftTool)
             }
             if options.sharedOptions.enableXCTestSupport {
@@ -525,7 +571,9 @@ public struct SwiftTestTool: SwiftCommand {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
 
-            // The --num-worker option should be called with --parallel.
+            // The --num-worker option should be called with --parallel. Since
+            // this option does not affect swift-testing at this time, we can
+            // effectively ignore that it defaults to enabling parallelization.
             guard options.shouldRunInParallel else {
                 throw StringError("--num-workers must be used with --parallel")
             }
@@ -651,7 +699,7 @@ extension SwiftTestTool {
         // MARK: - Common implementation
 
         func run(_ swiftTool: SwiftTool) throws {
-            if sharedOptions.enableSwiftTestingLibrarySupport {
+            if try sharedOptions.enableSwiftTestingLibrarySupport(swiftTool: swiftTool) {
                 try swiftTestingRun(swiftTool)
             }
             if sharedOptions.enableXCTestSupport {
@@ -1212,7 +1260,7 @@ extension SwiftTool {
             experimentalTestOutput: options.enableExperimentalTestOutput,
             library: library
         )
-        if options.sharedOptions.enableSwiftTestingLibrarySupport {
+        if try options.sharedOptions.enableSwiftTestingLibrarySupport(swiftTool: self) {
             result.flags.swiftCompilerFlags += ["-DSWIFT_PM_SUPPORTS_SWIFT_TESTING"]
         }
         return result

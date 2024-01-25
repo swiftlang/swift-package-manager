@@ -382,8 +382,8 @@ public struct BuildDescription: Codable {
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
-        for (target, description) in plan.targetMap {
-            guard case .swift(let desc) = description else {
+        for (targetID, description) in plan.targetMap {
+            guard case .swift(let desc) = description, let target = plan.graph.allTargets[targetID] else {
                 continue
             }
             let buildParameters = plan.buildParameters(for: target)
@@ -826,8 +826,10 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
+        // FIXME: This should really happen at the command-level and is just a stopgap measure.
+        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result.result != .failed
         queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[command.name] {
+            if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
                 self.outputStream.flush()
@@ -956,11 +958,18 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         }
     }
 
-    func buildComplete(success: Bool, duration: DispatchTimeInterval) {
+    func buildComplete(success: Bool, duration: DispatchTimeInterval, subsetDescriptor: String? = nil) {
+        let subsetString: String
+        if let subsetDescriptor {
+            subsetString = "of \(subsetDescriptor) "
+        } else {
+            subsetString = ""
+        }
+
         queue.sync {
             self.progressAnimation.complete(success: success)
             if success {
-                let message = cancelled ? "Build cancelled!" : "Build complete!"
+                let message = cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
                 self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")
                 self.outputStream.flush()
