@@ -1886,6 +1886,7 @@ final class PackageToolTests: CommandsTestCase {
         // Match patterns for expected messages
         let isEmpty = StringPattern.equal("")
         let isOnlyPrint = StringPattern.equal("command plugin: print\n")
+        let containsProgress = StringPattern.contains("[diagnostics-stub] command plugin: Diagnostics.progress")
         let containsRemark = StringPattern.contains("command plugin: Diagnostics.remark")
         let containsWarning = StringPattern.contains("command plugin: Diagnostics.warning")
         let containsError = StringPattern.contains("command plugin: Diagnostics.error")
@@ -1915,18 +1916,25 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stderr, isEmpty)
             }
 
-            try runPlugin(flags: [], diagnostics: ["print", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+            try runPlugin(flags: [], diagnostics: ["print", "progress"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
-            try runPlugin(flags: [], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            try runPlugin(flags: [], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+            }
+
+            try runPlugin(flags: [], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-         	try runPluginWithError(flags: [], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+         	try runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
             }
@@ -1940,18 +1948,24 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stderr, isEmpty)
             }
 
-            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "progress"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
-            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
-            try runPluginWithError(flags: ["-q"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+            }
+
+            try runPluginWithError(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
             	XCTAssertNoMatch(stderr, containsRemark)
                 XCTAssertNoMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
@@ -1967,19 +1981,27 @@ final class PackageToolTests: CommandsTestCase {
                 // At this level stderr contains extra compiler output even if the plugin does not print diagnostics
             }
 
-            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "progress"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
+            }
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
             }
 
-            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-            try runPluginWithError(flags: ["-v"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            try runPluginWithError(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
             	XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
