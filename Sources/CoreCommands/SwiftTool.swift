@@ -17,6 +17,7 @@ import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
+@_spi(SwiftPMInternal)
 import PackageModel
 import SPMBuildCore
 import Workspace
