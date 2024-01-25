@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@_spi(SwiftPMInternal)
 @testable import PackageModel
 import SPMTestSupport
 import XCTest
@@ -56,19 +57,33 @@ private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteStr
     ] + bundle.artifacts.map {
         (
             "\(bundle.path)/\($0.id)/\(targetTriple.tripleString)/swift-sdk.json",
-            ByteString(json: try generateSwiftSDKMetadata(jsonEncoder))
+            ByteString(json: try generateSwiftSDKMetadata(jsonEncoder, createToolset: $0.toolsetRootPath != nil))
         )
+    } + bundle.artifacts.compactMap { artifact in
+        artifact.toolsetRootPath.map { path in
+            (
+                "\(bundle.path)/\(artifact.id)/\(targetTriple.tripleString)/toolset.json",
+                ByteString(json: """
+                {
+                    "schemaVersion": "1.0",
+                    "rootPath": "\(path)"
+                }
+                """)
+            )
+        }
     }
 }
 
-private func generateSwiftSDKMetadata(_ encoder: JSONEncoder) throws -> SerializedJSON {
+private func generateSwiftSDKMetadata(_ encoder: JSONEncoder, createToolset: Bool) throws -> SerializedJSON {
     try """
     {
         "schemaVersion": "4.0",
         "targetTriples": \(
             String(
                 bytes: encoder.encode([
-                    targetTriple.tripleString: SwiftSDKMetadataV4.TripleProperties(sdkRootPath: "sdk")
+                    targetTriple.tripleString: SwiftSDKMetadataV4.TripleProperties(sdkRootPath: "sdk", toolsetPaths: createToolset ? [
+                        "toolset.json"
+                    ] : nil)
                 ]),
                 encoding: .utf8
             )!
@@ -86,6 +101,7 @@ private struct MockBundle {
 private struct MockArtifact {
     let id: String
     let supportedTriples: [Triple]
+    var toolsetRootPath: AbsolutePath?
 }
 
 private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
@@ -340,5 +356,89 @@ final class SwiftSDKBundleTests: XCTestCase {
                 bundleName: AbsolutePath(bundles[1].path).components.last!
             ),
         ])
+    }
+
+    func testTargetSDKDeriviation() async throws {
+        let toolsetRootPath = AbsolutePath("/path/to/toolpath")
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
+                .init(id: "\(testArtifactID)2", supportedTriples: [arm64Triple], toolsetRootPath: toolsetRootPath),
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK()
+        let hostTriple = try! Triple("arm64-apple-macosx14.0")
+        let archiver = MockArchiver()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: { _ in }
+        )
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            // By default, the target SDK is the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK, hostSwiftSDK)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                swiftSDKSelector: "\(testArtifactID)1",
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            // With a target SDK selector, SDK should be chosen from the store.
+            XCTAssertEqual(targetSwiftSDK.targetTriple, targetTriple)
+            // No toolset in the SDK, so it should be the same as the host SDK.
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths)
+        }
+
+        do {
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                swiftSDKSelector: "\(testArtifactID)2",
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            // With toolset in the target SDK, it should contain the host toolset roots at the end.
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, [toolsetRootPath] + hostSwiftSDK.toolset.rootPaths)
+        }
+
+        do {
+            // Check explicit overriding options.
+            let customCompileSDK = AbsolutePath("/path/to/sdk")
+            let archs = ["x86_64-apple-macosx10.15"]
+            let customCompileToolchain = AbsolutePath("/path/to/toolchain")
+            try fileSystem.createDirectory(customCompileToolchain, recursive: true)
+
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                customCompileToolchain: customCompileToolchain,
+                customCompileSDK: customCompileSDK,
+                architectures: archs,
+                store: store,
+                observabilityScope: system.topScope,
+                fileSystem: fileSystem
+            )
+            XCTAssertEqual(targetSwiftSDK.architectures, archs)
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath, customCompileSDK)
+        }
     }
 }
