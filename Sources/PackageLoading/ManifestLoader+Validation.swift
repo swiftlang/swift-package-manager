@@ -191,7 +191,7 @@ public struct ManifestValidator {
                 case .product(_, let packageName, _, _):
                     if self.manifest.packageDependency(referencedBy: targetDependency) == nil {
                         diagnostics.append(.unknownTargetPackageDependency(
-                            packageName: packageName ?? "unknown package name",
+                            packageName: packageName,
                             targetName: target.name,
                             validPackages: self.manifest.dependencies
                         ))
@@ -262,8 +262,14 @@ extension Basics.Diagnostic {
         .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: \(validDependencies.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
-    static func unknownTargetPackageDependency(packageName: String, targetName: String, validPackages: [PackageDependency]) -> Self {
-        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: \(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
+    static func unknownTargetPackageDependency(packageName: String?, targetName: String, validPackages: [PackageDependency]) -> Self {
+        let messagePrefix: String
+        if let packageName {
+            messagePrefix = "unknown package '\(packageName)'"
+        } else {
+            messagePrefix = "undeclared package"
+        }
+        return .error("\(messagePrefix) in dependencies of target '\(targetName)'; valid packages are: \(validPackages.map{ "\($0.descriptionForValidation)" }.joined(separator: ", "))")
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {
