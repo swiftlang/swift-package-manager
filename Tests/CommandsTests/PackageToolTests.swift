@@ -2071,6 +2071,53 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    // Test logging of builds initiated by a command plugin
+    func testCommandPluginBuildLogs() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        // Match patterns for expected messages
+
+        let isEmpty = StringPattern.equal("")
+
+        // result.logText printed by the plugin has a prefix
+        let containsLogtext = StringPattern.contains("command plugin: packageManager.build logtext: Building for debugging...")
+
+        // Echoed logs have no prefix
+        let containsLogecho = StringPattern.regex("^Building for debugging...\n")
+
+        // These tests involve building a target, so each test must run with a fresh copy of the fixture
+        // otherwise the logs may be different in subsequent tests.
+
+        // Check than nothing is echoed when echoLogs is false
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, isEmpty)
+            XCTAssertMatch(stderr, isEmpty)
+        }
+
+        // Check that logs are returned to the plugin when echoLogs is false
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, containsLogtext)
+            XCTAssertMatch(stderr, isEmpty)
+        }
+
+        // Check that logs echoed to the console (on stderr) when echoLogs is true
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, isEmpty)
+            XCTAssertMatch(stderr, containsLogecho)
+        }
+
+        // Check that logs are returned to the plugin and echoed to the console (on stderr) when echoLogs is true
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, containsLogtext)
+            XCTAssertMatch(stderr, containsLogecho)
+        }
+    }
+
     func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
