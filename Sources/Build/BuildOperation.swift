@@ -656,7 +656,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             var derivedFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
+                self.observabilityScope.emit(info: "Running " + (command.configuration.displayName ?? command.configuration.executable.basename))
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
