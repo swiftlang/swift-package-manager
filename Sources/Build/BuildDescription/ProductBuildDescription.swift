@@ -198,7 +198,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when using objectiveC, executable when using test entry point.
+            // Test products are bundle when using Objective-C, executable when using test entry point.
             switch self.buildParameters.testingParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
@@ -271,8 +271,24 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
-        // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+            // A product is embedded if all of its static targets are embedded.
+            var isEmbeddedProduct = true
+            
+            for target in self.product.targets {
+                let flags = self.buildParameters.createScope(for: target).evaluate(.OTHER_SWIFT_FLAGS)
+
+                // FIXME: update this comparison to use `contains` on `Collection` when macOS 13 is available.
+                if !flags.joined(separator: " ").contains("-enable-experimental-feature Embedded") {
+                    isEmbeddedProduct = false
+                    break
+                }
+            }
+            if isEmbeddedProduct {
+                args += ["-enable-experimental-feature", "Embedded"]
+            }
+
+            // Embed the swift stdlib library path inside tests and executables on Darwin.
             let useStdlibRpath: Bool
             switch self.product.type {
             case .library(let type):
@@ -297,11 +313,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                     args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
                 }
             }
-        }
-
-        // Don't link runtime compatibility patch libraries if there are no
-        // Swift sources in the target.
-        if !containsSwiftTargets {
+        } else {
+            // Don't link runtime compatibility patch libraries if there are no
+            // Swift sources in the target.
             args += ["-runtime-compatibility-version", "none"]
         }
 
