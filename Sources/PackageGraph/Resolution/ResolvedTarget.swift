@@ -199,7 +199,7 @@ public struct ResolvedTarget {
 
 extension ResolvedTarget: CustomStringConvertible {
     public var description: String {
-        return "<ResolvedTarget: \(name)>"
+        return "<ResolvedTarget: \(self.name) | \(self.buildTriple)>"
     }
 }
 
