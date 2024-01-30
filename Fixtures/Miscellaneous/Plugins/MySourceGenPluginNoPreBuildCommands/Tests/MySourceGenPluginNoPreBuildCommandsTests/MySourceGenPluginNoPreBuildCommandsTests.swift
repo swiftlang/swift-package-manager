@@ -15,8 +15,7 @@ final class SwiftyProtobufTests: XCTestCase {
 
         // Mac Catalyst won't have `Process`, but it is supported for executables.
         #if !targetEnvironment(macCatalyst)
-        
-        print("### ", productsDirectory)
+
         let fooBinary = productsDirectory.appendingPathComponent("MyLocalTool")
 
         let process = Process()
@@ -46,8 +45,7 @@ final class SwiftyProtobufTests: XCTestCase {
 
         // Mac Catalyst won't have `Process`, but it is supported for executables.
         #if !targetEnvironment(macCatalyst)
-        
-        print("### ", productsDirectory)
+
         let fooBinary = productsDirectory.appendingPathComponent("MyOtherLocalTool")
 
         let process = Process()

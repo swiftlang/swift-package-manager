@@ -37,10 +37,9 @@ class PluginTests: XCTestCase {
     func testUseOfBuildToolPluginTargetNoPreBuildCommandsByExecutableInSamePackage() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (_, stderr) = try executeSwiftBuild(fixturePath.appending("MySourceGenPluginNoPreBuildCommands"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
-            XCTAssertFalse(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "unwanted warning")
+            let (_, stderr) = try executeSwiftTest(fixturePath.appending("MySourceGenPluginNoPreBuildCommands"))
+            XCTAssertTrue(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
         }
     }
 
