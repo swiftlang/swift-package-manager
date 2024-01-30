@@ -158,7 +158,7 @@ public final class PackageGraphResult {
 }
 
 public final class ResolvedTargetResult {
-    private let target: ResolvedTarget
+    let target: ResolvedTarget
 
     init(_ target: ResolvedTarget) {
         self.target = target

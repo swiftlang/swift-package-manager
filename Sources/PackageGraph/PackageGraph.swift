@@ -68,7 +68,6 @@ public struct PackageGraph {
     public let allTargets: IdentifiableSet<ResolvedTarget>
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-
     public let allProducts: IdentifiableSet<ResolvedProduct>
 
     /// Package dependencies required for a fully resolved graph.
@@ -132,44 +131,68 @@ public struct PackageGraph {
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
         self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
+        let identitiesToPackages = self.packages.spm_createDictionary { ($0.identity, $0) }
 
         // Create a mapping from targets to the packages that define them.  Here
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
-        self.targetsToPackages = self.packages.reduce(into: [:], { partial, package in
+        var targetsToPackages = self.packages.reduce(into: [:], { partial, package in
             package.targets.forEach { partial[$0.id] = package }
-        })
-
-        let allTargets = IdentifiableSet(packages.flatMap { package -> [ResolvedTarget] in
-            if rootPackages.contains(id: package.id) {
-                return package.targets
-            } else {
-                // Don't include tests targets from non-root packages so swift-test doesn't
-                // try to run them.
-                return package.targets.filter({ $0.type != .test })
-            }
         })
 
         // Create a mapping from products to the packages that define them.  Here
         // we include all products, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
-        self.productsToPackages = packages.reduce(into: [:], { partial, package in
+        var productsToPackages = packages.reduce(into: [:], { partial, package in
             package.products.forEach { partial[$0.id] = package }
         })
 
-        let allProducts = IdentifiableSet(packages.flatMap({ package -> [ResolvedProduct] in
+        var allTargets = IdentifiableSet<ResolvedTarget>()
+        var allProducts = IdentifiableSet<ResolvedProduct>()
+        for package in self.packages {
+            let targetsToInclude: [ResolvedTarget]
             if rootPackages.contains(id: package.id) {
-                return package.products
+                targetsToInclude = package.targets
+            } else {
+                // Don't include tests targets from non-root packages so swift-test doesn't
+                // try to run them.
+                targetsToInclude = package.targets.filter { $0.type != .test }
+            }
+
+            for target in targetsToInclude {
+                allTargets.insert(target)
+
+                // Explicitly include dependencies of host tools in the maps of all targets or all products
+                if target.buildTriple == .tools {
+                    for dependency in try target.recursiveDependencies() {
+                        switch dependency {
+                        case .target(let targetDependency, _):
+                            allTargets.insert(targetDependency)
+                            targetsToPackages[targetDependency.id] = package
+                        case .product(let productDependency, _):
+                            allProducts.insert(productDependency)
+                            productsToPackages[productDependency.id] =
+                                identitiesToPackages[productDependency.packageIdentity]
+                        }
+                    }
+                }
+            }
+
+            if rootPackages.contains(id: package.id) {
+                allProducts.formUnion(package.products)
             } else {
                 // Don't include tests products from non-root packages so swift-test doesn't
                 // try to run them.
-                return package.products.filter({ $0.type != .test })
+                allProducts.formUnion(package.products.filter { $0.type != .test })
             }
-        }))
+        }
+
+        self.targetsToPackages = targetsToPackages
+        self.productsToPackages = productsToPackages
 
         // Compute the reachable targets and products.
-        let inputTargets = inputPackages.flatMap { $0.targets }
-        let inputProducts = inputPackages.flatMap { $0.products }
+        let inputTargets = self.inputPackages.flatMap { $0.targets }
+        let inputProducts = self.inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
         self.reachableTargets = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.target })

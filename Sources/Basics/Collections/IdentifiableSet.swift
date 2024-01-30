@@ -57,6 +57,10 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
         Index(storageIndex: self.storage.index(after: i.storageIndex))
     }
 
+    public mutating func insert(_ element: Element) {
+        self.storage[element.id] = element
+    }
+
     public func union(_ otherSequence: some Sequence<Element>) -> Self {
         var result = self
         for element in otherSequence {
