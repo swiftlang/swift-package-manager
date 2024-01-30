@@ -71,9 +71,6 @@ extension BuildPlan {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
                 guard case .swift(let description) = self.targetMap[target.id] else {
-                    for key in self.targetMap.keys {
-                        print(key)
-                    }
                     throw InternalError("unknown target \(target)")
                 }
 

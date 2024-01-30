@@ -116,7 +116,6 @@ public struct ResolvedProduct {
                 target.buildTriple = .tools
                 return target
             })
-            print(self.targets.map(\.id))
         }
     }
 
