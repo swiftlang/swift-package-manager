@@ -192,7 +192,9 @@ extension LLBuildManifestBuilder {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
         let nodes: [ResolvedTarget.Dependency] = try self.plan.targetMap.keys.compactMap {
-            guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
+            guard let target = self.plan.graph.allTargets[$0] else {
+                throw InternalError("unknown target \($0)")
+            }
             return ResolvedTarget.Dependency.target(target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })

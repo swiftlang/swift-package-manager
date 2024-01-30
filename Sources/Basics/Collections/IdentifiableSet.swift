@@ -45,7 +45,12 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     }
 
     public subscript(id: Element.ID) -> Element? {
-        self.storage[id]
+        get {
+            self.storage[id]
+        }
+        set {
+            self.storage[id] = newValue
+        }
     }
 
     public func index(after i: Index) -> Index {

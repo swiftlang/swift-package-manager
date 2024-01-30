@@ -136,11 +136,11 @@ public struct PackageGraph {
         // Create a mapping from targets to the packages that define them.  Here
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
-        self.targetsToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0.id] = package }
+        self.targetsToPackages = self.packages.reduce(into: [:], { partial, package in
+            package.targets.forEach { partial[$0.id] = package }
         })
 
-        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedTarget] in
+        let allTargets = IdentifiableSet(packages.flatMap { package -> [ResolvedTarget] in
             if rootPackages.contains(id: package.id) {
                 return package.targets
             } else {
@@ -148,7 +148,7 @@ public struct PackageGraph {
                 // try to run them.
                 return package.targets.filter({ $0.type != .test })
             }
-        }))
+        })
 
         // Create a mapping from products to the packages that define them.  Here
         // we include all products, including tests in non-root packages, since
