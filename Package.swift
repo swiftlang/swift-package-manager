@@ -448,7 +448,10 @@ let package = Package(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
             dependencies: ["Basics", "Commands"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"]),
+            ]
         ),
         .executableTarget(
             /** Builds packages */
@@ -474,7 +477,10 @@ let package = Package(
             /** Interacts with Swift SDKs used for cross-compilation */
             name: "swift-experimental-sdk",
             dependencies: ["Commands", "SwiftSDKTool"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"]),
+            ]
         ),
         .executableTarget(
             /** Runs package tests */
@@ -491,7 +497,10 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands", "PackageCollectionsTool"]
+            dependencies: ["Commands", "PackageCollectionsTool"],
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"]),
+            ]
         ),
         .executableTarget(
             /** Multi-tool entry point for SwiftPM. */
@@ -503,12 +512,18 @@ let package = Package(
                 "PackageCollectionsTool",
                 "PackageRegistryTool"
             ],
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"]),
+            ],
             linkerSettings: swiftpmLinkSettings
         ),
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands", "PackageRegistryTool"]
+            dependencies: ["Commands", "PackageRegistryTool"],
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"]),
+            ]
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
@@ -657,7 +672,10 @@ let package = Package(
         .executableTarget(
             name: "package-info",
             dependencies: ["Workspace"],
-            path: "Examples/package-info/Sources/package-info"
+            path: "Examples/package-info/Sources/package-info",
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"]),
+            ]
         )
     ],
     swiftLanguageVersions: [.v5]
