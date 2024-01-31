@@ -126,7 +126,7 @@ extension BuildParameters {
         }
         return []
     }
-    
+
     public func tripleArgs(for target: ResolvedTarget) throws -> [String] {
         // confusingly enough this is the triple argument, not the target argument
         var args = ["-target"]
@@ -158,7 +158,7 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
+        BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
     }
 }
 
@@ -279,7 +279,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
-        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] = [:]
+        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] =
+            [:]
         // Create product description for each product we have in the package graph that is eligible.
         for product in graph.allProducts where product.shouldCreateProductDescription {
             let buildParameters: BuildParameters
@@ -437,7 +438,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(item.entryPointTargetBuildDescription)
+                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
+                    item.entryPointTargetBuildDescription
+                )
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                     targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
@@ -543,9 +546,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in graph.reachableTargets {
+        for target in self.graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
-                arguments.append(contentsOf: try self.pkgConfig(for: systemLib).cFlags)
+                try arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
             }
@@ -580,7 +583,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in graph.reachableTargets {
+        for target in self.graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments += try self.pkgConfig(for: systemLib).cFlags
             }
@@ -719,7 +722,7 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        return self.targets.filter({ !($0.underlying is BinaryTarget) }).isEmpty
+        self.targets.filter { !($0.underlying is BinaryTarget) }.isEmpty
     }
 
     private var isPlugin: Bool {

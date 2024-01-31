@@ -19,6 +19,9 @@ import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
 
+@_spi(SwiftPMInternal)
+import SPMBuildCore
+
 import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
@@ -127,7 +130,7 @@ public final class ClangTargetBuildDescription {
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.tempsPath = target.tempsPath(buildParameters)
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
 
         // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.

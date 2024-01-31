@@ -95,7 +95,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         result = try BuildPlanResult(plan: plan)
         buildProduct = try result.buildProduct(for: "exe")
 
-        llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
 
         let entitlementsCommandName = "C.exe-debug.exe-entitlements"
@@ -174,12 +174,32 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         result = try BuildPlanResult(plan: plan)
         buildProduct = try result.buildProduct(for: "exe")
 
-        llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
             basicDebugCommandNames.sorted()
         )
+    }
+    
+    /// Verifies that two targets with the same name but different triples don't share same build manifest keys.
+    func testToolsBuildTriple() throws {
+        let (graph, fs, scope) = try macrosPackageGraph()
+        let productsTriple = Triple.x86_64MacOS
+        let toolsTriple = Triple.arm64Linux
+
+        let plan = try BuildPlan(
+            productsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: productsTriple),
+            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
+        let manifest = try builder.generateManifest(at: "/manifest")
+
+        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-debug-tool.module"])
     }
 }

@@ -456,7 +456,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
-            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
             // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters

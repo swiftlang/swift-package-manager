@@ -74,7 +74,8 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            graph.check(targets: "Foo", "FooPlugin", "FooTool")
+            // "FooTool" duplicated as it's present for both build tools and end products triples.
+            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }

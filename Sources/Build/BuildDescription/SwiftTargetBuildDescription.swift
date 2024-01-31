@@ -15,6 +15,8 @@ import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -115,7 +117,7 @@ public final class SwiftTargetBuildDescription {
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
-        return dirPath.appending(component: self.target.c99name + ".swiftmodule")
+        return dirPath.appending(component: self.target.c99name + "\(self.target.buildTriple.suffix).swiftmodule")
     }
 
     /// The path to the wrapped swift module which is created using the modulewrap tool. This is required
@@ -277,7 +279,7 @@ public final class SwiftTargetBuildDescription {
             self.testTargetRole = nil
         }
 
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.tempsPath = target.tempsPath(buildParameters)
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults

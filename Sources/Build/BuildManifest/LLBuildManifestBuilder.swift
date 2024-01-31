@@ -14,6 +14,8 @@ import Basics
 import LLBuildManifest
 import PackageGraph
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -322,11 +324,11 @@ extension ResolvedTarget {
     }
 
     public func getLLBuildTargetName(config: String) -> String {
-        "\(name)-\(config).module"
+        "\(self.name)-\(config)\(self.buildTriple.suffix).module"
     }
 
     public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(name)-\(config).module-resources"
+        "\(self.name)-\(config).module-resources"
     }
 }
 
