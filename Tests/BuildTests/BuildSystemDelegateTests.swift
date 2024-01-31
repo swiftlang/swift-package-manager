@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageModel
 import SPMTestSupport
 import XCTest
 
@@ -17,6 +18,7 @@ import var TSCBasic.localFileSystem
 
 final class BuildSystemDelegateTests: XCTestCase {
     func testDoNotFilterLinkerDiagnostics() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try fixture(name: "Miscellaneous/DoNotFilterLinkerDiagnostics") { fixturePath in
             #if !os(macOS)
             // These linker diagnostics are only produced on macOS.
@@ -28,6 +30,7 @@ final class BuildSystemDelegateTests: XCTestCase {
     }
 
     func testFilterNonFatalCodesignMessages() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         // Note: we can re-use the `TestableExe` fixture here since we just need an executable.
         try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             _ = try executeSwiftBuild(fixturePath)
