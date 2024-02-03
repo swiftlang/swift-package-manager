@@ -15,6 +15,7 @@ import Basics
 import struct Foundation.URL
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class SwiftSDKBundleStore {
     public enum Output: Equatable, CustomStringConvertible {
@@ -64,16 +65,21 @@ public final class SwiftSDKBundleStore {
     /// Closure invoked for output produced by this store during its operation.
     private let outputHandler: (Output) -> Void
 
+    /// Progress animation used for downloading SDK bundles.
+    private let downloadProgressAnimation: ProgressAnimationProtocol?
+
     public init(
         swiftSDKsDirectory: AbsolutePath,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
-        outputHandler: @escaping (Output) -> Void
+        outputHandler: @escaping (Output) -> Void,
+        downloadProgressAnimation: ProgressAnimationProtocol? = nil
     ) {
         self.swiftSDKsDirectory = swiftSDKsDirectory
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
+        self.downloadProgressAnimation = downloadProgressAnimation
     }
 
     /// An array of valid Swift SDK bundles stored in ``SwiftSDKBundleStore//swiftSDKsDirectory``.
@@ -170,8 +176,20 @@ public final class SwiftSDKBundleStore {
                 _ = try await httpClient.execute(
                     request,
                     observabilityScope: self.observabilityScope,
-                    progress: nil
+                    progress: { step, total in
+                        guard let progressAnimation = self.downloadProgressAnimation else {
+                            return
+                        }
+                        let step = step > Int.max ? Int.max : Int(step)
+                        let total = total.map { $0 > Int.max ? Int.max : Int($0) } ?? step
+                        progressAnimation.update(
+                          step: step,
+                          total: total,
+                          text: "Downloading \(bundleURL.lastPathComponent)"
+                        )
+                    }
                 )
+                self.downloadProgressAnimation?.complete(success: true)
 
                 bundlePath = downloadedBundlePath
 
