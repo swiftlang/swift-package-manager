@@ -1119,7 +1119,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         let maximumAttempts: Int
 
         var attempts: Int = 0
-        var multipler: Int = 1
+        var multiplier: Int = 1
 
         var canRetry: Bool {
             self.attempts < self.maximumAttempts
@@ -1135,10 +1135,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             guard self.canRetry else {
                 throw StringError("Maximum attempts reached")
             }
-            let delay = self.multipler * intervalInMilliseconds
+            let delay = self.multiplier * intervalInMilliseconds
             let jitter = Int.random(in: 0 ... self.randomizationFactor)
             self.attempts += 1
-            self.multipler *= 2
+            self.multiplier *= 2
             return .milliseconds(delay + jitter)
         }
     }

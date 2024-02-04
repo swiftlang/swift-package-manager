@@ -803,7 +803,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
 
     // Validate sources (Swift files only) for modules being aliased.
     // Needs to be done after `propagateAliases` since aliases defined
-    // upstream can be overriden.
+    // upstream can be overridden.
     for packageBuilder in packageBuilders {
         for product in packageBuilder.package.products {
             try aliasTracker.validateAndApplyAliases(product: product,

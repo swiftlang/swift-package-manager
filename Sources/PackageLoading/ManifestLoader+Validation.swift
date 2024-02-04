@@ -223,7 +223,7 @@ public struct ManifestValidator {
         if case .local(let localPath) = dependency.location, self.fileSystem.exists(localPath) {
             do {
                 if try !self.sourceControlValidator.isValidDirectory(localPath) {
-                    // Provides better feedback when mistakingly using url: for a dependency that
+                    // Provides better feedback when mistakenly using url: for a dependency that
                     // is a local package. Still allows for using url with a local package that has
                     // also been initialized by git
                     diagnostics.append(.invalidSourceControlDirectory(localPath))

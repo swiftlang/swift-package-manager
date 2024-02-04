@@ -89,7 +89,7 @@ class mjCError {
 // alternative specifications of frame orientation
 class mjCAlternative {
  public:
-  mjCAlternative();                               // constuctor
+  mjCAlternative();                               // constructor
   const char* Set(double* quat, double* inertia,  // set frame quat and diag. inertia
                   bool degree,                    //  angle format: degree/radian
                   const char* sequence);          //  euler sequence format: "xyz"

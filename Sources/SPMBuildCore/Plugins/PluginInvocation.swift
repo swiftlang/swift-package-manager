@@ -212,7 +212,7 @@ extension PluginTarget {
                 invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
             
-            /// Invoked when the plugin emits arbtirary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
+            /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
             func handleOutput(data: Data) {
                 invocationDelegate.pluginEmittedOutput(data)
             }

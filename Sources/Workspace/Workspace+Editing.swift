@@ -189,11 +189,11 @@ extension Workspace {
 
         // Form the edit working repo path.
         let path = self.location.editSubdirectory(for: dependency)
-        // Check for uncommited and unpushed changes if force removal is off.
+        // Check for uncommitted and unpushed changes if force removal is off.
         if !forceRemove {
             let workingCopy = try repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
-                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
+                throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: path)
             }
             guard try !workingCopy.hasUnpushedCommits() else {
                 throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
