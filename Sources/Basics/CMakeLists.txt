@@ -51,6 +51,7 @@ add_library(Basics
   Netrc.swift
   Observability.swift
   OSSignpost.swift
+  ProgressAnimation.swift
   SQLite.swift
   Sandbox.swift
   SendableTimeInterval.swift
