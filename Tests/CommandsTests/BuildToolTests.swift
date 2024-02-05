@@ -321,7 +321,7 @@ final class BuildToolTests: CommandsTestCase {
                 XCTAssertNoMatch(result.binContents, ["ATarget.build"])
                 XCTAssertNoMatch(result.binContents, ["BLibrary.a"])
 
-                // FIXME: We create the modulemap during build planning, hence this uglyness.
+                // FIXME: We create the modulemap during build planning, hence this ugliness.
                 let bTargetBuildDir =
                     ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? [])
                         .filter { $0 != moduleMapFilename }

@@ -790,7 +790,7 @@ class PluginTests: XCTestCase {
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {
-                    // TODO: have invoke natively support task cancelation instead
+                    // TODO: have invoke natively support task cancellation instead
                     try await withTaskCancellationHandler {
                         _ = try await plugin.invoke(
                             action: .performCommand(package: package, arguments: []),

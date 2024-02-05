@@ -706,17 +706,17 @@ def call_swiftpm(args, cmd, cwd=None):
 # -----------------------------------------------------------
 
 def get_dispatch_cmake_arg(args):
-    """Returns the CMake argument to the Dispatch configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Dispatch configuration to use for building SwiftPM."""
     dispatch_dir = os.path.join(args.dispatch_build_dir, "cmake/modules")
     return "-Ddispatch_DIR=" + dispatch_dir
 
 def get_foundation_cmake_arg(args):
-    """Returns the CMake argument to the Foundation configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Foundation configuration to use for building SwiftPM."""
     foundation_dir = os.path.join(args.foundation_build_dir, "cmake/modules")
     return "-DFoundation_DIR=" + foundation_dir
 
 def get_llbuild_cmake_arg(args):
-    """Returns the CMake argument to the LLBuild framework/binary to use for bulding SwiftPM."""
+    """Returns the CMake argument to the LLBuild framework/binary to use for building SwiftPM."""
     if args.llbuild_link_framework:
         return "-DCMAKE_FIND_FRAMEWORK_EXTRA_LOCATIONS=%s" % args.build_dirs["llbuild"]
     else:

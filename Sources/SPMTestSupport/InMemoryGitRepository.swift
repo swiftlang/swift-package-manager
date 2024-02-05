@@ -62,7 +62,7 @@ public final class InMemoryGitRepository {
     /// The map containing tag name to revision identifier values.
     fileprivate var tagsMap: [String: RevisionIdentifier] = [:]
 
-    /// Indicates whether there are any uncommited changes in the repository.
+    /// Indicates whether there are any uncommitted changes in the repository.
     fileprivate var isDirty = false
 
     /// The path at which this repository is located.

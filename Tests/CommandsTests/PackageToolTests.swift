@@ -819,7 +819,7 @@ final class PackageToolTests: CommandsTestCase {
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
 
-            // It shouldn't be possible to unedit right now because of uncommited changes.
+            // It shouldn't be possible to unedit right now because of uncommitted changes.
             do {
                 _ = try SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
