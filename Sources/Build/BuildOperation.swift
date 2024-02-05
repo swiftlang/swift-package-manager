@@ -531,7 +531,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedTarget]
-        if let subset = subset, let recursiveDependencies = try subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
+        if let subset = subset, let recursiveDependencies = try 
+            subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
             targetsToConsider = Array(graph.reachableTargets)
