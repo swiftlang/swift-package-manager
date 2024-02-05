@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+@_spi(SwiftPMInternal)
 import Basics
 import CoreCommands
 import Foundation
@@ -18,7 +19,6 @@ import PackageModel
 
 import var TSCBasic.stdoutStream
 import class TSCUtility.PercentProgressAnimation
-import class TSCUtility.ThrottledProgressAnimation
 
 public struct InstallSwiftSDK: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
