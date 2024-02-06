@@ -189,7 +189,7 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
                         break
                     }
                     if errno == EINTR { continue }
-                    fatalError("unable to aquire lock, errno: \\(errno)")
+                    fatalError("unable to acquire lock, errno: \\(errno)")
                 }
               #endif
             }

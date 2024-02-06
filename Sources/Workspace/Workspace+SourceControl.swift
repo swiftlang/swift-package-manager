@@ -224,7 +224,7 @@ extension Workspace {
         let dependencyPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
-            throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
+            throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: dependencyPath)
         }
 
         try self.fileSystem.chmod(.userWritable, path: dependencyPath, options: [.recursive, .onlyFiles])

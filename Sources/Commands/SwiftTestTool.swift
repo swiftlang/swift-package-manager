@@ -732,7 +732,7 @@ struct UnitTest {
 
 /// A class to run tests on a XCTest binary.
 ///
-/// Note: Executes the XCTest with inherited environment as it is convenient to pass senstive
+/// Note: Executes the XCTest with inherited environment as it is convenient to pass sensitive
 /// information like username, password etc to test cases via environment variables.
 final class TestRunner {
     /// Path to valid XCTest binaries.

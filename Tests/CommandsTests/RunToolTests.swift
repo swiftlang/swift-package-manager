@@ -79,7 +79,7 @@ final class RunToolTests: CommandsTestCase {
     func testUnreachableExecutable() throws {
         try fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
             let (output, _) = try execute(["bexec"], packagePath: fixturePath.appending("A"))
-            let outputLines = output.split(separator: "\n")
+            let outputLines = output.split(whereSeparator: { $0.isNewline })
             XCTAssertMatch(String(outputLines[0]), .contains("BTarget2"))
         }
     }

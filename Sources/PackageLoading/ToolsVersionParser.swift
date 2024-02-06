@@ -26,11 +26,11 @@ public struct ToolsVersionParser {
 
     public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // FIXME: We should diagnose errors not specific to the tools version specification outside of this function.
-        // In order to that, maybe we can restructure the parsing to somthing like this:
+        // In order to that, maybe we can restructure the parsing to something like this:
         //     parse(_ manifestContent: String) throws -> Manifest {
         //         ...
-        //         guard !manifestContent.isEmpty else { throw appropariteError }
-        //         let (toolsVersion, remainingContent) = parseAndConsumeToolsVersionSpecification(manifestConent)
+        //         guard !manifestContent.isEmpty else { throw appropriateError }
+        //         let (toolsVersion, remainingContent) = parseAndConsumeToolsVersionSpecification(manifestContent)
         //         let packageDetails = parsePackageDetails(remainingContent)
         //         ...
         //         return Manifest(toolsVersion, ...)

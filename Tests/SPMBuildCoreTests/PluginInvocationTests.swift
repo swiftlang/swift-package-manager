@@ -180,7 +180,7 @@ class PluginInvocationTests: XCTestCase {
                     }
                 }
 
-                // If we get this far we succeded, so invoke the completion handler.
+                // If we get this far we succeeded, so invoke the completion handler.
                 callbackQueue.sync {
                     completion(.success(0))
                 }

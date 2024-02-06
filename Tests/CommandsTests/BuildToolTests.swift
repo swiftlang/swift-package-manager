@@ -321,7 +321,7 @@ final class BuildToolTests: CommandsTestCase {
                 XCTAssertNoMatch(result.binContents, ["ATarget.build"])
                 XCTAssertNoMatch(result.binContents, ["BLibrary.a"])
 
-                // FIXME: We create the modulemap during build planning, hence this uglyness.
+                // FIXME: We create the modulemap during build planning, hence this ugliness.
                 let bTargetBuildDir =
                     ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? [])
                         .filter { $0 != moduleMapFilename }
@@ -369,7 +369,7 @@ final class BuildToolTests: CommandsTestCase {
             do {
                 let result = try execute(packagePath: fixturePath)
                 XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                let lines = result.stdout.split(separator: "\n")
+                let lines = result.stdout.split(whereSeparator: { $0.isNewline })
                 XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
 
@@ -382,7 +382,7 @@ final class BuildToolTests: CommandsTestCase {
                 // test third time, to make sure message is presented even when nothing to build (cached)
                 let result = try execute(packagePath: fixturePath)
                 XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                let lines = result.stdout.split(separator: "\n")
+                let lines = result.stdout.split(whereSeparator: { $0.isNewline })
                 XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
         }

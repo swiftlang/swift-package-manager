@@ -819,7 +819,7 @@ final class PackageToolTests: CommandsTestCase {
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
 
-            // It shouldn't be possible to unedit right now because of uncommited changes.
+            // It shouldn't be possible to unedit right now because of uncommitted changes.
             do {
                 _ = try SwiftPM.Package.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
@@ -1911,6 +1911,7 @@ final class PackageToolTests: CommandsTestCase {
         // Match patterns for expected messages
         let isEmpty = StringPattern.equal("")
         let isOnlyPrint = StringPattern.equal("command plugin: print\n")
+        let containsProgress = StringPattern.contains("[diagnostics-stub] command plugin: Diagnostics.progress")
         let containsRemark = StringPattern.contains("command plugin: Diagnostics.remark")
         let containsWarning = StringPattern.contains("command plugin: Diagnostics.warning")
         let containsError = StringPattern.contains("command plugin: Diagnostics.error")
@@ -1940,18 +1941,25 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stderr, isEmpty)
             }
 
-            try runPlugin(flags: [], diagnostics: ["print", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+            try runPlugin(flags: [], diagnostics: ["print", "progress"]) { stdout, stderr in
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
-            try runPlugin(flags: [], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            try runPlugin(flags: [], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+            }
+
+            try runPlugin(flags: [], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-         	try runPluginWithError(flags: [], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+         	try runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
             }
@@ -1965,18 +1973,24 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(stderr, isEmpty)
             }
 
-            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "progress"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
-            try runPlugin(flags: ["-q"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
-                XCTAssertMatch(stderr, isEmpty)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
-            try runPluginWithError(flags: ["-q"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            try runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+            }
+
+            try runPluginWithError(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
             	XCTAssertNoMatch(stderr, containsRemark)
                 XCTAssertNoMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
@@ -1992,19 +2006,27 @@ final class PackageToolTests: CommandsTestCase {
                 // At this level stderr contains extra compiler output even if the plugin does not print diagnostics
             }
 
-            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark"]) { stdout, stderr in
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "progress"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
+            }
+
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
+            	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
             }
 
-            try runPlugin(flags: ["-v"], diagnostics: ["print", "remark", "warning"]) { stdout, stderr in
+            try runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-            try runPluginWithError(flags: ["-v"], diagnostics: ["print", "remark", "warning", "error"]) { stdout, stderr in
+            try runPluginWithError(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
             	XCTAssertMatch(stdout, isOnlyPrint)
+            	XCTAssertMatch(stderr, containsProgress)
             	XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
@@ -2071,6 +2093,53 @@ final class PackageToolTests: CommandsTestCase {
             let _ = try SwiftPM.Package.execute(["-c", "release", "build-target", "build-inherit"], packagePath: fixturePath)
             AssertNotExists(fixturePath.appending(components: debugTarget))
             AssertIsExecutableFile(fixturePath.appending(components: releaseTarget))
+        }
+    }
+
+    // Test logging of builds initiated by a command plugin
+    func testCommandPluginBuildLogs() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        // Match patterns for expected messages
+
+        let isEmpty = StringPattern.equal("")
+
+        // result.logText printed by the plugin has a prefix
+        let containsLogtext = StringPattern.contains("command plugin: packageManager.build logtext: Building for debugging...")
+
+        // Echoed logs have no prefix
+        let containsLogecho = StringPattern.regex("^Building for debugging...\n")
+
+        // These tests involve building a target, so each test must run with a fresh copy of the fixture
+        // otherwise the logs may be different in subsequent tests.
+
+        // Check than nothing is echoed when echoLogs is false
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, isEmpty)
+            XCTAssertMatch(stderr, isEmpty)
+        }
+
+        // Check that logs are returned to the plugin when echoLogs is false
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, containsLogtext)
+            XCTAssertMatch(stderr, isEmpty)
+        }
+
+        // Check that logs echoed to the console (on stderr) when echoLogs is true
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, isEmpty)
+            XCTAssertMatch(stderr, containsLogecho)
+        }
+
+        // Check that logs are returned to the plugin and echoed to the console (on stderr) when echoLogs is true
+        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath)
+            XCTAssertMatch(stdout, containsLogtext)
+            XCTAssertMatch(stderr, containsLogecho)
         }
     }
 
@@ -2363,10 +2432,7 @@ final class PackageToolTests: CommandsTestCase {
             do {
                 let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("success"))
-                let filteredStderr = stderr.components(separatedBy: "\n").filter {
-                    !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit")
-                }.joined(separator: "\n")
-                XCTAssertEqual(filteredStderr, "")
+                XCTAssertEqual(stderr, "")
             }
 
             // Check default command arguments

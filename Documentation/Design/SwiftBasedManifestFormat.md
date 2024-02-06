@@ -1,6 +1,6 @@
 # Swift-based Manifest Format
 
-> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manger, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](../README.md).
+> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manager, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](../README.md).
 
 ## Purpose
 
@@ -122,7 +122,7 @@ It is important to note that even when using this feature, package manifest stil
 
 The package definition format being written in Swift is problematic for tools that wish to perform automatic updates to the file (for example, in response to a user action, or to bind to a user interface), or for situations where dealing with executable code is problematic.
 
-To that end, the declarative package specification portion of the file is "Swift" in the same sense that "JSON is Javascript". The syntax itself is valid, executable, Swift but the tools that process it will only accept a restricted, declarative, subset of Swift which can be statically evaluated, and which can be unambiguously, automatically rewritten by editing tools. We do not intend to define a "standard" syntax for "Swift Object Notation", but we intend to accept a natural restriction of the language which only accepts literal expressions. We do intend to allow the restricted subset to take full advantage of Swift's rich type inference and literal convertable design to allow for a succinct, readable, and yet expressive syntax.
+To that end, the declarative package specification portion of the file is "Swift" in the same sense that "JSON is Javascript". The syntax itself is valid, executable, Swift but the tools that process it will only accept a restricted, declarative, subset of Swift which can be statically evaluated, and which can be unambiguously, automatically rewritten by editing tools. We do not intend to define a "standard" syntax for "Swift Object Notation", but we intend to accept a natural restriction of the language which only accepts literal expressions. We do intend to allow the restricted subset to take full advantage of Swift's rich type inference and literal convertible design to allow for a succinct, readable, and yet expressive syntax.
 
 The customization section above will *not* be written in this syntax. Instead, the customization section will be clearly demarcated in the file. The leading file section up to the first '// MARK:' will be processed as part of the restricted declarative specification. All subsequent code **must be** honored by tools which only need to consume the output of the specification, and **should be** displayed by tools which present an editor view of the manifest, but **should not** be automatically modified. The semantics of the APIs will be specifically designed to accommodate the expected use case of editor support for the primary data with custom project-specific logic for special cases.
 
