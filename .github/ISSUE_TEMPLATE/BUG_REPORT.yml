@@ -6,7 +6,7 @@ body:
   id: cat-preferences
   attributes:
     label: "Is it reproducible with SwiftPM command-line tools: `swift build`, `swift test`, `swift package` etc?"
-    description: Issues related to closed-source software such as Xcode are not tracked by this repository and will be closed.
+    description: "Issues related to closed-source software such as Xcode are not tracked by this repository and will be closed. Use https://feedbackassistant.apple.com instead."
     options:
       - label: Confirmed reproduction steps with SwiftPM CLI. 
         required: true
