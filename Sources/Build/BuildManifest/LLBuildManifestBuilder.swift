@@ -334,16 +334,16 @@ extension ResolvedTarget {
 
 extension ResolvedProduct {
     public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config).exe"
-        let potentialLibraryTargetName = "\(name)-\(config).dylib"
+        let potentialExecutableTargetName = "\(name)-\(config)\(self.buildTriple.suffix).exe"
+        let potentialLibraryTargetName = "\(name)-\(config)\(self.buildTriple.suffix).dylib"
 
         switch type {
         case .library(.dynamic):
             return potentialLibraryTargetName
         case .test:
-            return "\(name)-\(config).test"
+            return "\(name)-\(config)\(self.buildTriple.suffix).test"
         case .library(.static):
-            return "\(name)-\(config).a"
+            return "\(name)-\(config)\(self.buildTriple.suffix).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
@@ -360,7 +360,7 @@ extension ResolvedProduct {
     }
 
     public func getCommandName(config: String) throws -> String {
-        try "C." + self.getLLBuildTargetName(config: config)
+        try "C.\(self.getLLBuildTargetName(config: config))\(self.buildTriple.suffix)"
     }
 }
 
