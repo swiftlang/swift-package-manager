@@ -503,7 +503,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
-                    for line in result.textOutput.split(separator: "\n") {
+                    for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
                         diagnosticsEmitter.emit(info: line)
                     }
                     for diag in result.diagnostics {

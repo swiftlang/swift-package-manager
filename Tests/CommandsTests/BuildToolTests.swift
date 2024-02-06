@@ -369,7 +369,7 @@ final class BuildToolTests: CommandsTestCase {
             do {
                 let result = try execute(packagePath: fixturePath)
                 XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                let lines = result.stdout.split(separator: "\n")
+                let lines = result.stdout.split(whereSeparator: { $0.isNewline })
                 XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
 
@@ -382,7 +382,7 @@ final class BuildToolTests: CommandsTestCase {
                 // test third time, to make sure message is presented even when nothing to build (cached)
                 let result = try execute(packagePath: fixturePath)
                 XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                let lines = result.stdout.split(separator: "\n")
+                let lines = result.stdout.split(whereSeparator: { $0.isNewline })
                 XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
         }

@@ -474,7 +474,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
@@ -756,7 +756,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
                     })
