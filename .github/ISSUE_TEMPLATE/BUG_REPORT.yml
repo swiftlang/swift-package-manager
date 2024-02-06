@@ -2,6 +2,14 @@ name: Bug Report
 description: Something isn't working as expected
 labels: [bug]
 body:
+- type: checkboxes
+  id: cat-preferences
+  attributes:
+    label: Is it reproducible with SwiftPM command-line tools: `swift build`, `swift test`, `swift package` etc?
+    description: Issues related to closed-source software such as Xcode are not tracked by this repository and will be closed.
+    options:
+      - label: Confirmed reproduction steps with SwiftPM CLI. 
+        required: true
 - type: textarea
   attributes:
     label: Description
