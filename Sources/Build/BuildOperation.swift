@@ -539,6 +539,20 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         for target in targetsToConsider {
+            // If a previously empty target didn't end up adding any sources or resources via plugins, we need to emit a warning.
+            if target.isEmpty(
+                buildToolPluginInvocationResult: buildToolPluginInvocationResults[target.id]?.results,
+                prebuildCommandResults: prebuildCommandResults[target.id]
+            ) {
+                observabilityScope.emit(
+                    .targetHasNoSources(
+                        name: target.name,
+                        type: .regular,
+                        shouldSuggestRelaxedSourceDir: false
+                    )
+                )
+            }
+
             guard let package = graph.package(for: target), package.manifest.toolsVersion >= .v5_3 else {
                 continue
             }

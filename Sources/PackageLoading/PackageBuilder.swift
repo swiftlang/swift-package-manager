@@ -909,10 +909,6 @@ public final class PackageBuilder {
         // FIXME: use identity instead?
         // The name of the bundle, if one is being generated.
         let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
-
-        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty {
-            return nil
-        }
         try self.validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
 
         // Deal with package plugin targets.
@@ -955,7 +951,7 @@ public final class PackageBuilder {
         }
 
         // Create and return the right kind of target depending on what kind of sources we found.
-        if sources.hasSwiftSources {
+        if sources.hasSwiftSources || (sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty) /* assume empty targets to be Swift */ {
             return SwiftTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,

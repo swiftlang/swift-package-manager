@@ -330,6 +330,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var pluginDescriptions = [PluginDescription]()
         var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
+            if target.isEmpty(
+                buildToolPluginInvocationResult: buildToolPluginInvocationResults[target.id],
+                prebuildCommandResults: prebuildCommandResults[target.id]
+            ) {
+                continue
+            }
+
             let buildParameters: BuildParameters
             switch target.buildTriple {
             case .tools:
@@ -740,5 +747,20 @@ extension ResolvedProduct {
     // binary targets, because they don't produce any output.
     fileprivate var shouldCreateProductDescription: Bool {
         !self.isAutomaticLibrary && !self.isBinaryOnly && !self.isPlugin
+    }
+}
+
+extension ResolvedTarget {
+    func isEmpty(
+        buildToolPluginInvocationResult: [BuildToolPluginInvocationResult]?,
+        prebuildCommandResults: [PrebuildCommandResult]?
+    ) -> Bool {
+        // We only allow empty Swift targets to exist in the graph.
+        guard self.underlying is SwiftTarget else { return false }
+        guard self.sources.relativePaths.isEmpty && self.underlying.resources.isEmpty else { return false }
+        // Check plugin results for any relevant output files.
+        let buildCommandOutputs = buildToolPluginInvocationResult?.flatMap { $0.buildCommands.flatMap { $0.outputFiles } } ?? []
+        let prebuildCommandOutputs = prebuildCommandResults?.flatMap { $0.derivedFiles } ?? []
+        return buildCommandOutputs.isEmpty && prebuildCommandOutputs.isEmpty
     }
 }
