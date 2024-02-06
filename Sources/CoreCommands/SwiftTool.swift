@@ -39,9 +39,11 @@ import Musl
 #endif
 
 import func TSCBasic.exec
+import class TSCBasic.FileLock
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
+import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
@@ -80,6 +82,7 @@ public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observab
     -> WorkspaceLoader
 
 public protocol _SwiftCommand {
+    var globalOptions: GlobalOptions { get }
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
@@ -93,8 +96,6 @@ extension _SwiftCommand {
 }
 
 public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
-    var globalOptions: GlobalOptions { get }
-
     func run(_ swiftTool: SwiftTool) throws
 }
 
@@ -108,6 +109,10 @@ extension SwiftCommand {
             workspaceDelegateProvider: self.workspaceDelegateProvider,
             workspaceLoaderProvider: self.workspaceLoaderProvider
         )
+
+        // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
+        swiftTool.setNeedsLocking()
+
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -119,6 +124,8 @@ extension SwiftCommand {
             toolError = error
         }
 
+        swiftTool.releaseLockIfNeeded()
+
         // wait for all observability items to process
         swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -129,14 +136,13 @@ extension SwiftCommand {
 }
 
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
-    var globalOptions: GlobalOptions { get }
-
     func run(_ swiftTool: SwiftTool) async throws
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
 
+    // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
         let swiftTool = try SwiftTool(
             options: globalOptions,
@@ -144,6 +150,10 @@ extension AsyncSwiftCommand {
             workspaceDelegateProvider: self.workspaceDelegateProvider,
             workspaceLoaderProvider: self.workspaceLoaderProvider
         )
+
+        // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
+        swiftTool.setNeedsLocking()
+
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -154,6 +164,8 @@ extension AsyncSwiftCommand {
         } catch {
             toolError = error
         }
+
+        swiftTool.releaseLockIfNeeded()
 
         // wait for all observability items to process
         swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
@@ -395,6 +407,9 @@ public final class SwiftTool {
         if let workspace = _workspace {
             return workspace
         }
+
+        // Before creating the workspace, we need to acquire a lock on the build directory.
+        try self.acquireLockIfNeeded()
 
         if options.resolver.skipDependencyUpdate {
             self.observabilityScope.emit(warning: "'--skip-update' option is deprecated and will be removed in a future release")
@@ -865,6 +880,57 @@ public final class SwiftTool {
     public enum ExecutionStatus {
         case success
         case failure
+    }
+
+    // MARK: - Locking
+
+    // This is used to attempt to prevent accidental misuse of the locking APIs.
+    private enum WorkspaceLockState {
+        case unspecified
+        case needsLocking
+        case locked
+        case unlocked
+    }
+
+    private var workspaceLockState: WorkspaceLockState = .unspecified
+    private var workspaceLock: FileLock?
+
+    fileprivate func setNeedsLocking() {
+        assert(workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(workspaceLockState)")
+        workspaceLockState = .needsLocking
+    }
+
+    fileprivate func acquireLockIfNeeded() throws {
+        assert(workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(workspaceLockState)")
+        guard workspaceLock == nil else {
+            throw InternalError("acquireLockIfNeeded() called multiple times")
+        }
+        workspaceLockState = .locked
+
+        let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
+
+        // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
+        do {
+            try workspaceLock.lock(type: .exclusive, blocking: false)
+        } catch let ProcessLockError.unableToAquireLock(errno) {
+            if errno == EWOULDBLOCK {
+                self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
+                self.outputStream.flush()
+
+                // Only if we fail because there's an existing lock we need to acquire again as blocking.
+                try workspaceLock.lock(type: .exclusive, blocking: true)
+            }
+        }
+
+        self.workspaceLock = workspaceLock
+    }
+
+    fileprivate func releaseLockIfNeeded() {
+        // Never having acquired the lock is not an error case.
+        assert(workspaceLockState == .locked || workspaceLockState == .needsLocking, "attempting to `releaseLockIfNeeded()` from unexpected state: \(workspaceLockState)")
+        workspaceLockState = .unlocked
+
+        workspaceLock?.unlock()
     }
 }
 
