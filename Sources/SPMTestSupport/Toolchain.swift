@@ -111,22 +111,6 @@ extension UserToolchain {
         }
     }
 
-    // This builds a trivial program with `-warnings-as-errors`, if it fails, the compiler in use generates warnings by default and is not suitable for testing warnings as errors behaviors.
-    public func supportsWarningsAsErrors() -> Bool {
-        do {
-            try testWithTemporaryDirectory { tmpPath in
-                let inputPath = tmpPath.appending("best.swift")
-                try localFileSystem.writeFileContents(inputPath, string: "print(\"hello\")")
-                let outputPath = tmpPath.appending("foo")
-                let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
-                try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-o", outputPath.pathString, "-warnings-as-errors"])
-            }
-            return true
-        } catch {
-            return false
-        }
-    }
-
     /// Helper function to determine whether we should run SDK-dependent tests.
     public func supportsSDKDependentTests() -> Bool {
         return ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil
