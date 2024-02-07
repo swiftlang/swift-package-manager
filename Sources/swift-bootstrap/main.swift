@@ -314,6 +314,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     packageGraphLoader: packageGraphLoader,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
+                    dependenciesByRootPackageIdentity: [:],
+                    targetsByRootPackageIdentity: [:],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,

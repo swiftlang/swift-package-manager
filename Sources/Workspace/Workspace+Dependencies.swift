@@ -819,7 +819,7 @@ extension Workspace {
             pins: pinsStore.pins,
             observabilityScope: observabilityScope
         )
-        let result = resolver.solve(constraints: computedConstraints)
+        let result = resolver.solve(constraints: computedConstraints, preferPrebuiltLibraries: true)
 
         guard !observabilityScope.errorsReported else {
             return .required(reason: .errorsPreviouslyReported)
@@ -1117,7 +1117,11 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = resolver.solve(constraints: constraints)
+        var result = resolver.solve(constraints: constraints, preferPrebuiltLibraries: true)
+        // If the initial resolution failed due to prebuilt libraries, we try to resolve again without prebuilt libraries.
+        if case let Result.failure(error as PubGrubDependencyResolver.PubgrubError) = result, case .potentiallyUnresovableDueToPrebuiltLibrary = error {
+            result = resolver.solve(constraints: constraints, preferPrebuiltLibraries: false)
+        }
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.

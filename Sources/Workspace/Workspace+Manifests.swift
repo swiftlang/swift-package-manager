@@ -28,6 +28,7 @@ import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
+import var PackageModel.AvailableLibraries
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -175,6 +176,32 @@ extension Workspace {
                     }
             )
 
+            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
+                // FIXME: adding this guard to ensure refactoring is correct 9/21
+                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
+                // a dependency is put into edit mode, which we want to deprecate anyways
+                if case .remoteSourceControl = $0.1.packageKind {
+                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
+                    guard effectiveURL == $0.1.packageKind.locationString else {
+                        throw InternalError(
+                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
+                        )
+                    }
+                }
+                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
+            })
+
+            let identitiesAvailableInSDK = AvailableLibraries.flatMap {
+                $0.identities.map {
+                    $0.ref
+                }.filter {
+                    // We "trust the process" here, if an identity from the SDK is available, filter it.
+                    !availableIdentities.contains($0)
+                }.map {
+                    $0.identity
+                }
+            }
+
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
@@ -252,20 +279,11 @@ extension Workspace {
             }
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
-            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
-                // FIXME: adding this guard to ensure refactoring is correct 9/21
-                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
-                // a dependency is put into edit mode, which we want to deprecate anyways
-                if case .remoteSourceControl = $0.1.packageKind {
-                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
-                    guard effectiveURL == $0.1.packageKind.locationString else {
-                        throw InternalError(
-                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
-                        )
-                    }
-                }
-                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
-            })
+            let identitiesToFilter = requiredIdentities.filter {
+                return identitiesAvailableInSDK.contains($0.identity)
+            }
+            requiredIdentities = requiredIdentities.subtracting(identitiesToFilter)
+
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),

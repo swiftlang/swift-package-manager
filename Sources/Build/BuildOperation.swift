@@ -102,6 +102,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    /// Map of dependency package identities by root packages that depend on them.
+    private let dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]]
+
+    /// Map of  root package identities by target names which are declared in them.
+    private let rootPackageIdentityByTargetName: [String: PackageIdentity]
+
     public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
@@ -110,6 +116,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         pluginConfiguration: PluginConfiguration? = .none,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
+        dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
+        targetsByRootPackageIdentity: [PackageIdentity: [String]],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
@@ -129,6 +137,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
+        self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -248,6 +258,68 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
 
+    private static var didEmitUnexpressedDependencies = false
+
+    private func detectUnexpressedDependencies() {
+        // Ensure we only emit these once, regardless of how many builds are being done.
+        guard !Self.didEmitUnexpressedDependencies else {
+            return
+        }
+        Self.didEmitUnexpressedDependencies = true
+
+        let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: AvailableLibraries.compactMap {
+            if let identity = Set($0.identities.map(\.identity)).spm_only {
+                return ("\($0.productName!).framework", identity)
+            } else {
+                return nil
+            }
+        })
+
+        buildDescription.targetDependencyMap?.keys.forEach { targetName in
+            let c99name = targetName.spm_mangledToC99ExtendedIdentifier()
+            // Since we're analysing post-facto, we don't know which parameters are the correct ones.
+            let possibleTempsPaths = [productsBuildParameters, toolsBuildParameters].map {
+                $0.buildPath.appending(component: "\(c99name).build")
+            }
+
+            let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap {
+                guard let contents = try? self.fileSystem.readFileContents($0.appending(component: "\(c99name).d")) else {
+                    return [String]()
+                }
+
+                // FIXME: We need a real makefile deps parser here...
+                let deps = contents.description.split(whereSeparator: { $0.isWhitespace })
+                return deps.filter {
+                    $0.contains("Developer/Platforms/MacOSX.platform") // this is our proxy for "library from the SDK"
+                }.compactMap {
+                    try? AbsolutePath(validating: String($0))
+                }.compactMap {
+                    // FIXME: Obviously this is macOS specific
+                    $0.components.first(where: { $0.hasSuffix(".framework") })
+                }
+            }
+
+            let dependencies: [PackageIdentity]
+            if let rootPackageIdentity = self.rootPackageIdentityByTargetName[targetName] {
+                dependencies = self.dependenciesByRootPackageIdentity[rootPackageIdentity] ?? []
+            } else {
+                dependencies = []
+            }
+
+            Set(usedSDKDependencies).forEach {
+                if availableFrameworks.keys.contains($0) {
+                    if let availableFrameworkPackageIdentity = availableFrameworks[$0], !dependencies.contains(
+                        availableFrameworkPackageIdentity
+                    ) {
+                        observabilityScope.emit(
+                            warning: "target '\(targetName)' has an unexpressed depedency on '\(availableFrameworkPackageIdentity)'"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
         guard !self.productsBuildParameters.shouldSkipBuilding else {
@@ -283,6 +355,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let success = buildSystem.build(target: llbuildTarget)
 
         let duration = buildStartTime.distance(to: .now())
+
+        self.detectUnexpressedDependencies()
 
         let subsetDescriptor: String?
         switch subset {
@@ -466,6 +540,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 packageGraphLoader: { return graph },
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
+                dependenciesByRootPackageIdentity: [:],
+                targetsByRootPackageIdentity: [:],
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: self.fileSystem,

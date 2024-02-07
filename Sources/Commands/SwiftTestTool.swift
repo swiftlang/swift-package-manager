@@ -1324,6 +1324,7 @@ private extension Basics.Diagnostic {
 ///
 /// - Returns: The paths to the build test products.
 private func buildTestsIfNeeded(swiftTool: SwiftTool, buildParameters: BuildParameters, testProduct: String?) throws -> [BuiltTestProduct] {
+    // FIXME: Don't create the build system multiple times, that's extremely wasteful.
     let buildSystem = try swiftTool.createBuildSystem(productsBuildParameters: buildParameters)
 
     let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
