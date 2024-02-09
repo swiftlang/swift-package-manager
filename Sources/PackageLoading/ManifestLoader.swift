@@ -846,11 +846,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 "-L", runtimePath.pathString,
                 "-lPackageDescription",
             ]
-#if !os(Windows)
-            // -rpath argument is not supported on Windows,
-            // so we add runtimePath to PATH when executing the manifest instead
-            cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
-#endif
         }
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback to the default host triple).
@@ -1014,14 +1009,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             )
                         }
 
-                        var environment = ProcessEnv.vars
-                        #if os(Windows)
-                        let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
-                        environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
-                        #endif
-
                         let cleanupAfterRunning = cleanupIfError.delay()
-                        TSCBasic.Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
+                        TSCBasic.Process.popen(arguments: cmd, environment: ProcessEnv.vars, queue: callbackQueue) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                             defer { cleanupAfterRunning.perform() }
