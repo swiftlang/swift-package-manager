@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,22 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import protocol TSCUtility.ProgressAnimationProtocol
 
 /// A progress animation wrapper that throttles updates to a given interval.
-@_spi(SwiftPMInternal)
-public class ThrottledProgressAnimation: ProgressAnimationProtocol {
+final class ThrottledProgressAnimation: ProgressAnimationProtocol {
     private let animation: ProgressAnimationProtocol
     private let shouldUpdate: () -> Bool
     private var pendingUpdate: (Int, Int, String)?
-
-    public convenience init(_ animation: ProgressAnimationProtocol, interval: ContinuousClock.Duration) {
-        self.init(animation, clock: ContinuousClock(), interval: interval)
-    }
-
-    public convenience init<C: Clock>(_ animation: ProgressAnimationProtocol, clock: C, interval: C.Duration) {
-        self.init(animation, now: { clock.now }, interval: interval, clock: C.self)
-    }
 
     init<C: Clock>(
       _ animation: ProgressAnimationProtocol,
@@ -45,7 +35,7 @@ public class ThrottledProgressAnimation: ProgressAnimationProtocol {
         }
     }
 
-    public func update(step: Int, total: Int, text: String) {
+    func update(step: Int, total: Int, text: String) {
         guard shouldUpdate() else {
             pendingUpdate = (step, total, text)
             return
@@ -54,14 +44,41 @@ public class ThrottledProgressAnimation: ProgressAnimationProtocol {
         animation.update(step: step, total: total, text: text)
     }
 
-    public func complete(success: Bool) {
+    func complete(success: Bool) {
         if let (step, total, text) = pendingUpdate {
             animation.update(step: step, total: total, text: text)
         }
         animation.complete(success: success)
     }
 
-    public func clear() {
+    func clear() {
         animation.clear()
+    }
+}
+
+@_spi(SwiftPMInternal_ProgressAnimation)
+extension ProgressAnimationProtocol {
+    @_spi(SwiftPMInternal_ProgressAnimation)
+    public func throttled<C: Clock>(
+        now: @escaping () -> C.Instant,
+        interval: C.Duration,
+        clock: C.Type = C.self
+    ) -> some ProgressAnimationProtocol {
+        ThrottledProgressAnimation(self, now: now, interval: interval, clock: clock)
+    }
+
+    @_spi(SwiftPMInternal_ProgressAnimation)
+    public func throttled<C: Clock>(
+        clock: C,
+        interval: C.Duration
+    ) -> some ProgressAnimationProtocol {
+        self.throttled(now: { clock.now }, interval: interval, clock: C.self)
+    }
+
+    @_spi(SwiftPMInternal_ProgressAnimation)
+    public func throttled(
+        interval: ContinuousClock.Duration
+    )  -> some ProgressAnimationProtocol  {
+        self.throttled(clock: ContinuousClock(), interval: interval)
     }
 }

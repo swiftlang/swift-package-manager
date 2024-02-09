@@ -48,10 +48,6 @@ import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import class TSCUtility.PercentProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 // FIXME: can't write `import actor Basics.HTTPClient`, importing the whole module because of that :(
+@_spi(SwiftPMInternal_ProgressAnimation)
 import Basics
 import struct Foundation.URL
 import protocol TSCBasic.FileSystem

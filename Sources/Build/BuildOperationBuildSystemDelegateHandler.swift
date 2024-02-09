@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal_ProgressAnimation)
 import Basics
 import Dispatch
 import Foundation
@@ -28,7 +29,6 @@ import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStore
 import class TSCUtility.IndexStoreAPI
-import protocol TSCUtility.ProgressAnimationProtocol
 
 #if canImport(llbuildSwift)
 typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate

@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal_ProgressAnimation)
 import Basics
 import LLBuildManifest
 import PackageGraph
@@ -26,9 +27,6 @@ import enum TSCBasic.ProcessEnv
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
@@ -609,10 +607,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// building the package structure target.
     private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
-        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
-            : NinjaProgressAnimation(stream: self.outputStream)
-
+        let progressAnimation = ProgressAnimation.ninja(
+            stream: self.outputStream,
+            verbose: self.logLevel.isVerbose)
         let buildExecutionContext = BuildExecutionContext(
             productsBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,

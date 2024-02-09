@@ -11,14 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-@_spi(SwiftPMInternal)
+@_spi(SwiftPMInternal_ProgressAnimation)
 import Basics
 import CoreCommands
 import Foundation
 import PackageModel
 
 import var TSCBasic.stdoutStream
-import class TSCUtility.PercentProgressAnimation
 
 public struct InstallSwiftSDK: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
@@ -50,9 +49,9 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) },
-            downloadProgressAnimation: ThrottledProgressAnimation(
-                PercentProgressAnimation(stream: stdoutStream, header: "Downloading"), interval: .milliseconds(300)
-            )
+            downloadProgressAnimation: ProgressAnimation
+                .percent(stream: stdoutStream, verbose: false, header: "Downloading")
+                .throttled(interval: .milliseconds(300))
         )
         try await store.install(
             bundlePathOrURL: bundlePathOrURL,
