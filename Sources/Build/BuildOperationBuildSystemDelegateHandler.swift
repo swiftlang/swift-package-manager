@@ -1006,7 +1006,7 @@ private struct CommandTaskTracker {
         case .isScanning:
             self.totalCount += 1
         case .isUpToDate:
-            self.totalCount -= 1
+            self.finishedCount += 1
         case .isComplete:
             self.finishedCount += 1
         @unknown default:
