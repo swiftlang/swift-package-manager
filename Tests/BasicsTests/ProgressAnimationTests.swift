@@ -16,7 +16,7 @@ import Testing
 @_spi(SwiftPMInternal)
 @testable
 import Basics
-import TSCBasic
+import protocol TSCUtility.ProgressAnimationProtocol
 
 struct ProgressAnimationTests {
     class TrackingProgressAnimation: ProgressAnimationProtocol {

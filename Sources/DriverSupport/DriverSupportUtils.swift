@@ -42,7 +42,6 @@ public enum DriverSupport {
             let driver = try Driver(
                 args: ["swiftc"],
                 executor: executor,
-                compilerIntegratedTooling: false,
                 compilerExecutableDir: TSCAbsolutePath(toolchain.swiftCompilerPath.parentDirectory)
             )
             let supportedFlagSet = Set(driver.supportedFrontendFlags.map { $0.trimmingCharacters(in: ["-"]) })

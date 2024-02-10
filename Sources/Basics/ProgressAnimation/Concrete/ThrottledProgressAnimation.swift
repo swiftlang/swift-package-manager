@@ -14,13 +14,13 @@ import _Concurrency
 import TSCUtility
 
 /// A progress animation wrapper that throttles updates to a given interval.
-final class ThrottledProgressAnimation: ProgressAnimationProtocol {
-    private let animation: ProgressAnimationProtocol
+final class ThrottledProgressAnimation: TSCUtility.ProgressAnimationProtocol {
+    private let animation: TSCUtility.ProgressAnimationProtocol
     private let shouldUpdate: () -> Bool
     private var pendingUpdate: (Int, Int, String)?
 
     init<C: Clock>(
-      _ animation: ProgressAnimationProtocol,
+      _ animation: TSCUtility.ProgressAnimationProtocol,
       now: @escaping () -> C.Instant, interval: C.Duration, clock: C.Type = C.self
     ) {
         self.animation = animation
@@ -57,29 +57,25 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
     }
 }
 
-@_spi(SwiftPMInternal)
-extension ProgressAnimationProtocol {
-    @_spi(SwiftPMInternal)
-    public func throttled<C: Clock>(
+extension TSCUtility.ProgressAnimationProtocol {
+    package func throttled<C: Clock>(
         now: @escaping () -> C.Instant,
         interval: C.Duration,
         clock: C.Type = C.self
-    ) -> some ProgressAnimationProtocol {
+    ) -> some TSCUtility.ProgressAnimationProtocol {
         ThrottledProgressAnimation(self, now: now, interval: interval, clock: clock)
     }
 
-    @_spi(SwiftPMInternal)
-    public func throttled<C: Clock>(
+    package func throttled<C: Clock>(
         clock: C,
         interval: C.Duration
-    ) -> some ProgressAnimationProtocol {
+    ) -> some TSCUtility.ProgressAnimationProtocol {
         self.throttled(now: { clock.now }, interval: interval, clock: C.self)
     }
 
-    @_spi(SwiftPMInternal)
-    public func throttled(
+    package func throttled(
         interval: ContinuousClock.Duration
-    )  -> some ProgressAnimationProtocol  {
+    )  -> some TSCUtility.ProgressAnimationProtocol  {
         self.throttled(clock: ContinuousClock(), interval: interval)
     }
 }

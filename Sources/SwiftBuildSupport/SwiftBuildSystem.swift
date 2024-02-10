@@ -166,6 +166,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
+    private let progressAnimationConfiguration: Basics.ProgressAnimationConfiguration
 
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
@@ -215,7 +216,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        progressAnimationConfiguration: Basics.ProgressAnimationConfiguration
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
@@ -224,6 +226,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
+        self.progressAnimationConfiguration = progressAnimationConfiguration
     }
 
     private func supportedSwiftVersions() throws -> [SwiftLanguageVersion] {
@@ -260,12 +263,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             let parameters = try self.makeBuildParameters()
             let derivedDataPath = self.buildParameters.dataPath.pathString
 
-            let progressAnimation = ProgressAnimation.percent(
+            // Figure out which progress bar we have to use during the build.
+            let progressAnimation = ProgressAnimation.make(
+                configuration: self.progressAnimationConfiguration,
+                environment: .current,
                 stream: self.outputStream,
                 verbose: self.logLevel.isVerbose,
-                header: "",
-                isColorized: self.buildParameters.outputParameters.isColorized
-            )
+                header: "Building...")
+
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
@@ -345,16 +350,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws {
                         switch message {
                         case .buildCompleted:
-                            progressAnimation.complete(success: true)
-                        case .didUpdateProgress(let progressInfo):
-                            var step = Int(progressInfo.percentComplete)
-                            if step < 0 { step = 0 }
-                            let message = if let targetName = progressInfo.targetName {
-                                "\(targetName) \(progressInfo.message)"
-                            } else {
-                                "\(progressInfo.message)"
-                            }
-                            progressAnimation.update(step: step, total: 100, text: message)
+                            progressAnimation.complete("Build complete!")
+//                        case .didUpdateProgress(let progressInfo):
+//                            var step = Int(progressInfo.percentComplete)
+//                            if step < 0 { step = 0 }
+//                            let message = if let targetName = progressInfo.targetName {
+//                                "\(targetName) \(progressInfo.message)"
+//                            } else {
+//                                "\(progressInfo.message)"
+//                            }
+//                            progressAnimation.update(step: step, total: 100, text: message)
                         case .diagnostic(let info):
                             let fixItsDescription = if info.fixIts.hasContent {
                                 ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
@@ -399,11 +404,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     switch operation.state {
                     case .succeeded:
-                        progressAnimation.update(step: 100, total: 100, text: "")
-                        progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
-                        self.outputStream.send("Build complete! (\(duration))\n")
-                        self.outputStream.flush()
+                        progressAnimation.complete("Build complete! (\(duration))\n")
                     case .failed:
                         self.observabilityScope.emit(error: "Build failed")
                         throw Diagnostics.fatalError

@@ -19,6 +19,7 @@ import PackageModel
 
 import var TSCBasic.stdoutStream
 import class Workspace.Workspace
+import class TSCUtility.PercentProgressAnimation
 
 struct InstallSwiftSDK: SwiftSDKSubcommand {
     static let configuration = CommandConfiguration(
@@ -61,14 +62,9 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) },
-            downloadProgressAnimation: ProgressAnimation
-                .percent(
-                    stream: stdoutStream,
-                    verbose: false,
-                    header: "Downloading",
-                    isColorized: self.colorDiagnostics
-                )
-                .throttled(interval: .milliseconds(300))
+            downloadProgressAnimation: PercentProgressAnimation(
+                stream: stdoutStream,
+                header: "Downloading...")
         )
 
         try await store.install(
