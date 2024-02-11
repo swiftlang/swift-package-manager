@@ -25,7 +25,8 @@ extension ProgressAnimation {
             verbose: verbose,
             ttyTerminalAnimationFactory: { RedrawingNinjaProgressAnimation(terminal: $0) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: nil) },
-            defaultAnimationFactory: { MultiLineNinjaProgressAnimation(stream: stream) })
+            defaultAnimationFactory: { MultiLineNinjaProgressAnimation(stream: stream) }
+        )
     }
 }
 

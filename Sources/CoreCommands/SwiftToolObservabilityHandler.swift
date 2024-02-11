@@ -74,7 +74,8 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
             self.writer = InteractiveWriter(stream: outputStream)
             self.progressAnimation = ProgressAnimation.ninja(
                 stream: self.outputStream,
-                verbose: self.logLevel.isVerbose)
+                verbose: self.logLevel.isVerbose
+            )
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {

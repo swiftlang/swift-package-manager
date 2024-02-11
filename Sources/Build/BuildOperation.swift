@@ -609,7 +609,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Figure out which progress bar we have to use during the build.
         let progressAnimation = ProgressAnimation.ninja(
             stream: self.outputStream,
-            verbose: self.logLevel.isVerbose)
+            verbose: self.logLevel.isVerbose
+        )
         let buildExecutionContext = BuildExecutionContext(
             productsBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,

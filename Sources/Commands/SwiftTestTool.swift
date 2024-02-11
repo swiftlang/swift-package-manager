@@ -930,11 +930,13 @@ final class ParallelTestRunner {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
-                header: "Testing:")
+                header: "Testing:"
+            )
         } else {
             self.progressAnimation = ProgressAnimation.ninja(
                 stream: TSCBasic.stdoutStream,
-                verbose: false)
+                verbose: false
+            )
         }
 
         self.buildOptions = buildOptions

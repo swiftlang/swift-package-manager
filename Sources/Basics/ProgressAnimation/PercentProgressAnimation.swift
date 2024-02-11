@@ -26,7 +26,8 @@ extension ProgressAnimation {
             verbose: verbose,
             ttyTerminalAnimationFactory: { RedrawingPercentProgressAnimation(terminal: $0, header: header) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: header) },
-            defaultAnimationFactory: { MultiLinePercentProgressAnimation(stream: stream, header: header) })
+            defaultAnimationFactory: { MultiLinePercentProgressAnimation(stream: stream, header: header) }
+        )
     }
 }
 

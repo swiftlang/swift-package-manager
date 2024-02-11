@@ -250,7 +250,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         let progressAnimation = ProgressAnimation.percent(
             stream: self.outputStream,
             verbose: self.logLevel.isVerbose,
-            header: "")
+            header: ""
+        )
         let delegate = XCBuildDelegate(
             buildSystem: self,
             outputStream: self.outputStream,
