@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-@_spi(SwiftPMInternal_ProgressAnimation)
+@_spi(SwiftPMInternal)
 import Basics
 import CoreCommands
 import Dispatch

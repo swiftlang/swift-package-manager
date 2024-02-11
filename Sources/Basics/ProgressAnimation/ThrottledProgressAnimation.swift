@@ -56,9 +56,9 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
     }
 }
 
-@_spi(SwiftPMInternal_ProgressAnimation)
+@_spi(SwiftPMInternal)
 extension ProgressAnimationProtocol {
-    @_spi(SwiftPMInternal_ProgressAnimation)
+    @_spi(SwiftPMInternal)
     public func throttled<C: Clock>(
         now: @escaping () -> C.Instant,
         interval: C.Duration,
@@ -67,7 +67,7 @@ extension ProgressAnimationProtocol {
         ThrottledProgressAnimation(self, now: now, interval: interval, clock: clock)
     }
 
-    @_spi(SwiftPMInternal_ProgressAnimation)
+    @_spi(SwiftPMInternal)
     public func throttled<C: Clock>(
         clock: C,
         interval: C.Duration
@@ -75,7 +75,7 @@ extension ProgressAnimationProtocol {
         self.throttled(now: { clock.now }, interval: interval, clock: C.self)
     }
 
-    @_spi(SwiftPMInternal_ProgressAnimation)
+    @_spi(SwiftPMInternal)
     public func throttled(
         interval: ContinuousClock.Duration
     )  -> some ProgressAnimationProtocol  {

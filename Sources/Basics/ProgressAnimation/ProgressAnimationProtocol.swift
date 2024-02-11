@@ -15,11 +15,11 @@ import class TSCBasic.LocalFileOutputByteStream
 import protocol TSCBasic.WritableByteStream
 import protocol TSCUtility.ProgressAnimationProtocol
 
-@_spi(SwiftPMInternal_ProgressAnimation)
+@_spi(SwiftPMInternal)
 public typealias ProgressAnimationProtocol = TSCUtility.ProgressAnimationProtocol
 
 /// Namespace to nest public progress animations under.
-@_spi(SwiftPMInternal_ProgressAnimation)
+@_spi(SwiftPMInternal)
 public enum ProgressAnimation {
     static func dynamic(
         stream: WritableByteStream,
