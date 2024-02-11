@@ -393,6 +393,8 @@ private func createResolvedPackages(
                     return .target(targetBuilder, conditions: conditions)
                 case .product:
                     return nil
+                case .innerProduct:
+                    return nil
                 }
             }
             targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
@@ -400,13 +402,26 @@ private func createResolvedPackages(
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
-        packageBuilder.products = try package.products.map{
-            try ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map {
+        packageBuilder.products = try package.products.map { product in
+            let productBuilder = try ResolvedProductBuilder(product: product, packageBuilder: packageBuilder, targets: product.targets.map {
                 guard let target = targetMap[$0] else {
                     throw InternalError("unknown target \($0)")
                 }
                 return target
             })
+            for targetBuilder in targetBuilders {
+                var conditions: [PackageCondition]?
+                for dependency in targetBuilder.target.dependencies {
+                    if case let .innerProduct(innerProduct, dependencyConditions) = dependency, innerProduct.name == product.name {
+                        conditions = dependencyConditions
+                    }
+                }
+                if let conditions = conditions {
+                    // TODO: Check for cycles
+                    targetBuilder.dependencies.append(.product(productBuilder, conditions: conditions))
+                }
+            }
+            return productBuilder
         }
 
         // add registry metadata if available
@@ -968,6 +983,7 @@ extension Target {
         }
     }
 }
+
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The package reference.

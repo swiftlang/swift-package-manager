@@ -346,6 +346,13 @@ fileprivate extension SourceCodeFragment {
             }
             self.init(enum: "product", subnodes: params)
             
+        case .innerProduct(name: let name, condition: let condition):
+            params.append(SourceCodeFragment(key: "name", string: name))
+            if let condition {
+                params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
+            }
+            self.init(enum: "product", subnodes: params)
+
         case .byName(name: let name, condition: let condition):
             if let condition {
                 params.append(SourceCodeFragment(key: "name", string: name))

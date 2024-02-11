@@ -389,6 +389,9 @@ public final class Manifest: Sendable {
             } else { // < 5.2
                 registry.unknown.insert(product)
             }
+        case .innerProduct:
+            // All products in the root package are already requested by definition.
+            break
         case .byName(let product, _):
             if self.toolsVersion < .v5_2 {
                 // A by‐name entry might be a product from anywhere.

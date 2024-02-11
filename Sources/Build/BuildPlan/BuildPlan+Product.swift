@@ -135,6 +135,9 @@ extension BuildPlan {
                 switch $0 {
                 case .product:
                     return nil
+                case .innerProduct:
+                    // TODO: Does this just mean that we can't @testable inner products? (seems fair enough?)
+                    return nil
                 case .target(let target, _):
                     return target
                 }

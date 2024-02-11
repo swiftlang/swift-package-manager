@@ -204,6 +204,11 @@ extension Serialization.TargetDependency {
                 moduleAliases: moduleAliases,
                 condition: condition.map { .init($0) }
             )
+        case .innerProductItem(let name, let condition):
+            self = .innerProduct(
+                name: name,
+                condition: condition.map { .init($0) }
+            )
         case .byNameItem(let name, let condition):
             self = .byName(name: name, condition: condition.map { .init($0) })
         }

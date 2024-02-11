@@ -57,6 +57,13 @@ public final class Target {
         ///    - moduleAlias: The module aliases for targets in the product.
         ///    - condition: A condition that limits the application of the target dependency. For example, only apply a dependency for a specific platform.
         case productItem(name: String, package: String?, moduleAliases: [String: String]?, condition: TargetDependencyCondition?)
+        /// A dependency on a product in the current package.
+        ///
+        /// - Parameters:
+        ///    - name: The name of the product.
+        ///    - moduleAlias: The module aliases for targets in the product.
+        ///    - condition: A condition that limits the application of the target dependency. For example, only apply a dependency for a specific platform.
+        case innerProductItem(name: String, condition: TargetDependencyCondition?)
         /// A by-name dependency on either a target or a product.
         ///
         /// - Parameters:
@@ -1261,6 +1268,20 @@ extension Target.Dependency {
 @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
+    }
+
+    /// Creates a dependency on a product from the same package.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the product.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
+    /// - Returns: A `Target.Dependency` instance.
+    public static func product(
+        name: String,
+        condition: TargetDependencyCondition? = nil
+    ) -> Target.Dependency {
+        return .innerProductItem(name: name, condition: condition)
     }
 
     /// Creates a dependency that resolves to either a target or a product with the specified name.
