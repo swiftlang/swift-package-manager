@@ -13,7 +13,7 @@
 import _Concurrency
 import XCTest
 
-@_spi(SwiftPMInternal_ProgressAnimation)
+@_spi(SwiftPMInternal)
 @testable
 import Basics
 
