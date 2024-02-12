@@ -918,7 +918,7 @@ public final class SwiftTool {
                 self.outputStream.flush()
 
                 // Only if we fail because there's an existing lock we need to acquire again as blocking.
-                try workspaceLock.lock(type: .exclusive, blocking: true)
+                try workspaceLock.lock(type: .exclusive, blocking: isatty(STDOUT_FILENO) == 1)
             }
         }
 
