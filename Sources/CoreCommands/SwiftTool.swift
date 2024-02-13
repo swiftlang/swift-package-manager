@@ -901,6 +901,9 @@ public final class SwiftTool {
     }
 
     fileprivate func acquireLockIfNeeded() throws {
+        guard packageRoot != nil else {
+            return
+        }
         assert(workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(workspaceLockState)")
         guard workspaceLock == nil else {
             throw InternalError("acquireLockIfNeeded() called multiple times")
