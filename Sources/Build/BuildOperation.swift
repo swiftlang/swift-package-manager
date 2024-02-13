@@ -12,7 +12,10 @@
 
 import Basics
 import LLBuildManifest
+
+@_spi(SwiftPMInternal)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SPMBuildCore
@@ -460,12 +463,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
+            var buildToolsGraph = graph
+            try buildToolsGraph.updateBuildTripleRecursively(.tools)
+
             let buildOperationForPluginDependencies = BuildOperation(
                 // FIXME: this doesn't maintain the products/tools split cleanly
                 productsBuildParameters: pluginsBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { return graph },
+                packageGraphLoader: { buildToolsGraph },
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 outputStream: self.outputStream,
@@ -473,7 +479,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,

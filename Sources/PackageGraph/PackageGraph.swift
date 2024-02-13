@@ -59,16 +59,16 @@ public struct PackageGraph {
     public let packages: [ResolvedPackage]
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: IdentifiableSet<ResolvedTarget>
+    public private(set) var reachableTargets: IdentifiableSet<ResolvedTarget>
 
     /// The list of all products reachable from root targets.
-    public let reachableProducts: IdentifiableSet<ResolvedProduct>
+    public private(set) var reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: IdentifiableSet<ResolvedTarget>
+    public private(set) var allTargets: IdentifiableSet<ResolvedTarget>
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-    public let allProducts: IdentifiableSet<ResolvedProduct>
+    public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
 
     /// Package dependencies required for a fully resolved graph.
     ///
@@ -100,14 +100,14 @@ public struct PackageGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private let targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
+    private var targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
     /// Returns the package that contains the target, or nil if the target isn't in the graph.
     public func package(for target: ResolvedTarget) -> ResolvedPackage? {
         return self.targetsToPackages[target.id]
     }
 
 
-    private let productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
+    private var productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
         return self.productsToPackages[product.id]
@@ -200,6 +200,42 @@ public struct PackageGraph {
         self.rootPackages = rootPackages
         self.allTargets = allTargets
         self.allProducts = allProducts
+    }
+
+    @_spi(SwiftPMInternal)
+    public mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
+        self.reachableTargets = IdentifiableSet(self.reachableTargets.map {
+            var target = $0
+            target.buildTriple = buildTriple
+            return target
+        })
+        self.reachableProducts = IdentifiableSet(self.reachableProducts.map {
+            var product = $0
+            product.buildTriple = buildTriple
+            return product
+        })
+
+        self.allTargets = IdentifiableSet(self.allTargets.map {
+            var target = $0
+            target.buildTriple = buildTriple
+            return target
+        })
+        self.allProducts = IdentifiableSet(self.allProducts.map {
+            var product = $0
+            product.buildTriple = buildTriple
+            return product
+        })
+
+        self.targetsToPackages = .init(self.targetsToPackages.map {
+            var target = $0
+            target.buildTriple = buildTriple
+            return (target, $1)
+        }, uniquingKeysWith: { $1 })
+        self.productsToPackages = .init(self.productsToPackages.map {
+            var product = $0
+            product.buildTriple = buildTriple
+            return (product, $1)
+        }, uniquingKeysWith: { $1 })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.

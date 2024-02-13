@@ -187,7 +187,7 @@ extension ResolvedProduct: Identifiable {
     public struct ID: Hashable {
         public let productName: String
         let packageIdentity: PackageIdentity
-        public let buildTriple: BuildTriple
+        public var buildTriple: BuildTriple
     }
 
     public var id: ID {

@@ -268,7 +268,7 @@ extension ResolvedTarget: Identifiable {
     public struct ID: Hashable {
         public let targetName: String
         let packageIdentity: PackageIdentity
-        public let buildTriple: BuildTriple
+        public var buildTriple: BuildTriple
     }
 
     public var id: ID {

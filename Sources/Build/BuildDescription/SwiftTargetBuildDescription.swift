@@ -108,7 +108,7 @@ public final class SwiftTargetBuildDescription {
     }
 
     var modulesPath: AbsolutePath {
-        return self.buildParameters.buildPath.appending(component: "Modules")
+        return self.buildParameters.buildPath.appending(component: "Modules\(self.target.buildTriple.suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -117,7 +117,7 @@ public final class SwiftTargetBuildDescription {
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
-        return dirPath.appending(component: self.target.c99name + "\(self.target.buildTriple.suffix).swiftmodule")
+        return dirPath.appending(component: "\(self.target.c99name).swiftmodule")
     }
 
     /// The path to the wrapped swift module which is created using the modulewrap tool. This is required
