@@ -12,4 +12,4 @@
 
 import Commands
 
-SwiftBuildTool.main()
+SwiftBuildCommand.main()

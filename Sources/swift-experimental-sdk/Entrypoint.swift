@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SwiftSDKTool
+import SwiftSDKCommand
 
 @main
 struct Entrypoint {
     static func main() async {
-        await SwiftSDKTool.main()
+        await SwiftSDKCommand.main()
     }
 }
