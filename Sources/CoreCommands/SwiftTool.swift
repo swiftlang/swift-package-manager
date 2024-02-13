@@ -917,11 +917,16 @@ public final class SwiftTool {
             try workspaceLock.lock(type: .exclusive, blocking: false)
         } catch let ProcessLockError.unableToAquireLock(errno) {
             if errno == EWOULDBLOCK {
-                self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
-                self.outputStream.flush()
+                if self.options.locations.ignoreLock {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed".utf8)
+                    self.outputStream.flush()
+                } else {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
+                    self.outputStream.flush()
 
-                // Only if we fail because there's an existing lock we need to acquire again as blocking.
-                try workspaceLock.lock(type: .exclusive, blocking: true)
+                    // Only if we fail because there's an existing lock we need to acquire again as blocking.
+                    try workspaceLock.lock(type: .exclusive, blocking: true)
+                }
             }
         }
 
