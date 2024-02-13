@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+@_spi(SwiftPMInternal)
 import Basics
 import CoreCommands
 import Dispatch
@@ -28,10 +29,6 @@ import enum TSCBasic.ProcessEnv
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
-
-import class TSCUtility.NinjaProgressAnimation
-import class TSCUtility.PercentProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData(context: String, underlyingError: Error? = nil)
@@ -930,9 +927,16 @@ final class ParallelTestRunner {
         // command's result output goes on stdout
         // ie "swift test" should output to stdout
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            progressAnimation = PercentProgressAnimation(stream: TSCBasic.stdoutStream, header: "Testing:")
+            self.progressAnimation = ProgressAnimation.percent(
+                stream: TSCBasic.stdoutStream,
+                verbose: false,
+                header: "Testing:"
+            )
         } else {
-            progressAnimation = NinjaProgressAnimation(stream: TSCBasic.stdoutStream)
+            self.progressAnimation = ProgressAnimation.ninja(
+                stream: TSCBasic.stdoutStream,
+                verbose: false
+            )
         }
 
         self.buildOptions = buildOptions

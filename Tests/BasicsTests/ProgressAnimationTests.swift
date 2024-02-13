@@ -12,7 +12,6 @@
 
 import _Concurrency
 import XCTest
-import protocol TSCUtility.ProgressAnimationProtocol
 
 @_spi(SwiftPMInternal)
 @testable

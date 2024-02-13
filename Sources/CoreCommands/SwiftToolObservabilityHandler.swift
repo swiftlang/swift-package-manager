@@ -10,17 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
-
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 
 public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
     private let outputHandler: OutputHandler
@@ -76,9 +72,10 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
             self.logLevel = logLevel
             self.outputStream = outputStream
             self.writer = InteractiveWriter(stream: outputStream)
-            self.progressAnimation = logLevel.isVerbose ?
-                MultiLineNinjaProgressAnimation(stream: outputStream) :
-                NinjaProgressAnimation(stream: outputStream)
+            self.progressAnimation = ProgressAnimation.ninja(
+                stream: self.outputStream,
+                verbose: self.logLevel.isVerbose
+            )
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
