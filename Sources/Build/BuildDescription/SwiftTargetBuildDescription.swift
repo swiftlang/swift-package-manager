@@ -196,7 +196,7 @@ public final class SwiftTargetBuildDescription {
     // but it is the closest to accurate we can do at this point
     func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -> Bool {
         let content: String = try self.fileSystem.readFileContents(path)
-        let lines = content.split(separator: "\n").compactMap { String($0).spm_chuzzle() }
+        let lines = content.split(whereSeparator: { $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces) }
 
         var multilineComment = false
         for line in lines {
@@ -287,7 +287,7 @@ public final class SwiftTargetBuildDescription {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
-        (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
+        (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
             target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,

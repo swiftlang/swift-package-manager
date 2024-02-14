@@ -1263,18 +1263,6 @@ extension Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
 
-    /// Creates a dependency on a product from a dependent package.
-    ///
-    /// - Parameters:
-    ///   - name: The name of the product.
-    ///   - moduleAliases: The module aliases for targets in the product.
-    ///   - package: The name of the package.
-    /// - Returns: A `Target.Dependency` instance.
-    @available(_PackageDescription, introduced: 5.7)
-    public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
-        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
-    }
-
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
     /// - Parameter name: The name of the dependency, either a target or a product.

@@ -128,6 +128,8 @@ public final class UserToolchain: Toolchain {
                 continue
             }
             toolPath = path
+            // Take the first match.
+            break
         }
         guard let toolPath else {
             throw InvalidToolchainDiagnostic("could not find CLI tool `\(name)` at any of these directories: \(binDirectories)")
@@ -699,9 +701,19 @@ public final class UserToolchain: Toolchain {
 
             // this tests if we are debugging / testing SwiftPM with SwiftPM
             if localFileSystem.exists(applicationPath.appending("swift-package")) {
+                // Newer versions of SwiftPM will emit modules to a "Modules" subdirectory, but we're also staying compatible with older versions for development.
+                let modulesPath: AbsolutePath
+                if localFileSystem.exists(applicationPath.appending("Modules")) {
+                    modulesPath = applicationPath.appending("Modules")
+                } else {
+                    modulesPath = applicationPath
+                }
+
                 return .init(
                     manifestLibraryPath: applicationPath,
-                    pluginLibraryPath: applicationPath
+                    manifestModulesPath: modulesPath,
+                    pluginLibraryPath: applicationPath,
+                    pluginModulesPath: modulesPath
                 )
             }
         }

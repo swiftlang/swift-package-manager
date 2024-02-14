@@ -254,7 +254,7 @@ public protocol WorkingCheckout {
     func hasUnpushedCommits() throws -> Bool
 
     /// This check for any modified state of the repository and returns true
-    /// if there are uncommited changes.
+    /// if there are uncommitted changes.
     func hasUncommittedChanges() -> Bool
 
     /// Check out the given tag.

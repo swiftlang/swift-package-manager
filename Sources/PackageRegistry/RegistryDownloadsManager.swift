@@ -337,7 +337,7 @@ extension RegistryDownloadsManager {
     public struct FetchDetails: Equatable {
         /// Indicates if the repository was fetched from the cache or from the remote.
         public let fromCache: Bool
-        /// Indicates wether the wether the repository was already present in the cache and updated or if a clean fetch was performed.
+        /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
         public let updatedCache: Bool
     }
 }

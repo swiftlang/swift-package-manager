@@ -16,8 +16,14 @@ import Foundation
 enum HostToPluginMessage: Codable {
     
     /// The host requests that the plugin create build commands (corresponding to a `.buildTool` capability) for a target in the package graph.
-    case createBuildToolCommands(context: InputContext, rootPackageId: InputContext.Package.Id, targetId: InputContext.Target.Id)
-    
+    case createBuildToolCommands(
+        context: InputContext,
+        rootPackageId: InputContext.Package.Id,
+        targetId: InputContext.Target.Id,
+        pluginGeneratedSources: [InputContext.URL.Id],
+        pluginGeneratedResources: [InputContext.URL.Id]
+    )
+
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
     case performCommand(context: InputContext, rootPackageId: InputContext.Package.Id, arguments: [String])
 
@@ -263,7 +269,10 @@ enum PluginToHostMessage: Codable {
         enum DiagnosticSeverity: String, Codable {
             case error, warning, remark
         }
-    
+
+    /// The plugin emits a progress message.
+    case emitProgress(message: String)
+
     /// The plugin defines a build command.
     case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
 
@@ -291,12 +300,13 @@ enum PluginToHostMessage: Codable {
         struct BuildParameters: Codable {
             var configuration: Configuration
             enum Configuration: String, Codable {
-                case debug, release
+                case debug, release, inherit
             }
             var logging: LogVerbosity
             enum LogVerbosity: String, Codable {
                 case concise, verbose, debug
             }
+            var echoLogs: Bool
             var otherCFlags: [String]
             var otherCxxFlags: [String]
             var otherSwiftcFlags: [String]

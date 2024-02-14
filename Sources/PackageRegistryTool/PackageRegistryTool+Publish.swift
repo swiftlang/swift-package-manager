@@ -241,11 +241,17 @@ extension SwiftPackageRegistryTool {
     }
 }
 
-extension SignatureFormat: ExpressibleByArgument {
+extension SignatureFormat {
     public init?(argument: String) {
         self.init(rawValue: argument.lowercased())
     }
 }
+
+#if swift(<5.11)
+extension SignatureFormat: ExpressibleByArgument {}
+#else
+extension SignatureFormat: @retroactive ExpressibleByArgument {}
+#endif
 
 enum MetadataLocation {
     case sourceTree(AbsolutePath)

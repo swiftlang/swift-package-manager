@@ -11,20 +11,23 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import Build
+
 import PackageModel
 import SPMBuildCore
 import TSCUtility
 import XCTest
 
 public struct MockToolchain: PackageModel.Toolchain {
-#if os(Windows)
+    #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+    #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
     public let librarianPath = AbsolutePath("/fake/path/to/libtool")
-#else
+    #else
     public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
-#endif
+    #endif
     public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     public let includeSearchPaths = [AbsolutePath]()
     public let librarySearchPaths = [AbsolutePath]()
@@ -37,21 +40,19 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
 
     public func getClangCompiler() throws -> AbsolutePath {
-        return "/fake/path/to/clang"
+        "/fake/path/to/clang"
     }
 
     public func _isClangCompilerVendorApple() throws -> Bool? {
-      #if os(macOS)
+        #if os(macOS)
         return true
-      #else
+        #else
         return false
-      #endif
+        #endif
     }
 
-    public init() {
-    }
+    public init() {}
 }
-
 
 extension Basics.Triple {
     public static let x86_64MacOS = try! Self("x86_64-apple-macosx")
@@ -60,6 +61,7 @@ extension Basics.Triple {
     public static let arm64Android = try! Self("aarch64-unknown-linux-android")
     public static let windows = try! Self("x86_64-unknown-windows-msvc")
     public static let wasi = try! Self("wasm32-unknown-wasi")
+    public static let arm64iOS = try! Self("arm64-apple-ios")
 }
 
 public let hostTriple = try! UserToolchain.default.targetTriple
@@ -84,7 +86,7 @@ public func mockBuildParameters(
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil
 ) -> BuildParameters {
-    return try! BuildParameters(
+    try! BuildParameters(
         dataPath: buildPath,
         configuration: config,
         toolchain: toolchain,
@@ -134,23 +136,36 @@ enum BuildError: Swift.Error {
 }
 
 public struct BuildPlanResult {
-
     public let plan: Build.BuildPlan
     public let targetMap: [String: TargetBuildDescription]
     public let productMap: [String: Build.ProductBuildDescription]
 
     public init(plan: Build.BuildPlan) throws {
         self.plan = plan
-        self.productMap = try Dictionary(throwingUniqueKeysWithValues: plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.map{ ($0.product.name, $0) })
-        self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map{ ($0.0.name, $0.1) })
+        self.productMap = try Dictionary(
+            throwingUniqueKeysWithValues: plan.buildProducts
+                .compactMap { $0 as? Build.ProductBuildDescription }
+                .map { ($0.product.name, $0) }
+        )
+        self.targetMap = try Dictionary(
+            throwingUniqueKeysWithValues: plan.targetMap.compactMap {
+                guard 
+                    let target = plan.graph.allTargets[$0] ??
+                        IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
+                else {
+                    throw BuildError.error("Target \($0) not found.")
+                }
+                return (target.name, $1)
+            }
+        )
     }
 
     public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(plan.targetMap.count, count, file: file, line: line)
+        XCTAssertEqual(self.plan.targetMap.count, count, file: file, line: line)
     }
 
     public func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(plan.productMap.count, count, file: file, line: line)
+        XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
     }
 
     public func target(for name: String) throws -> TargetBuildDescription {

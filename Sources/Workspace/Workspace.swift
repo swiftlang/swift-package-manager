@@ -58,7 +58,7 @@ public enum WorkspaceResolveReason: Equatable {
 public struct PackageFetchDetails {
     /// Indicates if the package was fetched from the cache or from the remote.
     public let fromCache: Bool
-    /// Indicates wether the wether the package was already present in the cache and updated or if a clean fetch was
+    /// Indicates whether the package was already present in the cache and updated or if a clean fetch was
     /// performed.
     public let updatedCache: Bool
 }
@@ -614,7 +614,7 @@ extension Workspace {
     /// - Parameters:
     ///     - packageName: The name of the package to edit.
     ///     - forceRemove: If true, the dependency will be unedited even if has unpushed
-    ///           or uncommited changes. Otherwise will throw respective errors.
+    ///           or uncommitted changes. Otherwise will throw respective errors.
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func unedit(
@@ -1456,7 +1456,11 @@ private func warnToStderr(_ message: String) {
 }
 
 // used for manifest validation
+#if swift(<5.11)
 extension RepositoryManager: ManifestSourceControlValidator {}
+#else
+extension RepositoryManager: @retroactive ManifestSourceControlValidator {}
+#endif
 
 extension ContainerUpdateStrategy {
     var repositoryUpdateStrategy: RepositoryUpdateStrategy {

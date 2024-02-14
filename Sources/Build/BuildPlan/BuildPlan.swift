@@ -32,11 +32,11 @@ import var TSCUtility.verbosity
 
 extension String {
     var asSwiftStringLiteralConstant: String {
-        return unicodeScalars.reduce("", { $0 + $1.escaped(asASCII: false) })
+        unicodeScalars.reduce("") { $0 + $1.escaped(asASCII: false) }
     }
 }
 
-extension Array where Element == String {
+extension [String] {
     /// Converts a set of C compiler flags into an equivalent set to be
     /// indirected through the Swift compiler instead.
     func asSwiftcCCompilerFlags() -> Self {
@@ -142,7 +142,8 @@ extension BuildParameters {
         return args
     }
 
-    /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
+    /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target
+    /// platform, or nil if the linker doesn't support it for the platform.
     func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
         let args: [String]
         if self.triple.isApple() {
@@ -198,10 +199,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public let graph: PackageGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedTarget: TargetBuildDescription]
+    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
 
     /// The product build description map.
-    public let productMap: [ResolvedProduct: ProductBuildDescription]
+    public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
 
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
@@ -209,22 +210,23 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// The build targets.
     public var targets: AnySequence<TargetBuildDescription> {
-        return AnySequence(targetMap.values)
+        AnySequence(self.targetMap.values)
     }
 
     /// The products in this plan.
     public var buildProducts: AnySequence<SPMBuildCore.ProductBuildDescription> {
-        return AnySequence(productMap.values.map { $0 as SPMBuildCore.ProductBuildDescription })
+        AnySequence(self.productMap.values.map { $0 as SPMBuildCore.ProductBuildDescription })
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
-    public let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
+    public let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    public let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
+    public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
-    private(set) var derivedTestTargetsMap: [ResolvedProduct: [ResolvedTarget]] = [:]
+    @_spi(SwiftPMInternal)
+    public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
@@ -249,8 +251,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         buildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -272,8 +274,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         toolsBuildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
@@ -287,7 +289,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
-        var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
+        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] = [:]
         // Create product description for each product we have in the package graph that is eligible.
         for product in graph.allProducts where product.shouldCreateProductDescription {
             let buildParameters: BuildParameters
@@ -304,26 +306,27 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             // Determine the appropriate tools version to use for the product.
             // This can affect what flags to pass and other semantics.
             let toolsVersion = package.manifest.toolsVersion
-            productMap[product] = try ProductBuildDescription(
+            productMap[product.id] = try (product, ProductBuildDescription(
                 package: package,
                 product: product,
                 toolsVersion: toolsVersion,
                 buildParameters: buildParameters,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
-            )
+            ))
         }
-        let macroProductsByTarget = productMap.keys.filter { $0.type == .macro }.reduce(into: [ResolvedTarget: ResolvedProduct]()) {
-            if let target = $1.targets.first {
-                $0[target] = $1
+        let macroProductsByTarget = productMap.values.filter { $0.product.type == .macro }
+            .reduce(into: [ResolvedTarget.ID: ResolvedProduct]()) {
+                if let target = $1.product.targets.first {
+                    $0[target.id] = $1.product
+                }
             }
-        }
 
         // Create build target description for each target which we need to plan.
         // Plugin targets are noted, since they need to be compiled, but they do
         // not get directly incorporated into the build description that will be
         // given to LLBuild.
-        var targetMap = [ResolvedTarget: TargetBuildDescription]()
+        var targetMap = [ResolvedTarget.ID: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
         var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
@@ -348,6 +351,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
                             product: product,
                             forTarget: target,
+                            buildEnvironment: buildParameters.buildEnvironment,
                             observabilityScope: self.observabilityScope
                         )
                     }
@@ -364,7 +368,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     throw InternalError("package not found for \(target)")
                 }
 
-                let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlying.type == .macro }.compactMap { macroProductsByTarget[$0] }
+                let requiredMacroProducts = try target.recursiveTargetDependencies()
+                    .filter { $0.underlying.type == .macro }
+                    .compactMap { macroProductsByTarget[$0.id] }
 
                 var generateTestObservation = false
                 if target.type == .test && shouldGenerateTestObservation {
@@ -372,30 +378,34 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     shouldGenerateTestObservation = false // Only generate the code once.
                 }
 
-                targetMap[target] = try .swift(SwiftTargetBuildDescription(
-                    package: package,
-                    target: target,
-                    toolsVersion: toolsVersion,
-                    additionalFileRules: additionalFileRules,
-                    buildParameters: buildParameters,
-                    buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
-                    prebuildCommandResults: prebuildCommandResults[target] ?? [],
-                    requiredMacroProducts: requiredMacroProducts,
-                    shouldGenerateTestObservation: generateTestObservation,
-                    disableSandbox: self.disableSandbox,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope)
+                targetMap[target.id] = try .swift(
+                    SwiftTargetBuildDescription(
+                        package: package,
+                        target: target,
+                        toolsVersion: toolsVersion,
+                        additionalFileRules: additionalFileRules,
+                        buildParameters: buildParameters,
+                        buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
+                        prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
+                        requiredMacroProducts: requiredMacroProducts,
+                        shouldGenerateTestObservation: generateTestObservation,
+                        disableSandbox: self.disableSandbox,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
                 )
             case is ClangTarget:
-                targetMap[target] = try .clang(ClangTargetBuildDescription(
-                    target: target,
-                    toolsVersion: toolsVersion,
-                    additionalFileRules: additionalFileRules,
-                    buildParameters: buildParameters,
-                    buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
-                    prebuildCommandResults: prebuildCommandResults[target] ?? [],
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope)
+                targetMap[target.id] = try .clang(
+                    ClangTargetBuildDescription(
+                        target: target,
+                        toolsVersion: toolsVersion,
+                        additionalFileRules: additionalFileRules,
+                        buildParameters: buildParameters,
+                        buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
+                        prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
                 )
             case is PluginTarget:
                 guard let package = graph.package(for: target) else {
@@ -403,14 +413,15 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
                 try pluginDescriptions.append(PluginDescription(
                     target: target,
-                    products: package.products.filter{ $0.targets.contains(target) },
+                    products: package.products.filter { $0.targets.contains(id: target.id) },
                     package: package,
                     toolsVersion: toolsVersion,
-                    fileSystem: fileSystem))
+                    fileSystem: fileSystem
+                ))
             case is SystemLibraryTarget, is BinaryTarget:
-                 break
+                break
             default:
-                 throw InternalError("unhandled \(target.underlying)")
+                throw InternalError("unhandled \(target.underlying)")
             }
         }
 
@@ -436,34 +447,41 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target] = .swift(item.entryPointTargetBuildDescription)
+                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(item.entryPointTargetBuildDescription)
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
-                    targetMap[discoveryTargetBuildDescription.target] = .swift(discoveryTargetBuildDescription)
+                    targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
                     derivedTestTargets.append(discoveryTargetBuildDescription.target)
                 }
 
-                derivedTestTargetsMap[item.product] = derivedTestTargets
+                self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
             }
         }
 
-        self.productMap = productMap
+        self.productMap = productMap.mapValues(\.buildDescription)
         self.targetMap = targetMap
         self.pluginDescriptions = pluginDescriptions
 
         // Finally plan these targets.
-        try plan()
+        try self.plan()
     }
 
     static func validateDeploymentVersionOfProductDependency(
         product: ResolvedProduct,
         forTarget target: ResolvedTarget,
+        buildEnvironment: BuildEnvironment,
         observabilityScope: ObservabilityScope
     ) throws {
-        // Supported platforms are defined at the package level.
+        // Supported platforms are defined at the package (e.g., build environment) level.
         // This will need to become a bit complicated once we have target-level or product-level platform support.
-        let productPlatform = product.getSupportedPlatform(for: .macOS, usingXCTest: product.isLinkingXCTest)
-        let targetPlatform = target.getSupportedPlatform(for: .macOS, usingXCTest: target.type == .test)
+        let productPlatform = product.getSupportedPlatform(
+            for: buildEnvironment.platform,
+            usingXCTest: product.isLinkingXCTest
+        )
+        let targetPlatform = target.getSupportedPlatform(
+            for: buildEnvironment.platform,
+            usingXCTest: target.type == .test
+        )
 
         // Check if the version requirement is satisfied.
         //
@@ -481,7 +499,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Plan the targets and products.
     private func plan() throws {
         // Plan targets.
-        for buildTarget in targets {
+        for buildTarget in self.targets {
             switch buildTarget {
             case .swift(let target):
                 try self.plan(swiftTarget: target)
@@ -491,8 +509,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan products.
-        for buildProduct in buildProducts {
-            try plan(buildProduct: buildProduct as! ProductBuildDescription)
+        for buildProduct in self.buildProducts {
+            try self.plan(buildProduct: buildProduct as! ProductBuildDescription)
         }
         // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto
@@ -523,7 +541,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         arguments += extraSwiftCFlags
 
         // Add search paths to the directories containing module maps and Swift modules.
-        for target in targets {
+        for target in self.targets {
             switch target {
             case .swift(let targetDescription):
                 arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
@@ -553,16 +571,17 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
-        let replProductName = graph.rootPackages[0].identity.description + Product.replProductSuffix
+        let replProductName = self.graph.rootPackages[self.graph.rootPackages.startIndex].identity.description +
+            Product.replProductSuffix
         arguments.append("-l" + replProductName)
 
         // The graph should have the REPL product.
-        assert(graph.allProducts.first(where: { $0.name == replProductName }) != nil)
+        assert(self.graph.allProducts.first(where: { $0.name == replProductName }) != nil)
 
         // Add the search path to the directory containing the modulemap file.
-        for target in targets {
+        for target in self.targets {
             switch target {
-                case .swift: break
+            case .swift: break
             case .clang(let targetDescription):
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I\(includeDir.pathString)"]
@@ -585,16 +604,15 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // If we already have these flags, we're done.
         if let flags = pkgConfigCache[target] {
             return flags
-        }
-        else {
-            pkgConfigCache[target] = ([], [])
+        } else {
+            self.pkgConfigCache[target] = ([], [])
         }
         let results = try pkgConfigArgs(
             for: target,
             pkgConfigDirectories: self.destinationBuildParameters.pkgConfigDirectories,
             sdkRootPath: self.destinationBuildParameters.toolchain.sdkRootPath,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
         )
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
@@ -613,21 +631,23 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         let result = ([String](cflagsCache), libsCache)
-        pkgConfigCache[target] = result
+        self.pkgConfigCache[target] = result
         return result
     }
 
     /// Extracts the library information from an XCFramework.
     func parseXCFramework(for binaryTarget: BinaryTarget, triple: Basics.Triple) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: binaryTarget) {
-            return try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
+            try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
         }
     }
 }
 
 extension Basics.Diagnostic {
     static var swiftBackDeployError: Self {
-        .warning("Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/")
+        .warning(
+            "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
+        )
     }
 
     static func productRequiresHigherPlatformVersion(
@@ -637,15 +657,15 @@ extension Basics.Diagnostic {
         productPlatform: SupportedPlatform
     ) -> Self {
         .error("""
-            the \(target.type.rawValue) '\(target.name)' requires \
-            \(targetPlatform.platform.name) \(targetPlatform.version.versionString), \
-            but depends on the product '\(product)' which requires \
-            \(productPlatform.platform.name) \(productPlatform.version.versionString); \
-            consider changing the \(target.type.rawValue) '\(target.name)' to require \
-            \(productPlatform.platform.name) \(productPlatform.version.versionString) or later, \
-            or the product '\(product)' to require \
-            \(targetPlatform.platform.name) \(targetPlatform.version.versionString) or earlier.
-            """)
+        the \(target.type.rawValue) '\(target.name)' requires \
+        \(targetPlatform.platform.name) \(targetPlatform.version.versionString), \
+        but depends on the product '\(product)' which requires \
+        \(productPlatform.platform.name) \(productPlatform.version.versionString); \
+        consider changing the \(target.type.rawValue) '\(target.name)' to require \
+        \(productPlatform.platform.name) \(productPlatform.version.versionString) or later, \
+        or the product '\(product)' to require \
+        \(targetPlatform.platform.name) \(targetPlatform.version.versionString) or earlier.
+        """)
     }
 
     static func binaryTargetsNotSupported() -> Self {
@@ -656,7 +676,7 @@ extension Basics.Diagnostic {
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> AbsolutePath {
-        return buildPath.appending(component: name + self.triple.nsbundleExtension)
+        buildPath.appending(component: name + self.triple.nsbundleExtension)
     }
 }
 
@@ -705,7 +725,7 @@ extension ResolvedPackage {
 
 extension ResolvedProduct {
     private var isAutomaticLibrary: Bool {
-        return self.type == .library(.automatic)
+        self.type == .library(.automatic)
     }
 
     private var isBinaryOnly: Bool {
@@ -713,12 +733,12 @@ extension ResolvedProduct {
     }
 
     private var isPlugin: Bool {
-        return self.type == .plugin
+        self.type == .plugin
     }
 
-    // We shouldn't create product descriptions for automatic libraries, plugins or products which consist solely of binary targets, because they don't produce any output.
+    // We shouldn't create product descriptions for automatic libraries, plugins or products which consist solely of
+    // binary targets, because they don't produce any output.
     fileprivate var shouldCreateProductDescription: Bool {
-        return !isAutomaticLibrary && !isBinaryOnly && !isPlugin
+        !self.isAutomaticLibrary && !self.isBinaryOnly && !self.isPlugin
     }
 }
-

@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import LLBuildManifest
 import PackageGraph
@@ -26,9 +27,6 @@ import enum TSCBasic.ProcessEnv
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
@@ -147,7 +145,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ///
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
-    public func getBuildDescription() throws -> BuildDescription {
+    public func getBuildDescription(subset: BuildSubset? = nil) throws -> BuildDescription {
         return try self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
@@ -171,7 +169,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
             // We need to perform actual planning if we reach here.
-            return try self.plan().description
+            return try self.plan(subset: subset).description
         }
     }
 
@@ -261,7 +259,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Get the build description (either a cached one or newly created).
 
         // Get the build description
-        let buildDescription = try getBuildDescription()
+        let buildDescription = try getBuildDescription(subset: subset)
 
         // Verify dependency imports on the described targets
         try verifyTargetImports(in: buildDescription)
@@ -286,7 +284,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let duration = buildStartTime.distance(to: .now())
 
-        self.buildSystemDelegate?.buildComplete(success: success, duration: duration)
+        let subsetDescriptor: String?
+        switch subset {
+        case .product(let productName):
+            subsetDescriptor = "product '\(productName)'"
+        case .target(let targetName):
+            subsetDescriptor = "target: '\(targetName)'"
+        case .allExcludingTests, .allIncludingTests:
+            subsetDescriptor = nil
+        }
+
+        self.buildSystemDelegate?.buildComplete(
+            success: success,
+            duration: duration,
+            subsetDescriptor: subsetDescriptor
+        )
         self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
@@ -433,17 +445,23 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest) {
+    private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
-
-        let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
-        let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
+        let buildToolPluginInvocationResults: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])]
+        let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
+            // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
+            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
+            // done, which makes it hard to realign them all at once.
+            var pluginsBuildParameters = self.toolsBuildParameters
+            pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
             let buildOperationForPluginDependencies = BuildOperation(
-                productsBuildParameters: self.productsBuildParameters,
-                toolsBuildParameters: self.toolsBuildParameters,
+                // FIXME: this doesn't maintain the products/tools split cleanly
+                productsBuildParameters: pluginsBuildParameters,
+                toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: { return graph },
                 additionalFileRules: self.additionalFileRules,
@@ -455,11 +473,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             )
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                builtToolsDir: self.toolsBuildParameters.buildPath,
-                buildEnvironment: self.toolsBuildParameters.buildEnvironment,
+                buildParameters: pluginsBuildParameters,
+                additionalFileRules: self.additionalFileRules,
                 toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
-                sdkRootPath: self.toolsBuildParameters.toolchain.sdkRootPath,
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
@@ -475,7 +492,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
-            for (target, results) in buildToolPluginInvocationResults {
+            for (_, (target, results)) in buildToolPluginInvocationResults {
                 // There is one result for each plugin that gets applied to a target.
                 for result in results {
                     let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
@@ -484,7 +501,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
-                    for line in result.textOutput.split(separator: "\n") {
+                    for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
                         diagnosticsEmitter.emit(info: line)
                     }
                     for diag in result.diagnostics {
@@ -500,7 +517,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
             // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
             prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
-                partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
+                partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
+                    try self.runPrebuildCommands(for: $0.results)
+                }
             })
         } else {
             buildToolPluginInvocationResults = [:]
@@ -508,33 +527,44 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
-        for package in graph.rootPackages where package.manifest.toolsVersion >= .v5_3 {
-            for target in package.targets {
-                // Get the set of unhandled files in targets.
-                var unhandledFiles = Set(target.underlying.others)
-                if unhandledFiles.isEmpty { continue }
+        // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
+        let targetsToConsider: [ResolvedTarget]
+        if let subset = subset, let recursiveDependencies = try 
+            subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
+            targetsToConsider = recursiveDependencies
+        } else {
+            targetsToConsider = Array(graph.reachableTargets)
+        }
 
-                // Subtract out any that were inputs to any commands generated by plugins.
-                if let result = buildToolPluginInvocationResults[target] {
-                    let handledFiles = result.flatMap{ $0.buildCommands.flatMap{ $0.inputFiles } }
-                    unhandledFiles.subtract(handledFiles)
-                }
-                if unhandledFiles.isEmpty { continue }
-
-                // Emit a diagnostic if any remain. This is kept the same as the previous message for now, but this could be improved.
-                let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
-                    var metadata = ObservabilityMetadata()
-                    metadata.packageIdentity = package.identity
-                    metadata.packageKind = package.manifest.packageKind
-                    metadata.targetName = target.name
-                    return metadata
-                }
-                var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
-                for file in unhandledFiles {
-                    warning += "    " + file.pathString + "\n"
-                }
-                diagnosticsEmitter.emit(warning: warning)
+        for target in targetsToConsider {
+            guard let package = graph.package(for: target), package.manifest.toolsVersion >= .v5_3 else {
+                continue
             }
+
+            // Get the set of unhandled files in targets.
+            var unhandledFiles = Set(target.underlying.others)
+            if unhandledFiles.isEmpty { continue }
+
+            // Subtract out any that were inputs to any commands generated by plugins.
+            if let result = buildToolPluginInvocationResults[target.id]?.results {
+                let handledFiles = result.flatMap{ $0.buildCommands.flatMap{ $0.inputFiles } }
+                unhandledFiles.subtract(handledFiles)
+            }
+            if unhandledFiles.isEmpty { continue }
+
+            // Emit a diagnostic if any remain. This is kept the same as the previous message for now, but this could be improved.
+            let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+                var metadata = ObservabilityMetadata()
+                metadata.packageIdentity = package.identity
+                metadata.packageKind = package.manifest.packageKind
+                metadata.targetName = target.name
+                return metadata
+            }
+            var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+            for file in unhandledFiles {
+                warning += "    " + file.pathString + "\n"
+            }
+            diagnosticsEmitter.emit(warning: warning)
         }
 
         // Create the build plan based, on the graph and any information from plugins.
@@ -543,7 +573,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
-            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults.mapValues(\.results),
             prebuildCommandResults: prebuildCommandResults,
             disableSandbox: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,
@@ -577,10 +607,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// building the package structure target.
     private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
-        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
-            : NinjaProgressAnimation(stream: self.outputStream)
-
+        let progressAnimation = ProgressAnimation.ninja(
+            stream: self.outputStream,
+            verbose: self.logLevel.isVerbose
+        )
         let buildExecutionContext = BuildExecutionContext(
             productsBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
@@ -634,7 +664,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             var derivedFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
+                self.observabilityScope.emit(info: "Running " + (command.configuration.displayName ?? command.configuration.executable.basename))
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
@@ -760,6 +790,27 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
+    func recursiveDependencies(for graph: PackageGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
+        switch self {
+        case .allIncludingTests:
+            return Array(graph.reachableTargets)
+        case .allExcludingTests:
+            return graph.reachableTargets.filter { $0.type != .test }
+        case .product(let productName):
+            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+                observabilityScope.emit(error: "no product named '\(productName)'")
+                return nil
+            }
+            return try product.recursiveTargetDependencies()
+        case .target(let targetName):
+            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+                observabilityScope.emit(error: "no target named '\(targetName)'")
+                return nil
+            }
+            return try target.recursiveTargetDependencies()
+        }
+    }
+
     /// Returns the name of the llbuild target that corresponds to the build subset.
     func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
         -> String?

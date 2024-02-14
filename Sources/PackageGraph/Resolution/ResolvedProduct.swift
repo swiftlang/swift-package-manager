@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 
-public struct ResolvedProduct: Hashable {
+public struct ResolvedProduct {
     /// The name of this product.
     public var name: String {
         self.underlying.name
@@ -30,7 +30,7 @@ public struct ResolvedProduct: Hashable {
     public let underlying: Product
 
     /// The top level targets contained in this product.
-    public let targets: [ResolvedTarget]
+    public let targets: IdentifiableSet<ResolvedTarget>
 
     /// Executable target for test entry point file.
     public let testEntryPointTarget: ResolvedTarget?
@@ -63,8 +63,8 @@ public struct ResolvedProduct: Hashable {
         }
     }
 
-    public init(packageIdentity: PackageIdentity, product: Product, targets: [ResolvedTarget]) {
-        assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
+    public init(packageIdentity: PackageIdentity, product: Product, targets: IdentifiableSet<ResolvedTarget>) {
+        assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
         self.underlying = product
         self.targets = targets
@@ -115,10 +115,12 @@ public struct ResolvedProduct: Hashable {
     /// Returns the recursive target dependencies.
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
-        return Array(Set(self.targets).union(recursiveDependencies))
+        return Array(IdentifiableSet(self.targets).union(recursiveDependencies))
     }
 
-    private static func computePlatforms(targets: [ResolvedTarget]) -> ([SupportedPlatform], PlatformVersionProvider) {
+    private static func computePlatforms(
+        targets: IdentifiableSet<ResolvedTarget>
+    ) -> ([SupportedPlatform], PlatformVersionProvider) {
         let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
             merge(into: &partial, platforms: item.supportedPlatforms)
         }
@@ -160,3 +162,19 @@ extension ResolvedProduct {
         self.type == .test || self.targets.contains(where: { $0.type == .test })
     }
 }
+
+extension ResolvedProduct: Identifiable {
+    /// Resolved target identity that uniquely identifies it in a resolution graph.
+    public struct ID: Hashable {
+        public let targetName: String
+        let packageIdentity: PackageIdentity
+        public let buildTriple: BuildTriple
+    }
+
+    public var id: ID {
+        ID(targetName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
+    }
+}
+
+@available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
+extension ResolvedProduct: Hashable {}

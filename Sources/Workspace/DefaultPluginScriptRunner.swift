@@ -141,6 +141,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
+        let pluginModulesPath = self.toolchain.swiftPMLibrariesLocation.pluginModulesPath
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
@@ -196,10 +197,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if pluginLibraryPath.extension == "framework" {
-            commandLine += ["-I", pluginLibraryPath.parentDirectory.parentDirectory.pathString]
+        if pluginModulesPath.extension == "framework" {
+            commandLine += ["-I", pluginModulesPath.parentDirectory.parentDirectory.pathString]
         } else {
-            commandLine += ["-I", pluginLibraryPath.pathString]
+            commandLine += ["-I", pluginModulesPath.pathString]
         }
         #if os(macOS)
         if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {

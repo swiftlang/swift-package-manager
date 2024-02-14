@@ -445,7 +445,7 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
     // Remove the userinfo subcomponent (user / password), if present.
     if case (let user, _)? = description.dropUserinfoSubcomponentPrefixIfPresent() {
         // If a user was provided, perform tilde expansion, if applicable.
-        description.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
+        description.replaceFirstOccurrenceIfPresent(of: "/~/", with: "/~\(user)/")
 
         if user == "git", scheme == nil {
             scheme = "ssh"
@@ -461,9 +461,9 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
     // Remove the query component, if present.
     description.removeQueryComponentIfPresent()
 
-    // Accomodate "`scp`-style" SSH URLs
+    // Accommodate "`scp`-style" SSH URLs
     if detectedScheme == nil || detectedScheme == "ssh" {
-        description.replaceFirstOccurenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
+        description.replaceFirstOccurrenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
     }
 
     // Split the remaining string into path components,
@@ -590,7 +590,7 @@ extension String {
     }
 
     @discardableResult
-    fileprivate mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(
+    fileprivate mutating func replaceFirstOccurrenceIfPresent<T: StringProtocol, U: StringProtocol>(
         of string: T,
         before index: Index? = nil,
         with replacement: U

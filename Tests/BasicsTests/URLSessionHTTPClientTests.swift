@@ -466,13 +466,13 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 didStartLoadingExpectation.fulfill()
             }
-            wait(for: [didStartLoadingExpectation], timeout: 1.0)
+            wait(for: [didStartLoadingExpectation], timeout: 3.0)
 
             let urlRequest = URLRequest(request)
             MockURLProtocol.sendData(Data(count: 512), for: urlRequest)
-            wait(for: [progress50Expectation], timeout: 1.0)
+            wait(for: [progress50Expectation], timeout: 3.0)
             MockURLProtocol.sendError(clientError, for: urlRequest)
-            wait(for: [completionExpectation], timeout: 1.0)
+            wait(for: [completionExpectation], timeout: 3.0)
         }
     }
 

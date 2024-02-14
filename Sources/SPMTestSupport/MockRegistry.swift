@@ -450,7 +450,7 @@ private struct MockRegistryArchiver: Archiver {
 
     private func readFileContents(_ path: AbsolutePath) throws -> [String] {
         let content: String = try self.fileSystem.readFileContents(path)
-        return content.split(separator: "\n").map(String.init)
+        return content.split(whereSeparator: { $0.isNewline }).map(String.init)
     }
 }
 

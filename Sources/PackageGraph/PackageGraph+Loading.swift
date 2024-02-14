@@ -15,7 +15,6 @@ import OrderedCollections
 import PackageLoading
 import PackageModel
 
-import func TSCBasic.topologicalSort
 import func TSCBasic.bestMatch
 
 extension PackageGraph {
@@ -179,7 +178,7 @@ extension PackageGraph {
 private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], observabilityScope: ObservabilityScope) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
-        let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
+        let productDependencies = IdentifiableSet(package.targets.flatMap({ target in
             return target.dependencies.compactMap({ targetDependency in
                 switch targetDependency {
                 case .product(let product, _):
@@ -216,7 +215,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
-            let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
+            let dependencyIsUsed = dependency.products.contains(where: { productDependencies.contains(id: $0.id) })
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.description))
             }
@@ -804,7 +803,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
 
     // Validate sources (Swift files only) for modules being aliased.
     // Needs to be done after `propagateAliases` since aliases defined
-    // upstream can be overriden.
+    // upstream can be overridden.
     for packageBuilder in packageBuilders {
         for product in packageBuilder.package.products {
             try aliasTracker.validateAndApplyAliases(product: product,
@@ -864,7 +863,7 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
         return ResolvedProduct(
             packageIdentity: packageBuilder.package.identity,
             product: product,
-            targets: try targets.map{ try $0.construct() }
+            targets: IdentifiableSet(try targets.map { try $0.construct() })
         )
     }
 }

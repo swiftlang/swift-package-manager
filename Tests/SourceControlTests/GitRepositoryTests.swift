@@ -446,7 +446,7 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testUncommitedChanges() throws {
+    func testUncommittedChanges() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending("test-repo")

@@ -13,6 +13,7 @@
 import Basics
 import struct PackageGraph.ResolvedTarget
 import struct PackageModel.Resource
+import struct PackageModel.ToolsVersion
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.BuildParameters
 
@@ -103,6 +104,15 @@ public enum TargetBuildDescription {
             return swiftTargetBuildDescription.buildParameters
         case .clang(let clangTargetBuildDescription):
             return clangTargetBuildDescription.buildParameters
+        }
+    }
+
+    var toolsVersion: ToolsVersion {
+        switch self {
+        case .swift(let swiftTargetBuildDescription):
+            return swiftTargetBuildDescription.toolsVersion
+        case .clang(let clangTargetBuildDescription):
+            return clangTargetBuildDescription.toolsVersion
         }
     }
 }

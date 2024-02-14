@@ -70,7 +70,7 @@ extension BuildPlan {
             switch target.underlying {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = targetMap[target] else {
+                guard case .swift(let description) = targetMap[target.id] else {
                     throw InternalError("unknown target \(target)")
                 }
 
@@ -91,14 +91,14 @@ extension BuildPlan {
         }
 
         buildProduct.staticTargets = dependencies.staticTargets
-        buildProduct.dylibs = try dependencies.dylibs.map{
-            guard let product = productMap[$0] else {
+        buildProduct.dylibs = try dependencies.dylibs.map {
+            guard let product = productMap[$0.id] else {
                 throw InternalError("unknown product \($0)")
             }
             return product
         }
         buildProduct.objects += try dependencies.staticTargets.flatMap { targetName -> [AbsolutePath] in
-            guard let target = targetMap[targetName] else {
+            guard let target = targetMap[targetName.id] else {
                 throw InternalError("unknown target \(targetName)")
             }
             return try target.objects
@@ -143,13 +143,19 @@ extension BuildPlan {
             topLevelDependencies = []
         }
 
+        // get the dynamic libraries for explicitly linking rdar://108561857
+        func recursiveDynamicLibraries(for product: ResolvedProduct) throws -> [ResolvedProduct] {
+            let dylibs = try computeDependencies(of: product, buildParameters: buildParameters).dylibs
+            return try dylibs + dylibs.flatMap { try recursiveDynamicLibraries(for: $0) }
+        }
+
         // Sort the product targets in topological order.
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the dependencies of a target.
             case .target(let target, _):
-                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
+                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(id: target.id)
                 let topLevelIsMacro = isTopLevel && product.type == .macro
                 let topLevelIsPlugin = isTopLevel && product.type == .plugin
                 let topLevelIsTest = isTopLevel && product.type == .test
@@ -175,7 +181,9 @@ extension BuildPlan {
                     return productDependencies
                 case .plugin:
                     return shouldExcludePlugins ? [] : productDependencies
-                case .library(.dynamic), .test, .executable, .snippet, .macro:
+                case .library(.dynamic):
+                    return try recursiveDynamicLibraries(for: product).map { .product($0, conditions: []) }
+                case .test, .executable, .snippet, .macro:
                     return []
                 }
             }
@@ -198,18 +206,18 @@ extension BuildPlan {
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
                 case .executable, .snippet, .macro:
-                    if product.targets.contains(target) {
+                    if product.targets.contains(id: target.id) {
                         staticTargets.append(target)
                     } else if product.type == .test && (target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
                         // Only "top-level" targets should really be considered here, not transitive ones.
-                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
+                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(id: target.id)
                         if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
                             staticTargets.append(target)
                         }
                     }
                 // Test targets should be included only if they are directly in the product's target list.
                 case .test:
-                    if product.targets.contains(target) {
+                    if product.targets.contains(id: target.id) {
                         staticTargets.append(target)
                     }
                 // Library targets should always be included.
@@ -249,7 +257,7 @@ extension BuildPlan {
 
         // Add derived test targets, if necessary
         if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product] {
+            if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product.id] {
                 staticTargets.append(contentsOf: derivedTestTargets)
             }
         }

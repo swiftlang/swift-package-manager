@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -91,9 +91,18 @@ public struct ZipArchiver: Archiver, Cancellable {
                 workingDirectory: directory.parentDirectory.underlying
             )
             #else
+            // This is to work around `swift package-registry publish` tool failing on
+            // Amazon Linux 2 due to it having an earlier Glibc version (rdar://116370323)
+            // and therefore posix_spawn_file_actions_addchdir_np is unavailable.
+            // Instead of passing `workingDirectory` param to TSC.Process, which will trigger
+            // SPM_posix_spawn_file_actions_addchdir_np_supported check, we shell out and
+            // do `cd` explicitly before `zip`.
             let process = TSCBasic.Process(
-                arguments: ["zip", "-r", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
+                arguments: [
+                    "/bin/sh",
+                    "-c",
+                    "cd \(directory.parentDirectory.underlying.pathString) && zip -r \(destinationPath.pathString) \(directory.basename)",
+                ]
             )
             #endif
 

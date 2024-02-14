@@ -53,8 +53,12 @@ internal struct PluginContextDeserializer {
     /// Returns the `Target` that corresponds to the given ID (a small integer),
     /// or throws an error if the ID is invalid. The target is deserialized on-
     /// demand if it hasn't already been deserialized.
-    mutating func target(for id: WireInput.Target.Id) throws -> Target {
-        if let target = targetsById[id] { return target }
+    mutating func target(for id: WireInput.Target.Id, pluginGeneratedSources: [URL] = [], pluginGeneratedResources: [URL] = []) throws -> Target {
+        if let target = targetsById[id],
+           target.sourceModule?.pluginGeneratedSources.count == pluginGeneratedSources.count,
+           target.sourceModule?.pluginGeneratedResources.count == pluginGeneratedResources.count {
+            return target
+        }
         guard id < wireInput.targets.count else {
             throw PluginDeserializationError.malformedInputJSON("invalid target id (\(id))")
         }
@@ -101,7 +105,10 @@ internal struct PluginContextDeserializer {
                 sourceFiles: sourceFiles,
                 compilationConditions: compilationConditions,
                 linkedLibraries: linkedLibraries,
-                linkedFrameworks: linkedFrameworks)
+                linkedFrameworks: linkedFrameworks,
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources
+            )
 
         case let .clangSourceModuleInfo(moduleName, kind, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
             let publicHeadersDir = try publicHeadersDirId.map { try self.url(for: $0) }
@@ -134,7 +141,10 @@ internal struct PluginContextDeserializer {
                 publicHeadersDirectory: publicHeadersDir.map { .init(url: $0) },
                 publicHeadersDirectoryURL: publicHeadersDir,
                 linkedLibraries: linkedLibraries,
-                linkedFrameworks: linkedFrameworks)
+                linkedFrameworks: linkedFrameworks,
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources
+            )
 
         case let .binaryArtifactInfo(kind, origin, artifactId):
             let artifact = try self.url(for: artifactId)

@@ -10,7 +10,6 @@ add_library(Build
   BuildDescription/ClangTargetBuildDescription.swift
   BuildDescription/PluginDescription.swift
   BuildDescription/ProductBuildDescription.swift
-  BuildDescription/SharedTargetBuildDescription.swift
   BuildDescription/SwiftTargetBuildDescription.swift
   BuildDescription/TargetBuildDescription.swift
   BuildManifest/LLBuildManifestBuilder.swift
@@ -25,6 +24,7 @@ add_library(Build
   BuildPlan/BuildPlan+Product.swift
   BuildPlan/BuildPlan+Swift.swift
   BuildPlan/BuildPlan+Test.swift
+  ClangSupport.swift
   SwiftCompilerOutputParser.swift
   TestObservation.swift)
 target_link_libraries(Build PUBLIC

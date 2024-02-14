@@ -179,7 +179,7 @@ class PluginInvocationTests: XCTestCase {
                     }
                 }
 
-                // If we get this far we succeded, so invoke the completion handler.
+                // If we get this far we succeeded, so invoke the completion handler.
                 callbackQueue.sync {
                     completion(.success(0))
                 }
@@ -188,15 +188,16 @@ class PluginInvocationTests: XCTestCase {
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
-        let builtToolsDir = AbsolutePath("/Foo/.build/debug")
+        let builtToolsDir = AbsolutePath("/path/to/build/debug")
         let pluginRunner = MockPluginScriptRunner()
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
-            builtToolsDir: builtToolsDir,
-            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildParameters: mockBuildParameters(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+            ),
+            additionalFileRules: [],
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
             pkgConfigDirectories: [],
-            sdkRootPath: UserToolchain.default.sdkRootPath,
             pluginScriptRunner: pluginRunner,
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
@@ -205,7 +206,7 @@ class PluginInvocationTests: XCTestCase {
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
-        let (evalTarget, evalResults) = try XCTUnwrap(results.first)
+        let (evalTargetID, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
 
         XCTAssertEqual(evalResults.count, 1)
@@ -873,20 +874,20 @@ class PluginInvocationTests: XCTestCase {
             // Invoke build tool plugin
             do {
                 let outputDir = packageDir.appending(".build")
-                let builtToolsDir = outputDir.appending("debug")
                 let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
-                    builtToolsDir: builtToolsDir,
-                    buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    buildParameters: mockBuildParameters(
+                        environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    ),
+                    additionalFileRules: [],
                     toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                     pkgConfigDirectories: [],
-                    sdkRootPath: UserToolchain.default.sdkRootPath,
                     pluginScriptRunner: pluginScriptRunner,
                     observabilityScope: observability.topScope,
                     fileSystem: localFileSystem
                 )
 
-                let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
+                let diags = result.flatMap(\.value.results).flatMap(\.diagnostics)
                 testDiagnostics(diags) { result in
                     let msg = "a prebuild command cannot use executables built from source, including executable target 'Y'"
                     result.check(diagnostic: .contains(msg), severity: .error)
@@ -1066,7 +1067,10 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple) async throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]  {
+    func checkParseArtifactsPlatformCompatibility(
+        artifactSupportedTriples: [Triple],
+        hostTriple: Triple
+    ) async throws -> [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1207,18 +1211,18 @@ class PluginInvocationTests: XCTestCase {
 
             // Invoke build tool plugin
             let outputDir = packageDir.appending(".build")
-            let builtToolsDir = outputDir.appending("debug")
             return try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
-                builtToolsDir: builtToolsDir,
-                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                buildParameters: mockBuildParameters(
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                ),
+                additionalFileRules: [],
                 toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: [],
-                sdkRootPath: UserToolchain.default.sdkRootPath,
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem
-            )
+            ).mapValues(\.results)
         }
     }
 

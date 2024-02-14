@@ -26,7 +26,7 @@ extension SwiftPackageTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
-        @Option(help: "json | text")
+        @Option(help: "json | text | mermaid")
         var type: DescribeMode = .text
         
         func run(_ swiftTool: SwiftTool) async throws {
@@ -57,6 +57,8 @@ extension SwiftPackageTool {
                 var encoder = PlainTextEncoder()
                 encoder.formattingOptions = [.prettyPrinted]
                 data = try encoder.encode(desc)
+            case .mermaid:
+                data = Data(MermaidPackageSerializer(package: package).renderedMarkdown.utf8)
             }
             print(String(decoding: data, as: UTF8.self))
         }
@@ -66,6 +68,8 @@ extension SwiftPackageTool {
             case json
             /// Human readable format (not guaranteed to be parsable).
             case text
+            /// Mermaid flow charts format
+            case mermaid
         }
     }
 }

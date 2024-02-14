@@ -51,3 +51,7 @@ extension GraphLoadingNode: CustomStringConvertible {
         }
     }
 }
+
+extension GraphLoadingNode: Identifiable {
+    public var id: PackageIdentity { self.identity }
+}
