@@ -260,16 +260,25 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     private static var didEmitUnexpressedDependencies = false
 
-    // TODO: Currently this function will only match frameworks.
     private func detectUnexpressedDependencies() {
+        return self.detectUnexpressedDependencies(
+            // Note: once we switch from the toolchain global metadata, we will have to ensure we can match the right metadata used during the build.
+            availableLibraries: self.productsBuildParameters.toolchain.providedLibraries,
+            targetDependencyMap: self.buildDescription.targetDependencyMap
+        )
+    }
+
+    // TODO: Currently this function will only match frameworks.
+    internal func detectUnexpressedDependencies(
+        availableLibraries: [LibraryMetadata],
+        targetDependencyMap: [String: [String]]?
+    ) {
         // Ensure we only emit these once, regardless of how many builds are being done.
         guard !Self.didEmitUnexpressedDependencies else {
             return
         }
         Self.didEmitUnexpressedDependencies = true
 
-        // Note: once we switch from the toolchain global metadata, we will have to ensure we can match the right metadata used during the build.
-        let availableLibraries = self.productsBuildParameters.toolchain.providedLibraries
         let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: availableLibraries.compactMap {
             if let identity = Set($0.identities.map(\.identity)).spm_only {
                 return ("\($0.productName!).framework", identity)
@@ -278,7 +287,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
         })
 
-        buildDescription.targetDependencyMap?.keys.forEach { targetName in
+        targetDependencyMap?.keys.forEach { targetName in
             let c99name = targetName.spm_mangledToC99ExtendedIdentifier()
             // Since we're analysing post-facto, we don't know which parameters are the correct ones.
             let possibleTempsPaths = [productsBuildParameters, toolsBuildParameters].map {
