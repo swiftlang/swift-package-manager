@@ -65,7 +65,7 @@ final class ContainerProvider {
     /// Get the container for the given identifier, loading it if necessary.
     func getContainer(
         for package: PackageReference,
-        preferPrebuiltLibraries: Bool,
+        availableLibraries: [LibraryMetadata],
         completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
     ) {
         // Return the cached container, if available.
@@ -73,7 +73,7 @@ final class ContainerProvider {
             return completion(.success(container))
         }
 
-        if preferPrebuiltLibraries, let metadata = package.matchingPrebuiltLibrary {
+        if let metadata = package.matchingPrebuiltLibrary(in: availableLibraries) {
             let prebuiltPackageContainer = PrebuiltPackageContainer(metadata: metadata)
             let pubGrubContainer = PubGrubPackageContainer(underlying: prebuiltPackageContainer, pins: self.pins)
             self.containersCache[package] = pubGrubContainer
@@ -89,7 +89,7 @@ final class ContainerProvider {
                 } else {
                     // if prefetch failed, remove from list of prefetches and try again
                     self.prefetches[package] = nil
-                    return self.getContainer(for: package, preferPrebuiltLibraries: false, completion: completion)
+                    return self.getContainer(for: package, availableLibraries: availableLibraries, completion: completion)
                 }
             }
         } else {
@@ -112,9 +112,9 @@ final class ContainerProvider {
     }
 
     /// Starts prefetching the given containers.
-    func prefetch(containers identifiers: [PackageReference], preferPrebuiltLibraries: Bool) {
+    func prefetch(containers identifiers: [PackageReference], availableLibraries: [LibraryMetadata]) {
         let filteredIdentifiers = identifiers.filter {
-            return !preferPrebuiltLibraries || $0.matchingPrebuiltLibrary == nil
+            return $0.matchingPrebuiltLibrary(in: availableLibraries) == nil
         }
         // Process each container.
         for identifier in filteredIdentifiers {

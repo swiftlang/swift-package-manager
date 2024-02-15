@@ -32,6 +32,7 @@ extension PackageGraph {
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
+        availableLibraries: [LibraryMetadata],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
@@ -159,6 +160,7 @@ extension PackageGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
+            availableLibraries: availableLibraries,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -243,6 +245,7 @@ private func createResolvedPackages(
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
+    availableLibraries: [LibraryMetadata],
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -514,18 +517,7 @@ private func createResolvedPackages(
                             t.name != productRef.name
                         }
 
-                        // FIXME: duplication
-                        let identitiesAvailableInSDK = AvailableLibraries.flatMap {
-                            $0.identities.map {
-                                switch $0 {
-                                case .packageIdentity(let scope, let name):
-                                    return PackageIdentity.plain("\(scope)/\(name)")
-                                case .sourceControl(let url):
-                                    return PackageIdentity(url: .init(url))
-                                }
-                            }
-                        }
-
+                        let identitiesAvailableInSDK = availableLibraries.flatMap { $0.identities.map { $0.identity } }
                         // TODO: Do we have to care about "name" vs. identity here?
                         if let name = productRef.package, identitiesAvailableInSDK.contains(PackageIdentity.plain(name)) {
                             // Do not emit any diagnostic.

@@ -12,8 +12,8 @@
 
 import Foundation
 
-public struct LibraryMetadata {
-    public enum Identity: Equatable {
+public struct LibraryMetadata: Decodable {
+    public enum Identity: Equatable, Decodable {
         case packageIdentity(scope: String, name: String)
         case sourceControl(url: URL)
     }
@@ -51,15 +51,3 @@ extension LibraryMetadata.Identity {
         return PackageReference(identity: self.identity, kind: self.kind)
     }
 }
-
-// FIXME: Hard-coded metadata, this should be harvested from the used SDK.
-public let AvailableLibraries: [LibraryMetadata] = [
-    .init(
-        identities: [
-            .sourceControl(url: URL(string: "https://github.com/apple/swift-testing.git")!),
-        ],
-        version: "0.4.0",
-        productName: "Testing",
-        schemaVersion: 1
-    )
-]

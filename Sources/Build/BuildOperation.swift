@@ -267,7 +267,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
         Self.didEmitUnexpressedDependencies = true
 
-        let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: AvailableLibraries.compactMap {
+        // Note: once we switch from the toolchain global metadata, we will have to ensure we can match the right metadata used during the build.
+        let availableLibraries = self.productsBuildParameters.toolchain.providedLibraries
+        let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: availableLibraries.compactMap {
             if let identity = Set($0.identities.map(\.identity)).spm_only {
                 return ("\($0.productName!).framework", identity)
             } else {

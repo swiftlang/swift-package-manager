@@ -88,6 +88,8 @@ public final class UserToolchain: Toolchain {
 
     public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
+    public let providedLibraries: [LibraryMetadata]
+
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
         // FIXME: This is only for SwiftPM development time support. It is OK
@@ -484,7 +486,8 @@ public final class UserToolchain: Toolchain {
         environment: EnvironmentVariables = .process(),
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
-        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil
+        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
+        customProvidedLibraries: [LibraryMetadata]? = nil
     ) throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
@@ -536,6 +539,28 @@ public final class UserToolchain: Toolchain {
             } else {
                 // We *could* eventually make this an error, but not for a few releases.
                 self.installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
+            }
+        }
+
+        if let customProvidedLibraries {
+            self.providedLibraries = customProvidedLibraries
+        } else {
+            let path: AbsolutePath
+            if let developmentPath = Bundle.module.path(forResource: "provided-libraries", ofType: "json") {
+                // During development, we should be able to find the metadata file using `Bundle.module`.
+                path = try AbsolutePath(validating: developmentPath)
+            } else {
+                // When deployed, we can find the metadata file in the toolchain.
+                path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
+            }
+            if localFileSystem.exists(path) {
+                self.providedLibraries = try JSONDecoder.makeWithDefaults().decode(
+                    path: path,
+                    fileSystem: localFileSystem,
+                    as: [LibraryMetadata].self
+                )
+            } else {
+                self.providedLibraries = []
             }
         }
 

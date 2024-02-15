@@ -14,6 +14,6 @@ import PackageGraph
 
 extension PubGrubDependencyResolver {
     public func solve(constraints: [Constraint]) -> Result<[DependencyResolverBinding], Error> {
-        return solve(constraints: constraints, preferPrebuiltLibraries: false)
+        return solve(constraints: constraints, availableLibraries: [], preferPrebuiltLibraries: false)
     }
 }

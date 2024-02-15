@@ -604,6 +604,7 @@ public final class SwiftTool {
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
+                availableLibraries: self.getHostToolchain().providedLibraries,
                 observabilityScope: self.observabilityScope
             )
 
