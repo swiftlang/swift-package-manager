@@ -545,6 +545,10 @@ public final class UserToolchain: Toolchain {
         if let customProvidedLibraries {
             self.providedLibraries = customProvidedLibraries
         } else {
+            // When building with CMake, we need to skip resource support.
+            #if SKIP_RESOURCE_SUPPORT
+            let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
+            #else
             let path: AbsolutePath
             if let developmentPath = Bundle.module.path(forResource: "provided-libraries", ofType: "json") {
                 // During development, we should be able to find the metadata file using `Bundle.module`.
@@ -553,6 +557,7 @@ public final class UserToolchain: Toolchain {
                 // When deployed, we can find the metadata file in the toolchain.
                 path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
             }
+            #endif
             if localFileSystem.exists(path) {
                 self.providedLibraries = try JSONDecoder.makeWithDefaults().decode(
                     path: path,
