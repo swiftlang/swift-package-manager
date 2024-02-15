@@ -70,8 +70,7 @@ public struct ResolvedProduct {
     public init(
         packageIdentity: PackageIdentity,
         product: Product,
-        targets: IdentifiableSet<ResolvedTarget>,
-        buildTriple: BuildTriple = .destination
+        targets: IdentifiableSet<ResolvedTarget>
     ) {
         assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
@@ -106,7 +105,8 @@ public struct ResolvedProduct {
             )
         }
         
-        self.buildTriple = buildTriple
+        self.buildTriple = product.buildTriple
+        self.updateBuildTriplesOfDependencies()
     }
 
     private mutating func updateBuildTriplesOfDependencies() {

@@ -47,7 +47,7 @@ extension Build.BuildPlan {
         observabilityScope: ObservabilityScope
     ) throws {
         try self.init(
-            productsBuildParameters: buildParameters,
+            destinationBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -1718,8 +1718,9 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
+        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
+            buildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1790,7 +1791,7 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule",
             "-g",
         ])
         #elseif os(Windows)
@@ -1846,8 +1847,9 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
+        let buildParameters = mockBuildParameters()
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(),
+            buildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1857,8 +1859,8 @@ final class BuildPlanTests: XCTestCase {
 
         let lib = try result.target(for: "lib").clangTarget()
         XCTAssertEqual(try lib.objects, [
-            AbsolutePath("/path/to/build/debug/lib.build/lib.S.o"),
-            AbsolutePath("/path/to/build/debug/lib.build/lib.c.o"),
+            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/lib.build/lib.S.o"),
+            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/lib.build/lib.c.o"),
         ])
     }
 
@@ -4834,8 +4836,9 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
+        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
+            buildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4851,7 +4854,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path", "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4861,7 +4864,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path", "/path/to/build/\(buildParameters.triple)/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4871,12 +4874,12 @@ final class BuildPlanTests: XCTestCase {
         #if os(macOS)
         XCTAssertMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence]
+            [.anySequence, "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence]
+            [.anySequence, "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
         )
         #endif
 
@@ -4934,8 +4937,9 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
+        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
+            buildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4952,7 +4956,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4963,7 +4967,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4975,7 +4979,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -4984,7 +4988,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5044,8 +5048,9 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
+        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
+            buildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5066,7 +5071,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -5077,7 +5082,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -5089,7 +5094,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5098,7 +5103,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )

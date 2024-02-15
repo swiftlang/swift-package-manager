@@ -903,8 +903,6 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     let observabilityScope: ObservabilityScope
     let platformVersionProvider: PlatformVersionProvider
 
-    private var buildTriple: BuildTriple
-
     init(
         packageIdentity: PackageIdentity,
         target: Target,
@@ -915,8 +913,6 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         self.target = target
         self.observabilityScope = observabilityScope
         self.platformVersionProvider = platformVersionProvider
-
-        self.buildTriple = .destination
     }
 
     override func constructImpl() throws -> ResolvedTarget {

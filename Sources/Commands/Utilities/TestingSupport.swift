@@ -110,7 +110,7 @@ enum TestingSupport {
             args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             let env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getTargetToolchain(),
-                buildParameters: swiftTool.buildParametersForTest(
+                destinationBuildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
@@ -126,7 +126,7 @@ enum TestingSupport {
         #else
         let env = try Self.constructTestEnvironment(
             toolchain: try swiftTool.getTargetToolchain(),
-            buildParameters: swiftTool.buildParametersForTest(
+            destinationBuildParameters: swiftTool.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
@@ -143,7 +143,7 @@ enum TestingSupport {
     /// Creates the environment needed to test related tools.
     static func constructTestEnvironment(
         toolchain: UserToolchain,
-        buildParameters: BuildParameters,
+        destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer]
     ) throws -> EnvironmentVariables {
         var env = EnvironmentVariables.process()

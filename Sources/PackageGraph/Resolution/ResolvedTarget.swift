@@ -166,7 +166,6 @@ public struct ResolvedTarget {
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
         self.buildTriple = underlying.buildTriple
-
         self.updateBuildTriplesOfDependencies()
     }
 

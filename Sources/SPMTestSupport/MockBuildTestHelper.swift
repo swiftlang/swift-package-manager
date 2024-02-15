@@ -74,7 +74,7 @@ public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
 public func mockBuildParameters(
-    buildPath: AbsolutePath = "/path/to/build",
+    buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
@@ -89,7 +89,7 @@ public func mockBuildParameters(
     omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     try! BuildParameters(
-        dataPath: buildPath,
+        dataPath: buildPath ?? AbsolutePath("/path/to/build").appending(triple.tripleString),
         configuration: config,
         toolchain: toolchain,
         triple: triple,

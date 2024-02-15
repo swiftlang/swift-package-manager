@@ -65,7 +65,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// Path to the link filelist file.
     var linkFileListPath: AbsolutePath {
-        self.tempsPath.appending("Objects.LinkFileList")
+        print(self.product.name)
+        return self.tempsPath.appending("Objects.LinkFileList")
     }
 
     /// File system reference.
@@ -346,7 +347,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
-            args += try ["-L", buildParameters.toolchain.hostLibDir.pathString]
+            args += try ["-L", destinationBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 
