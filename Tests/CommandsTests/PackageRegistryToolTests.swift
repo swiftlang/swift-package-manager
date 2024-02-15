@@ -15,6 +15,7 @@ import Commands
 import Foundation
 import PackageLoading
 import PackageModel
+import PackageRegistry
 @testable import PackageRegistryTool
 import PackageSigning
 import SPMTestSupport
@@ -107,6 +108,19 @@ final class PackageRegistryToolTests: CommandsTestCase {
             // Set new default registry
             do {
                 try execute(["set", "\(customRegistryBaseURL)"], packagePath: packageRoot)
+
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
+                XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
+                    "\(customRegistryBaseURL)"
+                )
+                XCTAssertEqual(json["version"], .int(1))
+            }
+
+            // Set default registry with allow-insecure-http option
+            do {
+                try execute(["set", "\(customRegistryBaseURL)", "--allow-insecure-http"], packagePath: packageRoot)
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -212,6 +226,40 @@ final class PackageRegistryToolTests: CommandsTestCase {
             XCTAssertThrowsError(try execute(["set", "invalid"], packagePath: packageRoot))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+        }
+    }
+
+    func testSetInsecureURL() throws {
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+            let configurationFilePath = AbsolutePath(
+                ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+
+            // Set default registry
+            XCTAssertThrowsError(try execute(["set", "http://package.example.com"], packagePath: packageRoot))
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+        }
+    }
+
+    func testSetAllowedInsecureURL() throws {
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+            let configurationFilePath = AbsolutePath(
+                ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+
+            // Set default registry
+            try execute(["set", "http://package.example.com", "--allow-insecure-http"], packagePath: packageRoot)
+
+            XCTAssertTrue(localFileSystem.exists(configurationFilePath))
         }
     }
 
@@ -399,6 +447,133 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try localFileSystem.stripFirstLevel(of: extractPath)
             XCTAssertFileExists(extractPath.appending("Package.swift"))
             return extractPath
+        }
+    }
+
+    func testPublishingToHTTPRegistry() throws {
+        #if os(Linux)
+        // needed for archiving
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
+        let packageIdentity = "test.my-package"
+        let version = "0.1.0"
+        let registryURL = "http://packages.example.com"
+
+        _ = try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(workingDirectory)
+
+            XCTAssertThrowsError(try SwiftPM.Registry.execute(
+                [
+                    "publish",
+                    packageIdentity,
+                    version,
+                    "--url=\(registryURL)",
+                    "--scratch-directory=\(workingDirectory.pathString)",
+                    "--package-path=\(packageDirectory.pathString)",
+                    "--dry-run",
+                ]
+            ))
+        }
+    }
+
+    func testPublishingToAllowedHTTPRegistry() throws {
+        #if os(Linux)
+        // needed for archiving
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
+        let packageIdentity = "test.my-package"
+        let version = "0.1.0"
+        let registryURL = "http://packages.example.com"
+
+        // with no authentication configured for registry
+        _ = try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(workingDirectory)
+
+            try SwiftPM.Registry.execute(
+                [
+                    "publish",
+                    packageIdentity,
+                    version,
+                    "--url=\(registryURL)",
+                    "--scratch-directory=\(workingDirectory.pathString)",
+                    "--package-path=\(packageDirectory.pathString)",
+                    "--allow-insecure-http",
+                    "--dry-run",
+                ]
+            )
+        }
+
+        // with authentication configured for registry
+        _ = try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(workingDirectory)
+
+            let configurationFilePath = AbsolutePath(
+                ".swiftpm/configuration/registries.json",
+                relativeTo: packageDirectory
+            )
+
+            try localFileSystem.createDirectory(configurationFilePath.parentDirectory, recursive: true)
+            var configuration = RegistryConfiguration()
+            try configuration.add(authentication: .init(type: .basic), for: URL(registryURL))
+            try localFileSystem.writeFileContents(configurationFilePath, data: JSONEncoder().encode(configuration))
+
+            XCTAssertThrowsError(try SwiftPM.Registry.execute(
+                [
+                    "publish",
+                    packageIdentity,
+                    version,
+                    "--url=\(registryURL)",
+                    "--scratch-directory=\(workingDirectory.pathString)",
+                    "--package-path=\(packageDirectory.pathString)",
+                    "--allow-insecure-http",
+                    "--dry-run",
+                ]
+            ))
         }
     }
 
@@ -903,13 +1078,18 @@ final class PackageRegistryToolTests: CommandsTestCase {
         }
     }
 
+    func testLoginRequiresHTTPS() {
+        let registryURL = URL(string: "http://packages.example.com")!
+
+        XCTAssertThrowsError(try SwiftPM.Registry.execute(["login", "--url", registryURL.absoluteString]))
+    }
+
     func testCreateLoginURL() {
         let registryURL = URL(string: "https://packages.example.com")!
 
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: nil).absoluteString, "https://packages.example.com/login")
 
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com/secret-sign-in")
-
     }
 
     func testCreateLoginURLMaintainsPort() {
@@ -918,6 +1098,18 @@ final class PackageRegistryToolTests: CommandsTestCase {
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: nil).absoluteString, "https://packages.example.com:8081/login")
 
         XCTAssertEqual(try SwiftPackageRegistryTool.Login.loginURL(from: registryURL, loginAPIPath: "/secret-sign-in").absoluteString, "https://packages.example.com:8081/secret-sign-in")
+    }
+
+    func testValidateRegistryURL() throws {
+        // Valid
+        try URL(string: "https://packages.example.com")!.validateRegistryURL()
+        try URL(string: "http://packages.example.com")!.validateRegistryURL(allowHTTP: true)
+
+        // Invalid
+        XCTAssertThrowsError(try URL(string: "http://packages.example.com")!.validateRegistryURL())
+        XCTAssertThrowsError(try URL(string: "http://packages.example.com")!.validateRegistryURL(allowHTTP: false))
+        XCTAssertThrowsError(try URL(string: "ssh://packages.example.com")!.validateRegistryURL())
+        XCTAssertThrowsError(try URL(string: "ftp://packages.example.com")!.validateRegistryURL(allowHTTP: true))
     }
 
     private func testRoots() throws -> [[UInt8]] {

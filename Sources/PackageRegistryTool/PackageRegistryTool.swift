@@ -54,6 +54,9 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         @Option(help: "Associate the registry with a given scope")
         var scope: String?
 
+        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL")
+        var allowInsecureHTTP: Bool = false
+
         @Argument(help: "The registry URL")
         var url: URL
 
@@ -62,15 +65,16 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         }
 
         func run(_ swiftTool: SwiftTool) async throws {
-            try self.registryURL.validateRegistryURL()
+            try self.registryURL.validateRegistryURL(allowHTTP: self.allowInsecureHTTP)
 
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let set: (inout RegistryConfiguration) throws -> Void = { configuration in
+                let registry = Registry(url: self.registryURL, supportsAvailability: false)
                 if let scope {
-                    configuration.scopedRegistries[scope] = .init(url: self.registryURL, supportsAvailability: false)
+                    configuration.scopedRegistries[scope] = registry
                 } else {
-                    configuration.defaultRegistry = .init(url: self.registryURL, supportsAvailability: false)
+                    configuration.defaultRegistry = registry
                 }
             }
 
@@ -161,8 +165,8 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
 }
 
 extension URL {
-    func validateRegistryURL() throws {
-        guard self.scheme == "https" else {
+    func validateRegistryURL(allowHTTP: Bool = false) throws {
+        guard self.scheme == "https" || (self.scheme == "http" && allowHTTP) else {
             throw SwiftPackageRegistryTool.ValidationError.invalidURL(self)
         }
     }
