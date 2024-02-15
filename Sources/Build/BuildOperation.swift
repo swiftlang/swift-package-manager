@@ -260,6 +260,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     private static var didEmitUnexpressedDependencies = false
 
+    // TODO: Currently this function will only match frameworks.
     private func detectUnexpressedDependencies() {
         // Ensure we only emit these once, regardless of how many builds are being done.
         guard !Self.didEmitUnexpressedDependencies else {
@@ -284,20 +285,19 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 $0.buildPath.appending(component: "\(c99name).build")
             }
 
-            let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap {
-                guard let contents = try? self.fileSystem.readFileContents($0.appending(component: "\(c99name).d")) else {
+            let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
+                guard let contents = try? self.fileSystem.readFileContents(possibleTempsPath.appending(component: "\(c99name).d")) else {
                     return [String]()
                 }
 
                 // FIXME: We need a real makefile deps parser here...
                 let deps = contents.description.split(whereSeparator: { $0.isWhitespace })
                 return deps.filter {
-                    $0.contains("Developer/Platforms/MacOSX.platform") // this is our proxy for "library from the SDK"
+                    !$0.hasPrefix(possibleTempsPath.parentDirectory.pathString)
                 }.compactMap {
                     try? AbsolutePath(validating: String($0))
                 }.compactMap {
-                    // FIXME: Obviously this is macOS specific
-                    $0.components.first(where: { $0.hasSuffix(".framework") })
+                    return $0.components.first(where: { $0.hasSuffix(".framework") })
                 }
             }
 

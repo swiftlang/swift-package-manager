@@ -10,12 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 
 public struct LibraryMetadata: Decodable {
     public enum Identity: Equatable, Decodable {
         case packageIdentity(scope: String, name: String)
-        case sourceControl(url: URL)
+        case sourceControl(url: SourceControlURL)
     }
 
     /// The package from which it was built (e.g., the URL https://github.com/apple/swift-syntax.git)
@@ -34,7 +35,7 @@ extension LibraryMetadata.Identity {
         case .packageIdentity(let scope, let name):
             return PackageIdentity.plain("\(scope)/\(name)")
         case .sourceControl(let url):
-            return PackageIdentity(url: .init(url))
+            return PackageIdentity(url: url)
         }
     }
 

@@ -10,21 +10,28 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageModel
 import struct TSCUtility.Version
 
 /// A package container that can represent a prebuilt library from a package.
 public struct PrebuiltPackageContainer: PackageContainer {
+    private let chosenIdentity: LibraryMetadata.Identity
     private let metadata: LibraryMetadata
 
-    public init(metadata: LibraryMetadata) {
+    public init(metadata: LibraryMetadata) throws {
         self.metadata = metadata
+
+        // FIXME: Unclear what is supposed to happen if we have multiple identities.
+        if let identity = metadata.identities.first {
+            self.chosenIdentity = identity
+        } else {
+            let name = metadata.productName.map { "'\($0)' " } ?? ""
+            throw InternalError("provided library \(name)does not specifiy any identities")
+        }
     }
 
     public var package: PackageReference {
-        // TODO: Unclear what is supposed to happen if we have multiple identities...
-        // TODO: Also we should validate early that there is at least one identity
-        let chosenIdentity = metadata.identities.first!
         return .init(identity: chosenIdentity.identity, kind: chosenIdentity.kind)
     }
 

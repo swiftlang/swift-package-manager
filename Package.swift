@@ -219,7 +219,7 @@ let package = Package(
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
             resources: [
-                .copy("provided-libraries.json"),
+                .copy("InstalledLibrariesSupport/provided-libraries.json"),
             ]
         ),
 

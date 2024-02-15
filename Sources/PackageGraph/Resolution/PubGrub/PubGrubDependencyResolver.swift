@@ -858,13 +858,9 @@ extension PackageReference {
                 return nil
             }
         case .remoteSourceControl(let url):
-            if let url = url.url { // FIXME: Use `SourceControlURL` everywhere
-                return availableLibraries.first(
-                    where: { $0.identities.contains(where: { $0 == .sourceControl(url: url) })
-                    })
-            } else {
-                return nil
-            }
+            return availableLibraries.first(where: {
+                $0.identities.contains(where: { $0 == .sourceControl(url: url) })
+            })
         }
     }
 }

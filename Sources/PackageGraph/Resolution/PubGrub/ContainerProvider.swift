@@ -74,10 +74,14 @@ final class ContainerProvider {
         }
 
         if let metadata = package.matchingPrebuiltLibrary(in: availableLibraries) {
-            let prebuiltPackageContainer = PrebuiltPackageContainer(metadata: metadata)
-            let pubGrubContainer = PubGrubPackageContainer(underlying: prebuiltPackageContainer, pins: self.pins)
-            self.containersCache[package] = pubGrubContainer
-            return completion(.success(pubGrubContainer))
+            do {
+                let prebuiltPackageContainer = try PrebuiltPackageContainer(metadata: metadata)
+                let pubGrubContainer = PubGrubPackageContainer(underlying: prebuiltPackageContainer, pins: self.pins)
+                self.containersCache[package] = pubGrubContainer
+                return completion(.success(pubGrubContainer))
+            } catch {
+                return completion(.failure(error))
+            }
         }
 
         if let prefetchSync = self.prefetches[package] {

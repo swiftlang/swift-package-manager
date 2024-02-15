@@ -91,7 +91,11 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
 
             // Match against available prebuilt libraries.
             if let matchingPrebuiltLibrary = package.matchingPrebuiltLibrary(in: availableLibraries) {
-                return completion(.success(PrebuiltPackageContainer(metadata: matchingPrebuiltLibrary)))
+                do {
+                    return completion(.success(try PrebuiltPackageContainer(metadata: matchingPrebuiltLibrary)))
+                } catch {
+                    return completion(.failure(error))
+                }
             }
 
             // As we don't have anything else locally, error out.
