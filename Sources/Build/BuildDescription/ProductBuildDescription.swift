@@ -65,8 +65,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// Path to the link filelist file.
     var linkFileListPath: AbsolutePath {
-        print(self.product.name)
-        return self.tempsPath.appending("Objects.LinkFileList")
+        self.tempsPath.appending("Objects.LinkFileList")
     }
 
     /// File system reference.
