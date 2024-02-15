@@ -497,7 +497,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
 
-
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
             for (_, (target, results)) in buildToolPluginInvocationResults {
