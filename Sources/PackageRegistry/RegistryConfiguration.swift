@@ -401,15 +401,13 @@ extension PackageModel.Registry: Codable {
     private enum CodingKeys: String, CodingKey {
         case url
         case supportsAvailability
-        case allowInsecureHTTP
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(
             url: container.decode(URL.self, forKey: .url),
-            supportsAvailability: container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false,
-            allowInsecureHTTP: container.decodeIfPresent(Bool.self, forKey: .allowInsecureHTTP) ?? false
+            supportsAvailability: container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false
         )
     }
 
@@ -417,7 +415,6 @@ extension PackageModel.Registry: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.url, forKey: .url)
         try container.encode(self.supportsAvailability, forKey: .supportsAvailability)
-        try container.encode(self.allowInsecureHTTP, forKey: .allowInsecureHTTP)
     }
 }
 

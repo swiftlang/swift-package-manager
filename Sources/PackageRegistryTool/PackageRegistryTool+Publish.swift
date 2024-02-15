@@ -82,7 +82,7 @@ extension SwiftPackageRegistryTool {
         )
         var certificateChainPaths: [AbsolutePath] = []
 
-        @Flag(name: .customLong("allow-insecure-http"), help: "Allows using a non-HTTPS registry URL")
+        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL")
         var allowInsecureHTTP: Bool = false
 
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")

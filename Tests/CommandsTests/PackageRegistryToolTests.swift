@@ -102,7 +102,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
                     "\(defaultRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.get("allowInsecureHTTP"), false)
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -116,7 +115,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
                     "\(customRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.get("allowInsecureHTTP"), false)
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -130,7 +128,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
                     "\(customRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.get("allowInsecureHTTP"), true)
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -156,7 +153,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string,
                     "\(customRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["foo"]?.get("allowInsecureHTTP"), false)
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -173,12 +169,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string,
                     "\(customRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["foo"]?.get("allowInsecureHTTP"), false)
                 XCTAssertEqual(
                     json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string,
                     "\(customRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["bar"]?.get("allowInsecureHTTP"), false)
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -192,7 +186,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string,
                     "\(customRegistryBaseURL)"
                 )
-                XCTAssertEqual(json["registries"]?.dictionary?["bar"]?.get("allowInsecureHTTP"), false)
                 XCTAssertEqual(json["version"], .int(1))
             }
 

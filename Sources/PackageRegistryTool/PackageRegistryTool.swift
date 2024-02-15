@@ -54,7 +54,7 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         @Option(help: "Associate the registry with a given scope")
         var scope: String?
 
-        @Flag(name: .customLong("allow-insecure-http"), help: "Allows using a non-HTTPS registry URL")
+        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL")
         var allowInsecureHTTP: Bool = false
 
         @Argument(help: "The registry URL")
@@ -70,11 +70,7 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let set: (inout RegistryConfiguration) throws -> Void = { configuration in
-                let registry = Registry(
-                    url: self.registryURL,
-                    supportsAvailability: false,
-                    allowInsecureHTTP: self.allowInqsecureHTTP
-                )
+                let registry = Registry(url: self.registryURL, supportsAvailability: false)
                 if let scope {
                     configuration.scopedRegistries[scope] = registry
                 } else {

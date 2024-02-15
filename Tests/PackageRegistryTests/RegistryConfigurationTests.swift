@@ -18,7 +18,6 @@ import XCTest
 
 private let defaultRegistryBaseURL = URL("https://packages.example.com/")
 private let customRegistryBaseURL = URL("https://custom.packages.example.com/")
-private let httpRegistryBaseURL = URL("http://insecure.packages.example.com/")
 
 final class RegistryConfigurationTests: XCTestCase {
     let encoder = JSONEncoder()
@@ -46,7 +45,7 @@ final class RegistryConfigurationTests: XCTestCase {
 
         configuration.defaultRegistry = .init(url: defaultRegistryBaseURL, supportsAvailability: false)
         configuration.scopedRegistries["foo"] = .init(url: customRegistryBaseURL, supportsAvailability: false)
-        configuration.scopedRegistries["bar"] = .init(url: httpRegistryBaseURL, supportsAvailability: false, allowInsecureHTTP: true)
+        configuration.scopedRegistries["bar"] = .init(url: customRegistryBaseURL, supportsAvailability: false)
 
         configuration.registryAuthentication[defaultRegistryBaseURL.host!] = .init(type: .token)
 
@@ -138,8 +137,7 @@ final class RegistryConfigurationTests: XCTestCase {
                     "url": "\#(customRegistryBaseURL)"
                 },
                 "bar": {
-                    "url": "\#(httpRegistryBaseURL)",
-                    "allowInsecureHTTP": true
+                    "url": "\#(customRegistryBaseURL)"
                 }
             },
             "authentication": {
@@ -199,8 +197,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
         XCTAssertEqual(configuration.defaultRegistry?.url, defaultRegistryBaseURL)
         XCTAssertEqual(configuration.scopedRegistries["foo"]?.url, customRegistryBaseURL)
-        XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, httpRegistryBaseURL)
-        XCTAssertEqual(configuration.scopedRegistries["bar"]?.allowInsecureHTTP, true)
+        XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
         XCTAssertEqual(configuration.security?.default.signing?.onUnsigned, .error)
