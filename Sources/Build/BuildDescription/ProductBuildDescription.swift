@@ -346,7 +346,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
-            args += try ["-L", destinationBuildParameters.toolchain.hostLibDir.pathString]
+            args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 
