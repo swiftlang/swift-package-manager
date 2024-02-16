@@ -60,4 +60,50 @@ final class BuildOperationTests: XCTestCase {
             ["target 'Lunch' has an unexpressed depedency on 'foo'"]
         )
     }
+
+    func testReportedBuildTaskCountMonotonicallyIncreases() throws {
+        try withTemporaryDirectory(prefix: #function, removeTreeOnDeinit: true) { tmp in
+            let productsBuildPath = tmp.appending("products-build")
+            let toolsBuildPath = tmp.appending("tools-build")
+
+            let mainSwift = tmp.appending(components: ["Pkg", "Sources", "exe", "main.swift"])
+            try localFileSystem.writeFileContents(mainSwift, string: "")
+            let clibC = tmp.appending(components: ["Pkg", "Sources", "cLib", "cLib.c",])
+            try localFileSystem.writeFileContents(clibC, string: "")
+            let clibH = tmp.appending(components: ["Pkg", "Sources", "cLib", "include", "cLib.h"])
+            try localFileSystem.writeFileContents(clibH, string: "")
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let buildOp = BuildOperation(
+                productsBuildParameters: mockBuildParameters(buildPath: productsBuildPath),
+                toolsBuildParameters: mockBuildParameters(buildPath: toolsBuildPath),
+                cacheBuildManifest: false,
+                packageGraphLoader: {
+                    try loadPackageGraph(
+                        fileSystem: localFileSystem,
+                        manifests: [
+                            Manifest.createRootManifest(
+                                displayName: "Pkg",
+                                path: "\(tmp.pathString)/Pkg",
+                                targets: [
+                                    TargetDescription(name: "exe", dependencies: ["cLib"]),
+                                    TargetDescription(name: "cLib", dependencies: []),
+                                ]
+                            ),
+                        ],
+                        observabilityScope: observability.topScope
+                    )
+                },
+                additionalFileRules: [],
+                pkgConfigDirectories: [],
+                dependenciesByRootPackageIdentity: [:],
+                targetsByRootPackageIdentity: [:],
+                outputStream: BufferedOutputByteStream(),
+                logLevel: .info,
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
+            try buildOp.build()
+        }
+    }
 }
