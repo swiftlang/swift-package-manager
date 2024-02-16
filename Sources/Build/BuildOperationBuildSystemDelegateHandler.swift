@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import Foundation
@@ -28,7 +29,6 @@ import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStore
 import class TSCUtility.IndexStoreAPI
-import protocol TSCUtility.ProgressAnimationProtocol
 
 #if canImport(llbuildSwift)
 typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
@@ -265,7 +265,14 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 struct Runner {
                     static func main() {
                         \#(testObservabilitySetup)
+                        #if os(WASI)
+                        // FIXME: On WASI, XCTest uses `Task` based waiting not to block the whole process, so
+                        // the `XCTMain` call can return the control and the process will exit by `exit(0)` later.
+                        // This is a workaround until we have WASI threads or swift-testing, which does not block threads.
+                        XCTMain(__allDiscoveredTests())
+                        #else
                         XCTMain(__allDiscoveredTests()) as Never
+                        #endif
                     }
                 }
                 """#
@@ -826,8 +833,10 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
+        // FIXME: This should really happen at the command-level and is just a stopgap measure.
+        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result.result != .failed
         queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[command.name] {
+            if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
                 self.outputStream.flush()

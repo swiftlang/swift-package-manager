@@ -51,6 +51,11 @@ add_library(Basics
   Netrc.swift
   Observability.swift
   OSSignpost.swift
+  ProgressAnimation/NinjaProgressAnimation.swift
+  ProgressAnimation/PercentProgressAnimation.swift
+  ProgressAnimation/ProgressAnimationProtocol.swift
+  ProgressAnimation/SingleLinePercentProgressAnimation.swift
+  ProgressAnimation/ThrottledProgressAnimation.swift
   SQLite.swift
   Sandbox.swift
   SendableTimeInterval.swift

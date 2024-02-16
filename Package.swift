@@ -76,8 +76,8 @@ let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v12),
-        .iOS(.v15)
+        .macOS(.v13),
+        .iOS(.v16)
     ],
     products:
         autoProducts.flatMap {
@@ -154,7 +154,8 @@ let package = Package(
             dependencies: [
                 "Build",
                 "SPMBuildCore"
-            ]
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -386,6 +387,7 @@ let package = Package(
             name: "Commands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "CoreCommands",

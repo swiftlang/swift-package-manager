@@ -121,6 +121,9 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
+
+    @Option(name: .customLong("ignore-lock"), help: .hidden)
+    public var ignoreLock: Bool = false
 }
 
 public struct CachingOptions: ParsableArguments {

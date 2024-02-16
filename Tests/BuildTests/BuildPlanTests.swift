@@ -876,20 +876,26 @@ final class BuildPlanTests: XCTestCase {
             let bSwift = bPath.appending("B.swift")
             let cSwift = cPath.appending("C.swift")
             try localFileSystem.writeFileContents(main, string: "baz();")
-            try localFileSystem.writeFileContents(aSwift, string:
+            try localFileSystem.writeFileContents(
+                aSwift,
+                string:
                 """
                 import B;\
                 import C;\
                 public func baz() { bar() }
                 """
             )
-            try localFileSystem.writeFileContents(bSwift, string:
+            try localFileSystem.writeFileContents(
+                bSwift,
+                string:
                 """
                 import C;
                 public func bar() { foo() }
                 """
             )
-            try localFileSystem.writeFileContents(cSwift, string:
+            try localFileSystem.writeFileContents(
+                cSwift,
+                string:
                 "public func foo() {}"
             )
 
@@ -1047,9 +1053,21 @@ final class BuildPlanTests: XCTestCase {
             try llbuild.generateManifest(at: yaml)
             let contents: String = try fs.readFileContents(yaml)
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
-            XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "Modules", "PkgLib.swiftmodule").escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
-                """))
+            XCTAssertMatch(
+                contents,
+                .contains("""
+                inputs: ["\(
+                    Pkg.appending(components: "Sources", "exe", "main.swift")
+                        .escapedPathString
+                )","\(swiftGetVersionFilePath.escapedPathString)","\(
+                buildPath
+                    .appending(components: "Modules", "PkgLib.swiftmodule").escapedPathString
+                )","\(
+                buildPath
+                    .appending(components: "exe.build", "sources").escapedPathString
+                )"]
+                """)
+            )
         }
 
         do {
@@ -1077,8 +1095,14 @@ final class BuildPlanTests: XCTestCase {
             let buildPath = plan.productsBuildPath
             let swiftGetVersionFilePath = try XCTUnwrap(llbuild.swiftGetVersionFiles.first?.value)
             XCTAssertMatch(contents, .contains("""
-                    inputs: ["\(Pkg.appending(components: "Sources", "exe", "main.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe.build", "sources").escapedPathString)"]
-                """))
+                inputs: ["\(
+                    Pkg.appending(components: "Sources", "exe", "main.swift")
+                        .escapedPathString
+            )","\(swiftGetVersionFilePath.escapedPathString)","\(
+                buildPath
+                    .appending(components: "exe.build", "sources").escapedPathString
+            )"]
+            """))
         }
     }
 
@@ -2043,12 +2067,12 @@ final class BuildPlanTests: XCTestCase {
                 "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
             ] + rpathsForBackdeployment + [
                 "-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
-                 "-Xlinker", "-add_ast_path", "-Xlinker",
-                 buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
-                 "-Xlinker", "-add_ast_path", "-Xlinker",
-                 buildPath.appending(components: "Modules", "FooTests.swiftmodule").pathString,
-                 "-g"
-             ]
+                "-Xlinker", "-add_ast_path", "-Xlinker",
+                buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
+                "-Xlinker", "-add_ast_path", "-Xlinker",
+                buildPath.appending(components: "Modules", "FooTests.swiftmodule").pathString,
+                "-g",
+            ]
         )
         #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
@@ -3623,7 +3647,11 @@ final class BuildPlanTests: XCTestCase {
 
         func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) throws {
             let result = try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(config: config, indexStoreMode: mode),
+                buildParameters: mockBuildParameters(
+                    config: config,
+                    toolchain: try UserToolchain.default,
+                    indexStoreMode: mode
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -3632,17 +3660,10 @@ final class BuildPlanTests: XCTestCase {
             let lib = try result.target(for: "lib").clangTarget()
             let path = StringPattern.equal(result.plan.destinationBuildParameters.indexStore.pathString)
 
-            #if os(macOS)
             XCTAssertMatch(
                 try lib.basicArguments(isCXX: false),
                 [.anySequence, "-index-store-path", path, .anySequence]
             )
-            #else
-            XCTAssertNoMatch(
-                try lib.basicArguments(isCXX: false),
-                [.anySequence, "-index-store-path", path, .anySequence]
-            )
-            #endif
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-index-store-path", path, .anySequence])
@@ -4033,7 +4054,7 @@ final class BuildPlanTests: XCTestCase {
                         .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
                     ]
                 ),
-                try TargetDescription(
+                TargetDescription(
                     name: "MySwiftTests", type: .test,
                     settings: [
                         .init(tool: .swift, kind: .interoperabilityMode(.Cxx)),
@@ -4286,7 +4307,18 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17", "-g", "-Xcc", "-g", .end])
+            XCTAssertMatch(
+                exe,
+                [
+                    .anySequence,
+                    "-DFOO",
+                    "-cxx-interoperability-mode=default",
+                    "-Xcc", "-std=c++17",
+                    "-g",
+                    "-Xcc", "-g",
+                    .end,
+                ]
+            )
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(
@@ -4786,10 +4818,22 @@ final class BuildPlanTests: XCTestCase {
         let suffix = ""
         #endif
         XCTAssertMatch(contents, .contains("""
-                inputs: ["\(PkgA.appending(components: "Sources", "swiftlib", "lib.swift").escapedPathString)","\(swiftGetVersionFilePath.escapedPathString)","\(buildPath.appending(components: "exe\(suffix)").escapedPathString)","\(buildPath.appending(components: "swiftlib.build", "sources").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "swiftlib.build", "lib.swift.o").escapedPathString)","\(buildPath.escapedPathString)
-            """))
-    }
+            inputs: ["\(
+                PkgA.appending(components: "Sources", "swiftlib", "lib.swift")
+                    .escapedPathString
+        )","\(swiftGetVersionFilePath.escapedPathString)","\(
+            buildPath
+                .appending(components: "exe\(suffix)").escapedPathString
+        )","\(
+            buildPath
+                .appending(components: "swiftlib.build", "sources").escapedPathString
+        )"]
+            outputs: ["\(
+                buildPath.appending(components: "swiftlib.build", "lib.swift.o")
+                    .escapedPathString
+        )","\(buildPath.escapedPathString)
+        """))
+        }
 
     func testObjCHeader1() throws {
         let PkgA = AbsolutePath("/PkgA")
@@ -4870,12 +4914,13 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-              "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
-                tool: clang
-                inputs: ["\(buildPath.appending(components: "Modules", "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
-                description: "Compiling Bar main.m"
-            """))
+          "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
+            tool: clang
+            inputs: ["\(buildPath.appending(components: "Modules", "Foo.swiftmodule").escapedPathString)","\(PkgA
+            .appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+            outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
+            description: "Compiling Bar main.m"
+        """))
     }
 
     func testObjCHeader2() throws {
@@ -4979,12 +5024,13 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
-                 tool: clang
-                 inputs: ["\(buildPath.appending(components: "Modules", "Foo.swiftmodule").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
-                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
-                 description: "Compiling Bar main.m"
-             """))
+          "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
+            tool: clang
+            inputs: ["\(buildPath.appending(components: "Modules", "Foo.swiftmodule").escapedPathString)","\(PkgA
+            .appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+            outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
+            description: "Compiling Bar main.m"
+        """))
     }
 
     func testObjCHeader3() throws {
@@ -5094,12 +5140,15 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-               "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
-                 tool: clang
-                 inputs: ["\(buildPath.appending(components: "\(dynamicLibraryPrefix)Foo\(dynamicLibraryExtension)").escapedPathString)","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
-                 outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
-                 description: "Compiling Bar main.m"
-             """))
+          "\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)":
+            tool: clang
+            inputs: ["\(
+                buildPath.appending(components: "\(dynamicLibraryPrefix)Foo\(dynamicLibraryExtension)")
+                    .escapedPathString
+        )","\(PkgA.appending(components: "Sources", "Bar", "main.m").escapedPathString)"]
+            outputs: ["\(buildPath.appending(components: "Bar.build", "main.m.o").escapedPathString)"]
+            description: "Compiling Bar main.m"
+        """))
     }
 
     func testModulewrap() throws {
@@ -5151,21 +5200,39 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
         let contents: String = try fs.readFileContents(yaml)
         XCTAssertMatch(contents, .contains("""
-              "\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)"]
-                description: "Wrapping AST for exe for debugging"
-                args: ["\(result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
-            """))
+          "\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)":
+            tool: shell
+            inputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule").escapedPathString)"]
+            outputs: ["\(buildPath.appending(components: "exe.build", "exe.swiftmodule.o").escapedPathString)"]
+            description: "Wrapping AST for exe for debugging"
+            args: ["\(
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath
+                    .escapedPathString
+        )","-modulewrap","\(buildPath.appending(
+            components: "exe.build",
+            "exe.swiftmodule"
+        ).escapedPathString)","-o","\(
+            buildPath.appending(components: "exe.build", "exe.swiftmodule.o")
+                .escapedPathString
+        )","-target","x86_64-unknown-linux-gnu"]
+        """))
         XCTAssertMatch(contents, .contains("""
-              "\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "Modules", "lib.swiftmodule").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)"]
-                description: "Wrapping AST for lib for debugging"
-                args: ["\(result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.escapedPathString)","-modulewrap","\(buildPath.appending(components: "Modules", "lib.swiftmodule").escapedPathString)","-o","\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)","-target","x86_64-unknown-linux-gnu"]
-            """))
+          "\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)":
+            tool: shell
+            inputs: ["\(buildPath.appending(components: "Modules", "lib.swiftmodule").escapedPathString)"]
+            outputs: ["\(buildPath.appending(components: "lib.build", "lib.swiftmodule.o").escapedPathString)"]
+            description: "Wrapping AST for lib for debugging"
+            args: ["\(
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath
+                    .escapedPathString
+        )","-modulewrap","\(buildPath.appending(
+            components: "Modules",
+            "lib.swiftmodule"
+        ).escapedPathString)","-o","\(
+            buildPath.appending(components: "lib.build", "lib.swiftmodule.o")
+                .escapedPathString
+        )","-target","x86_64-unknown-linux-gnu"]
+        """))
     }
 
     func testArchiving() throws {
@@ -5215,32 +5282,94 @@ final class BuildPlanTests: XCTestCase {
         let contents: String = try fs.readFileContents(yaml)
 
         if result.plan.destinationBuildParameters.triple.isWindows() {
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                args: ["\(result.plan.destinationBuildParameters.toolchain.librarianPath.escapedPathString)","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
-            """))
+            XCTAssertMatch(
+                contents,
+                .contains("""
+                "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(
+                        buildPath.appending(components: "rary.build", "rary.swift.o")
+                            .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.build", "rary.swiftmodule.o")
+                        .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(
+                        result.plan.destinationBuildParameters.toolchain.librarianPath
+                            .escapedPathString
+                    )","/LIB","/OUT:\(
+                    buildPath.appending(components: "library.a")
+                        .escapedPathString
+                    )","@\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                """)
+            )
         } else if result.plan.destinationBuildParameters.triple.isDarwin() {
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                args: ["\(result.plan.destinationBuildParameters.toolchain.librarianPath.escapedPathString)","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
-            """))
-        } else {    // assume `llvm-ar` is the librarian
-            XCTAssertMatch(contents, .contains("""
-              "C.rary-debug.a":
-                tool: shell
-                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString)","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString)","\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
-                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
-                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
-                args: ["\(result.plan.destinationBuildParameters.toolchain.librarianPath.escapedPathString)","crs","\(buildPath.appending(components: "library.a").escapedPathString)","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString)"]
-            """))
+            XCTAssertMatch(
+                contents,
+                .contains(
+                """
+                "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(
+                        buildPath.appending(components: "rary.build", "rary.swift.o")
+                            .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(
+                        result.plan.destinationBuildParameters.toolchain.librarianPath
+                            .escapedPathString
+                    )","-static","-o","\(
+                    buildPath.appending(components: "library.a")
+                        .escapedPathString
+                    )","@\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                """)
+            )
+        } else { // assume `llvm-ar` is the librarian
+            XCTAssertMatch(
+                contents,
+                .contains(
+                """
+                "C.rary-debug.a":
+                    tool: shell
+                    inputs: ["\(
+                        buildPath.appending(components: "rary.build", "rary.swift.o")
+                            .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.build", "rary.swiftmodule.o")
+                        .escapedPathString
+                    )","\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                    outputs: ["\(buildPath.appending(components: "library.a").escapedPathString)"]
+                    description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString)"
+                    args: ["\(
+                        result.plan.destinationBuildParameters.toolchain.librarianPath
+                            .escapedPathString
+                    )","crs","\(
+                    buildPath.appending(components: "library.a")
+                        .escapedPathString
+                    )","@\(
+                    buildPath.appending(components: "rary.product", "Objects.LinkFileList")
+                        .escapedPathString
+                    )"]
+                """)
+            )
         }
     }
 
@@ -5701,7 +5830,9 @@ final class BuildPlanTests: XCTestCase {
                             "variants": [
                                 {
                                     "path": "all-platforms/mytool",
-                                    "supportedTriples": ["\(artifactTriples.map{ $0.tripleString }.joined(separator: "\", \""))"]
+                                    "supportedTriples": ["\(
+                                        artifactTriples.map(\.tripleString)
+                                            .joined(separator: "\", \""))"]
                                 }
                             ]
                         }
@@ -5838,7 +5969,9 @@ final class BuildPlanTests: XCTestCase {
 
         let yamlContents: String = try fs.readFileContents(yaml)
         let inputs: SerializedJSON = """
-            inputs: ["\(AbsolutePath("/Pkg/Snippets/ASnippet.swift"))","\(swiftGetVersionFilePath)","\(AbsolutePath("/Pkg/.build/debug/Modules/Lib.swiftmodule"))"
+            inputs: ["\(AbsolutePath(
+                "/Pkg/Snippets/ASnippet.swift"
+            ))","\(swiftGetVersionFilePath)","\(AbsolutePath("/Pkg/.build/debug/Modules/Lib.swiftmodule"))"
         """
         XCTAssertMatch(yamlContents, .contains(inputs.underlying))
     }
@@ -6095,5 +6228,77 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
         XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    // testing of deriving dynamic libraries for explicitly linking rdar://108561857
+    func testDerivingDylibs() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/thisPkg/Sources/exe/main.swift",
+            "/fooPkg/Sources/FooLogging/file.swift",
+            "/barPkg/Sources/BarLogging/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "fooPkg",
+                    path: "/fooPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "FooLogging", type: .library(.dynamic), targets: ["FooLogging"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "FooLogging",
+                            dependencies: [.product(name: "BarLogging", package: "barPkg")]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "barPkg",
+                    path: "/barPkg",
+                    products: [
+                        ProductDescription(name: "BarLogging", type: .library(.dynamic), targets: ["BarLogging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "BarLogging", dependencies: []),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "thisPkg",
+                    path: "/thisPkg",
+                    toolsVersion: .v5_8,
+                    dependencies: [
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "exe",
+                            dependencies: [.product(name: "FooLogging", package: "fooPkg"),],
+                            type: .executable
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(3)
+        result.checkTargetsCount(3)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
+        let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
+        XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
     }
 }

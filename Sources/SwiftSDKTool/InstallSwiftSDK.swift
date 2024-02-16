@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+@_spi(SwiftPMInternal)
 import Basics
 import CoreCommands
 import Foundation
@@ -47,7 +48,10 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
             swiftSDKsDirectory: swiftSDKsDirectory,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
-            outputHandler: { print($0.description) }
+            outputHandler: { print($0.description) },
+            downloadProgressAnimation: ProgressAnimation
+                .percent(stream: stdoutStream, verbose: false, header: "Downloading")
+                .throttled(interval: .milliseconds(300))
         )
         try await store.install(
             bundlePathOrURL: bundlePathOrURL,

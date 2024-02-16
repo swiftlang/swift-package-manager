@@ -57,7 +57,7 @@ extension Manifest {
     }
 }
 
-/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifer and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
+/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifier and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
 public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription) throws -> SourceCodeFragment?
 
 

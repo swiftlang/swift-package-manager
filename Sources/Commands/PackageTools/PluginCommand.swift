@@ -319,7 +319,11 @@ struct PluginCommand: SwiftCommand {
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try swiftTool.createBuildSystem(
             explicitBuildSystem: .native,
-            cacheBuildManifest: false
+            cacheBuildManifest: false,
+            // Force all dependencies to be built for the host, to work around the fact that BuildOperation.plan
+            // knows to compile build tool plugin dependencies for the host but does not do the same for command
+            // plugins.
+            productsBuildParameters: buildParameters
         )
         let accessibleTools = try plugin.processAccessibleTools(
             packageGraph: packageGraph,

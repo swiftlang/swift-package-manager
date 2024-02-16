@@ -143,6 +143,12 @@ extension BuildPlan {
             topLevelDependencies = []
         }
 
+        // get the dynamic libraries for explicitly linking rdar://108561857
+        func recursiveDynamicLibraries(for product: ResolvedProduct) throws -> [ResolvedProduct] {
+            let dylibs = try computeDependencies(of: product, buildParameters: buildParameters).dylibs
+            return try dylibs + dylibs.flatMap { try recursiveDynamicLibraries(for: $0) }
+        }
+
         // Sort the product targets in topological order.
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
@@ -175,7 +181,9 @@ extension BuildPlan {
                     return productDependencies
                 case .plugin:
                     return shouldExcludePlugins ? [] : productDependencies
-                case .library(.dynamic), .test, .executable, .snippet, .macro:
+                case .library(.dynamic):
+                    return try recursiveDynamicLibraries(for: product).map { .product($0, conditions: []) }
+                case .test, .executable, .snippet, .macro:
                     return []
                 }
             }
