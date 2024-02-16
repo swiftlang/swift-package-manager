@@ -208,7 +208,8 @@ public final class ClangTargetBuildDescription {
     /// default value (possibly based on the filename suffix).
     public func basicArguments(
         isCXX isCXXOverride: Bool? = .none,
-        isC: Bool = false
+        isC: Bool = false,
+        isASM: Bool = false
     ) throws -> [String] {
         // For now fall back on the hold semantics if the C++ nature isn't specified. This is temporary until clients
         // have been updated.
@@ -259,7 +260,7 @@ public final class ClangTargetBuildDescription {
         args += buildParameters.sanitizers.compileCFlags()
 
         // Add arguments from declared build settings.
-        args += try self.buildSettingsFlags()
+        args += try self.buildSettingsFlags(isASM: isASM)
 
         // Include the path to the resource header unless the arguments are
         // being evaluated for a C file. A C file cannot depend on the resource
@@ -323,8 +324,9 @@ public final class ClangTargetBuildDescription {
 
         let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
         let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
+        let isASM = path.source.extension.map { SupportedLanguageExtension.assemblyExtensions.contains($0) } ?? false
 
-        var args = try basicArguments(isCXX: isCXX, isC: isC)
+        var args = try basicArguments(isCXX: isCXX, isC: isC, isASM: isASM)
 
         args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
 
@@ -345,7 +347,7 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Returns the build flags from the declared build settings.
-    private func buildSettingsFlags() throws -> [String] {
+    private func buildSettingsFlags(isASM: Bool) throws -> [String] {
         let scope = buildParameters.createScope(for: target)
         var flags: [String] = []
 
@@ -359,11 +361,13 @@ public final class ClangTargetBuildDescription {
             "-I\(try AbsolutePath(validating: $0, relativeTo: target.sources.root).pathString)"
         }
 
-        // Other C flags.
-        flags += scope.evaluate(.OTHER_CFLAGS)
+        if (!isASM) {
+            // Other C flags.
+            flags += scope.evaluate(.OTHER_CFLAGS)
 
-        // Other CXX flags.
-        flags += scope.evaluate(.OTHER_CPLUSPLUSFLAGS)
+            // Other CXX flags.
+            flags += scope.evaluate(.OTHER_CPLUSPLUSFLAGS)
+        }
 
         return flags
     }
