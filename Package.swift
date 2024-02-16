@@ -334,7 +334,7 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["SPMBuildCore", "PackageGraph"],
+            dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
             exclude: ["CMakeLists.txt", "CODEOWNERS"]
         ),
         .target(
