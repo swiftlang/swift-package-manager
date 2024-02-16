@@ -463,7 +463,6 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Build",
-                "DriverSupport",
                 "PackageGraph",
                 "PackageLoading",
                 "PackageModel",

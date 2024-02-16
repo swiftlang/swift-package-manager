@@ -17,16 +17,12 @@ add_library(SwiftSDKTool
   ListSwiftSDKs.swift
   RemoveSwiftSDK.swift
   SwiftSDKTool.swift)
-target_link_libraries(SwiftSDKTool
-  PUBLIC
-    ArgumentParser
-    Basics
-    CoreCommands
-    SPMBuildCore
-    PackageModel
-  PRIVATE
-    SwiftDriver)
-
+target_link_libraries(SwiftSDKTool PUBLIC
+  ArgumentParser
+  Basics
+  CoreCommands
+  SPMBuildCore
+  PackageModel)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SwiftSDKTool PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

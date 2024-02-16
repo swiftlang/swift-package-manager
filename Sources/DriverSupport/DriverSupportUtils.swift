@@ -17,12 +17,10 @@ import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
-@_spi(SwiftPMInternal)
 public enum DriverSupport {
     private static var flagsMap = ThreadSafeBox<[String: Set<String>]>()
 
     /// This checks _frontend_ supported flags, which are not necessarily supported in the driver.
-    @_spi(SwiftPMInternal)
     public static func checkSupportedFrontendFlags(
         flags: Set<String>,
         toolchain: PackageModel.Toolchain,
@@ -86,7 +84,6 @@ public enum DriverSupport {
         }
     }
 
-    @_spi(SwiftPMInternal)
     public static func isPackageNameSupported(toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
         DriverSupport.checkToolchainDriverFlags(flags: ["-package-name"], toolchain: toolchain, fileSystem: fileSystem)
     }
