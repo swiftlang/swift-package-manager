@@ -12,7 +12,10 @@
 
 import Basics
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import PackageModel
+
 import OrderedCollections
 import SPMBuildCore
 
@@ -272,20 +275,17 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += ["@\(self.linkFileListPath.pathString)"]
 
         if containsSwiftTargets {
-            // A product is embedded if all of its static targets are embedded.
-            var isEmbeddedProduct = true
-            
+            // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
+            // duplicates with `OrderedSet`.
+            var experimentalFeatures = OrderedSet<String>()
             for target in self.product.targets {
-                let flags = self.buildParameters.createScope(for: target).evaluate(.OTHER_SWIFT_FLAGS)
-
-                // FIXME: update this comparison to use `contains` on `Collection` when macOS 13 is available.
-                if !flags.joined(separator: " ").contains("-enable-experimental-feature Embedded") {
-                    isEmbeddedProduct = false
-                    break
+                let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
+                for case let .enableExperimentalFeature(feature) in swiftSettings.map(\.kind)  {
+                    experimentalFeatures.append(feature)
                 }
             }
-            if isEmbeddedProduct {
-                args += ["-enable-experimental-feature", "Embedded"]
+            for feature in experimentalFeatures {
+                args += ["-enable-experimental-feature", feature]
             }
 
             // Embed the swift stdlib library path inside tests and executables on Darwin.

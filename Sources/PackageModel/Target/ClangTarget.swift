@@ -53,6 +53,7 @@ public final class ClangTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
+        buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         usesUnsafeFlags: Bool
     ) throws {
         guard includeDir.isDescendantOfOrEqual(to: sources.root) else {
@@ -76,6 +77,7 @@ public final class ClangTarget: Target {
             dependencies: dependencies,
             packageAccess: false,
             buildSettings: buildSettings,
+            buildSettingsDescription: buildSettingsDescription,
             pluginUsages: [],
             usesUnsafeFlags: usesUnsafeFlags
         )

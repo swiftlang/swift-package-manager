@@ -41,6 +41,7 @@ public final class BinaryTarget: Target {
             dependencies: [],
             packageAccess: false,
             buildSettings: .init(),
+            buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
         )
