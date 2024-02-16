@@ -275,7 +275,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         )
     }
 
-    /// Create a build plan with a package graph and explicitly distinct build parameters for products and tools.
+    /// Create a build plan with a package graph and explicitly distinct build parameters for destination platform and
+    /// tools platform.
     public init(
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
