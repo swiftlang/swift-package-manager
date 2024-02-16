@@ -12,6 +12,7 @@ target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics
   Build
+  DriverSupport
   PackageGraph
   PackageLoading
   PackageModel
