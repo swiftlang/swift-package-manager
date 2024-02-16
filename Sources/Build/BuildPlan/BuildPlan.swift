@@ -236,7 +236,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// ObservabilityScope with which to emit diagnostics
     let observabilityScope: ObservabilityScope
 
-    @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
+    @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:)")
     public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
@@ -253,6 +253,23 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:fileSystem:observabilityScope:)")
+    public convenience init(
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
+        graph: PackageGraph,
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.init(
+            destinationBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
