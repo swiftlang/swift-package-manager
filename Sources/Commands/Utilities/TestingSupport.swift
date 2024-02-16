@@ -134,7 +134,7 @@ enum TestingSupport {
         #else
         let env = try Self.constructTestEnvironment(
             toolchain: try swiftTool.getTargetToolchain(),
-            defaultBuildParameters: swiftTool.buildParametersForTest(
+            destinationBuildParameters: swiftTool.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
