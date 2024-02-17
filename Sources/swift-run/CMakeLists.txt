@@ -9,7 +9,8 @@
 add_executable(swift-run
   main.swift)
 target_link_libraries(swift-run PRIVATE
-  Commands)
+  Commands
+  SwiftDriver)
 
 install(TARGETS swift-run
   RUNTIME DESTINATION bin)

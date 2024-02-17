@@ -9,9 +9,12 @@
 add_library(SourceKitLSPAPI STATIC
   BuildDescription.swift
   PluginTargetBuildDescription.swift)
-target_link_libraries(SourceKitLSPAPI PUBLIC
-  Build
-  SPMBuildCore)
+target_link_libraries(SourceKitLSPAPI 
+  PUBLIC
+    Build
+    SPMBuildCore
+  PRIVATE
+    SwiftDriver)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SourceKitLSPAPI PROPERTIES

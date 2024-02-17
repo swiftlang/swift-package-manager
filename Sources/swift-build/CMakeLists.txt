@@ -9,7 +9,8 @@
 add_executable(swift-build
     main.swift)
 target_link_libraries(swift-build PRIVATE
-    Commands)
+    Commands
+    SwiftDriver)
 
 install(TARGETS swift-build
   DESTINATION bin)

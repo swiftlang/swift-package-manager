@@ -9,7 +9,8 @@
 add_executable(swift-experimental-sdk
   Entrypoint.swift)
 target_link_libraries(swift-experimental-sdk PRIVATE
-  SwiftSDKTool)
+  SwiftSDKTool
+  SwiftDriver)
 
 target_compile_options(swift-experimental-sdk PRIVATE
   -parse-as-library)
