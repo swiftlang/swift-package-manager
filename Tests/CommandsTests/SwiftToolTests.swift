@@ -255,7 +255,7 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
         let explicitDwarf = try SwiftTool.createSwiftToolForTest(options: explicitDwarfOptions)
         plan = try BuildPlan(
-            productsBuildParameters: explicitDwarf.productsBuildParameters,
+            destinationBuildParameters: explicitDwarf.productsBuildParameters,
             toolsBuildParameters: explicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -270,7 +270,7 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitCodeView = try SwiftTool.createSwiftToolForTest(options: explicitCodeViewOptions)
 
         plan = try BuildPlan(
-            productsBuildParameters: explicitCodeView.productsBuildParameters,
+            destinationBuildParameters: explicitCodeView.productsBuildParameters,
             toolsBuildParameters: explicitCodeView.productsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -293,7 +293,7 @@ final class SwiftToolTests: CommandsTestCase {
         let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
         let implicitDwarf = try SwiftTool.createSwiftToolForTest(options: implicitDwarfOptions)
         plan = try BuildPlan(
-            productsBuildParameters: implicitDwarf.productsBuildParameters,
+            destinationBuildParameters: implicitDwarf.productsBuildParameters,
             toolsBuildParameters: implicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -306,7 +306,7 @@ final class SwiftToolTests: CommandsTestCase {
         let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
         let explicitNoDebugInfo = try SwiftTool.createSwiftToolForTest(options: explicitNoDebugInfoOptions)
         plan = try BuildPlan(
-            productsBuildParameters: explicitNoDebugInfo.productsBuildParameters,
+            destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
             toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,

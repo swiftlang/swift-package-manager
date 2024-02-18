@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -98,6 +98,15 @@ public final class PackageGraphResult {
         body(ResolvedTargetResult(target))
     }
 
+    public func checkTargets(
+        _ name: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: ([ResolvedTargetResult]) -> Void
+    ) {
+        body(graph.allTargets.filter { $0.name == name }.map(ResolvedTargetResult.init))
+    }
+
     public func checkProduct(
         _ name: String,
         file: StaticString = #file,
@@ -149,7 +158,7 @@ public final class PackageGraphResult {
 }
 
 public final class ResolvedTargetResult {
-    private let target: ResolvedTarget
+    let target: ResolvedTarget
 
     init(_ target: ResolvedTarget) {
         self.target = target
@@ -176,7 +185,9 @@ public final class ResolvedTargetResult {
     }
 
     public func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
-        let targetPlatforms = Dictionary(uniqueKeysWithValues: target.supportedPlatforms.map({ ($0.platform.name, $0.version.versionString) }))
+        let targetPlatforms = Dictionary(
+            uniqueKeysWithValues: target.supportedPlatforms.map { ($0.platform.name, $0.version.versionString) }
+        )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
@@ -187,15 +198,23 @@ public final class ResolvedTargetResult {
             return self.target.getSupportedPlatform(for: platform, usingXCTest: self.target.type == .test)
         }
         let targetPlatforms = Dictionary(
-            uniqueKeysWithValues: derived
-                .map { ($0.platform.name, $0.version.versionString) }
+            uniqueKeysWithValues: derived.map { ($0.platform.name, $0.version.versionString) }
         )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
-    public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
-        let platform = target.getSupportedPlatform(for: platform, usingXCTest: target.type == .test)
+    public func checkDerivedPlatformOptions(
+        _ platform: PackageModel.Platform,
+        options: [String],
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        let platform = self.target.getSupportedPlatform(for: platform, usingXCTest: target.type == .test)
         XCTAssertEqual(platform.options, options, file: file, line: line)
+    }
+
+    public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(self.target.buildTriple, buildTriple, file: file, line: line)
     }
 }
 
@@ -216,6 +235,28 @@ public final class ResolvedTargetDependencyResult {
         line: UInt = #line
     ) {
         XCTAssert(!dependency.conditions.allSatisfy({ $0.satisfies(environment) }), file: file, line: line)
+    }
+
+    public func checkTarget(
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedTargetResult) -> Void
+    ) {
+        guard case let .target(target, _) = self.dependency else {
+            return XCTFail("Dependency \(dependency) is not a target", file: file, line: line)
+        }
+        body(ResolvedTargetResult(target))
+    }
+
+    public func checkProduct(
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedProductResult) -> Void
+    ) {
+        guard case let .product(product, _) = self.dependency else {
+            return XCTFail("Dependency \(dependency) is not a product", file: file, line: line)
+        }
+        body(ResolvedProductResult(product))
     }
 }
 
@@ -251,6 +292,22 @@ public final class ResolvedProductResult {
     public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
         let platform = product.getSupportedPlatform(for: platform, usingXCTest: product.isLinkingXCTest)
         XCTAssertEqual(platform.options, options, file: file, line: line)
+    }
+
+    public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(self.product.buildTriple, buildTriple, file: file, line: line)
+    }
+
+    public func checkTarget(
+        _ name: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedTargetResult) -> Void
+    ) {
+        guard let target = product.targets.first(where: { $0.name == name }) else {
+            return XCTFail("Target \(name) not found", file: file, line: line)
+        }
+        body(ResolvedTargetResult(target))
     }
 }
 
