@@ -128,7 +128,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
         replace: Bool = false,
         observabilityScope: ObservabilityScope? = nil
     ) throws {
-        try self.put(rawKey: .blob(Data(key)), value: value)
+        try self.put(rawKey: .blob(Data(key)), value: value, observabilityScope: observabilityScope)
     }
 
     public func put(
@@ -137,7 +137,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
         replace: Bool = false,
         observabilityScope: ObservabilityScope? = nil
     ) throws {
-        try self.put(rawKey: .string(key), value: value)
+        try self.put(rawKey: .string(key), value: value, replace: replace, observabilityScope: observabilityScope)
     }
 
     public func get(key: Key) throws -> Value? {
