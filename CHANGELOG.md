@@ -10,7 +10,7 @@ Swift 6.0
 
 * [#7201]
 
-  `// swift-tools-version:` can now be specified on subsequent lines of `Package.swift`, for example when first few lines are required to contain a copyright comment header.
+  `// swift-tools-version:` can now be specified on subsequent lines of `Package.swift`, for example when first few lines are required to contain a licensing comment header.
 
 * [#7118]
 
