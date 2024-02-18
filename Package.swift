@@ -22,17 +22,13 @@ let packageLibraryLinkSettings: [LinkerSetting]
 if let resourceDirPath = ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] {
     swiftpmLinkSettings = [.unsafeFlags([
         "-no-toolchain-stdlib-rpath",
-        "-Xlinker",
-        "-rpath",
-        "-Xlinker",
-        "$ORIGIN/../lib/swift/\(resourceDirPath)",
+        "-Xlinker", "-rpath",
+        "-Xlinker", "$ORIGIN/../lib/swift/\(resourceDirPath)",
     ])]
     packageLibraryLinkSettings = [.unsafeFlags([
         "-no-toolchain-stdlib-rpath",
-        "-Xlinker",
-        "-rpath",
-        "-Xlinker",
-        "$ORIGIN/../../\(resourceDirPath)",
+        "-Xlinker", "-rpath",
+        "-Xlinker", "$ORIGIN/../../\(resourceDirPath)",
     ])]
 } else {
     swiftpmLinkSettings = []

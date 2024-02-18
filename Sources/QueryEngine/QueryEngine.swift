@@ -84,7 +84,7 @@ public actor QueryEngine {
             query.hash(with: &hashFunction)
             let key = hashFunction.finalize()
 
-            if let fileRecord = try resultsCache.get(key) {
+            if let fileRecord = try resultsCache.get(blobKey: key) {
                 hashFunction = SHA512()
                 try await self.fileSystem.withOpenReadableFile(fileRecord.path) {
                     try await $0.hash(with: &hashFunction)
@@ -108,7 +108,7 @@ public actor QueryEngine {
             let result = FileCacheRecord(path: resultPath, hash: resultHash.description)
 
             // FIXME: update `SQLiteBackedCache` to store `resultHash` directly instead of relying on string conversions
-            try self.resultsCache.put(key, value: result)
+            try self.resultsCache.put(blobKey: key, value: result)
 
             return result
         }

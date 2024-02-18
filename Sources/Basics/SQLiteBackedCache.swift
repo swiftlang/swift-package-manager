@@ -123,7 +123,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     }
 
     public func put(
-        _ key: some Sequence<UInt8>,
+        blobKey key: some Sequence<UInt8>,
         value: Value,
         replace: Bool = false,
         observabilityScope: ObservabilityScope? = nil
@@ -151,7 +151,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
         }
     }
 
-    public func get(_ key: some Sequence<UInt8>) throws -> Value? {
+    public func get(blobKey key: some Sequence<UInt8>) throws -> Value? {
         let query = "SELECT value FROM \(self.tableName) WHERE key = ? LIMIT 1;"
         return try self.executeStatement(query) { statement -> Value? in
             try statement.bind([.blob(Data(key))])
