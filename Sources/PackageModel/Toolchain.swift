@@ -43,6 +43,9 @@ public protocol Toolchain {
     /// Configuration from the used toolchain.
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
 
+    /// Metadata for libraries provided by the used toolchain.
+    var providedLibraries: [LibraryMetadata] { get }
+
     /// The root path to the Swift SDK used by this toolchain.
     var sdkRootPath: AbsolutePath? { get }
 

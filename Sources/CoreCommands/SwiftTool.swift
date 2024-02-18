@@ -39,18 +39,16 @@ import Musl
 #endif
 
 import func TSCBasic.exec
+import class TSCBasic.FileLock
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
+import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import class TSCUtility.PercentProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
-import var TSCUtility.verbosity
+import TSCUtility // cannot be scoped because of `String.spm_mangleToC99ExtendedIdentifier()`
 
 typealias Diagnostic = Basics.Diagnostic
 
@@ -80,6 +78,7 @@ public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observab
     -> WorkspaceLoader
 
 public protocol _SwiftCommand {
+    var globalOptions: GlobalOptions { get }
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
@@ -93,8 +92,6 @@ extension _SwiftCommand {
 }
 
 public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
-    var globalOptions: GlobalOptions { get }
-
     func run(_ swiftTool: SwiftTool) throws
 }
 
@@ -108,6 +105,10 @@ extension SwiftCommand {
             workspaceDelegateProvider: self.workspaceDelegateProvider,
             workspaceLoaderProvider: self.workspaceLoaderProvider
         )
+
+        // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
+        swiftTool.setNeedsLocking()
+
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -119,6 +120,8 @@ extension SwiftCommand {
             toolError = error
         }
 
+        swiftTool.releaseLockIfNeeded()
+
         // wait for all observability items to process
         swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -129,14 +132,13 @@ extension SwiftCommand {
 }
 
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
-    var globalOptions: GlobalOptions { get }
-
     func run(_ swiftTool: SwiftTool) async throws
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
 
+    // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
         let swiftTool = try SwiftTool(
             options: globalOptions,
@@ -144,6 +146,10 @@ extension AsyncSwiftCommand {
             workspaceDelegateProvider: self.workspaceDelegateProvider,
             workspaceLoaderProvider: self.workspaceLoaderProvider
         )
+
+        // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
+        swiftTool.setNeedsLocking()
+
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -154,6 +160,8 @@ extension AsyncSwiftCommand {
         } catch {
             toolError = error
         }
+
+        swiftTool.releaseLockIfNeeded()
 
         // wait for all observability items to process
         swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
@@ -396,6 +404,9 @@ public final class SwiftTool {
             return workspace
         }
 
+        // Before creating the workspace, we need to acquire a lock on the build directory.
+        try self.acquireLockIfNeeded()
+
         if options.resolver.skipDependencyUpdate {
             self.observabilityScope.emit(warning: "'--skip-update' option is deprecated and will be removed in a future release")
         }
@@ -447,6 +458,29 @@ public final class SwiftTool {
         _workspace = workspace
         _workspaceDelegate = delegate
         return workspace
+    }
+
+    public func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace()
+        let root = try self.getWorkspaceRoot()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: self.observabilityScope,
+                completion: $0
+            )
+        }
+
+        var identities = [PackageIdentity: [PackageIdentity]]()
+        var targets = [PackageIdentity: [String]]()
+
+        rootManifests.forEach {
+            let identity = PackageIdentity(path: $0.key)
+            identities[identity] = $0.value.dependencies.map(\.identity)
+            targets[identity] = $0.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
+        }
+
+        return (identities, targets)
     }
 
     private func getEditsDirectory() throws -> AbsolutePath {
@@ -570,6 +604,7 @@ public final class SwiftTool {
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
+                availableLibraries: self.getHostToolchain().providedLibraries,
                 observabilityScope: self.observabilityScope
             )
 
@@ -865,6 +900,65 @@ public final class SwiftTool {
     public enum ExecutionStatus {
         case success
         case failure
+    }
+
+    // MARK: - Locking
+
+    // This is used to attempt to prevent accidental misuse of the locking APIs.
+    private enum WorkspaceLockState {
+        case unspecified
+        case needsLocking
+        case locked
+        case unlocked
+    }
+
+    private var workspaceLockState: WorkspaceLockState = .unspecified
+    private var workspaceLock: FileLock?
+
+    fileprivate func setNeedsLocking() {
+        assert(workspaceLockState == .unspecified, "attempting to `setNeedsLocking()` from unexpected state: \(workspaceLockState)")
+        workspaceLockState = .needsLocking
+    }
+
+    fileprivate func acquireLockIfNeeded() throws {
+        guard packageRoot != nil else {
+            return
+        }
+        assert(workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(workspaceLockState)")
+        guard workspaceLock == nil else {
+            throw InternalError("acquireLockIfNeeded() called multiple times")
+        }
+        workspaceLockState = .locked
+
+        let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
+
+        // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
+        do {
+            try workspaceLock.lock(type: .exclusive, blocking: false)
+        } catch let ProcessLockError.unableToAquireLock(errno) {
+            if errno == EWOULDBLOCK {
+                if self.options.locations.ignoreLock {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed".utf8)
+                    self.outputStream.flush()
+                } else {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
+                    self.outputStream.flush()
+
+                    // Only if we fail because there's an existing lock we need to acquire again as blocking.
+                    try workspaceLock.lock(type: .exclusive, blocking: true)
+                }
+            }
+        }
+
+        self.workspaceLock = workspaceLock
+    }
+
+    fileprivate func releaseLockIfNeeded() {
+        // Never having acquired the lock is not an error case.
+        assert(workspaceLockState == .locked || workspaceLockState == .needsLocking, "attempting to `releaseLockIfNeeded()` from unexpected state: \(workspaceLockState)")
+        workspaceLockState = .unlocked
+
+        workspaceLock?.unlock()
     }
 }
 

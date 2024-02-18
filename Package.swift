@@ -217,7 +217,10 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            resources: [
+                .copy("InstalledLibrariesSupport/provided-libraries.json"),
+            ]
         ),
 
         .target(
