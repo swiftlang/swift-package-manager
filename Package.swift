@@ -73,6 +73,16 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
+
+let packageModelResources: [Resource]
+if ProcessInfo.processInfo.environment["SWIFTPM_USE_LIBRARIES_METADATA"] == nil {
+    packageModelResources = []
+} else {
+    packageModelResources = [
+        .copy("InstalledLibrariesSupport/provided-libraries.json"),
+    ]
+}
+
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -218,9 +228,7 @@ let package = Package(
             name: "PackageModel",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
-            resources: [
-                .copy("InstalledLibrariesSupport/provided-libraries.json"),
-            ]
+            resources: packageModelResources
         ),
 
         .target(
