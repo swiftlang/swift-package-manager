@@ -45,7 +45,7 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
-        if target.defaultBuildParameters.driverParameters.useIntegratedSwiftDriver {
+        if target.buildParameters.driverParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
@@ -68,7 +68,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try target.emitCommandLine()
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(target.defaultBuildParameters.toolchain.swiftCompilerPath.pathString)
+        commandLine.append(target.buildParameters.toolchain.swiftCompilerPath.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
         let resolver = try ArgsResolver(fileSystem: target.fileSystem)
@@ -132,7 +132,7 @@ extension LLBuildManifestBuilder {
             // common intermediate dependency modules, such dependencies can lead
             // to cycles in the resulting manifest.
             var manifestNodeInputs: [Node] = []
-            if targetDescription.defaultBuildParameters.driverParameters.useExplicitModuleBuild && !isMainModule(job) {
+            if targetDescription.buildParameters.driverParameters.useExplicitModuleBuild && !isMainModule(job) {
                 manifestNodeInputs = jobInputs
             } else {
                 manifestNodeInputs = (inputs + jobInputs).uniqued()
@@ -192,9 +192,7 @@ extension LLBuildManifestBuilder {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
         let nodes: [ResolvedTarget.Dependency] = try self.plan.targetMap.keys.compactMap {
-            guard let target = self.plan.graph.allTargets[$0] else {
-                throw InternalError("unknown target \($0)")
-            }
+            guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
             return ResolvedTarget.Dependency.target(target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
@@ -287,7 +285,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try targetDescription.emitCommandLine()
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(targetDescription.defaultBuildParameters.toolchain.swiftCompilerPath.pathString)
+        commandLine.append(targetDescription.buildParameters.toolchain.swiftCompilerPath.pathString)
         commandLine.append("-experimental-explicit-module-build")
         let resolver = try ArgsResolver(fileSystem: self.fileSystem)
         let executor = SPMSwiftDriverExecutor(
@@ -378,14 +376,14 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(config: target.defaultBuildParameters.buildConfig)
+        let cmdName = target.target.getCommandName(config: target.buildParameters.buildConfig)
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
             outputs: cmdOutputs,
-            executable: target.defaultBuildParameters.toolchain.swiftCompilerPath,
+            executable: target.buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
@@ -396,7 +394,7 @@ extension LLBuildManifestBuilder {
             sources: target.sources,
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
-            wholeModuleOptimization: target.defaultBuildParameters.configuration == .release,
+            wholeModuleOptimization: target.buildParameters.configuration == .release,
             outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.
         )
     }
@@ -406,7 +404,7 @@ extension LLBuildManifestBuilder {
     ) throws -> [Node] {
         var inputs = target.sources.map(Node.file)
 
-        let swiftVersionFilePath = addSwiftGetVersionCommand(buildParameters: target.defaultBuildParameters)
+        let swiftVersionFilePath = addSwiftGetVersionCommand(buildParameters: target.buildParameters)
         inputs.append(.file(swiftVersionFilePath))
 
         // Add resources node as the input to the target. This isn't great because we
@@ -452,7 +450,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: target.defaultBuildParameters.buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: target.buildParameters.buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 try addStaticTargetInputs(target)
@@ -479,7 +477,7 @@ extension LLBuildManifestBuilder {
         }
 
         for binaryPath in target.libraryBinaryPaths {
-            let path = target.defaultBuildParameters.destinationPath(forBinaryAt: binaryPath)
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
@@ -491,7 +489,7 @@ extension LLBuildManifestBuilder {
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.defaultBuildParameters.buildConfig)))
+            try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.buildParameters.buildConfig)))
         }
 
         return inputs + additionalInputs
@@ -500,7 +498,7 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.defaultBuildParameters.buildConfig)
+        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
         let targetOutput: Node = .virtual(targetName)
 
         self.manifest.addNode(targetOutput, toTarget: targetName)
@@ -509,7 +507,7 @@ extension LLBuildManifestBuilder {
             inputs: cmdOutputs,
             outputs: [targetOutput]
         )
-        if self.plan.graph.isInRootPackages(target.target, satisfying: target.defaultBuildParameters.buildEnvironment) {
+        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
             if !target.isTestTarget {
                 self.addNode(targetOutput, toTarget: .main)
             }
@@ -519,13 +517,13 @@ extension LLBuildManifestBuilder {
 
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
-        guard target.defaultBuildParameters.debuggingStrategy == .modulewrap else { return }
+        guard target.buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
-            target.defaultBuildParameters.toolchain.swiftCompilerPath.pathString,
+            target.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString,
         ]
-        moduleWrapArgs += try target.defaultBuildParameters.tripleArgs(for: target.target)
+        moduleWrapArgs += try target.buildParameters.targetTripleArgs(for: target.target)
         self.manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",

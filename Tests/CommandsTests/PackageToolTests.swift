@@ -1714,15 +1714,9 @@ final class PackageToolTests: CommandsTestCase {
                 """
             )
             let hostTriple = try UserToolchain(swiftSDK: .hostSwiftSDK()).targetTriple
-            let hostTripleString = if hostTriple.isDarwin() {
-                hostTriple.tripleString(forPlatformVersion: "")
-            } else {
-                hostTriple.tripleString
-            }
-
-            try localFileSystem.writeFileContents(
-                packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"),
-                string: """
+            let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"), string:
+                """
                 {   "schemaVersion": "1.0",
                     "artifacts": {
                         "LocalBinaryTool": {
@@ -1738,13 +1732,11 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 """
             )
-            try localFileSystem.writeFileContents(
-                packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"),
-                string: #"print("Hello")"#
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"), string:
+                #"print("Hello")"#
             )
-            try localFileSystem.writeFileContents(
-                packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
-                string: """
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"), string:
+                """
                 import PackagePlugin
                 import Foundation
                 @main
@@ -1800,9 +1792,8 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Create the sample vendored dependency package.
-            try localFileSystem.writeFileContents(
-                packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift"),
-                string: """
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift"), string:
+                """
                 // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
@@ -1828,25 +1819,9 @@ final class PackageToolTests: CommandsTestCase {
                 )
                 """
             )
-            try localFileSystem.writeFileContents(
-                packageDir.appending(
-                    components: "VendoredDependencies",
-                    "HelperPackage",
-                    "Sources",
-                    "HelperLibrary",
-                    "library.swift"
-                ),
-                string: "public func Bar() { }"
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift"), string: "public func Bar() { }"
             )
-            try localFileSystem.writeFileContents(
-                packageDir.appending(
-                    components: "VendoredDependencies",
-                    "HelperPackage",
-                    "Sources",
-                    "RemoteBuiltTool",
-                    "main.swift"
-                ),
-                string: #"print("Hello")"#
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "RemoteBuiltTool", "main.swift"), string: #"print("Hello")"#
             )
 
             // Check that we can invoke the plugin with the "plugin" subcommand.

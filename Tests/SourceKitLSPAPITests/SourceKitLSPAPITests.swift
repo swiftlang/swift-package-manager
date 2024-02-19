@@ -42,38 +42,17 @@ class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+            productsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            toolsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let description = BuildDescription(buildPlan: plan)
 
-        try description.checkArguments(
-            for: "exe",
-            graph: graph,
-            partialArguments: [
-                "/fake/path/to/swiftc",
-                "-module-name", "exe",
-                "-emit-dependencies",
-                "-emit-module",
-                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule"
-            ]
-        )
-        try description.checkArguments(
-            for: "lib",
-            graph: graph,
-            partialArguments: [
-                "/fake/path/to/swiftc",
-                "-module-name", "lib",
-                "-emit-dependencies",
-                "-emit-module",
-                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/Modules/lib.swiftmodule"
-            ]
-        )
+        try description.checkArguments(for: "exe", graph: graph, partialArguments: ["/fake/path/to/swiftc", "-module-name", "exe", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/exe.build/exe.swiftmodule"])
+        try description.checkArguments(for: "lib", graph: graph, partialArguments: ["/fake/path/to/swiftc", "-module-name", "lib", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/Modules/lib.swiftmodule"])
     }
 }
 

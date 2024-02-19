@@ -694,9 +694,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -725,33 +724,33 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #endif
     }
@@ -813,9 +812,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -844,23 +842,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #endif
     }

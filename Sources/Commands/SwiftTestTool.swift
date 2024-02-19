@@ -421,7 +421,7 @@ public struct SwiftTestTool: SwiftCommand {
         let toolchain = try swiftTool.getTargetToolchain()
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
-            destinationBuildParameters: buildParameters,
+            buildParameters: buildParameters,
             sanitizers: globalOptions.build.sanitizers
         )
 
@@ -662,17 +662,13 @@ extension SwiftTestTool {
         // MARK: - swift-testing
 
         private func swiftTestingRun(_ swiftTool: SwiftTool) throws {
-            let buildParameters = try swiftTool.buildParametersForTest(
-                enableCodeCoverage: false,
-                shouldSkipBuilding: sharedOptions.shouldSkipBuilding,
-                library: .swiftTesting
-            )
+            let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false, shouldSkipBuilding: sharedOptions.shouldSkipBuilding, library: .swiftTesting)
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool, buildParameters: buildParameters)
 
             let toolchain = try swiftTool.getTargetToolchain()
             let testEnv = try TestingSupport.constructTestEnvironment(
                 toolchain: toolchain,
-                destinationBuildParameters: buildParameters,
+                buildParameters: buildParameters,
                 sanitizers: globalOptions.build.sanitizers
             )
 
@@ -974,7 +970,7 @@ final class ParallelTestRunner {
 
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: self.toolchain,
-            destinationBuildParameters: self.buildParameters,
+            buildParameters: self.buildParameters,
             sanitizers: self.buildOptions.sanitizers
         )
 

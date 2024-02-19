@@ -70,7 +70,7 @@ extension BuildPlan {
             switch target.underlying {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = self.targetMap[target.id] else {
+                guard case .swift(let description) = targetMap[target.id] else {
                     throw InternalError("unknown target \(target)")
                 }
 
@@ -220,11 +220,9 @@ extension BuildPlan {
                     if product.targets.contains(id: target.id) {
                         staticTargets.append(target)
                     }
-                // Library targets should always be included for the same build triple.
+                // Library targets should always be included.
                 case .library:
-                    if target.buildTriple == product.buildTriple {
-                        staticTargets.append(target)
-                    }
+                    staticTargets.append(target)
                 // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(target)

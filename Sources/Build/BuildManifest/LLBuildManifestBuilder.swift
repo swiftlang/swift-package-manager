@@ -14,8 +14,6 @@ import Basics
 import LLBuildManifest
 import PackageGraph
 import PackageModel
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -324,26 +322,26 @@ extension ResolvedTarget {
     }
 
     public func getLLBuildTargetName(config: String) -> String {
-        "\(self.name)-\(config)\(self.buildTriple.suffix).module"
+        "\(name)-\(config).module"
     }
 
     public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(self.name)-\(config).module-resources"
+        "\(name)-\(config).module-resources"
     }
 }
 
 extension ResolvedProduct {
     public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config)\(self.buildTriple.suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(config)\(self.buildTriple.suffix).dylib"
+        let potentialExecutableTargetName = "\(name)-\(config).exe"
+        let potentialLibraryTargetName = "\(name)-\(config).dylib"
 
         switch type {
         case .library(.dynamic):
             return potentialLibraryTargetName
         case .test:
-            return "\(name)-\(config)\(self.buildTriple.suffix).test"
+            return "\(name)-\(config).test"
         case .library(.static):
-            return "\(name)-\(config)\(self.buildTriple.suffix).a"
+            return "\(name)-\(config).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
@@ -360,7 +358,7 @@ extension ResolvedProduct {
     }
 
     public func getCommandName(config: String) throws -> String {
-        try "C.\(self.getLLBuildTargetName(config: config))\(self.buildTriple.suffix)"
+        try "C." + self.getLLBuildTargetName(config: config)
     }
 }
 
