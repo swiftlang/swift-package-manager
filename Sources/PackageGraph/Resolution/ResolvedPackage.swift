@@ -34,7 +34,7 @@ public struct ResolvedPackage {
     public let underlying: Package
 
     /// The targets contained in the package.
-    public let targets: [ResolvedTarget]
+    public let targets: IdentifiableSet<ResolvedTarget>
 
     /// The products produced by the package.
     public let products: [ResolvedProduct]
@@ -64,8 +64,41 @@ public struct ResolvedPackage {
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlying = underlying
-        self.targets = targets
-        self.products = products
+
+        var processedTargets = IdentifiableSet<ResolvedTarget>(targets)
+        var processedProducts = [ResolvedProduct]()
+        // Make sure that direct macro dependencies of test products are also built for the target triple.
+        // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
+        // and SwiftSyntax to be built for the target triple: https://github.com/apple/swift-package-manager/pull/7349
+        for var product in products {
+            if product.type == .test {
+                var targets = IdentifiableSet<ResolvedTarget>()
+                for var target in product.targets {
+                    var dependencies = [ResolvedTarget.Dependency]()
+                    for dependency in target.dependencies {
+                        switch dependency {
+                        case .target(var target, let conditions) where target.type == .macro:
+                            target.buildTriple = .destination
+                            dependencies.append(.target(target, conditions: conditions))
+                            processedTargets.insert(target)
+                        case .product(var product, let conditions) where product.type == .macro:
+                            product.buildTriple = .destination
+                            dependencies.append(.product(product, conditions: conditions))
+                        default:
+                            dependencies.append(dependency)
+                        }
+                    }
+                    target.dependencies = dependencies
+                    targets.insert(target)
+                }
+                product.targets = targets
+            }
+
+            processedProducts.append(product)
+        }
+
+        self.products = processedProducts
+        self.targets = processedTargets
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms

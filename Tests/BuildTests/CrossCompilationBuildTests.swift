@@ -70,12 +70,17 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let macroProduct = try XCTUnwrap(macroProducts.first)
         XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
 
-        // FIXME: check for  *toolsTriple*
+        // FIXME: check for *toolsTriple*
         let mmioTarget = try XCTUnwrap(plan.targets.first { try $0.swiftTarget().target.name == "MMIO" }?.swiftTarget())
-        let compileArguments = try mmioTarget.compileArguments()
+        let compileArguments = try mmioTarget.emitCommandLine()
         XCTAssertMatch(
             compileArguments,
-            ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", .contains(toolsTriple.tripleString)]
+            [
+                "-I", .equal(mmioTarget.moduleOutputPath.parentDirectory.pathString),
+                .anySequence,
+                "-Xfrontend", "-load-plugin-executable",
+                "-Xfrontend", .contains(toolsTriple.tripleString)
+            ]
         )
     }
 }
