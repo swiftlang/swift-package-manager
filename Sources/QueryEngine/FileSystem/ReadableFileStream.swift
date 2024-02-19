@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import SystemPackage
 
 public enum ReadableFileStream: AsyncSequence {

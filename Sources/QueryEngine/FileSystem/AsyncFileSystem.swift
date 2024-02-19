@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import protocol _Concurrency.Actor
 import protocol Crypto.HashFunction
 import struct SystemPackage.Errno
 import struct SystemPackage.FilePath
