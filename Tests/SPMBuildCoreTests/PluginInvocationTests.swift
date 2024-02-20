@@ -74,7 +74,8 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            graph.check(targets: "Foo", "FooPlugin", "FooTool")
+            // "FooTool" duplicated as it's present for both build tools and end products triples.
+            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
@@ -188,13 +189,13 @@ class PluginInvocationTests: XCTestCase {
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
-        let builtToolsDir = AbsolutePath("/path/to/build/debug")
         let pluginRunner = MockPluginScriptRunner()
+        let buildParameters = mockBuildParameters(
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+        )
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
-            buildParameters: mockBuildParameters(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-            ),
+            buildParameters: buildParameters,
             additionalFileRules: [],
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
             pkgConfigDirectories: [],
@@ -202,6 +203,7 @@ class PluginInvocationTests: XCTestCase {
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
         )
+        let builtToolsDir = AbsolutePath("/path/to/build/\(buildParameters.triple)/debug")
 
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -294,7 +296,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
@@ -671,7 +677,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
+            XCTAssertThrowsError(try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'FooLib' of type 'library' from package 'foopackage'; this dependency is unsupported" {
@@ -747,7 +757,10 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
+            XCTAssertThrowsError(try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope)) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'MyLibrary' of type 'library'; this dependency is unsupported" {
@@ -854,7 +867,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
@@ -1034,7 +1051,11 @@ class PluginInvocationTests: XCTestCase {
             )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
-            let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let graph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             let dict = try await workspace.loadPluginImports(packageGraph: graph)
 
             var count = 0
@@ -1179,7 +1200,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.

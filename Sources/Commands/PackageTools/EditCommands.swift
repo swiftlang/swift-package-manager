@@ -72,6 +72,7 @@ extension SwiftPackageTool {
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftTool.getWorkspaceRoot(),
+                availableLibraries: swiftTool.getHostToolchain().providedLibraries,
                 observabilityScope: swiftTool.observabilityScope
             )
         }

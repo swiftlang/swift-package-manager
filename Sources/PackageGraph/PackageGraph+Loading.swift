@@ -32,6 +32,7 @@ extension PackageGraph {
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
+        availableLibraries: [LibraryMetadata],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
@@ -159,16 +160,17 @@ extension PackageGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
+            availableLibraries: availableLibraries,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
 
-        let rootPackages = resolvedPackages.filter{ root.manifests.values.contains($0.manifest) }
+        let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
         checkAllDependenciesAreUsed(rootPackages, observabilityScope: observabilityScope)
 
         return try PackageGraph(
             rootPackages: rootPackages,
-            rootDependencies: resolvedPackages.filter{ rootDependencies.contains($0.manifest) },
+            rootDependencies: resolvedPackages.filter { rootDependencies.contains($0.manifest) },
             dependencies: requiredDependencies,
             binaryArtifacts: binaryArtifacts
         )
@@ -178,16 +180,16 @@ extension PackageGraph {
 private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], observabilityScope: ObservabilityScope) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
-        let productDependencies = IdentifiableSet(package.targets.flatMap({ target in
-            return target.dependencies.compactMap({ targetDependency in
+        let productDependencies = IdentifiableSet(package.targets.flatMap { target in
+            return target.dependencies.compactMap { targetDependency in
                 switch targetDependency {
                 case .product(let product, _):
                     return product
                 case .target:
                     return nil
                 }
-            })
-        }))
+            }
+        })
 
         for dependency in package.dependencies {
             // We continue if the dependency contains executable products to make sure we don't
@@ -215,7 +217,12 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
-            let dependencyIsUsed = dependency.products.contains(where: { productDependencies.contains(id: $0.id) })
+            let dependencyIsUsed = dependency.products.contains { product in
+                // Don't compare by product ID, but by product name to make sure both build triples as properties of
+                // `ResolvedProduct.ID` are allowed.
+                productDependencies.contains { $0.name == product.name }
+            }
+
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.description))
             }
@@ -243,6 +250,7 @@ private func createResolvedPackages(
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
+    availableLibraries: [LibraryMetadata],
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -272,7 +280,10 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders, observabilityScope: observabilityScope)
+    let moduleAliasingUsed = try resolveModuleAliases(
+        packageBuilders: packageBuilders,
+        observabilityScope: observabilityScope
+    )
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -513,18 +524,24 @@ private func createResolvedPackages(
                         }.map {$0.targets}.flatMap{$0}.filter { t in
                             t.name != productRef.name
                         }
-                        
-                        // Find a product name from the available product dependencies that is most similar to the required product name.
-                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
-                        let error = PackageGraphError.productDependencyNotFound(
-                            package: package.identity.description,
-                            targetName: targetBuilder.target.name,
-                            dependencyProductName: productRef.name,
-                            dependencyPackageName: productRef.package,
-                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                            similarProductName: bestMatchedProductName
-                        )
-                        packageObservabilityScope.emit(error)
+
+                        let identitiesAvailableInSDK = availableLibraries.flatMap { $0.identities.map { $0.identity } }
+                        // TODO: Do we have to care about "name" vs. identity here?
+                        if let name = productRef.package, identitiesAvailableInSDK.contains(PackageIdentity.plain(name)) {
+                            // Do not emit any diagnostic.
+                        } else {
+                            // Find a product name from the available product dependencies that is most similar to the required product name.
+                            let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
+                            let error = PackageGraphError.productDependencyNotFound(
+                                package: package.identity.description,
+                                targetName: targetBuilder.target.name,
+                                dependencyProductName: productRef.name,
+                                dependencyPackageName: productRef.package,
+                                dependencyProductInDecl: !declProductsAsDependency.isEmpty,
+                                similarProductName: bestMatchedProductName
+                            )
+                            packageObservabilityScope.emit(error)
+                        }
                     }
                     continue
                 }
@@ -618,12 +635,12 @@ private func createResolvedPackages(
             observabilityScope.emit(
                 ModuleError.duplicateModule(
                     targetName: entry.key,
-                    packages: entry.value.map{ $0.identity })
+                    packages: entry.value.map { $0.identity })
             )
         }
     }
 
-    return try packageBuilders.map{ try $0.construct() }
+    return try packageBuilders.map { try $0.construct() }
 }
 
 private func emitDuplicateProductDiagnostic(

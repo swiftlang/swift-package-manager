@@ -235,7 +235,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Construct the environment we'll pass down to the tests.
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
-            buildParameters: toolsBuildParameters,
+            destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftTool.options.build.sanitizers
         )
 

@@ -13,7 +13,10 @@
 @_spi(SwiftPMInternal)
 import Basics
 import LLBuildManifest
+
+@_spi(SwiftPMInternal)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SPMBuildCore
@@ -102,6 +105,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    /// Map of dependency package identities by root packages that depend on them.
+    private let dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]]
+
+    /// Map of  root package identities by target names which are declared in them.
+    private let rootPackageIdentityByTargetName: [String: PackageIdentity]
+
     public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
@@ -110,6 +119,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         pluginConfiguration: PluginConfiguration? = .none,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
+        dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
+        targetsByRootPackageIdentity: [PackageIdentity: [String]],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
@@ -129,6 +140,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
+        self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -248,6 +261,81 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
 
+    private static var didEmitUnexpressedDependencies = false
+
+    private func detectUnexpressedDependencies() {
+        return self.detectUnexpressedDependencies(
+            // Note: once we switch from the toolchain global metadata, we will have to ensure we can match the right metadata used during the build.
+            availableLibraries: self.productsBuildParameters.toolchain.providedLibraries,
+            targetDependencyMap: self.buildDescription.targetDependencyMap
+        )
+    }
+
+    // TODO: Currently this function will only match frameworks.
+    func detectUnexpressedDependencies(
+        availableLibraries: [LibraryMetadata],
+        targetDependencyMap: [String: [String]]?
+    ) {
+        // Ensure we only emit these once, regardless of how many builds are being done.
+        guard !Self.didEmitUnexpressedDependencies else {
+            return
+        }
+        Self.didEmitUnexpressedDependencies = true
+
+        let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: availableLibraries.compactMap {
+            if let identity = Set($0.identities.map(\.identity)).spm_only {
+                return ("\($0.productName!).framework", identity)
+            } else {
+                return nil
+            }
+        })
+
+        targetDependencyMap?.keys.forEach { targetName in
+            let c99name = targetName.spm_mangledToC99ExtendedIdentifier()
+            // Since we're analysing post-facto, we don't know which parameters are the correct ones.
+            let possibleTempsPaths = [productsBuildParameters, toolsBuildParameters].map {
+                $0.buildPath.appending(component: "\(c99name).build")
+            }
+
+            let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
+                guard let contents = try? self.fileSystem.readFileContents(
+                    possibleTempsPath.appending(component: "\(c99name).d")
+                ) else {
+                    return [String]()
+                }
+
+                // FIXME: We need a real makefile deps parser here...
+                let deps = contents.description.split(whereSeparator: { $0.isWhitespace })
+                return deps.filter {
+                    !$0.hasPrefix(possibleTempsPath.parentDirectory.pathString)
+                }.compactMap {
+                    try? AbsolutePath(validating: String($0))
+                }.compactMap {
+                    return $0.components.first(where: { $0.hasSuffix(".framework") })
+                }
+            }
+
+            let dependencies: [PackageIdentity]
+            if let rootPackageIdentity = self.rootPackageIdentityByTargetName[targetName] {
+                dependencies = self.dependenciesByRootPackageIdentity[rootPackageIdentity] ?? []
+            } else {
+                dependencies = []
+            }
+
+            Set(usedSDKDependencies).forEach {
+                if availableFrameworks.keys.contains($0) {
+                    if let availableFrameworkPackageIdentity = availableFrameworks[$0], !dependencies.contains(
+                        availableFrameworkPackageIdentity
+                    ) {
+                        observabilityScope.emit(
+                            warning: "target '\(targetName)' has an unexpressed depedency on '\(availableFrameworkPackageIdentity)'"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
         guard !self.productsBuildParameters.shouldSkipBuilding else {
@@ -283,6 +371,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let success = buildSystem.build(target: llbuildTarget)
 
         let duration = buildStartTime.distance(to: .now())
+
+        self.detectUnexpressedDependencies()
 
         let subsetDescriptor: String?
         switch subset {
@@ -453,25 +543,30 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
-            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
             // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
+            var buildToolsGraph = graph
+            try buildToolsGraph.updateBuildTripleRecursively(.tools)
+
             let buildOperationForPluginDependencies = BuildOperation(
                 // FIXME: this doesn't maintain the products/tools split cleanly
                 productsBuildParameters: pluginsBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { return graph },
+                packageGraphLoader: { buildToolsGraph },
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
+                dependenciesByRootPackageIdentity: [:],
+                targetsByRootPackageIdentity: [:],
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
@@ -488,7 +583,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     return nil
                 }
             }
-
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
@@ -569,7 +663,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            productsBuildParameters: self.productsBuildParameters,
+            destinationBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,

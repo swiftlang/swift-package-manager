@@ -36,7 +36,9 @@ enum TestingSupport {
 
         func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
             // XCTestHelper tool is installed in libexec.
-            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", "swiftpm-xctest-helper")
+            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(
+                components: "libexec", "swift", "pm", "swiftpm-xctest-helper"
+            )
             if swiftTool.fileSystem.isFile(maybePath) {
                 return maybePath
             } else {
@@ -46,7 +48,10 @@ enum TestingSupport {
         }
 
         if let firstCLIArgument = CommandLine.arguments.first {
-            let runningSwiftBuildPath = try AbsolutePath(validating: firstCLIArgument, relativeTo: swiftTool.originalWorkingDirectory)
+            let runningSwiftBuildPath = try AbsolutePath(
+                validating: firstCLIArgument,
+                relativeTo: swiftTool.originalWorkingDirectory
+            )
             if let xctestHelperPath = findXCTestHelper(swiftBuildPath: runningSwiftBuildPath) {
                 return xctestHelperPath
             }
@@ -54,7 +59,10 @@ enum TestingSupport {
 
         // This will be true during swiftpm development or when using swift.org toolchains.
         let xcodePath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
-        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcrun", "--find", "swift-build", environment: ["DEVELOPER_DIR": xcodePath]).spm_chomp()
+        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(
+            args: "/usr/bin/xcrun", "--find", "swift-build",
+            environment: ["DEVELOPER_DIR": xcodePath]
+        ).spm_chomp()
         if let xctestHelperPath = findXCTestHelper(swiftBuildPath: try AbsolutePath(validating: installedSwiftBuildPath)) {
             return xctestHelperPath
         }
@@ -110,7 +118,7 @@ enum TestingSupport {
             args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             let env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getTargetToolchain(),
-                buildParameters: swiftTool.buildParametersForTest(
+                destinationBuildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
@@ -126,7 +134,7 @@ enum TestingSupport {
         #else
         let env = try Self.constructTestEnvironment(
             toolchain: try swiftTool.getTargetToolchain(),
-            buildParameters: swiftTool.buildParametersForTest(
+            destinationBuildParameters: swiftTool.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
@@ -143,7 +151,7 @@ enum TestingSupport {
     /// Creates the environment needed to test related tools.
     static func constructTestEnvironment(
         toolchain: UserToolchain,
-        buildParameters: BuildParameters,
+        destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer]
     ) throws -> EnvironmentVariables {
         var env = EnvironmentVariables.process()
