@@ -148,6 +148,10 @@ extension Triple {
     }
 
     public var executableExtension: String {
+        guard ![.wasm32, .wasm64].contains(self.arch) else {
+            return ".wasm"
+        }
+
         guard let os = self.os else {
             return ""
         }
@@ -157,8 +161,6 @@ extension Triple {
             return ""
         case .linux, .openbsd:
             return ""
-        case .wasi:
-            return ".wasm"
         case .win32:
             return ".exe"
         case .noneOS:
