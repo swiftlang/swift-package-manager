@@ -47,7 +47,7 @@ extension Build.BuildPlan {
         observabilityScope: ObservabilityScope
     ) throws {
         try self.init(
-            destinationBuildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -888,7 +888,7 @@ final class BuildPlanTests: XCTestCase {
                         buildPath: buildDirPath,
                         config: .release,
                         toolchain: UserToolchain.default,
-                        triple: UserToolchain.default.targetTriple,
+                        targetTriple: UserToolchain.default.targetTriple,
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
@@ -1118,11 +1118,11 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
+        XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
         #if os(macOS)
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.targetName)), ["ATarget", "BTarget", "ATargetTests"])
+        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "ATargetTests"])
         #else
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.targetName)), [
+        XCTAssertEqual(Set(result.targetMap.keys), [
             "APackageTests",
             "APackageDiscoveredTests",
             "ATarget",
@@ -1469,13 +1469,7 @@ final class BuildPlanTests: XCTestCase {
         ])
         #endif
 
-        let buildProduct = try XCTUnwrap(
-            result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "Pkg",
-                buildTriple: .destination
-            )]
-        )
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
         XCTAssertEqual(Array(buildProduct.objects), [
             buildPath.appending(components: "exe.build", "main.c.o"),
             buildPath.appending(components: "extlib.build", "extlib.c.o"),
@@ -1718,9 +1712,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1791,7 +1784,7 @@ final class BuildPlanTests: XCTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
             "-g",
         ])
         #elseif os(Windows)
@@ -1847,9 +1840,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1859,8 +1851,8 @@ final class BuildPlanTests: XCTestCase {
 
         let lib = try result.target(for: "lib").clangTarget()
         XCTAssertEqual(try lib.objects, [
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/lib.build/lib.S.o"),
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/lib.build/lib.c.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.S.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.c.o"),
         ])
     }
 
@@ -2575,7 +2567,7 @@ final class BuildPlanTests: XCTestCase {
 
         // Verify that `-lstdc++` is passed instead of `-lc++` when cross-compiling to Linux.
         result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .arm64Linux),
+            buildParameters: mockBuildParameters(targetTriple: .arm64Linux),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3381,7 +3373,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .windows),
+            buildParameters: mockBuildParameters(targetTriple: .windows),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3468,7 +3460,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        var parameters = mockBuildParameters(triple: .wasi)
+        var parameters = mockBuildParameters(targetTriple: .wasi)
         parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
@@ -3570,7 +3562,7 @@ final class BuildPlanTests: XCTestCase {
             try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(
                     canRenameEntrypointFunctionName: true,
-                    triple: triple
+                    targetTriple: triple
                 ),
                 graph: graph,
                 fileSystem: fs,
@@ -3767,7 +3759,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .init("arm64-apple-ios")),
+            buildParameters: mockBuildParameters(targetTriple: .init("arm64-apple-ios")),
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -3844,7 +3836,7 @@ final class BuildPlanTests: XCTestCase {
         // constraints above are valid.
         XCTAssertNoThrow(
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(triple: .arm64iOS),
+                buildParameters: mockBuildParameters(targetTriple: .arm64iOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3854,7 +3846,7 @@ final class BuildPlanTests: XCTestCase {
         // For completeness, the invalid target should still throw an error.
         XCTAssertThrows(Diagnostics.fatalError) {
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(triple: .x86_64MacOS),
+                buildParameters: mockBuildParameters(targetTriple: .x86_64MacOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3917,7 +3909,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertThrows(Diagnostics.fatalError) {
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(triple: .x86_64MacOS),
+                buildParameters: mockBuildParameters(targetTriple: .x86_64MacOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -4071,7 +4063,7 @@ final class BuildPlanTests: XCTestCase {
 
         func createResult(for dest: Basics.Triple) throws -> BuildPlanResult {
             try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(triple: dest),
+                buildParameters: mockBuildParameters(targetTriple: dest),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4134,7 +4126,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(
-                    triple: .x86_64Linux,
+                    targetTriple: .x86_64Linux,
                     omitFramePointers: true
                 ),
                 graph: graph,
@@ -4190,7 +4182,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(
-                    triple: .x86_64Linux,
+                    targetTriple: .x86_64Linux,
                     omitFramePointers: false
                 ),
                 graph: graph,
@@ -4551,7 +4543,7 @@ final class BuildPlanTests: XCTestCase {
                 swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
                 linkerFlags: [cliFlag(tool: .linker)]
             ),
-            triple: targetTriple
+            targetTriple: targetTriple
         )
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,
@@ -4836,9 +4828,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4854,7 +4845,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4864,7 +4855,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/\(buildParameters.triple)/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4874,12 +4865,12 @@ final class BuildPlanTests: XCTestCase {
         #if os(macOS)
         XCTAssertMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
+            [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
+            [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence]
         )
         #endif
 
@@ -4937,9 +4928,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4956,7 +4946,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4967,7 +4957,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4979,7 +4969,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -4988,7 +4978,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5048,9 +5038,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5071,7 +5060,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -5082,7 +5071,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -5094,7 +5083,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5103,7 +5092,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5153,7 +5142,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .x86_64Linux),
+            buildParameters: mockBuildParameters(targetTriple: .x86_64Linux),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5457,7 +5446,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(triple: .wasi),
+            buildParameters: mockBuildParameters(targetTriple: .wasi),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5590,7 +5579,7 @@ final class BuildPlanTests: XCTestCase {
         let supportingTriples: [Basics.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
             let result = try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: triple),
+                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, targetTriple: triple),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -5715,7 +5704,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: targetTriple),
+            buildParameters: mockBuildParameters(targetTriple: targetTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5844,7 +5833,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: targetTriple),
+            buildParameters: mockBuildParameters(targetTriple: targetTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -6117,13 +6106,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        switch try XCTUnwrap(
-            result.targetMap[.init(
-                targetName: "ExtLib",
-                packageIdentity: "ExtPkg",
-                buildTriple: .destination
-            )]
-        ) {
+        switch try XCTUnwrap(result.targetMap["ExtLib"]) {
         case .swift(let swiftTarget):
             if #available(macOS 13, *) { // `.contains` is only available in macOS 13 or newer
                 XCTAssertTrue(try swiftTarget.compileArguments().contains(["-user-module-version", "1.0.0"]))
@@ -6280,13 +6263,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
-        let buildProduct = try XCTUnwrap(
-            result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "thisPkg",
-                buildTriple: .destination
-            )]
-        )
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
         let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
         XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
     }
