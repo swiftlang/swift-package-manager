@@ -130,7 +130,7 @@ public final class SwiftTargetBuildDescription {
         self.tempsPath.appending(component: self.target.c99name + ".swiftmodule.o")
     }
 
-    /// The path to the swifinterface file after compilation.
+    /// The path to the swiftinterface file after compilation.
     var parseableModuleInterfaceOutputPath: AbsolutePath {
         self.modulesPath.appending(component: self.target.c99name + ".swiftinterface")
     }

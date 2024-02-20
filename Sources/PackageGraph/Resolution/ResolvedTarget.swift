@@ -133,7 +133,7 @@ public struct ResolvedTarget {
     public let underlying: Target
 
     /// The dependencies of this target.
-    public private(set) var dependencies: [Dependency]
+    public internal(set) var dependencies: [Dependency]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
