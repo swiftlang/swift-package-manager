@@ -30,7 +30,7 @@ public struct ResolvedProduct {
     public let underlying: Product
 
     /// The top level targets contained in this product.
-    public internal(set) var targets: IdentifiableSet<ResolvedTarget>
+    public let targets: IdentifiableSet<ResolvedTarget>
 
     /// Executable target for test entry point file.
     public let testEntryPointTarget: ResolvedTarget?
@@ -44,11 +44,7 @@ public struct ResolvedProduct {
     public let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved product should be compiled for.
-    public internal(set) var buildTriple: BuildTriple {
-        didSet {
-            self.updateBuildTriplesOfDependencies()
-        }
-    }
+    public let buildTriple: BuildTriple
 
     /// The main executable target of product.
     ///
@@ -67,11 +63,7 @@ public struct ResolvedProduct {
         }
     }
 
-    public init(
-        packageIdentity: PackageIdentity,
-        product: Product,
-        targets: IdentifiableSet<ResolvedTarget>
-    ) {
+    public init(packageIdentity: PackageIdentity, product: Product, targets: IdentifiableSet<ResolvedTarget>) {
         assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
         self.underlying = product
@@ -105,18 +97,7 @@ public struct ResolvedProduct {
             )
         }
         
-        self.buildTriple = product.buildTriple
-        self.updateBuildTriplesOfDependencies()
-    }
-
-    private mutating func updateBuildTriplesOfDependencies() {
-        if case .tools = self.buildTriple {
-            self.targets = IdentifiableSet(self.targets.map {
-                var target = $0
-                target.buildTriple = .tools
-                return target
-            })
-        }
+        self.buildTriple = .destination
     }
 
     /// True if this product contains Swift targets.
@@ -185,13 +166,13 @@ extension ResolvedProduct {
 extension ResolvedProduct: Identifiable {
     /// Resolved target identity that uniquely identifies it in a resolution graph.
     public struct ID: Hashable {
-        public let productName: String
+        public let targetName: String
         let packageIdentity: PackageIdentity
-        public var buildTriple: BuildTriple
+        public let buildTriple: BuildTriple
     }
 
     public var id: ID {
-        ID(productName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
+        ID(targetName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
     }
 }
 

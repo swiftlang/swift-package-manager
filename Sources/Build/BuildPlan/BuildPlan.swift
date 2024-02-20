@@ -127,13 +127,13 @@ extension BuildParameters {
         return []
     }
 
-    public func tripleArgs(for target: ResolvedTarget) throws -> [String] {
-        // confusingly enough this is the triple argument, not the target argument
+    /// Computes the target triple arguments for a given resolved target.
+    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
 
         // Compute the triple string for Darwin platform using the platform version.
         if self.triple.isDarwin() {
-            let platform = self.buildEnvironment.platform
+            let platform = buildEnvironment.platform
             let supportedPlatform = target.getSupportedPlatform(for: platform, usingXCTest: target.type == .test)
             args += [self.triple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
         } else {
@@ -158,7 +158,7 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
+        return BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
     }
 }
 
@@ -184,6 +184,16 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Build parameters used for tools.
     public let toolsBuildParameters: BuildParameters
+
+    /// Triple for which this target is compiled.
+    private func buildTriple(for target: ResolvedTarget) -> Basics.Triple {
+        self.buildParameters(for: target).triple
+    }
+
+    /// Triple for which this product is compiled.
+    private func buildTriple(for product: ResolvedProduct) -> Basics.Triple {
+        self.buildParameters(for: product).triple
+    }
 
     /// The package graph.
     public let graph: PackageGraph
@@ -221,14 +231,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
 
-    /// Cache for library information.
+    /// Cache for  library information.
     private var externalLibrariesCache = [BinaryTarget: [LibraryInfo]]()
 
-    /// Cache for tools information.
+    /// Cache for  tools information.
     var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
     /// Whether to disable sandboxing (e.g. for macros).
-    private let shouldDisableSandbox: Bool
+    private let disableSandbox: Bool
 
     /// The filesystem to operate on.
     let fileSystem: any FileSystem
@@ -236,7 +246,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// ObservabilityScope with which to emit diagnostics
     let observabilityScope: ObservabilityScope
 
-    @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:)")
+    @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
     public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
@@ -247,7 +257,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         observabilityScope: ObservabilityScope
     ) throws {
         try self.init(
-            destinationBuildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -258,27 +268,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         )
     }
 
-    @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:fileSystem:observabilityScope:)")
-    public convenience init(
-        productsBuildParameters: BuildParameters,
-        toolsBuildParameters: BuildParameters,
-        graph: PackageGraph,
-        fileSystem: any FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws {
-        try self.init(
-            destinationBuildParameters: productsBuildParameters,
-            toolsBuildParameters: toolsBuildParameters,
-            graph: graph,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
-    }
-
-    /// Create a build plan with a package graph and explicitly distinct build parameters for destination platform and
-    /// tools platform.
+    /// Create a build plan with a package graph and explicitly distinct build parameters for products and tools.
     public init(
-        destinationBuildParameters: BuildParameters,
+        productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         graph: PackageGraph,
         additionalFileRules: [FileRuleDescription] = [],
@@ -288,17 +280,16 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        self.destinationBuildParameters = destinationBuildParameters
+        self.destinationBuildParameters = productsBuildParameters
         self.toolsBuildParameters = toolsBuildParameters
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
-        self.shouldDisableSandbox = disableSandbox
+        self.disableSandbox = disableSandbox
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
-        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] =
-            [:]
+        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] = [:]
         // Create product description for each product we have in the package graph that is eligible.
         for product in graph.allProducts where product.shouldCreateProductDescription {
             let buildParameters: BuildParameters
@@ -306,7 +297,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             case .tools:
                 buildParameters = toolsBuildParameters
             case .destination:
-                buildParameters = destinationBuildParameters
+                buildParameters = productsBuildParameters
             }
 
             guard let package = graph.package(for: product) else {
@@ -344,7 +335,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             case .tools:
                 buildParameters = toolsBuildParameters
             case .destination:
-                buildParameters = destinationBuildParameters
+                buildParameters = productsBuildParameters
             }
 
             // Validate the product dependencies of this target.
@@ -393,13 +384,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         target: target,
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
-                        destinationBuildParameters: buildParameters,
-                        toolsBuildParameters: toolsBuildParameters,
+                        buildParameters: buildParameters,
                         buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
                         prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
                         requiredMacroProducts: requiredMacroProducts,
                         shouldGenerateTestObservation: generateTestObservation,
-                        shouldDisableSandbox: self.shouldDisableSandbox,
+                        disableSandbox: self.disableSandbox,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
@@ -446,21 +436,18 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Plan the derived test targets, if necessary.
-        if destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
+        if productsBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
             let derivedTestTargets = try Self.makeDerivedTestTargets(
-                destinationBuildParameters: destinationBuildParameters,
-                toolsBuildParameters: toolsBuildParameters,
+                productsBuildParameters,
                 graph,
-                shouldDisableSandbox: self.shouldDisableSandbox,
+                self.disableSandbox,
                 self.fileSystem,
                 self.observabilityScope
             )
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(
-                    item.entryPointTargetBuildDescription
-                )
+                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(item.entryPointTargetBuildDescription)
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                     targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
@@ -566,9 +553,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in self.graph.reachableTargets {
+        for target in graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
-                try arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
+                arguments.append(contentsOf: try self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
             }
@@ -603,7 +590,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in self.graph.reachableTargets {
+        for target in graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments += try self.pkgConfig(for: systemLib).cFlags
             }
@@ -742,7 +729,7 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        self.targets.filter { !($0.underlying is BinaryTarget) }.isEmpty
+        return self.targets.filter({ !($0.underlying is BinaryTarget) }).isEmpty
     }
 
     private var isPlugin: Bool {
