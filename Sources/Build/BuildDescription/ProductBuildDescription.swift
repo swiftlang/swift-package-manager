@@ -311,7 +311,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[self.product.targets.startIndex])
+        args += try self.buildParameters.tripleArgs(for: self.product.targets[self.product.targets.startIndex])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags
@@ -346,7 +346,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
-            args += try ["-L", buildParameters.toolchain.hostLibDir.pathString]
+            args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 

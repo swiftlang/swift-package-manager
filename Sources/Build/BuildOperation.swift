@@ -13,7 +13,10 @@
 @_spi(SwiftPMInternal)
 import Basics
 import LLBuildManifest
+
+@_spi(SwiftPMInternal)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SPMBuildCore
@@ -269,7 +272,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     // TODO: Currently this function will only match frameworks.
-    internal func detectUnexpressedDependencies(
+    func detectUnexpressedDependencies(
         availableLibraries: [LibraryMetadata],
         targetDependencyMap: [String: [String]]?
     ) {
@@ -295,7 +298,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
-                guard let contents = try? self.fileSystem.readFileContents(possibleTempsPath.appending(component: "\(c99name).d")) else {
+                guard let contents = try? self.fileSystem.readFileContents(
+                    possibleTempsPath.appending(component: "\(c99name).d")
+                ) else {
                     return [String]()
                 }
 
@@ -538,17 +543,20 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
-            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
             // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
+            var buildToolsGraph = graph
+            try buildToolsGraph.updateBuildTripleRecursively(.tools)
+
             let buildOperationForPluginDependencies = BuildOperation(
                 // FIXME: this doesn't maintain the products/tools split cleanly
                 productsBuildParameters: pluginsBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { return graph },
+                packageGraphLoader: { buildToolsGraph },
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -558,7 +566,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
@@ -575,7 +583,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     return nil
                 }
             }
-
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
@@ -656,7 +663,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            productsBuildParameters: self.productsBuildParameters,
+            destinationBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
