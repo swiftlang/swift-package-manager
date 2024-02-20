@@ -92,13 +92,13 @@ extension BuildPlan {
 
         buildProduct.staticTargets = dependencies.staticTargets
         buildProduct.dylibs = try dependencies.dylibs.map {
-            guard let product = self.productMap[$0.id] else {
+            guard let product = productMap[$0.id] else {
                 throw InternalError("unknown product \($0)")
             }
             return product
         }
         buildProduct.objects += try dependencies.staticTargets.flatMap { targetName -> [AbsolutePath] in
-            guard let target = self.targetMap[targetName.id] else {
+            guard let target = targetMap[targetName.id] else {
                 throw InternalError("unknown target \(targetName)")
             }
             return try target.objects

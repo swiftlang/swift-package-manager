@@ -30,7 +30,7 @@ public struct ResolvedProduct {
     public let underlying: Product
 
     /// The top level targets contained in this product.
-    public internal(set) var targets: IdentifiableSet<ResolvedTarget>
+    public private(set) var targets: IdentifiableSet<ResolvedTarget>
 
     /// Executable target for test entry point file.
     public let testEntryPointTarget: ResolvedTarget?

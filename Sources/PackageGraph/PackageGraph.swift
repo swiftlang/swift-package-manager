@@ -79,14 +79,10 @@ public struct PackageGraph {
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.reduce(
-            into: IdentifiableSet<ResolvedTarget>()
-        ) { (accumulator: inout IdentifiableSet<ResolvedTarget>, package: ResolvedPackage) in
+        return rootPackages.reduce(into: IdentifiableSet<ResolvedTarget>()) { (accumulator: inout IdentifiableSet<ResolvedTarget>, package: ResolvedPackage) in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (
-                dep: ResolvedTarget.Dependency
-            ) -> ResolvedTarget? in
+            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
                 switch dep {
                 case .target(let target, _):
                     return target
@@ -156,7 +152,7 @@ public struct PackageGraph {
         for package in self.packages {
             let targetsToInclude: [ResolvedTarget]
             if rootPackages.contains(id: package.id) {
-                targetsToInclude = Array(package.targets)
+                targetsToInclude = package.targets
             } else {
                 // Don't include tests targets from non-root packages so swift-test doesn't
                 // try to run them.
