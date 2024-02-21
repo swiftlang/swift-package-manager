@@ -286,10 +286,6 @@ final class TestToolTests: CommandsTestCase {
             "Skipping \(#function) because swift-testing tests are not explicitly enabled"
         )
 
-        if #unavailable(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, visionOS 1.0) {
-            throw XCTSkip("swift-testing unavailable")
-        }
-
         try fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
             do {
                 let (stdout, _) = try SwiftPM.Test.execute(["--enable-experimental-swift-testing", "--disable-xctest"], packagePath: fixturePath)

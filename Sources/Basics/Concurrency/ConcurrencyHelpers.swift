@@ -66,8 +66,8 @@ public func safe_async<T, ErrorType: Error>(
 /// Bridges between potentially blocking methods that take a result completion closure and async/await
 public func safe_async<T>(_ body: @escaping (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
     await withCheckedContinuation { continuation in
-        // It is possible that body make block indefinitely on a lock, sempahore,
-        // or similar then synchrously call the completion handler. For full safety
+        // It is possible that body make block indefinitely on a lock, semaphore,
+        // or similar then synchronously call the completion handler. For full safety
         // it is essential to move the execution off the swift concurrency pool
         DispatchQueue.sharedConcurrent.async {
             body {

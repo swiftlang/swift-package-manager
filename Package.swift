@@ -76,8 +76,8 @@ let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v12),
-        .iOS(.v15)
+        .macOS(.v13),
+        .iOS(.v16)
     ],
     products:
         autoProducts.flatMap {

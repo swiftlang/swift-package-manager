@@ -17,7 +17,7 @@ import Foundation
 /// based on the ones passed to the plugin in the target build context.
 public enum Command {
 
-    /// Returns a command that runs when any of its ouput files are needed by
+    /// Returns a command that runs when any of its output files are needed by
     /// the build, but out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input files
@@ -88,7 +88,7 @@ public enum Command {
 
 public extension Command {
 
-    /// Returns a command that runs when any of its ouput files are needed by
+    /// Returns a command that runs when any of its output files are needed by
     /// the build, but out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input files
@@ -133,7 +133,7 @@ public extension Command {
         )
     }
 
-    /// Returns a command that runs when any of its ouput files are needed
+    /// Returns a command that runs when any of its output files are needed
     /// by the build, but out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input

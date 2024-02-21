@@ -128,6 +128,8 @@ public final class UserToolchain: Toolchain {
                 continue
             }
             toolPath = path
+            // Take the first match.
+            break
         }
         guard let toolPath else {
             throw InvalidToolchainDiagnostic("could not find CLI tool `\(name)` at any of these directories: \(binDirectories)")

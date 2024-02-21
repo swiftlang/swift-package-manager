@@ -212,7 +212,7 @@ extension PluginTarget {
                 invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
             
-            /// Invoked when the plugin emits arbtirary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
+            /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
             func handleOutput(data: Data) {
                 invocationDelegate.pluginEmittedOutput(data)
             }
@@ -240,7 +240,10 @@ extension PluginTarget {
                         diagnostic = .info(message, metadata: metadata)
                     }
                     self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
-                    
+
+                case .emitProgress(let message):
+                    self.invocationDelegate.pluginEmittedProgress(message)
+
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
@@ -485,7 +488,9 @@ extension PackageGraph {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         outputData.append(contentsOf: data)
                     }
-                    
+
+                    func pluginEmittedProgress(_ message: String) {}
+
                     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         diagnostics.append(diagnostic)
@@ -819,6 +824,9 @@ public protocol PluginInvocationDelegate {
     /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
     func pluginEmittedDiagnostic(_: Basics.Diagnostic)
 
+    /// Called when a plugin emits a progress message through the PackagePlugin APIs.
+    func pluginEmittedProgress(_: String)
+
     /// Called when a plugin defines a build command through the PackagePlugin APIs.
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath])
 
@@ -867,6 +875,7 @@ public struct PluginInvocationBuildParameters {
     public enum LogVerbosity: String {
         case concise, verbose, debug
     }
+    public var echoLogs: Bool
     public var otherCFlags: [String]
     public var otherCxxFlags: [String]
     public var otherSwiftcFlags: [String]
@@ -979,6 +988,7 @@ fileprivate extension PluginInvocationBuildParameters {
     init(_ parameters: PluginToHostMessage.BuildParameters) {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
+        self.echoLogs = parameters.echoLogs
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags

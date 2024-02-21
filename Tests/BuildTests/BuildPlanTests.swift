@@ -3613,7 +3613,11 @@ final class BuildPlanTests: XCTestCase {
 
         func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) throws {
             let result = try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(config: config, indexStoreMode: mode),
+                buildParameters: mockBuildParameters(
+                    config: config,
+                    toolchain: try UserToolchain.default,
+                    indexStoreMode: mode
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -3622,17 +3626,10 @@ final class BuildPlanTests: XCTestCase {
             let lib = try result.target(for: "lib").clangTarget()
             let path = StringPattern.equal(result.plan.destinationBuildParameters.indexStore.pathString)
 
-            #if os(macOS)
             XCTAssertMatch(
                 try lib.basicArguments(isCXX: false),
                 [.anySequence, "-index-store-path", path, .anySequence]
             )
-            #else
-            XCTAssertNoMatch(
-                try lib.basicArguments(isCXX: false),
-                [.anySequence, "-index-store-path", path, .anySequence]
-            )
-            #endif
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-index-store-path", path, .anySequence])

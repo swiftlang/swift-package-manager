@@ -474,7 +474,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
@@ -487,6 +487,8 @@ class PluginTests: XCTestCase {
                     print("[DIAG] \(diagnostic)")
                     diagnostics.append(diagnostic)
                 }
+
+                func pluginEmittedProgress(_ message: String) {}
             }
 
             // Helper function to invoke a plugin with given input and to check its outputs.
@@ -754,7 +756,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
                     })
@@ -776,6 +778,8 @@ class PluginTests: XCTestCase {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     diagnostics.append(diagnostic)
                 }
+
+                func pluginEmittedProgress(_ message: String) {}
             }
 
             // Find the relevant plugin.
@@ -795,7 +799,7 @@ class PluginTests: XCTestCase {
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {
-                    // TODO: have invoke natively support task cancelation instead
+                    // TODO: have invoke natively support task cancellation instead
                     try await withTaskCancellationHandler {
                         _ = try await plugin.invoke(
                             action: .performCommand(package: package, arguments: []),

@@ -72,14 +72,6 @@ public struct TestingObservability {
 
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
-            // Filter superfluous diagnostics.
-            guard !diagnostic.message.hasPrefix("<unknown>:0: warning: annotation implies no releases") else {
-                return
-            }
-            guard !diagnostic.message.hasPrefix("<unknown>:0: note: add explicit") else {
-                return
-            }
-
             if self.verbose {
                 print(diagnostic.description)
             }
