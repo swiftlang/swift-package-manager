@@ -70,6 +70,39 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
     }
 
+    func testWasmTargetRelease() throws {
+        let pkgPath = AbsolutePath("/Pkg")
+
+        let (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: pkgPath)
+
+        var parameters = mockBuildParameters(
+            config: .release, targetTriple: .wasi, linkerDeadStrip: true
+        )
+        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: parameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observabilityScope
+        ))
+        let buildPath = result.plan.productsBuildPath
+
+        let appBuildDescription = try result.buildProduct(for: "app")
+        XCTAssertEqual(
+            try appBuildDescription.linkArguments(),
+            [
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
+                "-L", buildPath.pathString,
+                "-o", buildPath.appending(components: "app.wasm").pathString,
+                "-module-name", "app", "-static-stdlib", "-emit-executable",
+                "-Xlinker", "--gc-sections",
+                "@\(buildPath.appending(components: "app.product", "Objects.LinkFileList"))",
+                "-target", "wasm32-unknown-wasi",
+                "-g",
+            ]
+        )
+    }
+
     func testWASITarget() throws {
         let pkgPath = AbsolutePath("/Pkg")
 
