@@ -24,6 +24,10 @@ extension Triple {
 }
 
 extension Triple {
+    public var isWasm: Bool {
+        [.wasm32, .wasm64].contains(self.arch)
+    }
+
     public func isApple() -> Bool {
         vendor == .apple
     }
@@ -148,7 +152,7 @@ extension Triple {
     }
 
     public var executableExtension: String {
-        guard ![.wasm32, .wasm64].contains(self.arch) else {
+        guard !self.isWasm else {
             return ".wasm"
         }
 
