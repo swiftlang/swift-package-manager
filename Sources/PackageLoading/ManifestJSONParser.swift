@@ -338,6 +338,8 @@ extension TargetDescription.Dependency {
                 package = try identityResolver.mappedIdentity(for: .plain(packageName)).description
             }
             self = .product(name: name, package: package, moduleAliases: moduleAliases, condition: condition.map { .init($0) })
+        case .innerProduct(let name, let condition):
+            self = .innerProduct(name: name, condition: condition.map { .init($0) })
         case .byName(let name, let condition):
             self = .byName(name: name, condition: condition.map { .init($0) })
         }

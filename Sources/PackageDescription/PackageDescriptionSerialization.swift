@@ -157,6 +157,7 @@ enum Serialization {
 
         case target(name: String, condition: Condition?)
         case product(name: String, package: String?, moduleAliases: [String: String]?, condition: Condition?)
+        case innerProduct(name: String, condition: Condition?)
         case byName(name: String, condition: Condition?)
     }
 

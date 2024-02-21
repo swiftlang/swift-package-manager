@@ -115,6 +115,14 @@ extension MermaidPackageSerializer.Node {
                 border: .hexagon,
                 subgraph: product.package
             )
+        case let .innerProduct(product, _):
+            // TODO: Do we need a subgraph here?
+            self.init(
+                id: product.name,
+                title: product.name,
+                border: .hexagon,
+                subgraph: nil
+            )
         case let .target(target, _):
             self.init(target: target)
         }

@@ -677,6 +677,15 @@ public extension PluginTarget {
                 }
                 builtToolName = productRef.name
                 executableOrBinaryTarget = executableTarget
+            case .innerProduct(let productRef, _):
+                guard
+                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
+                else {
+                    throw StringError("no product named \(productRef.name)")
+                }
+                builtToolName = productRef.name
+                executableOrBinaryTarget = executableTarget
             }
 
             // For a binary target we create a `vendedTool`.
@@ -723,6 +732,7 @@ fileprivate extension Target.Dependency {
         switch self {
         case .target(_, let conditions): return conditions
         case .product(_, let conditions): return conditions
+        case .innerProduct(_, let conditions): return conditions
         }
     }
 

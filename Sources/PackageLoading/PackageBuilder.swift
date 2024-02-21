@@ -653,18 +653,23 @@ public final class PackageBuilder {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
             // Collect the successors from declared dependencies.
-            var successors: [PotentialModule] = target.dependencies.compactMap {
+            var successors: [PotentialModule] = target.dependencies.flatMap {
                 switch $0 {
                 case .target(let name, _):
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
-                    return potentialModuleMap[name]!
+                    return [potentialModuleMap[name]!]
                 case .product:
-                    return nil
+                    return []
+                case .innerProduct(let product, _):
+                    guard let product = self.manifest.products.first(where: { $0.name == product }) else {
+                        return []
+                    }
+                    return product.targets.compactMap { potentialModuleMap[$0] }
                 case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
-                    return potentialModuleMap[name]
+                    return potentialModuleMap[name].map { [$0] } ?? []
                 }
             }
             // If there are plugin usages, consider them to be dependencies too.
@@ -722,6 +727,11 @@ public final class PackageBuilder {
                         try validateModuleAliases(moduleAliases)
                         return .product(
                             .init(name: name, package: package, moduleAliases: moduleAliases),
+                            conditions: buildConditions(from: condition)
+                        )
+                    case .innerProduct(let name, let condition):
+                        return .innerProduct(
+                            .init(name: name),
                             conditions: buildConditions(from: condition)
                         )
                     case .byName(let name, let condition):
@@ -1592,7 +1602,7 @@ extension Manifest {
                 switch $0 {
                 case .target(let name, _):
                     return name
-                case .byName, .product:
+                case .byName, .product, .innerProduct:
                     return nil
                 }
             }
@@ -1642,6 +1652,8 @@ extension Target.Dependency {
             return "target-\(name)"
         case .product:
             return "product-\(name)"
+        case .innerProduct:
+            return "innerproduct-\(name)"
         }
     }
 }

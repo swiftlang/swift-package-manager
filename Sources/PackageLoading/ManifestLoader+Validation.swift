@@ -196,6 +196,9 @@ public struct ManifestValidator {
                             validPackages: self.manifest.dependencies
                         ))
                     }
+                case .innerProduct:
+                    // TODO: Diagnose any possible issues here
+                    break
                 case .byName(let name, _):
                     // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
                     if !self.manifest.packageKind.isRoot &&
