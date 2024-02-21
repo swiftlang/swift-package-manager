@@ -43,6 +43,7 @@ public final class SystemLibraryTarget: Target {
             dependencies: [],
             packageAccess: false,
             buildSettings: .init(),
+            buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
         )
