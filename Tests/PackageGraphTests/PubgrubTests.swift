@@ -1853,6 +1853,47 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             ("bar", .version(v1)),
         ])
     }
+
+    func testAvailableLibraries() throws {
+        let ref: PackageReference = .remoteSourceControl(
+            identity: .plain("foo"),
+            url: .init("https://example.com/org/foo")
+        )
+        try builder.serve(ref, at: .version(.init(stringLiteral: "1.0.0")))
+        try builder.serve(ref, at: .version(.init(stringLiteral: "1.2.0")))
+        try builder.serve(ref, at: .version(.init(stringLiteral: "2.0.0")))
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "foo": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["foo"])),
+        ])
+
+        let availableLibraries: [LibraryMetadata] = [
+            .init(
+                identities: [.sourceControl(url: "https://example.com/org/foo")],
+                version: "1.0.0",
+                productName: nil,
+                schemaVersion: 1
+            )
+        ]
+
+        let result = resolver.solve(
+            constraints: dependencies,
+            availableLibraries: availableLibraries,
+            preferPrebuiltLibraries: true
+        )
+        // Available libraries are filtered from the resolver results, so this is expected to be empty.
+        AssertResult(result, [])
+
+        let result2 = resolver.solve(
+            constraints: dependencies,
+            availableLibraries: availableLibraries,
+            preferPrebuiltLibraries: false
+        )
+        AssertResult(result2, [
+            ("foo", .version(.init(stringLiteral: "1.2.0"))),
+        ])
+    }
 }
 
 final class PubGrubDiagnosticsTests: XCTestCase {

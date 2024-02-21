@@ -140,7 +140,11 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint]) -> Result<[DependencyResolverBinding], Error> {
+    public func solve(constraints: [Constraint], availableLibraries: [LibraryMetadata], preferPrebuiltLibraries: Bool) -> Result<[DependencyResolverBinding], Error> {
+        if !preferPrebuiltLibraries {
+            self.provider.removeCachedContainers(for: availableLibraries.flatMap { $0.identities.map { $0.ref } })
+        }
+
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
@@ -155,11 +159,26 @@ public struct PubGrubDependencyResolver {
         }
 
         do {
+            // Use empty `availableLibraries` for the rest of resolving if we don't prefer them.
+            let availableLibraries = preferPrebuiltLibraries ? availableLibraries : []
             // strips state
-            return .success(try self.solve(root: root, constraints: constraints).bindings)
+            let bindings = try self.solve(root: root, constraints: constraints, availableLibraries: availableLibraries).bindings.filter {
+                return $0.package.matchingPrebuiltLibrary(in: availableLibraries) == nil
+            }
+            return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
+                let incompatiblePackages = incompatibilities.map({ $0.key.package })
+                if incompatiblePackages.contains(where: { $0.matchingPrebuiltLibrary(in: availableLibraries) != nil }) {
+                    return .failure(
+                        PubgrubError.potentiallyUnresovableDueToPrebuiltLibrary(
+                            incompatiblePackages,
+                            pubGrubError.description
+                        )
+                    )
+                }
+
                 do {
                     var builder = DiagnosticReportBuilder(
                         root: root,
@@ -180,9 +199,12 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) throws -> (bindings: [DependencyResolverBinding], state: State) {
+    internal func solve(root: DependencyResolutionNode, constraints: [Constraint], availableLibraries: [LibraryMetadata] = []) throws -> (
+        bindings: [DependencyResolverBinding],
+        state: State
+    ) {
         // first process inputs
-        let inputs = try self.processInputs(root: root, with: constraints)
+        let inputs = try self.processInputs(root: root, with: constraints, availableLibraries: availableLibraries)
 
         // Prefetch the containers if prefetching is enabled.
         if self.prefetchBasedOnResolvedFile {
@@ -192,7 +214,7 @@ public struct PubGrubDependencyResolver {
             let pins = self.pins.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: pins)
+            self.provider.prefetch(containers: pins, availableLibraries: availableLibraries)
         }
 
         let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
@@ -208,7 +230,7 @@ public struct PubGrubDependencyResolver {
             state.addIncompatibility(incompatibility, at: .topLevel)
         }
 
-        try self.run(state: state)
+        try self.run(state: state, availableLibraries: availableLibraries)
 
         let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
@@ -228,7 +250,7 @@ public struct PubGrubDependencyResolver {
             let products = assignment.term.node.productFilter
 
             // TODO: replace with async/await when available
-            let container = try temp_await { provider.getContainer(for: assignment.term.node.package, completion: $0) }
+            let container = try temp_await { provider.getContainer(for: assignment.term.node.package, availableLibraries: availableLibraries, completion: $0) }
             let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
@@ -250,7 +272,7 @@ public struct PubGrubDependencyResolver {
         // Add overridden packages to the result.
         for (package, override) in state.overriddenPackages {
             // TODO: replace with async/await when available
-            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
+            let container = try temp_await { provider.getContainer(for: package, availableLibraries: availableLibraries, completion: $0) }
             let updatePackage = try container.underlying.loadPackageReference(at: override.version)
             finalAssignments.append(.init(
                     package: updatePackage,
@@ -266,7 +288,8 @@ public struct PubGrubDependencyResolver {
 
     private func processInputs(
         root: DependencyResolutionNode,
-        with constraints: [Constraint]
+        with constraints: [Constraint],
+        availableLibraries: [LibraryMetadata]
     ) throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
@@ -311,7 +334,7 @@ public struct PubGrubDependencyResolver {
                 // be process at the end. This allows us to override them when there is a non-version
                 // based (unversioned/branch-based) constraint present in the graph.
                 // TODO: replace with async/await when available
-                let container = try temp_await { provider.getContainer(for: node.package, completion: $0) }
+                let container = try temp_await { provider.getContainer(for: node.package, availableLibraries: availableLibraries, completion: $0) }
                 for dependency in try container.underlying.getUnversionedDependencies(productFilter: node.productFilter) {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -359,7 +382,7 @@ public struct PubGrubDependencyResolver {
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
             // TODO: replace with async/await when avail
-            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
+            let container = try temp_await { provider.getContainer(for: package, availableLibraries: availableLibraries, completion: $0) }
 
             // If there is a pin for this revision-based dependency, get
             // the dependencies at the pinned revision instead of using
@@ -442,19 +465,22 @@ public struct PubGrubDependencyResolver {
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    private func run(state: State) throws {
+    private func run(state: State, availableLibraries: [LibraryMetadata]) throws {
         var next: DependencyResolutionNode? = state.root
 
         while let nxt = next {
             try self.propagate(state: state, node: nxt)
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
-            self.provider.prefetch(containers: state.solution.undecided.map(\.node.package))
+            self.provider.prefetch(
+                containers: state.solution.undecided.map(\.node.package),
+                availableLibraries: availableLibraries
+            )
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
             // TODO: replace with async/await when available
-            next = try temp_await { self.makeDecision(state: state, completion: $0) }
+            next = try temp_await { self.makeDecision(state: state, availableLibraries: availableLibraries, completion: $0) }
         }
     }
 
@@ -630,7 +656,11 @@ public struct PubGrubDependencyResolver {
         incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
     }
 
-    private func computeCounts(for terms: [Term], completion: @escaping (Result<[Term: Int], Error>) -> Void) {
+    private func computeCounts(
+        for terms: [Term],
+        availableLibraries: [LibraryMetadata],
+        completion: @escaping (Result<[Term: Int], Error>) -> Void
+    ) {
         if terms.isEmpty {
             return completion(.success([:]))
         }
@@ -640,7 +670,7 @@ public struct PubGrubDependencyResolver {
 
         terms.forEach { term in
             sync.enter()
-            provider.getContainer(for: term.node.package) { result in
+            provider.getContainer(for: term.node.package, availableLibraries: availableLibraries) { result in
                 defer { sync.leave() }
                 results[term] = result.flatMap { container in Result(catching: { try container.versionCount(term.requirement) }) }
             }
@@ -655,7 +685,11 @@ public struct PubGrubDependencyResolver {
         }
     }
 
-    internal func makeDecision(state: State, completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void) {
+    internal func makeDecision(
+        state: State,
+        availableLibraries: [LibraryMetadata] = [],
+        completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void
+    ) {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.solution.undecided
         guard !undecided.isEmpty else {
@@ -664,7 +698,7 @@ public struct PubGrubDependencyResolver {
 
         // Prefer packages with least number of versions that fit the current requirements so we
         // get conflicts (if any) sooner.
-        self.computeCounts(for: undecided) { result in
+        self.computeCounts(for: undecided, availableLibraries: availableLibraries) { result in
             do {
                 let start = DispatchTime.now()
                 let counts = try result.get()
@@ -728,12 +762,15 @@ public extension PubGrubDependencyResolver {
     enum PubgrubError: Swift.Error, CustomStringConvertible {
         case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
         case unresolvable(String)
+        case potentiallyUnresovableDueToPrebuiltLibrary([PackageReference], String)
 
         public var description: String {
             switch self {
             case ._unresolvable(let rootCause, _):
                 return rootCause.description
             case .unresolvable(let error):
+                return error
+            case .potentiallyUnresovableDueToPrebuiltLibrary(_, let error):
                 return error
             }
         }
@@ -744,6 +781,8 @@ public extension PubGrubDependencyResolver {
                 return rootCause
             case .unresolvable:
                 return nil
+            case .potentiallyUnresovableDueToPrebuiltLibrary:
+                return nil
             }
         }
 
@@ -752,6 +791,8 @@ public extension PubGrubDependencyResolver {
             case ._unresolvable(_, let incompatibilities):
                 return incompatibilities
             case .unresolvable:
+                return nil
+            case .potentiallyUnresovableDueToPrebuiltLibrary:
                 return nil
             }
         }
@@ -794,6 +835,32 @@ private extension PackageRequirement {
             return false
         case .revision:
             return true
+        }
+    }
+}
+
+extension PackageReference {
+    public func matchingPrebuiltLibrary(in availableLibraries: [LibraryMetadata]) -> LibraryMetadata? {
+        switch self.kind {
+        case .fileSystem, .localSourceControl, .root:
+            return nil // can never match a prebuilt library
+        case .registry(let identity):
+            if let registryIdentity = identity.registry {
+                return availableLibraries.first(
+                    where: { $0.identities.contains(
+                        where: { $0 == .packageIdentity(
+                            scope: registryIdentity.scope.description,
+                            name: registryIdentity.name.description
+                        )
+                        })
+                    })
+            } else {
+                return nil
+            }
+        case .remoteSourceControl(let url):
+            return availableLibraries.first(where: {
+                $0.identities.contains(where: { $0 == .sourceControl(url: url) })
+            })
         }
     }
 }

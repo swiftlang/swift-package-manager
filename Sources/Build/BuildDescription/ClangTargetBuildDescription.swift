@@ -181,7 +181,7 @@ public final class ClangTargetBuildDescription {
         }
     }
 
-    /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
+    /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
     public func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {

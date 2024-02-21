@@ -51,7 +51,7 @@ import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import var TSCUtility.verbosity
+import TSCUtility // cannot be scoped because of `String.spm_mangleToC99ExtendedIdentifier()`
 
 typealias Diagnostic = Basics.Diagnostic
 
@@ -463,6 +463,29 @@ public final class SwiftTool {
         return workspace
     }
 
+    public func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace()
+        let root = try self.getWorkspaceRoot()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: self.observabilityScope,
+                completion: $0
+            )
+        }
+
+        var identities = [PackageIdentity: [PackageIdentity]]()
+        var targets = [PackageIdentity: [String]]()
+
+        rootManifests.forEach {
+            let identity = PackageIdentity(path: $0.key)
+            identities[identity] = $0.value.dependencies.map(\.identity)
+            targets[identity] = $0.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
+        }
+
+        return (identities, targets)
+    }
+
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
@@ -584,6 +607,7 @@ public final class SwiftTool {
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
+                availableLibraries: self.getHostToolchain().providedLibraries,
                 observabilityScope: self.observabilityScope
             )
 

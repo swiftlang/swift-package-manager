@@ -16,7 +16,10 @@ import LLBuildManifest
 import PackageGraph
 import PackageModel
 import struct SPMBuildCore.BuildParameters
+
+@_spi(SwiftPMInternal)
 import SPMTestSupport
+
 import class TSCBasic.InMemoryFileSystem
 import XCTest
 
