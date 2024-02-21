@@ -58,7 +58,7 @@ extension SwiftPackageTool {
         var globalOptions: GlobalOptions
 
         @Flag(name: .customLong("force"),
-              help: "Unedit the package even if it has uncommited and unpushed changes")
+              help: "Unedit the package even if it has uncommitted and unpushed changes")
         var shouldForceRemove: Bool = false
 
         @Argument(help: "The name of the package to unedit")
@@ -72,6 +72,7 @@ extension SwiftPackageTool {
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftTool.getWorkspaceRoot(),
+                availableLibraries: swiftTool.getHostToolchain().providedLibraries,
                 observabilityScope: swiftTool.observabilityScope
             )
         }

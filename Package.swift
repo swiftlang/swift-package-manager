@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:5.8
 
 //===----------------------------------------------------------------------===//
 //
@@ -73,11 +73,24 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
+
+let packageModelResourcesSettings: [SwiftSetting]
+let packageModelResources: [Resource]
+if ProcessInfo.processInfo.environment["SWIFTPM_USE_LIBRARIES_METADATA"] == nil {
+    packageModelResources = []
+    packageModelResourcesSettings = [.define("SKIP_RESOURCE_SUPPORT")]
+} else {
+    packageModelResources = [
+        .copy("InstalledLibrariesSupport/provided-libraries.json"),
+    ]
+    packageModelResourcesSettings = []
+}
+
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v12),
-        .iOS(.v15)
+        .macOS(.v13),
+        .iOS(.v16)
     ],
     products:
         autoProducts.flatMap {
@@ -154,7 +167,8 @@ let package = Package(
             dependencies: [
                 "Build",
                 "SPMBuildCore"
-            ]
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -216,7 +230,9 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            resources: packageModelResources,
+            swiftSettings: packageModelResourcesSettings
         ),
 
         .target(
@@ -386,6 +402,7 @@ let package = Package(
             name: "Commands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
                 "Build",
                 "CoreCommands",

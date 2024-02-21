@@ -33,6 +33,7 @@ public final class SwiftTarget: Target {
             dependencies: dependencies,
             packageAccess: packageAccess,
             buildSettings: .init(),
+            buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
         )
@@ -54,6 +55,7 @@ public final class SwiftTarget: Target {
         packageAccess: Bool,
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init(),
+        buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool
     ) {
@@ -70,6 +72,7 @@ public final class SwiftTarget: Target {
             dependencies: dependencies,
             packageAccess: packageAccess,
             buildSettings: buildSettings,
+            buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags
         )
@@ -100,6 +103,7 @@ public final class SwiftTarget: Target {
             dependencies: dependencies,
             packageAccess: packageAccess,
             buildSettings: .init(),
+            buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
         )

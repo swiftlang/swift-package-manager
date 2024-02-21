@@ -630,8 +630,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependencies() throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSuppressWarnings(), "skipping because test environment doesn't support suppressing warnings")
-
         try fixture(name: "Miscellaneous/DependenciesWarnings") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
@@ -649,8 +647,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependenciesWithWarningsAsErrors() throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSuppressWarnings(), "skipping because test environment doesn't support suppressing warnings")
-
         try fixture(name: "Miscellaneous/DependenciesWarnings2") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
@@ -669,7 +665,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testRootPackageWithConditionals() throws {
         try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
             let (_, stderr) = try SwiftPM.Build.execute(packagePath: path)
-            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit") && !$0.isEmpty }
+            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }
     }

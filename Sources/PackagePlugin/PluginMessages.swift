@@ -269,7 +269,10 @@ enum PluginToHostMessage: Codable {
         enum DiagnosticSeverity: String, Codable {
             case error, warning, remark
         }
-    
+
+    /// The plugin emits a progress message.
+    case emitProgress(message: String)
+
     /// The plugin defines a build command.
     case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
 
@@ -297,12 +300,13 @@ enum PluginToHostMessage: Codable {
         struct BuildParameters: Codable {
             var configuration: Configuration
             enum Configuration: String, Codable {
-                case debug, release
+                case debug, release, inherit
             }
             var logging: LogVerbosity
             enum LogVerbosity: String, Codable {
                 case concise, verbose, debug
             }
+            var echoLogs: Bool
             var otherCFlags: [String]
             var otherCxxFlags: [String]
             var otherSwiftcFlags: [String]

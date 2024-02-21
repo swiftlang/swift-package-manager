@@ -187,7 +187,7 @@ let package = Package(
     name: "example",
     targets: [
         // systemLibrary is a special type of build target that wraps a system library
-        // in a target that other targets can require as their depencency.
+        // in a target that other targets can require as their dependency.
         .systemLibrary(
             name: "Clibgit",
             pkgConfig: "libgit2",
@@ -266,7 +266,7 @@ let package = Package(
         ),
 
         // systemLibrary is a special type of build target that wraps a system library
-        // in a target that other targets can require as their depencency.
+        // in a target that other targets can require as their dependency.
         .systemLibrary(
             name: "Clibgit",
             pkgConfig: "libgit2",
@@ -579,7 +579,7 @@ You can end editing a package using `unedit` command:
 This will remove the edited dependency from `Packages/` and put the originally
 resolved version back.
 
-This command fails if there are uncommited changes or changes which are not
+This command fails if there are uncommitted changes or changes which are not
 pushed to the remote repository. If you want to discard these changes and
 unedit, you can use the `--force` option:
 

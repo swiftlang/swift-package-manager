@@ -24,6 +24,7 @@ add_library(Build
   BuildPlan/BuildPlan+Product.swift
   BuildPlan/BuildPlan+Swift.swift
   BuildPlan/BuildPlan+Test.swift
+  ClangSupport.swift
   SwiftCompilerOutputParser.swift
   TestObservation.swift)
 target_link_libraries(Build PUBLIC

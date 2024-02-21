@@ -2509,7 +2509,7 @@ final class WorkspaceTests: XCTestCase {
         if case .edited(let basedOn, _) = editedDependency?.state {
             XCTAssertNil(basedOn)
         } else {
-            XCTFail("expected edited depedency")
+            XCTFail("expected edited dependency")
         }
 
         workspace.checkManagedDependencies { result in
@@ -8170,7 +8170,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(downloads, 1)
         }
 
-        // reseting state, should not come from global cache
+        // resetting state, should not come from global cache
         try workspace.resetState()
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -8263,7 +8263,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(downloads, 1)
         }
 
-        // reseting state, should come from global cache
+        // resetting state, should come from global cache
         try workspace.resetState()
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -8278,7 +8278,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(downloads, 2)
         }
 
-        // reseting state, should come from global cache again
+        // resetting state, should come from global cache again
         try workspace.resetState()
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -8634,7 +8634,7 @@ final class WorkspaceTests: XCTestCase {
                     try MockTarget(
                         name: "binary\(index)",
                         type: .binary,
-                        url: "https://somwhere.com/binary\(index).zip",
+                        url: "https://somewhere.com/binary\(index).zip",
                         checksum: "01"
                     ),
                 ],
@@ -8683,7 +8683,7 @@ final class WorkspaceTests: XCTestCase {
                     packageIdentity: .plain(package.name),
                     targetName: targetName,
                     source: .remote(
-                        url: "https://somwhere.com/\(targetName).zip",
+                        url: "https://somewhere.com/\(targetName).zip",
                         checksum: "01"
                     ),
                     path: workspace.artifactsDir.appending(

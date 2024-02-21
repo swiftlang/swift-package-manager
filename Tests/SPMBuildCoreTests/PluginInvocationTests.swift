@@ -179,7 +179,7 @@ class PluginInvocationTests: XCTestCase {
                     }
                 }
 
-                // If we get this far we succeded, so invoke the completion handler.
+                // If we get this far we succeeded, so invoke the completion handler.
                 callbackQueue.sync {
                     completion(.success(0))
                 }
@@ -206,7 +206,7 @@ class PluginInvocationTests: XCTestCase {
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
-        let (evalTarget, evalResults) = try XCTUnwrap(results.first)
+        let (evalTargetID, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
 
         XCTAssertEqual(evalResults.count, 1)
@@ -294,7 +294,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
@@ -671,7 +675,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
+            XCTAssertThrowsError(try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'FooLib' of type 'library' from package 'foopackage'; this dependency is unsupported" {
@@ -747,7 +755,10 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
+            XCTAssertThrowsError(try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope)) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
                    realError.description == "plugin 'MyPlugin' cannot depend on 'MyLibrary' of type 'library'; this dependency is unsupported" {
@@ -854,7 +865,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
@@ -887,7 +902,7 @@ class PluginInvocationTests: XCTestCase {
                     fileSystem: localFileSystem
                 )
 
-                let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
+                let diags = result.flatMap(\.value.results).flatMap(\.diagnostics)
                 testDiagnostics(diags) { result in
                     let msg = "a prebuild command cannot use executables built from source, including executable target 'Y'"
                     result.check(diagnostic: .contains(msg), severity: .error)
@@ -1034,7 +1049,11 @@ class PluginInvocationTests: XCTestCase {
             )
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
-            let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let graph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             let dict = try await workspace.loadPluginImports(packageGraph: graph)
 
             var count = 0
@@ -1067,7 +1086,10 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple) async throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]  {
+    func checkParseArtifactsPlatformCompatibility(
+        artifactSupportedTriples: [Triple],
+        hostTriple: Triple
+    ) async throws -> [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1176,7 +1198,11 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            let packageGraph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                availableLibraries: [], // assume no provided libraries for testing.
+                observabilityScope: observability.topScope
+            )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.
@@ -1219,7 +1245,7 @@ class PluginInvocationTests: XCTestCase {
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem
-            )
+            ).mapValues(\.results)
         }
     }
 

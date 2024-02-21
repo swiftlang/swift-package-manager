@@ -28,12 +28,12 @@ internal struct PluginContextSerializer {
     var paths: [WireInput.URL] = []
     var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
-    var targetsToIds: [ResolvedTarget: WireInput.Target.Id] = [:]
+    var targetsToWireIDs: [ResolvedTarget.ID: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
-    var productsToIds: [ResolvedProduct: WireInput.Product.Id] = [:]
+    var productsToWireIDs: [ResolvedProduct.ID: WireInput.Product.Id] = [:]
     var packages: [WireInput.Package] = []
-    var packagesToIds: [ResolvedPackage: WireInput.Package.Id] = [:]
-    
+    var packagesToWireIDs: [ResolvedPackage.ID: WireInput.Package.Id] = [:]
+
     /// Adds a path to the serialized structure, if it isn't already there.
     /// Either way, this function returns the path's wire ID.
     mutating func serialize(path: AbsolutePath) throws -> WireInput.URL.Id {
@@ -57,8 +57,8 @@ internal struct PluginContextSerializer {
     // tion returns the target's wire ID. If not, it returns nil.
     mutating func serialize(target: ResolvedTarget) throws -> WireInput.Target.Id? {
         // If we've already seen the target, just return the wire ID we already assigned to it.
-        if let id = targetsToIds[target] { return id }
-        
+        if let id = targetsToWireIDs[target.id] { return id }
+
         // Construct the FileList
         var targetFiles: [WireInput.Target.TargetInfo.File] = []
         targetFiles.append(contentsOf: try target.underlying.sources.paths.map {
@@ -174,7 +174,7 @@ internal struct PluginContextSerializer {
             directoryId: try serialize(path: target.sources.root),
             dependencies: dependencies,
             info: targetInfo))
-        targetsToIds[target] = id
+        targetsToWireIDs[target.id] = id
         return id
     }
 
@@ -183,8 +183,8 @@ internal struct PluginContextSerializer {
     // tion returns the product's wire ID. If not, it returns nil.
     mutating func serialize(product: ResolvedProduct) throws -> WireInput.Product.Id? {
         // If we've already seen the product, just return the wire ID we already assigned to it.
-        if let id = productsToIds[product] { return id }
-        
+        if let id = productsToWireIDs[product.id] { return id }
+
         // Look at the product and decide what to serialize. At this point we may decide to not serialize it at all.
         let productInfo: WireInput.Product.ProductInfo
         switch product.type {
@@ -217,7 +217,7 @@ internal struct PluginContextSerializer {
             name: product.name,
             targetIds: try product.targets.compactMap{ try serialize(target: $0) },
             info: productInfo))
-        productsToIds[product] = id
+        productsToWireIDs[product.id] = id
         return id
     }
 
@@ -225,8 +225,8 @@ internal struct PluginContextSerializer {
     // Either way, this function returns the package's wire ID.
     mutating func serialize(package: ResolvedPackage) throws -> WireInput.Package.Id {
         // If we've already seen the package, just return the wire ID we already assigned to it.
-        if let id = packagesToIds[package] { return id }
-        
+        if let id = packagesToWireIDs[package.id] { return id }
+
         // Determine how we should represent the origin of the package to the plugin.
         func origin(for package: ResolvedPackage) throws -> WireInput.Package.Origin {
             switch package.manifest.packageKind {
@@ -262,7 +262,7 @@ internal struct PluginContextSerializer {
             dependencies: dependencies,
             productIds: try package.products.compactMap{ try serialize(product: $0) },
             targetIds: try package.targets.compactMap{ try serialize(target: $0) }))
-        packagesToIds[package] = id
+        packagesToWireIDs[package.id] = id
         return id
     }
 }

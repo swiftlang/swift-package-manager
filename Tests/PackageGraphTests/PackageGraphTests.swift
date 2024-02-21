@@ -19,8 +19,7 @@ import XCTest
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
-class PackageGraphTests: XCTestCase {
-
+final class PackageGraphTests: XCTestCase {
     func testBasic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
@@ -84,11 +83,11 @@ class PackageGraphTests: XCTestCase {
         let fooPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Foo") })
         let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
         let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
-        XCTAssert(g.package(for: fooTarget) == fooPackage)
-        XCTAssert(g.package(for: fooDepTarget) == fooPackage)
+        XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
+        XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
         let barPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Bar") })
         let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
-        XCTAssert(g.package(for: barTarget) == barPackage)
+        XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
     }
 
     func testProductDependencies() throws {
@@ -2258,7 +2257,15 @@ class PackageGraphTests: XCTestCase {
                     try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
                     try ProductDescription(name: "cbar", type: .library(.automatic), targets: ["cbar"]),
                     try ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"]),
-                    try ProductDescription(name: "multi-target", type: .library(.automatic), targets: ["bar", "cbar", "bar", "test"]),
+                    try ProductDescription(
+                        name: "multi-target",
+                        type: .library(.automatic),
+                        targets: [
+                            "bar",
+                            "cbar",
+                            "test"
+                        ]
+                    ),
                 ],
                 targets: [
                     try TargetDescription(name: "foo", type: .system),

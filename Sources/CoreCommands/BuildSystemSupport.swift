@@ -32,6 +32,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem {
+        let rootPackageInfo = try swiftTool.getRootPackageInformation()
         let testEntryPointPath = productsBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
         return try BuildOperation(
             productsBuildParameters: try productsBuildParameters ?? self.swiftTool.productsBuildParameters,
@@ -50,6 +51,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             ),
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftTool.options.locations.pkgConfigDirectories,
+            dependenciesByRootPackageIdentity: rootPackageInfo.dependecies,
+            targetsByRootPackageIdentity: rootPackageInfo.targets,
             outputStream: outputStream ?? self.swiftTool.outputStream,
             logLevel: logLevel ?? self.swiftTool.logLevel,
             fileSystem: self.swiftTool.fileSystem,

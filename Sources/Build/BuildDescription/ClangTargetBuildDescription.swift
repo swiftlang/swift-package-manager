@@ -181,7 +181,7 @@ public final class ClangTargetBuildDescription {
         }
     }
 
-    /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
+    /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
     public func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
@@ -225,16 +225,11 @@ public final class ClangTargetBuildDescription {
         args += activeCompilationConditions
         args += ["-fblocks"]
 
-        let buildTriple = self.buildParameters.triple
         // Enable index store, if appropriate.
-        //
-        // This feature is not widely available in OSS clang. So, we only enable
-        // index store for Apple's clang or if explicitly asked to.
-        if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += self.buildParameters.indexStoreArguments(for: target)
-        } else if buildTriple.isDarwin(),
-                  (try? self.buildParameters.toolchain._isClangCompilerVendorApple()) == true
-        {
+        if let supported = try? ClangSupport.supportsFeature(
+            name: "index-unit-output-path",
+            toolchain: self.buildParameters.toolchain
+        ), supported {
             args += self.buildParameters.indexStoreArguments(for: target)
         }
 
@@ -243,10 +238,10 @@ public final class ClangTargetBuildDescription {
         // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
         // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't
         // support clang modules.
-        // Note that if modules get enabled for other platforms later, we'll need to verify that
-        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed, or don't
-        // enable modules in the affected modes.
-        let enableModules = triple.isDarwin()
+        // Note that if modules get enabled for other platforms later, they can't be used with C++ until
+        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed.
+        // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
+        let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }

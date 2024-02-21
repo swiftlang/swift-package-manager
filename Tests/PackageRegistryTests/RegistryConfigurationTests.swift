@@ -138,7 +138,7 @@ final class RegistryConfigurationTests: XCTestCase {
                 },
                 "bar": {
                     "url": "\#(customRegistryBaseURL)"
-                },
+                }
             },
             "authentication": {
                 "packages.example.com": {

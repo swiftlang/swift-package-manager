@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.IdentifiableSet
 import OrderedCollections
 import PackageLoading
 import PackageModel
@@ -51,23 +52,24 @@ enum PackageGraphError: Swift.Error {
 /// A collection of packages.
 public struct PackageGraph {
     /// The root packages.
-    public let rootPackages: [ResolvedPackage]
+    public let rootPackages: IdentifiableSet<ResolvedPackage>
 
     /// The complete list of contained packages, in topological order starting
     /// with the root packages.
     public let packages: [ResolvedPackage]
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: Set<ResolvedTarget>
+    public let reachableTargets: IdentifiableSet<ResolvedTarget>
 
     /// The list of all products reachable from root targets.
-    public let reachableProducts: Set<ResolvedProduct>
+    public let reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: Set<ResolvedTarget>
+    public let allTargets: IdentifiableSet<ResolvedTarget>
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-    public let allProducts: Set<ResolvedProduct>
+
+    public let allProducts: IdentifiableSet<ResolvedProduct>
 
     /// Package dependencies required for a fully resolved graph.
     ///
@@ -78,7 +80,7 @@ public struct PackageGraph {
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.flatMap({ (package: ResolvedPackage) -> Set<ResolvedTarget> in
+        return rootPackages.reduce(into: IdentifiableSet<ResolvedTarget>()) { (accumulator: inout IdentifiableSet<ResolvedTarget>, package: ResolvedPackage) in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
             let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
@@ -90,26 +92,26 @@ public struct PackageGraph {
                 }
             }
 
-            return Set(package.targets).subtracting(unsatisfiedDependencyTargets)
-        }).contains(target)
+            accumulator.formUnion(IdentifiableSet(package.targets).subtracting(unsatisfiedDependencyTargets))
+        }.contains(id: target.id)
     }
 
     public func isRootPackage(_ package: ResolvedPackage) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.contains(package)
+        return self.rootPackages.contains(id: package.id)
     }
 
-    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
+    private let targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
     /// Returns the package that contains the target, or nil if the target isn't in the graph.
     public func package(for target: ResolvedTarget) -> ResolvedPackage? {
-        return self.targetsToPackages[target]
+        return self.targetsToPackages[target.id]
     }
 
 
-    private let productsToPackages: [ResolvedProduct: ResolvedPackage]
+    private let productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product]
+        return self.productsToPackages[product.id]
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -125,7 +127,7 @@ public struct PackageGraph {
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
-        self.rootPackages = rootPackages
+        let rootPackages = IdentifiableSet(rootPackages)
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
@@ -135,11 +137,11 @@ public struct PackageGraph {
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
         self.targetsToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0] = package }
+            package.targets.forEach{ partial[$0.id] = package }
         })
 
-        allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
-            if rootPackages.contains(package) {
+        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedTarget] in
+            if rootPackages.contains(id: package.id) {
                 return package.targets
             } else {
                 // Don't include tests targets from non-root packages so swift-test doesn't
@@ -152,11 +154,11 @@ public struct PackageGraph {
         // we include all products, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
         self.productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach{ partial[$0] = package }
+            package.products.forEach { partial[$0.id] = package }
         })
 
-        allProducts = Set(packages.flatMap({ package -> [ResolvedProduct] in
-            if rootPackages.contains(package) {
+        let allProducts = IdentifiableSet(packages.flatMap({ package -> [ResolvedProduct] in
+            if rootPackages.contains(id: package.id) {
                 return package.products
             } else {
                 // Don't include tests products from non-root packages so swift-test doesn't
@@ -170,20 +172,23 @@ public struct PackageGraph {
         let inputProducts = inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
-        self.reachableTargets = Set(inputTargets).union(recursiveDependencies.compactMap { $0.target })
-        self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
+        self.reachableTargets = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.target })
+        self.reachableProducts = IdentifiableSet(inputProducts).union(recursiveDependencies.compactMap { $0.product })
+        self.rootPackages = rootPackages
+        self.allTargets = allTargets
+        self.allProducts = allProducts
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget: [ResolvedTarget]] {
-        var result = [ResolvedTarget: [ResolvedTarget]]()
+    func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
+        var result = [ResolvedTarget.ID: [ResolvedTarget]]()
 
-        let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
+        let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
 
         // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
+        let testTargetDepMap: [ResolvedTarget.ID: IdentifiableSet<ResolvedTarget>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
-                ($0, Set($0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }))
+                ($0.id, IdentifiableSet($0.dependencies.compactMap { $0.target }.filter { $0.type != .plugin }))
             })
             return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
@@ -200,7 +205,7 @@ public struct PackageGraph {
                 !deps.intersection(dependencies + [target]).isEmpty
             }).map({ $0.key })
 
-            result[target] = testTargets
+            result[target.id] = testTargets.compactMap { rootTargets[$0] }
         }
 
         return result

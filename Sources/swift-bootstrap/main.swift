@@ -314,6 +314,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     packageGraphLoader: packageGraphLoader,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
+                    dependenciesByRootPackageIdentity: [:],
+                    targetsByRootPackageIdentity: [:],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
@@ -378,6 +380,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     partial[item.key] = (manifest: item.value, fs: self.fileSystem)
                 },
                 binaryArtifacts: [:],
+                availableLibraries: [], // assume no provided libraries during bootstrap
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )

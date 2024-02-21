@@ -466,7 +466,7 @@ public class RepositoryManager: Cancellable {
             try self.fileSystem.removeFileTree(self.path)
         } catch {
             observabilityScope.emit(
-                error: "Error reseting repository manager at '\(self.path)'",
+                error: "Error resetting repository manager at '\(self.path)'",
                 underlyingError: error
             )
         }
@@ -559,7 +559,7 @@ extension RepositoryManager {
     public struct FetchDetails: Equatable {
         /// Indicates if the repository was fetched from the cache or from the remote.
         public let fromCache: Bool
-        /// Indicates wether the wether the repository was already present in the cache and updated or if a clean fetch was performed.
+        /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
         public let updatedCache: Bool
     }
 }

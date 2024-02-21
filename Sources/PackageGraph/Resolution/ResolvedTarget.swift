@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,7 +13,7 @@
 import PackageModel
 
 /// Represents a fully resolved target. All the dependencies for this target are also stored as resolved.
-public struct ResolvedTarget: Hashable {
+public struct ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
@@ -219,9 +219,9 @@ extension ResolvedTarget.Dependency: Equatable {
     public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
         switch (lhs, rhs) {
         case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
-            return lhsTarget == rhsTarget
+            return lhsTarget.id == rhsTarget.id
         case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
-            return lhsProduct == rhsProduct
+            return lhsProduct.id == rhsProduct.id
         case (.product, .target), (.target, .product):
             return false
         }
@@ -232,9 +232,25 @@ extension ResolvedTarget.Dependency: Hashable {
     public func hash(into hasher: inout Hasher) {
         switch self {
         case .target(let target, _):
-            hasher.combine(target)
+            hasher.combine(target.id)
         case .product(let product, _):
-            hasher.combine(product)
+            hasher.combine(product.id)
         }
     }
 }
+
+extension ResolvedTarget: Identifiable {
+    /// Resolved target identity that uniquely identifies it in a resolution graph.
+    public struct ID: Hashable {
+        public let targetName: String
+        let packageIdentity: PackageIdentity
+        public let buildTriple: BuildTriple
+    }
+
+    public var id: ID {
+        ID(targetName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
+    }
+}
+
+@available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
+extension ResolvedTarget: Hashable {}

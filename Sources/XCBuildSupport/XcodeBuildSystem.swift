@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import class Foundation.JSONEncoder
@@ -23,9 +24,7 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.withTemporaryFile
 import func TSCBasic.memoize
 
-import class TSCUtility.MultiLinePercentProgressAnimation
 import enum TSCUtility.Diagnostics
-import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
@@ -248,9 +247,11 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     /// Returns a new instance of `XCBuildDelegate` for a build operation.
     private func createBuildDelegate() -> XCBuildDelegate {
-        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
-            ? VerboseProgressAnimation(stream: self.outputStream)
-            : MultiLinePercentProgressAnimation(stream: self.outputStream, header: "")
+        let progressAnimation = ProgressAnimation.percent(
+            stream: self.outputStream,
+            verbose: self.logLevel.isVerbose,
+            header: ""
+        )
         let delegate = XCBuildDelegate(
             buildSystem: self,
             outputStream: self.outputStream,
