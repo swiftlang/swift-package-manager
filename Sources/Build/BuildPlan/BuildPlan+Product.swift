@@ -17,7 +17,10 @@ import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedTarget
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
+
+@_spi(SwiftPMInternal)
 import class PackageModel.Target
+
 import class PackageModel.SwiftTarget
 import class PackageModel.SystemLibraryTarget
 import struct SPMBuildCore.BuildParameters
@@ -28,7 +31,10 @@ extension BuildPlan {
     /// Plan a product.
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product, buildParameters: buildProduct.buildParameters)
+        let dependencies = try computeDependencies(
+            of: buildProduct.product,
+            buildParameters: buildProduct.buildParameters
+        )
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -50,19 +56,22 @@ extension BuildPlan {
             }
         }
 
-        // Link C++ if needed.
-        // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlying, target.isCXX {
-                let triple = buildProduct.buildParameters.triple
-                if triple.isDarwin() {
-                    buildProduct.additionalFlags += ["-lc++"]
-                } else if triple.isWindows() {
-                    // Don't link any C++ library.
-                } else {
-                    buildProduct.additionalFlags += ["-lstdc++"]
+        // Don't link unavailable libc++ or libstd++ when building for Embedded Swift
+        if !buildProduct.product.targets.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+            // Link C++ if needed.
+            // Note: This will come from build settings in future.
+            for target in dependencies.staticTargets {
+                if case let target as ClangTarget = target.underlying, target.isCXX {
+                    let triple = buildProduct.buildParameters.triple
+                    if triple.isDarwin() {
+                        buildProduct.additionalFlags += ["-lc++"]
+                    } else if triple.isWindows() {
+                        // Don't link any C++ library.
+                    } else {
+                        buildProduct.additionalFlags += ["-lstdc++"]
+                    }
+                    break
                 }
-                break
             }
         }
 
