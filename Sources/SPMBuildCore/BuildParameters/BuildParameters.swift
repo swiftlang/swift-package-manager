@@ -260,7 +260,7 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !self.triple.isWASI() else {
+            guard !self.triple.isWasm else {
                 return try RelativePath(validating: "\(product.name).wasm")
             }
             switch testingParameters.library {
