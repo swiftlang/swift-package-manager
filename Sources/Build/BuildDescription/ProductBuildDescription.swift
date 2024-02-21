@@ -12,7 +12,10 @@
 
 import Basics
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import PackageModel
+
 import OrderedCollections
 import SPMBuildCore
 
@@ -198,7 +201,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when using objectiveC, executable when using test entry point.
+            // Test products are bundle when using Objective-C, executable when using test entry point.
             switch self.buildParameters.testingParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
@@ -271,8 +274,21 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
-        // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+            // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
+            // duplicates with `OrderedSet`.
+            var experimentalFeatures = OrderedSet<String>()
+            for target in self.product.targets {
+                let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
+                for case let .enableExperimentalFeature(feature) in swiftSettings.map(\.kind)  {
+                    experimentalFeatures.append(feature)
+                }
+            }
+            for feature in experimentalFeatures {
+                args += ["-enable-experimental-feature", feature]
+            }
+
+            // Embed the swift stdlib library path inside tests and executables on Darwin.
             let useStdlibRpath: Bool
             switch self.product.type {
             case .library(let type):
@@ -297,11 +313,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                     args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
                 }
             }
-        }
-
-        // Don't link runtime compatibility patch libraries if there are no
-        // Swift sources in the target.
-        if !containsSwiftTargets {
+        } else {
+            // Don't link runtime compatibility patch libraries if there are no
+            // Swift sources in the target.
             args += ["-runtime-compatibility-version", "none"]
         }
 
