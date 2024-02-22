@@ -66,8 +66,8 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
-        try Self.loadAndValidateManifest(
+    ) async throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
+        try await Self.loadAndValidateManifest(
             content,
             toolsVersion: toolsVersion ?? self.toolsVersion,
             packageKind: packageKind ?? .fileSystem(.root),
@@ -86,7 +86,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
+    ) async throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
         let packagePath: AbsolutePath
         switch packageKind {
         case .root(let path):
@@ -103,7 +103,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, string: content)
-        let manifest = try manifestLoader.load(
+        let manifest = try await manifestLoader.load(
             manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,

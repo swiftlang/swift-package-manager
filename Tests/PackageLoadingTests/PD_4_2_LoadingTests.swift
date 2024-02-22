@@ -24,12 +24,13 @@ import func TSCTestSupport.withCustomEnv
 
 import struct TSCUtility.Version
 
-class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
+@available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2
     }
 
-    func testBasics() throws {
+    func testBasics() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -55,7 +56,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -90,7 +91,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(fooProduct.targets, ["foo"])
     }
 
-    func testSwiftLanguageVersions() throws {
+    func testSwiftLanguageVersions() async throws {
         // Ensure integer values are not accepted.
         do {
             let content = """
@@ -102,7 +103,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(
                         message,
@@ -128,7 +129,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -145,7 +146,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -165,7 +166,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
@@ -176,7 +177,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testPlatforms() throws {
+    func testPlatforms() async throws {
         do {
             let content = """
                 import PackageDescription
@@ -187,7 +188,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
@@ -207,7 +208,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
@@ -218,7 +219,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testBuildSettings() throws {
+    func testBuildSettings() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -238,7 +239,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                 XCTAssertMatch(message, .contains("is unavailable"))
                 XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
@@ -248,7 +249,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testPackageDependencies() throws {
+    func testPackageDependencies() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -273,7 +274,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -331,7 +332,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testSystemLibraryTargets() throws {
+    func testSystemLibraryTargets() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -352,7 +353,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -371,7 +372,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     /// Check that we load the manifest appropriate for the current version, if
     /// version specific customization is used.
-    func testVersionSpecificLoading() throws {
+    func testVersionSpecificLoading() async throws {
         let bogusManifest = "THIS WILL NOT PARSE"
         let trivialManifest =
         """
@@ -405,7 +406,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(
+            let manifest = try await manifestLoader.load(
                 packagePath: root,
                 packageKind: .root(.root),
                 currentToolsVersion: .v4_2,
@@ -417,7 +418,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     // Check that ancient `Package@swift-3.swift` manifests are properly treated as 3.1 even without a tools-version comment.
-    func testVersionSpecificLoadingOfVersion3Manifest() throws {
+    func testVersionSpecificLoadingOfVersion3Manifest() async throws {
         // Create a temporary FS to hold the package manifests.
         let fs = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
@@ -434,7 +435,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: manifestContents
         )
         // Check we can load the manifest.
-        let manifest = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest.displayName, "Trivial")
 
@@ -448,12 +449,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: "// swift-tools-version:4.0\n" + manifestContents
         )
         // Check we can load the manifest.
-        let manifest2 = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest2 = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest2.displayName, "Trivial")
     }
 
-    func testRuntimeManifestErrors() throws {
+    func testRuntimeManifestErrors() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -477,7 +478,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.runtimeManifestErrors(let errors) = error {
                 XCTAssertEqual(errors, ["Invalid semantic version string '1.0,0'"])
             } else {
@@ -486,7 +487,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testNotAbsoluteDependencyPath() throws {
+    func testNotAbsoluteDependencyPath() async throws {
         let content = """
         import PackageDescription
         let package = Package(
@@ -503,7 +504,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let message, let diagnosticFile, _) = error {
                 XCTAssertNil(diagnosticFile)
                 XCTAssertEqual(message, "'https://someurl.com' is not a valid path for path-based dependencies; use relative or absolute path instead.")
@@ -513,7 +514,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testFileURLErrors() throws {
+    func testFileURLErrors() async throws {
         enum ExpectedError {
           case invalidAbsolutePath
           case relativePath
@@ -563,7 +564,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 switch error {
                 case is ManifestParseError:
                     XCTAssertEqual(error as? ManifestParseError, expectedError.manifestError)
@@ -576,7 +577,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testProductTargetNotFound() throws {
+    func testProductTargetNotFound() async throws {
         let content = """
             import PackageDescription
 
@@ -594,7 +595,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         testDiagnostics(validationDiagnostics) { result in
             result.check(diagnostic: .contains("target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'"), severity: .error)
@@ -629,7 +630,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
             // warm up caches
-            delegate.prepare()
             let manifest = try await manifestLoader.load(
                 manifestPath: manifestPath,
                 manifestToolsVersion: .v4_2,
@@ -649,34 +649,25 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
 
-            await withTaskGroup(of:Void.self) { group in
-                for _ in 0 ..< total {
-                    delegate.prepare(expectParsing: false)
-                    group.addTask {
-                        do {
-                            let manifest = try await manifestLoader.load(
-                                manifestPath: manifestPath,
-                                manifestToolsVersion: .v4_2,
-                                packageIdentity: .plain("Trivial"),
-                                packageKind: .fileSystem(manifestPath.parentDirectory),
-                                packageLocation: manifestPath.pathString,
-                                packageVersion: nil,
-                                identityResolver: identityResolver,
-                                dependencyMapper: dependencyMapper,
-                                fileSystem: localFileSystem,
-                                observabilityScope: observability.topScope,
-                                delegateQueue: .sharedConcurrent,
-                                callbackQueue: .sharedConcurrent
-                            )
-                            XCTAssertNoDiagnostics(observability.diagnostics)
-                            XCTAssertEqual(manifest.displayName, "Trivial")
-                            XCTAssertEqual(manifest.targets[0].name, "foo")
-                        } catch {
-                            XCTFail("\(error)")
-                        }
-                    }
-                }
-                await group.waitForAll()
+            for _ in 0 ..< total {
+                let manifest = try await manifestLoader.load(
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: .v4_2,
+                    packageIdentity: .plain("Trivial"),
+                    packageKind: .fileSystem(manifestPath.parentDirectory),
+                    packageLocation: manifestPath.pathString,
+                    packageVersion: nil,
+                    identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
+                    fileSystem: localFileSystem,
+                    observabilityScope: observability.topScope,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
+                )
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertEqual(manifest.displayName, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
             XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total+1)
