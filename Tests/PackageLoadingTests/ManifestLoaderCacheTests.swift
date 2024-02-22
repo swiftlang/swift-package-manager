@@ -20,7 +20,8 @@ import class TSCBasic.InMemoryFileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCTestSupport.withCustomEnv
 
-class ManifestLoaderCacheTests: XCTestCase {
+@available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+final class ManifestLoaderCacheTests: XCTestCase {
     func testDBCaching() async throws {
         try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
@@ -54,7 +55,6 @@ class ManifestLoaderCacheTests: XCTestCase {
 
             func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
 
                 let manifest = try await XCTAsyncUnwrap(try await loader.load(
                     manifestPath: manifestPath,
@@ -65,8 +65,8 @@ class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try await XCTAssertAsyncEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                try await XCTAssertAsyncEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, (expectCached ? 0 : 1))
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -148,7 +148,6 @@ class ManifestLoaderCacheTests: XCTestCase {
 
         func check(loader: ManifestLoader, expectCached: Bool) async throws {
             delegate.clear()
-            delegate.prepare(expectParsing: !expectCached)
 
             let manifest = try await XCTAsyncUnwrap(try await loader.load(
                 manifestPath: manifestPath,
@@ -159,8 +158,8 @@ class ManifestLoaderCacheTests: XCTestCase {
             ))
 
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-            XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+            try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
             XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
         }
@@ -246,24 +245,21 @@ class ManifestLoaderCacheTests: XCTestCase {
             }
 
             do {
-                delegate.prepare()
                 try await check(loader: manifestLoader, manifest: manifest)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 1)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 1)
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 1)
             }
 
             do {
-                delegate.prepare(expectParsing: false)
                 try await check(loader: manifestLoader, manifest: manifest)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 2)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 2)
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 1)
             }
 
             do {
-                delegate.prepare()
                 try await check(loader: manifestLoader, manifest: manifest + "\n\n")
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 2)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 3)
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 2)
             }
         }
     }
@@ -315,7 +311,6 @@ class ManifestLoaderCacheTests: XCTestCase {
 
             func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
 
                 let manifest = try await XCTAsyncUnwrap(try await loader.load(
                     manifestPath: manifestPath,
@@ -326,8 +321,8 @@ class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -366,7 +361,6 @@ class ManifestLoaderCacheTests: XCTestCase {
 
             func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
 
                 let manifest = try await XCTAsyncUnwrap(try await loader.load(
                     manifestPath: manifestPath,
@@ -377,8 +371,8 @@ class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -539,7 +533,11 @@ class ManifestLoaderCacheTests: XCTestCase {
     }
 }
 
-private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
+private func makeMockManifests(
+    fileSystem: FileSystem,
+    rootPath: AbsolutePath,
+    count: Int = Int.random(in: 50 ..< 100)
+) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
     var manifests = [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult]()
     for index in 0 ..< count {
         let packagePath = rootPath.appending("\(index)")

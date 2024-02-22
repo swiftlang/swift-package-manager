@@ -670,7 +670,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total+1)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total+1)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
@@ -693,55 +693,47 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< total {
-                    let random = Int.random(in: 0 ... total / 4)
-                    let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
-                    if !localFileSystem.exists(manifestPath) {
-                        try localFileSystem.createDirectory(manifestPath.parentDirectory)
-                        try localFileSystem.writeFileContents(
-                            manifestPath,
-                            string: """
-                            import PackageDescription
-                            let package = Package(
-                                name: "Trivial-\(random)",
-                                targets: [
-                                    .target(
-                                        name: "foo-\(random)",
-                                        dependencies: []),
-                                ]
-                            )
-                            """
+            for _ in 0 ..< total {
+                let random = Int.random(in: 0 ... total / 4)
+                let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
+                if !localFileSystem.exists(manifestPath) {
+                    try localFileSystem.createDirectory(manifestPath.parentDirectory)
+                    try localFileSystem.writeFileContents(
+                        manifestPath,
+                        string: """
+                        import PackageDescription
+                        let package = Package(
+                            name: "Trivial-\(random)",
+                            targets: [
+                                .target(
+                                    name: "foo-\(random)",
+                                    dependencies: []),
+                            ]
                         )
-                    }
-                    group.addTask {
-                        do {
-                            delegate.prepare()
-                            let manifest = try await manifestLoader.load(
-                                manifestPath: manifestPath,
-                                manifestToolsVersion: .v4_2,
-                                packageIdentity: .plain("Trivial-\(random)"),
-                                packageKind: .fileSystem(manifestPath.parentDirectory),
-                                packageLocation: manifestPath.pathString,
-                                packageVersion: nil,
-                                identityResolver: identityResolver,
-                                dependencyMapper: dependencyMapper,
-                                fileSystem: localFileSystem,
-                                observabilityScope: observability.topScope,
-                                delegateQueue: .sharedConcurrent,
-                                callbackQueue: .sharedConcurrent
-                            )
-                            XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
-                            XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
-                        } catch {
-                            XCTFail("\(error)")
-                        }
-                    }
+                        """
+                    )
                 }
-                try await group.waitForAll()
+
+                let manifest = try await manifestLoader.load(
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: .v4_2,
+                    packageIdentity: .plain("Trivial-\(random)"),
+                    packageKind: .fileSystem(manifestPath.parentDirectory),
+                    packageLocation: manifestPath.pathString,
+                    packageVersion: nil,
+                    identityResolver: identityResolver,
+                    dependencyMapper: dependencyMapper,
+                    fileSystem: localFileSystem,
+                    observabilityScope: observability.topScope,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
+                )
+
+                XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
+                XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
             }
 
-            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
