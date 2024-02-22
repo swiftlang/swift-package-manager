@@ -59,8 +59,11 @@ target_link_libraries(Commands PUBLIC
   SourceControl
   TSCBasic
   TSCUtility
-  Workspace
-  XCBuildSupport)
+  Workspace)
+
+target_compile_definitions(Commands
+  PRIVATE SKIP_XCBUILD_SUPPORT)
+
 target_link_libraries(Commands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)

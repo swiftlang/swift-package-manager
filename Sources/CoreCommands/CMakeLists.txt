@@ -18,8 +18,11 @@ target_link_libraries(CoreCommands PUBLIC
   PackageGraph
   TSCBasic
   TSCUtility
-  Workspace
-  XCBuildSupport)
+  Workspace)
+
+target_compile_definitions(CoreCommands
+  PRIVATE SKIP_XCBUILD_SUPPORT)
+
 target_link_libraries(CoreCommands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
