@@ -13,7 +13,7 @@
 import Build
 import SPMBuildCore
 
-#if !SKIP_XCBUILD_SUPPORT
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
 #endif
 
@@ -63,7 +63,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
     }
 }
 
-#if !SKIP_XCBUILD_SUPPORT
+#if !DISABLE_XCBUILD_SUPPORT
 private struct XcodeBuildSystemFactory: BuildSystemFactory {
     let swiftTool: SwiftTool
 
@@ -95,7 +95,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
 
 extension SwiftTool {
     public var defaultBuildSystemProvider: BuildSystemProvider {
-        #if !SKIP_XCBUILD_SUPPORT
+        #if !DISABLE_XCBUILD_SUPPORT
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftTool: self),
             .xcode: XcodeBuildSystemFactory(swiftTool: self)

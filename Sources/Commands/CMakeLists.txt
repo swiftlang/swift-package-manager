@@ -62,7 +62,7 @@ target_link_libraries(Commands PUBLIC
   Workspace)
 
 target_compile_definitions(Commands
-  PRIVATE SKIP_XCBUILD_SUPPORT)
+  PRIVATE DISABLE_XCBUILD_SUPPORT)
 
 target_link_libraries(Commands PRIVATE
   DriverSupport

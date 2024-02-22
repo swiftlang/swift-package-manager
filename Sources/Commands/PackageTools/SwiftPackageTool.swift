@@ -21,7 +21,7 @@ import SourceControl
 import SPMBuildCore
 import Workspace
 
-#if !SKIP_XCBUILD_SUPPORT
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
 #endif
 

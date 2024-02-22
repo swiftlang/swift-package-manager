@@ -19,4 +19,4 @@ target_link_libraries(swift-bootstrap PRIVATE
   TSCUtility)
 
 target_compile_definitions(swift-bootstrap
-  PRIVATE SKIP_XCBUILD_SUPPORT)
+  PRIVATE DISABLE_XCBUILD_SUPPORT)

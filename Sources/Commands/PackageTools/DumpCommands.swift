@@ -16,7 +16,7 @@ import CoreCommands
 import Foundation
 import PackageModel
 
-#if !SKIP_XCBUILD_SUPPORT
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
 #endif
 
@@ -139,7 +139,7 @@ struct DumpPIF: SwiftCommand {
     var preserveStructure: Bool = false
 
     func run(_ swiftTool: SwiftTool) throws {
-        #if !SKIP_XCBUILD_SUPPORT
+        #if !DISABLE_XCBUILD_SUPPORT
         let graph = try swiftTool.loadPackageGraph()
         let pif = try PIFBuilder.generatePIF(
             buildParameters: swiftTool.productsBuildParameters,

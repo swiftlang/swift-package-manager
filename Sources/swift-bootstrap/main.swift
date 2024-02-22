@@ -21,7 +21,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 
-#if !SKIP_XCBUILD_SUPPORT
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
 #endif
 
@@ -325,7 +325,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     observabilityScope: self.observabilityScope
                 )
             case .xcode:
-                #if !SKIP_XCBUILD_SUPPORT
+                #if !DISABLE_XCBUILD_SUPPORT
                 return try XcodeBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: packageGraphLoader,

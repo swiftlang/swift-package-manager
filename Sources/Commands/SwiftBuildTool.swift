@@ -17,7 +17,7 @@ import CoreCommands
 import PackageGraph
 import SPMBuildCore
 
-#if !SKIP_XCBUILD_SUPPORT
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
 #endif
 
