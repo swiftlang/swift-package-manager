@@ -56,7 +56,9 @@ extension BuildPlan {
             }
         }
 
-        // Don't link unavailable libc++ or libstd++ when building for Embedded Swift
+        // Don't link libc++ or libstd++ when building for Embedded Swift.
+        // Users can still link it manually for embedded platforms when needed,
+        // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
         if !buildProduct.product.targets.contains(where: \.underlying.isEmbeddedSwiftTarget) {
             // Link C++ if needed.
             // Note: This will come from build settings in future.
