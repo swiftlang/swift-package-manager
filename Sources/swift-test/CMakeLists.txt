@@ -9,8 +9,7 @@
 add_executable(swift-test
   main.swift)
 target_link_libraries(swift-test PRIVATE
-  Commands
-  SwiftDriver)
+  Commands)
 
 install(TARGETS swift-test
   RUNTIME DESTINATION bin)

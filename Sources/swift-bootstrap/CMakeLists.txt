@@ -12,12 +12,9 @@ target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics
   Build
-  DriverSupport
   PackageGraph
   PackageLoading
   PackageModel
   TSCBasic
-  TSCUtility)
-
-target_compile_definitions(swift-bootstrap
-  PRIVATE DISABLE_XCBUILD_SUPPORT)
+  TSCUtility
+  XCBuildSupport)
