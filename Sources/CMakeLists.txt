@@ -6,6 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+add_compile_definitions(SKIP_RESOURCE_SUPPORT)
 add_compile_definitions(USE_IMPL_ONLY_IMPORTS)
 
 add_subdirectory(Basics)

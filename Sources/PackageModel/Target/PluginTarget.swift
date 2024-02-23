@@ -36,6 +36,7 @@ public final class PluginTarget: Target {
             dependencies: dependencies,
             packageAccess: packageAccess,
             buildSettings: .init(),
+            buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false
         )

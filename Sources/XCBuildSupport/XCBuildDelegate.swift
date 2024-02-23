@@ -145,9 +145,8 @@ private extension Basics.Diagnostic {
     }
 }
 
-// FIXME: Move to TSC.
+@available(*, deprecated, message: "use ProgressAnimation.ninja(stream:) instead")
 public final class VerboseProgressAnimation: ProgressAnimationProtocol {
-
     private let stream: OutputByteStream
 
     public init(stream: OutputByteStream) {

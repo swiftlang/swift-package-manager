@@ -186,8 +186,8 @@ public final class InitPackage {
 
             var platforms = options.platforms
 
-            // Macros require macOS 10.15, iOS 13, etc.
-            if packageType == .macro {
+            // Macros and swift-testing require macOS 10.15, iOS 13, etc.
+            if packageType == .macro || options.supportedTestingLibraries.contains(.swiftTesting) {
                 func addIfMissing(_ newPlatform: SupportedPlatform) {
                   if platforms.contains(where: { platform in
                       platform.platform == newPlatform.platform

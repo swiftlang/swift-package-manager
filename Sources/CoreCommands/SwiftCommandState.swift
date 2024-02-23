@@ -48,11 +48,7 @@ import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
 import class TSCBasic.ThreadSafeOutputByteStream
 
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import class TSCUtility.PercentProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
-import var TSCUtility.verbosity
+import TSCUtility // cannot be scoped because of `String.spm_mangleToC99ExtendedIdentifier()`
 
 typealias Diagnostic = Basics.Diagnostic
 
@@ -464,6 +460,29 @@ public final class SwiftCommandState {
         return workspace
     }
 
+    public func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace()
+        let root = try self.getWorkspaceRoot()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: self.observabilityScope,
+                completion: $0
+            )
+        }
+
+        var identities = [PackageIdentity: [PackageIdentity]]()
+        var targets = [PackageIdentity: [String]]()
+
+        rootManifests.forEach {
+            let identity = PackageIdentity(path: $0.key)
+            identities[identity] = $0.value.dependencies.map(\.identity)
+            targets[identity] = $0.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
+        }
+
+        return (identities, targets)
+    }
+
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
@@ -585,6 +604,7 @@ public final class SwiftCommandState {
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
+                availableLibraries: self.getHostToolchain().providedLibraries,
                 observabilityScope: self.observabilityScope
             )
 
@@ -901,6 +921,9 @@ public final class SwiftCommandState {
     }
 
     fileprivate func acquireLockIfNeeded() throws {
+        guard packageRoot != nil else {
+            return
+        }
         assert(workspaceLockState == .needsLocking, "attempting to `acquireLockIfNeeded()` from unexpected state: \(workspaceLockState)")
         guard workspaceLock == nil else {
             throw InternalError("acquireLockIfNeeded() called multiple times")
@@ -914,11 +937,16 @@ public final class SwiftCommandState {
             try workspaceLock.lock(type: .exclusive, blocking: false)
         } catch let ProcessLockError.unableToAquireLock(errno) {
             if errno == EWOULDBLOCK {
-                self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
-                self.outputStream.flush()
+                if self.options.locations.ignoreLock {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed".utf8)
+                    self.outputStream.flush()
+                } else {
+                    self.outputStream.write("Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution...".utf8)
+                    self.outputStream.flush()
 
-                // Only if we fail because there's an existing lock we need to acquire again as blocking.
-                try workspaceLock.lock(type: .exclusive, blocking: true)
+                    // Only if we fail because there's an existing lock we need to acquire again as blocking.
+                    try workspaceLock.lock(type: .exclusive, blocking: true)
+                }
             }
         }
 

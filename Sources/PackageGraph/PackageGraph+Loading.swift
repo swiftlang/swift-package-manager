@@ -32,6 +32,7 @@ extension PackageGraph {
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
+        availableLibraries: [LibraryMetadata],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
@@ -159,6 +160,7 @@ extension PackageGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
+            availableLibraries: availableLibraries,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -243,6 +245,7 @@ private func createResolvedPackages(
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
+    availableLibraries: [LibraryMetadata],
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -513,18 +516,24 @@ private func createResolvedPackages(
                         }.map {$0.targets}.flatMap{$0}.filter { t in
                             t.name != productRef.name
                         }
-                        
-                        // Find a product name from the available product dependencies that is most similar to the required product name.
-                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
-                        let error = PackageGraphError.productDependencyNotFound(
-                            package: package.identity.description,
-                            targetName: targetBuilder.target.name,
-                            dependencyProductName: productRef.name,
-                            dependencyPackageName: productRef.package,
-                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                            similarProductName: bestMatchedProductName
-                        )
-                        packageObservabilityScope.emit(error)
+
+                        let identitiesAvailableInSDK = availableLibraries.flatMap { $0.identities.map { $0.identity } }
+                        // TODO: Do we have to care about "name" vs. identity here?
+                        if let name = productRef.package, identitiesAvailableInSDK.contains(PackageIdentity.plain(name)) {
+                            // Do not emit any diagnostic.
+                        } else {
+                            // Find a product name from the available product dependencies that is most similar to the required product name.
+                            let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
+                            let error = PackageGraphError.productDependencyNotFound(
+                                package: package.identity.description,
+                                targetName: targetBuilder.target.name,
+                                dependencyProductName: productRef.name,
+                                dependencyPackageName: productRef.package,
+                                dependencyProductInDecl: !declProductsAsDependency.isEmpty,
+                                similarProductName: bestMatchedProductName
+                            )
+                            packageObservabilityScope.emit(error)
+                        }
                     }
                     continue
                 }

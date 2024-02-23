@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 
@@ -76,9 +76,10 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
             self.logLevel = logLevel
             self.outputStream = outputStream
             self.writer = InteractiveWriter(stream: outputStream)
-            self.progressAnimation = logLevel.isVerbose ?
-                MultiLineNinjaProgressAnimation(stream: outputStream) :
-                NinjaProgressAnimation(stream: outputStream)
+            self.progressAnimation = ProgressAnimation.ninja(
+                stream: self.outputStream,
+                verbose: self.logLevel.isVerbose
+            )
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
