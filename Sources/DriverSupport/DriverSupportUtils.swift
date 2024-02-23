@@ -33,7 +33,7 @@ public enum DriverSupport {
             return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         }
         do {
-            let executor = try SPMSwiftDriverExecutor(
+            let executor = try SwiftPMDriverExecutor(
                 resolver: ArgsResolver(fileSystem: fileSystem),
                 fileSystem: fileSystem,
                 env: [:]

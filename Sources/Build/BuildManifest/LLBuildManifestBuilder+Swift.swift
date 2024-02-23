@@ -23,10 +23,10 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
+@_implementationOnly import class DriverSupport.SwiftPMDriverExecutor
 @_implementationOnly import SwiftDriver
 #else
-import class DriverSupport.SPMSwiftDriverExecutor
+import class DriverSupport.SwiftPMDriverExecutor
 import SwiftDriver
 #endif
 
@@ -72,7 +72,7 @@ extension LLBuildManifestBuilder {
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
         let resolver = try ArgsResolver(fileSystem: target.fileSystem)
-        let executor = SPMSwiftDriverExecutor(
+        let executor = SwiftPMDriverExecutor(
             resolver: resolver,
             fileSystem: target.fileSystem,
             env: ProcessEnv.vars
@@ -288,7 +288,7 @@ extension LLBuildManifestBuilder {
         commandLine.append(targetDescription.buildParameters.toolchain.swiftCompilerPath.pathString)
         commandLine.append("-experimental-explicit-module-build")
         let resolver = try ArgsResolver(fileSystem: self.fileSystem)
-        let executor = SPMSwiftDriverExecutor(
+        let executor = SwiftPMDriverExecutor(
             resolver: resolver,
             fileSystem: self.fileSystem,
             env: ProcessEnv.vars

@@ -222,7 +222,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     continue
                 }
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
-                let executor = SPMSwiftDriverExecutor(resolver: resolver,
+                let executor = SwiftPMDriverExecutor(resolver: resolver,
                                                       fileSystem: localFileSystem,
                                                       env: ProcessEnv.vars)
 

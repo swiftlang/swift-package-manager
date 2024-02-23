@@ -8,7 +8,7 @@
 
 add_library(DriverSupport
   DriverSupportUtils.swift
-  SPMSwiftDriverExecutor.swift)
+  SwiftPMDriverExecutor.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(DriverSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

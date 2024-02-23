@@ -14,9 +14,10 @@ import Basics
 import SwiftDriver
 
 import class TSCBasic.Process
+import typealias TSCBasic.ProcessEnvironmentBlock
 import struct TSCBasic.ProcessResult
 
-public final class SPMSwiftDriverExecutor: DriverExecutor {
+public final class SwiftPMDriverExecutor: DriverExecutor {
     
     private enum Error: Swift.Error, CustomStringConvertible {
         case inPlaceExecutionUnsupported
@@ -68,8 +69,8 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
         throw InternalError("Multi-job build plans should be lifted into the SPM build graph.")
     }
     
-    public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-        return try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: environment)
+    public func checkNonZeroExit(args: String..., environment: ProcessEnvironmentBlock) throws -> String {
+        return try TSCBasic.Process.checkNonZeroExit(arguments: args, environmentBlock: environment)
     }
     
     public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
