@@ -17,5 +17,7 @@ target_link_libraries(swift-bootstrap PRIVATE
   PackageLoading
   PackageModel
   TSCBasic
-  TSCUtility
-  XCBuildSupport)
+  TSCUtility)
+
+target_compile_definitions(swift-bootstrap
+  PRIVATE DISABLE_XCBUILD_SUPPORT)
