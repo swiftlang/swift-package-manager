@@ -121,8 +121,7 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 }

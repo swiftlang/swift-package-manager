@@ -660,8 +660,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent
+                    delegateQueue: .sharedConcurrent
                 )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
@@ -724,8 +723,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent
+                    delegateQueue: .sharedConcurrent
                 )
 
                 XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
