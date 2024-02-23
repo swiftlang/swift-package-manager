@@ -49,7 +49,7 @@ public final class PIFBuilder {
     public static let allIncludingTestsTargetName = "AllIncludingTests"
 
     /// The package graph to build from.
-    let graph: PackageGraph
+    let graph: ModulesGraph
 
     /// The parameters used to configure the PIF.
     let parameters: PIFBuilderParameters
@@ -69,7 +69,7 @@ public final class PIFBuilder {
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
     init(
-        graph: PackageGraph,
+        graph: ModulesGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -132,7 +132,13 @@ public final class PIFBuilder {
     }
 
     // Convenience method for generating PIF.
-    public static func generatePIF(buildParameters: BuildParameters, packageGraph: PackageGraph, fileSystem: FileSystem, observabilityScope: ObservabilityScope, preservePIFModelStructure: Bool) throws -> String {
+    public static func generatePIF(
+        buildParameters: BuildParameters,
+        packageGraph: ModulesGraph,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        preservePIFModelStructure: Bool
+    ) throws -> String {
         let parameters = PIFBuilderParameters(buildParameters)
         let builder = Self.init(
             graph: packageGraph,

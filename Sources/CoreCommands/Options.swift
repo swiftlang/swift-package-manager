@@ -606,7 +606,7 @@ extension URL {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension BuildConfiguration: ExpressibleByArgument {}
 extension AbsolutePath: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}

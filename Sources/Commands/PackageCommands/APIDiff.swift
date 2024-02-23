@@ -160,7 +160,7 @@ struct APIDiff: SwiftCommand {
         }
     }
 
-    private func determineModulesToDiff(packageGraph: PackageGraph, observabilityScope: ObservabilityScope) throws -> Set<String> {
+    private func determineModulesToDiff(packageGraph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> Set<String> {
         var modulesToDiff: Set<String> = []
         if products.isEmpty && targets.isEmpty {
             modulesToDiff.formUnion(packageGraph.apiDigesterModules)

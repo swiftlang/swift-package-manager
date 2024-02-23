@@ -18,7 +18,7 @@ public struct Path: Hashable {
 
     /// Initializes the path from the contents a string, which should be an
     /// absolute path in platform representation.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public init(_ string: String) {
         self._string = string
     }
@@ -28,7 +28,7 @@ public struct Path: Hashable {
     }
 
     /// A string representation of the path.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public var string: String {
         return _string
     }
@@ -39,7 +39,7 @@ public struct Path: Hashable {
     }
 
     /// The last path component (including any extension).
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public var lastComponent: String {
         // Check for a special case of the root directory.
         if _string == "/" {
@@ -58,7 +58,7 @@ public struct Path: Hashable {
     }
 
     /// The last path component (without any extension).
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public var stem: String {
         let filename = self.lastComponent
         if let ext = self.extension {
@@ -69,7 +69,7 @@ public struct Path: Hashable {
     }
 
     /// The filename extension, if any (without any leading dot).
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public var `extension`: String? {
         // Find the last path separator, if any.
         let sIdx = _string.lastIndex(of: "/")
@@ -92,7 +92,7 @@ public struct Path: Hashable {
     }
 
     /// The path except for the last path component.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public func removingLastComponent() -> Path {
         // Find the last path separator.
         guard let idx = string.lastIndex(of: "/") else {
@@ -111,19 +111,19 @@ public struct Path: Hashable {
     
     /// The result of appending a subpath, which should be a relative path in
     /// platform representation.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public func appending(subpath: String) -> Path {
         return Path(_string + (_string.hasSuffix("/") ? "" : "/") + subpath)
     }
 
     /// The result of appending one or more path components.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public func appending(_ components: [String]) -> Path {
         return self.appending(subpath: components.joined(separator: "/"))
     }
 
     /// The result of appending one or more path components.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public func appending(_ components: String...) -> Path {
         return self.appending(components)
     }
@@ -131,7 +131,7 @@ public struct Path: Hashable {
 
 extension Path: CustomStringConvertible {
 
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public var description: String {
         return self.string
     }
@@ -139,13 +139,13 @@ extension Path: CustomStringConvertible {
 
 extension Path: Codable {
 
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.string)
     }
 
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let string = try container.decode(String.self)
@@ -155,7 +155,7 @@ extension Path: Codable {
 
 public extension String.StringInterpolation {
     
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     mutating func appendInterpolation(_ path: Path) {
         self.appendInterpolation(path.string)
     }

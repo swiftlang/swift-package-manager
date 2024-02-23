@@ -18,7 +18,7 @@ import XCBuildSupport
 #endif
 
 import class Basics.ObservabilityScope
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageLoading.FileRuleDescription
 import protocol TSCBasic.OutputByteStream
 
@@ -30,7 +30,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
@@ -72,7 +72,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?

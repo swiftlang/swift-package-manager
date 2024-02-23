@@ -154,12 +154,12 @@ class ToolsVersionParserTests: XCTestCase {
         """
         // comment 1
         // comment 2
-        // swift-tools-version: 5.11
+        // swift-tools-version: 6.0
         // comment
         let package = ..
         """
         ) { toolsVersion in
-            XCTAssertEqual(toolsVersion.description, "5.11.0")
+            XCTAssertEqual(toolsVersion.description, "6.0.0")
         }
 
         do {
@@ -174,7 +174,7 @@ class ToolsVersionParserTests: XCTestCase {
             ) { _ in
                 XCTFail("expected an error to be thrown")
             }
-        } catch ToolsVersionParser.Error.backwardIncompatiblePre5_11(let incompatibility, _) {
+        } catch ToolsVersionParser.Error.backwardIncompatiblePre6_0(let incompatibility, _) {
             XCTAssertEqual(incompatibility, .toolsVersionNeedsToBeFirstLine)
         } catch {
             XCTFail("unexpected error: \(error)")
@@ -201,12 +201,12 @@ class ToolsVersionParserTests: XCTestCase {
         /*
         this is a multiline comment
         */
-        // swift-tools-version: 5.11
+        // swift-tools-version: 6.0
         // comment
         let package = ..
         """
         ) { toolsVersion in
-            XCTAssertEqual(toolsVersion.description, "5.11.0")
+            XCTAssertEqual(toolsVersion.description, "6.0.0")
         }
     }
 

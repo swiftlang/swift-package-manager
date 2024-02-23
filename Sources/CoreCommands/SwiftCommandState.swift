@@ -594,7 +594,7 @@ public final class SwiftCommandState {
     public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> PackageGraph {
+    ) throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace()
 
@@ -684,7 +684,7 @@ public final class SwiftCommandState {
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
