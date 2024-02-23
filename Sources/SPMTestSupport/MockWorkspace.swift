@@ -445,7 +445,7 @@ public final class MockWorkspace {
     public func checkPackageGraph(
         roots: [String] = [],
         deps: [MockDependency],
-        _ result: (PackageGraph, [Basics.Diagnostic]) -> Void
+        _ result: (ModulesGraph, [Basics.Diagnostic]) -> Void
     ) throws {
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         try self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
@@ -456,7 +456,7 @@ public final class MockWorkspace {
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
-        _ result: (PackageGraph, [Basics.Diagnostic]) throws -> Void
+        _ result: (ModulesGraph, [Basics.Diagnostic]) throws -> Void
     ) throws {
         let observability = ObservabilitySystem.makeForTesting()
         let rootInput = PackageGraphRootInput(

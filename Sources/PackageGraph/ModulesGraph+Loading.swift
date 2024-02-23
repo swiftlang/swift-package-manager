@@ -17,7 +17,7 @@ import PackageModel
 
 import func TSCBasic.bestMatch
 
-extension PackageGraph {
+extension ModulesGraph {
     /// Load the package graph for the given package path.
     public static func load(
         root: PackageGraphRoot,
@@ -35,7 +35,7 @@ extension PackageGraph {
         availableLibraries: [LibraryMetadata],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> PackageGraph {
+    ) throws -> ModulesGraph {
 
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
@@ -168,7 +168,7 @@ extension PackageGraph {
         let rootPackages = resolvedPackages.filter{ root.manifests.values.contains($0.manifest) }
         checkAllDependenciesAreUsed(rootPackages, observabilityScope: observabilityScope)
 
-        return try PackageGraph(
+        return try ModulesGraph(
             rootPackages: rootPackages,
             rootDependencies: resolvedPackages.filter{ rootDependencies.contains($0.manifest) },
             dependencies: requiredDependencies,

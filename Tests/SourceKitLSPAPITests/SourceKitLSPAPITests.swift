@@ -57,7 +57,7 @@ class SourceKitLSPAPITests: XCTestCase {
 }
 
 extension SourceKitLSPAPI.BuildDescription {
-    @discardableResult func checkArguments(for targetName: String, graph: PackageGraph, partialArguments: [String]) throws -> Bool {
+    @discardableResult func checkArguments(for targetName: String, graph: ModulesGraph, partialArguments: [String]) throws -> Bool {
         let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target))
 
