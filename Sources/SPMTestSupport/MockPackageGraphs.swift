@@ -13,7 +13,7 @@
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
@@ -22,7 +22,7 @@ import class TSCBasic.InMemoryFileSystem
 
 @_spi(SwiftPMInternal)
 public typealias MockPackageGraph = (
-    graph: PackageGraph,
+    graph: ModulesGraph,
     fileSystem: any FileSystem,
     observabilityScope: ObservabilityScope
 )

@@ -15,7 +15,7 @@ import struct Basics.InternalError
 import struct Basics.AbsolutePath
 import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedTarget
 import struct PackageModel.Sources
@@ -27,7 +27,7 @@ import protocol TSCBasic.FileSystem
 extension BuildPlan {
     static func makeDerivedTestTargets(
         _ buildParameters: BuildParameters,
-        _ graph: PackageGraph,
+        _ graph: ModulesGraph,
         _ disableSandbox: Bool,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope

@@ -49,8 +49,15 @@ enum PackageGraphError: Swift.Error {
                                aliases: [String])
 }
 
+@available(*,
+    deprecated,
+    renamed: "ModulesGraph",
+    message: "PackageGraph had a misleading name, it's a graph of dependencies between modules, not just packages"
+)
+public typealias PackageGraph = ModulesGraph
+
 /// A collection of packages.
-public struct PackageGraph {
+public struct ModulesGraph {
     /// The root packages.
     public let rootPackages: IdentifiableSet<ResolvedPackage>
 

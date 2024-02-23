@@ -366,7 +366,7 @@ fileprivate extension PluginToHostMessage {
     }
 }
 
-extension PackageGraph {
+extension ModulesGraph {
 
     /// Traverses the graph of reachable targets in a package graph, and applies plugins to targets as needed. Each
     /// plugin is passed an input context that provides information about the target to which it is being applied
@@ -660,7 +660,7 @@ public extension PluginTarget {
     }
 
     /// The set of tools that are accessible to this plugin.
-    private func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
+    private func accessibleTools(packageGraph: ModulesGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
         return try Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
             let builtToolName: String
             let executableOrBinaryTarget: Target
@@ -695,7 +695,7 @@ public extension PluginTarget {
         })
     }
 
-    func processAccessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> [String: (path: AbsolutePath, triples: [String]?)] {
+    func processAccessibleTools(packageGraph: ModulesGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> [String: (path: AbsolutePath, triples: [String]?)] {
         var pluginAccessibleTools: [String: (path: AbsolutePath, triples: [String]?)] = [:]
 
         for dep in try accessibleTools(packageGraph: packageGraph, fileSystem: fileSystem, environment: environment, for: hostTriple) {

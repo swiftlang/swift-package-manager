@@ -19,7 +19,7 @@ import XCTest
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
-final class PackageGraphTests: XCTestCase {
+final class ModulesGraphTests: XCTestCase {
     func testBasic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
@@ -31,7 +31,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -98,7 +98,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -142,7 +142,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -195,7 +195,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -227,7 +227,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -271,7 +271,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -311,7 +311,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -349,7 +349,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -412,7 +412,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -480,7 +480,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -547,7 +547,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -597,7 +597,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -647,7 +647,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -692,7 +692,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -735,7 +735,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -764,7 +764,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -792,7 +792,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -826,7 +826,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -860,7 +860,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -891,7 +891,7 @@ final class PackageGraphTests: XCTestCase {
                                     "/XYZ/Tests/XYZTests/tests.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -915,7 +915,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -940,7 +940,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -969,7 +969,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1001,7 +1001,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1078,7 +1078,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1117,7 +1117,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1179,7 +1179,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1213,7 +1213,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1269,7 +1269,7 @@ final class PackageGraphTests: XCTestCase {
         let bazPkg: AbsolutePath = "/Baz"
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadPackageGraph(
+        XCTAssertThrowsError(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1320,7 +1320,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1392,7 +1392,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1474,7 +1474,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1595,7 +1595,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -1681,7 +1681,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1718,7 +1718,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1762,7 +1762,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1799,7 +1799,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1867,7 +1867,7 @@ final class PackageGraphTests: XCTestCase {
 
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
@@ -1889,7 +1889,7 @@ final class PackageGraphTests: XCTestCase {
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
@@ -1927,7 +1927,7 @@ final class PackageGraphTests: XCTestCase {
 
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
@@ -1950,7 +1950,7 @@ final class PackageGraphTests: XCTestCase {
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
@@ -1986,7 +1986,7 @@ final class PackageGraphTests: XCTestCase {
 
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
@@ -2008,7 +2008,7 @@ final class PackageGraphTests: XCTestCase {
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
@@ -2044,7 +2044,7 @@ final class PackageGraphTests: XCTestCase {
 
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: """
@@ -2067,7 +2067,7 @@ final class PackageGraphTests: XCTestCase {
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
@@ -2104,7 +2104,7 @@ final class PackageGraphTests: XCTestCase {
         ]
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
+        _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
@@ -2141,7 +2141,7 @@ final class PackageGraphTests: XCTestCase {
 
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: """
@@ -2164,7 +2164,7 @@ final class PackageGraphTests: XCTestCase {
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
-            _ = try loadPackageGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
+            _ = try loadModulesGraph(fileSystem: fs, manifests: fixedManifests, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
@@ -2276,7 +2276,7 @@ final class PackageGraphTests: XCTestCase {
             )
 
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [manifest],
                 customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
@@ -2372,7 +2372,7 @@ final class PackageGraphTests: XCTestCase {
             )
 
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [manifest],
                 observabilityScope: observability.topScope
@@ -2432,7 +2432,7 @@ final class PackageGraphTests: XCTestCase {
             )
 
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [manifest],
                 customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
@@ -2505,7 +2505,7 @@ final class PackageGraphTests: XCTestCase {
             )
 
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [manifest],
                 observabilityScope: observability.topScope
@@ -2548,7 +2548,7 @@ final class PackageGraphTests: XCTestCase {
             )
 
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [manifest],
                 observabilityScope: observability.topScope
@@ -2588,7 +2588,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2647,7 +2647,7 @@ final class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
