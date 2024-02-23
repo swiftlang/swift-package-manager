@@ -20,7 +20,10 @@ import PackageModel
 import SourceControl
 import SPMBuildCore
 import Workspace
+
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
+#endif
 
 import enum TSCUtility.Diagnostics
 

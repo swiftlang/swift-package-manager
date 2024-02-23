@@ -21,37 +21,37 @@ class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
         .v6_0
     }
 
-    func testPackageContextGitStatus() throws {
+    func testPackageContextGitStatus() async throws {
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.hasUncommittedChanges == true)")
                 """
 
-        try loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
+        try await loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.displayName, "true")
         }
     }
 
-    func testPackageContextGitTag() throws {
+    func testPackageContextGitTag() async throws {
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.currentTag ?? "")")
                 """
 
-        try loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
+        try await loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.displayName, "lunch")
         }
     }
 
-    func testPackageContextGitCommit() throws {
+    func testPackageContextGitCommit() async throws {
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.currentCommit ?? "")")
                 """
 
-        try loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
+        try await loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let repo = GitRepository(path: manifest.path.parentDirectory)
@@ -63,10 +63,10 @@ class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     private func loadRootManifestWithBasicGitRepository(
         manifestContent: String, 
         validator: (Manifest, TestingObservability) throws -> ()
-    ) throws {
+    ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
-        try testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { tmpdir in
             let manifestPath = tmpdir.appending(component: Manifest.filename)
             try localFileSystem.writeFileContents(manifestPath, string: manifestContent)
             try localFileSystem.writeFileContents(tmpdir.appending("best.txt"), string: "best")
@@ -77,7 +77,7 @@ class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             try repo.commit(message: "best")
             try repo.tag(name: "lunch")
 
-            let manifest = try manifestLoader.load(
+            let manifest = try await manifestLoader.load(
                 manifestPath: manifestPath,
                 packageKind: .root(tmpdir),
                 toolsVersion: self.toolsVersion,
