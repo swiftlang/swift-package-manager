@@ -600,7 +600,7 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         var hash = Data()
         hash += try! encoder.encode(self.context.productsBuildParameters)
         hash += try! encoder.encode(self.context.toolsBuildParameters)
-        hash += try! encoder.encode(ProcessEnv.vars)
+        hash += try! encoder.encode(ProcessEnv.block)
         return [UInt8](hash)
     }
 

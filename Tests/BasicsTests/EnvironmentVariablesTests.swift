@@ -11,9 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
+import func SPMTestSupport.withCustomEnv
 import XCTest
 
 import enum TSCBasic.ProcessEnv
+import typealias TSCBasic.ProcessEnvironmentKey
 
 final class EnvironmentVariablesTests: XCTestCase {
 #if os(Windows)
@@ -23,7 +25,7 @@ final class EnvironmentVariablesTests: XCTestCase {
 #endif
     
     func testPrependPath() throws {
-        let key = UUID().uuidString
+        let key = ProcessEnvironmentKey(UUID().uuidString)
         var env = EnvironmentVariables()
         
         XCTAssertNil(env[key])
@@ -42,7 +44,7 @@ final class EnvironmentVariablesTests: XCTestCase {
     }
     
     func testAppendPath() throws {
-        let key = UUID().uuidString
+        let key = ProcessEnvironmentKey(UUID().uuidString)
         var env = EnvironmentVariables()
         
         XCTAssertNil(env[key])
@@ -60,18 +62,18 @@ final class EnvironmentVariablesTests: XCTestCase {
         XCTAssertEqual(env[key], ["a", "b", "c"].joined(separator: pathDelimiter))
     }
     
-    func testProcess() throws {
-        let key = UUID().uuidString
+    func testProcess() async throws {
+        let key = ProcessEnvironmentKey(UUID().uuidString)
         let value = UUID().uuidString
         
         var env = EnvironmentVariables.process()
         XCTAssertNil(env[key])
         
-        try ProcessEnv.setVar(key, value: value)
-        env = EnvironmentVariables.process() // read from process
-        XCTAssertEqual(env[key], value)
-        
-        try ProcessEnv.unsetVar(key)
+        try await withCustomEnv([key.value: value]) {
+            env = EnvironmentVariables.process() // read from process
+            XCTAssertEqual(env[key], value)
+        }
+
         XCTAssertEqual(env[key], value) // this is a copy!
         
         env = EnvironmentVariables.process() // read again from process

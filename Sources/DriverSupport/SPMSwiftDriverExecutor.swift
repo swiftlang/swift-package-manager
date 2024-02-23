@@ -31,11 +31,11 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
     
     public let resolver: ArgsResolver
     let fileSystem: FileSystem
-    let env: EnvironmentVariables
-    
+    let env: [String: String]
+
     public init(resolver: ArgsResolver,
          fileSystem: FileSystem,
-         env: EnvironmentVariables) {
+         env: [String: String]) {
         self.resolver = resolver
         self.fileSystem = fileSystem
         self.env = env

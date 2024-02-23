@@ -350,7 +350,7 @@ let package = Package(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
             dependencies: ["SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt", "CODEOWNERS"]
+            exclude: ["CODEOWNERS"]
         ),
         .target(
             /** High level functionality */

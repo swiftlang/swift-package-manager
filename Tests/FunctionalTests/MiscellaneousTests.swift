@@ -236,7 +236,7 @@ class MiscellaneousTestCase: XCTestCase {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: EnvironmentVariables = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
             XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent, "debug", "SystemModuleUserClang"))

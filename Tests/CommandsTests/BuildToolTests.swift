@@ -33,7 +33,7 @@ final class BuildToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String] = [],
-        environment: [String: String]? = nil,
+        environment: EnvironmentVariables? = nil,
         packagePath: AbsolutePath? = nil
     ) throws -> (stdout: String, stderr: String) {
         try SwiftPM.Build.execute(args, packagePath: packagePath, env: environment)

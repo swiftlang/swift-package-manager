@@ -496,7 +496,7 @@ extension PackageGraph {
                         diagnostics.append(diagnostic)
                     }
 
-                    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
+                    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: EnvironmentVariables, workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         buildCommands.append(.init(
                             configuration: .init(
@@ -509,7 +509,7 @@ extension PackageGraph {
                             outputFiles: outputFiles))
                     }
                     
-                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
+                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: EnvironmentVariables, workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         // executable must exist before running prebuild command
                         if builtToolNames.contains(executable.basename) {
@@ -783,7 +783,7 @@ public struct BuildToolPluginInvocationResult {
         public var displayName: String?
         public var executable: AbsolutePath
         public var arguments: [String]
-        public var environment: [String: String]
+        public var environment: EnvironmentVariables
         public var workingDirectory: AbsolutePath?
     }
 

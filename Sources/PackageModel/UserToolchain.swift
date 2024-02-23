@@ -14,6 +14,7 @@ import Basics
 import Foundation
 
 import class TSCBasic.Process
+import struct TSCBasic.ProcessEnvironmentKey
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
@@ -117,7 +118,7 @@ public final class UserToolchain: Toolchain {
         searchPaths: [AbsolutePath],
         environment: EnvironmentVariables
     ) -> AbsolutePath? {
-        lookupExecutablePath(filename: environment[variable], searchPaths: searchPaths)
+        lookupExecutablePath(filename: environment[.init(variable)], searchPaths: searchPaths)
     }
 
     private static func getTool(_ name: String, binDirectories: [AbsolutePath]) throws -> AbsolutePath {
@@ -755,7 +756,7 @@ public final class UserToolchain: Toolchain {
     private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
         if triple.isDarwin() {
             let pluginServerPathFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
-            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: pluginServerPathFindArgs, environment: [:])
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: pluginServerPathFindArgs, environmentBlock: [:])
                 .spm_chomp() {
                 return try AbsolutePath(validating: path)
             }
@@ -772,7 +773,7 @@ public final class UserToolchain: Toolchain {
         if triple.isDarwin() {
             // XCTest is optional on macOS, for example when Xcode is not installed
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
-            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment)
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environmentBlock: environment)
                 .spm_chomp()
             {
                 return try AbsolutePath(validating: path)

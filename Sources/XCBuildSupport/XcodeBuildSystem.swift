@@ -90,7 +90,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
 
-        if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
+        if let xcbuildTool = ProcessEnv.block["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
             let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
@@ -155,10 +155,10 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         })
 
         // We need to sanitize the environment we are passing to XCBuild because we could otherwise interfere with its linked dependencies e.g. when we have a custom swift-driver dynamic library in the path.
-        var sanitizedEnvironment = ProcessEnv.vars
+        var sanitizedEnvironment = ProcessEnv.block
         sanitizedEnvironment["DYLD_LIBRARY_PATH"] = nil
 
-        let process = TSCBasic.Process(arguments: arguments, environment: sanitizedEnvironment, outputRedirection: redirection)
+        let process = TSCBasic.Process(arguments: arguments, environmentBlock: sanitizedEnvironment, outputRedirection: redirection)
         try process.launch()
         let result = try process.waitUntilExit()
 

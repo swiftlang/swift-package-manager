@@ -179,7 +179,8 @@ extension ManifestLoader {
 /// WARNING! This method is not thread-safe. POSIX environments are shared
 /// between threads. This means that when this method is called simultaneously
 /// from different threads, the environment will neither be setup nor restored
-/// correctly.
+/// correctl
+@available(*, deprecated, message: "This implementation does not account for case insensitivity on Windows")
 public func withCustomEnv(_ env: [String: String], body: () async throws -> Void) async throws {
     let state = env.map { ($0, $1) }
     let restore = {

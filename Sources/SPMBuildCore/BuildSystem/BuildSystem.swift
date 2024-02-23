@@ -175,8 +175,8 @@ public enum BuildSystemUtilities {
     /// Returns the build path from the environment, if present.
     public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
         // Don't rely on build path from env for SwiftPM's own tests.
-        guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-        guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
+        guard ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+        guard let env = ProcessEnv.block["SWIFTPM_BUILD_DIR"] else { return nil }
         return try AbsolutePath(validating: env, relativeTo: workingDir)
     }
 }

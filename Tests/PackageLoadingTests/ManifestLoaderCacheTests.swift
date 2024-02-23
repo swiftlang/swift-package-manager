@@ -381,7 +381,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             try await check(loader: manifestLoader, expectCached: true)
 
             for key in EnvironmentVariables.nonCachableKeys {
-                try await withCustomEnv([key: UUID().uuidString]) {
+                try await withCustomEnv([key.value: UUID().uuidString]) {
                     try await check(loader: manifestLoader, expectCached: true)
                 }
             }

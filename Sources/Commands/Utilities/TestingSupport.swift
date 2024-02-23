@@ -119,7 +119,7 @@ enum TestingSupport {
                 sanitizers: sanitizers
             )
 
-            try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
+            try TSCBasic.Process.checkNonZeroExit(arguments: args, environmentBlock: env)
             // Read the temporary file's content.
             return try swiftTool.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }

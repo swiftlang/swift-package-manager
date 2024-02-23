@@ -11,8 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.ProcessInfo
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
+import enum TSCBasic.ProcessEnv
 
-public typealias EnvironmentVariables = [String: String]
+public typealias EnvironmentVariables = ProcessEnvironmentBlock
 
 extension EnvironmentVariables {
     public static func empty() -> EnvironmentVariables {
@@ -20,10 +23,10 @@ extension EnvironmentVariables {
     }
 
     public static func process() -> EnvironmentVariables {
-        ProcessInfo.processInfo.environment
+        ProcessEnv.block
     }
 
-    public mutating func prependPath(_ key: String, value: String) {
+    public mutating func prependPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
             values.append(existing)
@@ -31,7 +34,7 @@ extension EnvironmentVariables {
         self.setPath(key, values)
     }
 
-    public mutating func appendPath(_ key: String, value: String) {
+    public mutating func appendPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
             values.insert(existing, at: 0)
@@ -39,7 +42,7 @@ extension EnvironmentVariables {
         self.setPath(key, values)
     }
 
-    private mutating func setPath(_ key: String, _ values: [String]) {
+    private mutating func setPath(_ key: ProcessEnvironmentKey, _ values: [String]) {
         #if os(Windows)
         let delimiter = ";"
         #else
@@ -50,12 +53,7 @@ extension EnvironmentVariables {
 
     /// `PATH` variable in the process's environment (`Path` under Windows).
     public var path: String? {
-        #if os(Windows)
-        let pathArg = "Path"
-        #else
-        let pathArg = "PATH"
-        #endif
-        return self[pathArg]
+        ProcessEnv.path
     }
 }
 
@@ -64,7 +62,7 @@ extension EnvironmentVariables {
 // rdar://107029374
 extension EnvironmentVariables {
     // internal for testing
-    static let nonCachableKeys: Set<String> = [
+    static let nonCachableKeys: Set<ProcessEnvironmentKey> = [
         "TERM",
         "TERM_PROGRAM",
         "TERM_PROGRAM_VERSION",
