@@ -517,7 +517,7 @@ final class BuildToolTests: CommandsTestCase {
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
 
-            var environment = [
+            var environment: EnvironmentVariables = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
                 // Environment variables used by `dummy-swiftc.sh`
                 "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString,
