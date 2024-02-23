@@ -16,9 +16,9 @@ import SourceControl
 import SPMTestSupport
 import XCTest
 
-class PackageDescription5_11LoadingTests: PackageDescriptionLoadingTests {
+class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
-        .v5_11
+        .v6_0
     }
 
     func testPackageContextGitStatus() throws {
