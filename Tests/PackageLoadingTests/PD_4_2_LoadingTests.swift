@@ -372,7 +372,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     /// Check that we load the manifest appropriate for the current version, if
     /// version specific customization is used.
-    func testVersionSpecificLoading() throws {
+    func testVersionSpecificLoading() async throws {
         let bogusManifest = "THIS WILL NOT PARSE"
         let trivialManifest =
         """
@@ -406,7 +406,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(
+            let manifest = try await manifestLoader.load(
                 packagePath: root,
                 packageKind: .root(.root),
                 currentToolsVersion: .v4_2,
@@ -418,7 +418,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     // Check that ancient `Package@swift-3.swift` manifests are properly treated as 3.1 even without a tools-version comment.
-    func testVersionSpecificLoadingOfVersion3Manifest() throws {
+    func testVersionSpecificLoadingOfVersion3Manifest() async throws {
         // Create a temporary FS to hold the package manifests.
         let fs = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
@@ -435,7 +435,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: manifestContents
         )
         // Check we can load the manifest.
-        let manifest = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest.displayName, "Trivial")
 
@@ -449,7 +449,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: "// swift-tools-version:4.0\n" + manifestContents
         )
         // Check we can load the manifest.
-        let manifest2 = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest2 = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest2.displayName, "Trivial")
     }
@@ -660,7 +660,8 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
@@ -723,7 +724,8 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 )
 
                 XCTAssertEqual(manifest.displayName, "Trivial-\(random)")

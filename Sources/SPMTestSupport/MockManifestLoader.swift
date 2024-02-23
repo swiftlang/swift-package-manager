@@ -121,11 +121,11 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
         )
     }
 }
-
 
 extension ManifestLoader {
     public func load(
@@ -136,7 +136,7 @@ extension ManifestLoader {
         dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> Manifest {
+    ) async throws -> Manifest {
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {
@@ -157,23 +157,20 @@ extension ManifestLoader {
             // FIXME: placeholder
             packageLocation = identity.description
         }
-        return try temp_await {
-            self.load(
-                packagePath: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: nil,
-                currentToolsVersion: currentToolsVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+        return try await self.load(
+            packagePath: packagePath,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: nil,
+            currentToolsVersion: currentToolsVersion,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 

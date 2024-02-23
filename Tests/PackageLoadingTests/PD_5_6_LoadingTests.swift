@@ -195,7 +195,7 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
-    
+
     /// Tests use of Context.current.packageDirectory
     func testPackageContextName() async throws {
         let content = """
@@ -223,10 +223,10 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let content = """
             import PackageDescription
             import Foundation
-            
+
             let fileManager = FileManager.default
             let contents = (try? fileManager.contentsOfDirectory(atPath: Context.packageDirectory)) ?? []
-            
+
             let package = Package(name: contents.joined(separator: ","))
             """
 
