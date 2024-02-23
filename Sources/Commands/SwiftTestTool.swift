@@ -22,6 +22,7 @@ import SPMBuildCore
 import func TSCLibc.exit
 import Workspace
 
+import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 import class TSCBasic.Process
@@ -302,6 +303,7 @@ public struct SwiftTestTool: SwiftCommand {
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 buildOptions: globalOptions.build,
                 buildParameters: buildParameters,
+                loggingOptions: swiftTool.options.logging,
                 shouldOutputSuccess: swiftTool.logLevel <= .info,
                 observabilityScope: swiftTool.observabilityScope
             )
@@ -435,13 +437,30 @@ public struct SwiftTestTool: SwiftCommand {
             library: library
         )
 
+        // If the quiet flag is present, only output on failure.
+        let runQuietly = swiftTool.options.logging.quiet
+
+        // No need to close this stream.
+        // Buffered output's close method is a no-op.
+        var quietAccumulator = ""
+
         // Finally, run the tests.
         let ranSuccessfully = runner.test(outputHandler: {
-            // command's result output goes on stdout
-            // ie "swift test" should output to stdout
-            print($0, terminator: "")
+            if runQuietly {
+                print($0, terminator: "", to: &quietAccumulator)
+            } else {
+                // command's result output goes on stdout
+                // ie "swift test" should output to stdout
+                print($0, terminator: "")
+            }
         })
+
         if !ranSuccessfully {
+            if runQuietly {
+                // command's result output goes on stdout
+                // ie "swift test" should output to stdout
+                print(quietAccumulator, terminator: "")
+            }
             swiftTool.executionStatus = .failure
         }
 
@@ -897,6 +916,7 @@ final class ParallelTestRunner {
 
     private let buildOptions: BuildOptions
     private let buildParameters: BuildParameters
+    private let loggingOptions: LoggingOptions
 
     /// Number of tests to execute in parallel.
     private let numJobs: Int
@@ -914,6 +934,7 @@ final class ParallelTestRunner {
         numJobs: Int,
         buildOptions: BuildOptions,
         buildParameters: BuildParameters,
+        loggingOptions: LoggingOptions,
         shouldOutputSuccess: Bool,
         observabilityScope: ObservabilityScope
     ) {
@@ -941,6 +962,7 @@ final class ParallelTestRunner {
 
         self.buildOptions = buildOptions
         self.buildParameters = buildParameters
+        self.loggingOptions = loggingOptions
 
         assert(numJobs > 0, "num jobs should be > 0")
     }
@@ -948,6 +970,11 @@ final class ParallelTestRunner {
     /// Updates the progress bar status.
     private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
+        // Skip updating progress animation if running quietly
+        guard !loggingOptions.quiet else { return }
+
+        // TODO: Adjust the progress animation's output stream if quiet
+
         progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
     }
 
@@ -1035,9 +1062,14 @@ final class ParallelTestRunner {
         // Report the completion.
         progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
 
+        let testResults = processedTests.get()
+        let atLeastOneTestFailed = testResults.contains(where: { !$0.success })
+
         // Print test results.
-        for test in processedTests.get() {
-            if (!test.success || shouldOutputSuccess) && !buildParameters.testingParameters.experimentalTestOutput {
+        for test in testResults {
+            if (
+                !test.success || shouldOutputSuccess || (atLeastOneTestFailed && loggingOptions.quiet)
+            ) && !buildParameters.testingParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print(test.output)

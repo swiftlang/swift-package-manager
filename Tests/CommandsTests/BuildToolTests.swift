@@ -641,4 +641,20 @@ final class BuildToolTests: CommandsTestCase {
             XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
         }
     }
+
+    func testBuildQuiet() throws {
+        try fixture(name: "Miscellaneous/Simple") { fixturePath in
+            let result = try execute(["--quiet"], packagePath: fixturePath)
+            XCTAssertEqual(result.stdout, "")
+        }
+
+        // This fixture should fail to build.
+        // stdout should contain the error log
+        try fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
+            let result = XCTAssertBuildFails(fixturePath, extraArgs: ["--quiet"])
+            let error = try XCTUnwrap(result)
+            XCTAssertMatch(error.stdout, .contains("Planning build"))
+            XCTAssertMatch(error.stdout, .contains("error: "))
+        }
+    }
 }
