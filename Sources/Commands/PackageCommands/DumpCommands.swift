@@ -15,7 +15,10 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageModel
+
+#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
+#endif
 
 struct DumpSymbolGraph: SwiftCommand {
     static let configuration = CommandConfiguration(
@@ -136,6 +139,7 @@ struct DumpPIF: SwiftCommand {
     var preserveStructure: Bool = false
 
     func run(_ swiftCommandState: SwiftCommandState) throws {
+        #if !DISABLE_XCBUILD_SUPPORT
         let graph = try swiftCommandState.loadPackageGraph()
         let pif = try PIFBuilder.generatePIF(
             buildParameters: swiftCommandState.productsBuildParameters,
@@ -144,6 +148,9 @@ struct DumpPIF: SwiftCommand {
             observabilityScope: swiftCommandState.observabilityScope,
             preservePIFModelStructure: preserveStructure)
         print(pif)
+        #else
+        fatalError("This subcommand is not available on the current platform")
+        #endif
     }
 
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {

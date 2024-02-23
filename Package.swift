@@ -609,10 +609,6 @@ let package = Package(
             exclude: ["Inputs", "pkgconfigInputs"]
         ),
         .testTarget(
-            name: "PackageLoadingPerformanceTests",
-            dependencies: ["PackageLoading", "SPMTestSupport"]
-        ),
-        .testTarget(
             name: "PackageModelTests",
             dependencies: ["PackageModel", "SPMTestSupport"]
         ),
