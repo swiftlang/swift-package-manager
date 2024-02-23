@@ -481,7 +481,7 @@ extension BuildConfiguration {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
 extension BuildConfiguration: ExpressibleByArgument {}
 #else
