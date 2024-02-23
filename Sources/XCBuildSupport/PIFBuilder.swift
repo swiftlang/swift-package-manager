@@ -21,7 +21,6 @@ import SPMBuildCore
 
 import func TSCBasic.topologicalSort
 import func TSCBasic.memoize
-import DriverSupport
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {

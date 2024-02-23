@@ -12,9 +12,6 @@
 
 import Basics
 
-@_spi(SwiftPMInternal)
-import DriverSupport
-
 import Foundation
 import PackageGraph
 import PackageLoading
