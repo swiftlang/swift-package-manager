@@ -216,7 +216,7 @@ public struct SwiftRunTool: SwiftCommand {
     }
 
     /// Returns the path to the correct executable based on options.
-    private func findProductName(in graph: PackageGraph) throws -> String {
+    private func findProductName(in graph: ModulesGraph) throws -> String {
         if let executable = options.executable {
             let executableExists = graph.allProducts.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
             guard executableExists else {

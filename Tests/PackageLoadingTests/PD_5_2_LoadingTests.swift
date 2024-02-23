@@ -16,12 +16,12 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
+final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v5_2
     }
 
-    func testMissingTargetProductDependencyPackage() throws {
+    func testMissingTargetProductDependencyPackage() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -39,7 +39,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssert(error.contains("error: \'product(name:package:)\' is unavailable: the 'package' argument is mandatory as of tools version 5.2"))
             } else {
@@ -48,7 +48,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testDependencyNameForTargetDependencyResolution() throws {
+    func testDependencyNameForTargetDependencyResolution() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -85,7 +85,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -101,7 +101,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.dependencies[8].nameForTargetDependencyResolutionOnly, "swift")
     }
 
-    func testTargetDependencyProductInvalidPackage() throws {
+    func testTargetDependencyProductInvalidPackage() async throws {
         do {
             let content = """
                 import PackageDescription
@@ -124,7 +124,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
                 result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
@@ -154,7 +154,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
                 result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
@@ -185,7 +185,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
                 result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo1')", severity: .error)
@@ -215,7 +215,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
                 let fooPkg: AbsolutePath = "/foo"
@@ -247,7 +247,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
                 let foo1Pkg: AbsolutePath = "/foo1"
@@ -258,7 +258,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testTargetDependencyReference() throws {
+    func testTargetDependencyReference() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -280,7 +280,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -294,7 +294,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
     }
 
-    func testResourcesUnavailable() throws {
+    func testResourcesUnavailable() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -312,7 +312,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertMatch(error, .contains("is unavailable"))
                 XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
@@ -322,7 +322,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testBinaryTargetUnavailable() throws {
+    func testBinaryTargetUnavailable() async throws {
         do {
             let content = """
                 import PackageDescription
@@ -338,7 +338,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                     XCTAssertMatch(error, .contains("is unavailable"))
                     XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
@@ -364,7 +364,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                     XCTAssertMatch(error, .contains("is unavailable"))
                     XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
@@ -375,7 +375,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testConditionalTargetDependenciesUnavailable() throws {
+    func testConditionalTargetDependenciesUnavailable() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -394,7 +394,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertMatch(error, .contains("is unavailable"))
                 XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
@@ -404,7 +404,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testDefaultLocalizationUnavailable() throws {
+    func testDefaultLocalizationUnavailable() async throws {
         do {
             let content = """
                 import PackageDescription
@@ -419,7 +419,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                     XCTAssertMatch(error, .contains("is unavailable"))
                     XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
@@ -430,7 +430,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testManifestLoadingIsSandboxed() throws {
+    func testManifestLoadingIsSandboxed() async throws {
         #if !os(macOS)
         // Sandboxing is only done on macOS today.
         try XCTSkipIf(true, "test is only supported on macOS")
@@ -450,7 +450,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+        await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertTrue(error.contains("Operation not permitted"), "unexpected error message: \(error)")
             } else {

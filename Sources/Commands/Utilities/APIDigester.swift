@@ -310,7 +310,7 @@ extension BuildParameters {
     }
 }
 
-extension PackageGraph {
+extension ModulesGraph {
     /// The list of modules that should be used as an input to the API digester.
     var apiDigesterModules: [String] {
         self.rootPackages
@@ -328,7 +328,7 @@ extension SerializedDiagnostics.SourceLocation {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
 #else
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}

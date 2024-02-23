@@ -21,6 +21,9 @@ import struct PackageModel.TargetDescription
 import func SPMTestSupport.loadPackageGraph
 
 @_spi(SwiftPMInternal)
+import func SPMTestSupport.embeddedCxxInteropPackageGraph
+
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.macrosPackageGraph
 
 import func SPMTestSupport.mockBuildParameters
@@ -37,13 +40,12 @@ import XCTest
 
 final class CrossCompilationBuildPlanTests: XCTestCase {
     func testEmbeddedWasmTarget() throws {
-        let pkgPath = AbsolutePath("/Pkg")
-        let (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: pkgPath)
+        var (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: "/Pkg")
 
         let triple = try Triple("wasm32-unknown-none-wasm")
         var parameters = mockBuildParameters(targetTriple: triple)
         parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        let result = try BuildPlanResult(plan: BuildPlan(
+        var result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
             graph: graph,
             fileSystem: fs,
@@ -55,7 +57,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkTargetsCount(5)
 
         let buildPath = result.plan.productsBuildPath
-        let appBuildDescription = try result.buildProduct(for: "app")
+        var appBuildDescription = try result.buildProduct(for: "app")
         XCTAssertEqual(
             try appBuildDescription.linkArguments(),
             [
@@ -64,6 +66,34 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 "-o", buildPath.appending(components: "app.wasm").pathString,
                 "-module-name", "app", "-static-stdlib", "-emit-executable",
                 "@\(buildPath.appending(components: "app.product", "Objects.LinkFileList"))",
+                "-target", triple.tripleString,
+                "-g",
+            ]
+        )
+
+        (graph, fs, observabilityScope) = try embeddedCxxInteropPackageGraph(pkgRootPath: "/Pkg")
+
+        result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: parameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observabilityScope
+        ))
+        result.checkProductsCount(2)
+        // There are two additional targets on non-Apple platforms, for test discovery and
+        // test entry point
+        result.checkTargetsCount(5)
+
+        appBuildDescription = try result.buildProduct(for: "app")
+        XCTAssertEqual(
+            try appBuildDescription.linkArguments(),
+            [
+                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
+                "-L", buildPath.pathString,
+                "-o", buildPath.appending(components: "app.wasm").pathString,
+                "-module-name", "app", "-static-stdlib", "-emit-executable",
+                "@\(buildPath.appending(components: "app.product", "Objects.LinkFileList"))",
+                "-enable-experimental-feature", "Embedded",
                 "-target", triple.tripleString,
                 "-g",
             ]

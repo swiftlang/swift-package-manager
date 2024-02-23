@@ -13,7 +13,7 @@
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
@@ -22,7 +22,7 @@ import class TSCBasic.InMemoryFileSystem
 
 @_spi(SwiftPMInternal)
 public typealias MockPackageGraph = (
-    graph: PackageGraph,
+    graph: ModulesGraph,
     fileSystem: any FileSystem,
     observabilityScope: ObservabilityScope
 )
@@ -147,6 +147,49 @@ public func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackage
                     TargetDescription(name: "app", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
                     TargetDescription(name: "test", dependencies: ["lib"], type: .test),
+                ]
+            ),
+        ],
+        observabilityScope: observability.topScope
+    )
+    XCTAssertNoDiagnostics(observability.diagnostics)
+
+    return (graph, fs, observability.topScope)
+}
+
+@_spi(SwiftPMInternal)
+public func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(
+        emptyFiles:
+        "/Pkg/Sources/app/main.swift",
+        "/Pkg/Sources/lib/lib.cpp",
+        "/Pkg/Sources/lib/include/lib.h",
+        "/Pkg/Tests/test/TestCase.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadPackageGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "Pkg",
+                path: "/Pkg",
+                targets: [
+                    TargetDescription(
+                        name: "app",
+                        dependencies: ["lib"],
+                        settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
+                    ),
+                    TargetDescription(
+                        name: "lib",
+                        dependencies: [],
+                        settings: [.init(tool: .swift, kind: .interoperabilityMode(.Cxx))]
+                    ),
+                    TargetDescription(
+                        name: "test",
+                        dependencies: ["lib"],
+                        type: .test
+                    ),
                 ]
             ),
         ],

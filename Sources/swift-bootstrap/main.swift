@@ -360,7 +360,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             )
         }
 
-        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> PackageGraph {
+        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> ModulesGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
             let rootPackageManifest =  try temp_await { self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0) }
 
@@ -387,7 +387,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 observabilityScope: observabilityScope
             )
 
-            return try PackageGraph.load(
+            return try ModulesGraph.load(
                 root: packageGraphRoot,
                 identityResolver: identityResolver,
                 externalManifests: loadedManifests.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
@@ -488,7 +488,7 @@ extension BuildConfiguration {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
 extension BuildConfiguration: ExpressibleByArgument {}
 #else

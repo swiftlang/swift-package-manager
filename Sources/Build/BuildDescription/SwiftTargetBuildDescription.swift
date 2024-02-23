@@ -290,7 +290,7 @@ public final class SwiftTargetBuildDescription {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
-        (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
+        (self.pluginDerivedSources, self.pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
             target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,

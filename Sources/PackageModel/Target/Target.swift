@@ -339,6 +339,15 @@ public class Target: PolymorphicCodableProtocol {
         self.pluginUsages = []
         self.usesUnsafeFlags = try container.decode(Bool.self, forKey: .usesUnsafeFlags)
     }
+
+    @_spi(SwiftPMInternal)
+    public var isEmbeddedSwiftTarget: Bool {
+        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
+            return true
+        }
+
+        return false
+    }
 }
 
 extension Target: Hashable {
@@ -369,5 +378,12 @@ public extension Sequence where Iterator.Element == Target {
                 return false
             }
         }
+    }
+}
+
+extension [TargetBuildSettingDescription.Setting] {
+    @_spi(SwiftPMInternal)
+    public var swiftSettings: Self {
+        self.filter { $0.tool == .swift }
     }
 }
