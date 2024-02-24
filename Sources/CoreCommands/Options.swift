@@ -446,6 +446,9 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native
 
+    @Flag(name: .customLong("experimental-async-build-system"), help: .hidden)
+    public var useAsyncBuildSystem: Bool = false
+
     /// The Debug Information Format to use.
     @Option(name: .customLong("debug-info-format", withSingleDash: true))
     public var debugInfoFormat: DebugInfoFormat = .dwarf

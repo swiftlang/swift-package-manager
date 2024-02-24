@@ -12,11 +12,18 @@
 
 @_spi(SwiftPMInternal)
 import Basics
+
+@_spi(SwiftPMInternal)
+import Build
+
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
 import SPMLLBuild
 import Foundation
 
@@ -36,10 +43,8 @@ import DriverSupport
 import SwiftDriver
 #endif
 
-public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
-    /// The delegate used by the build system.
-    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
-
+@_spi(SwiftPMInternal)
+public final class AsyncBuildOperation: PackageStructureDelegate, SPMBuildCore.AsyncBuildSystem, BuildErrorAdviceProvider {
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters
 
@@ -53,7 +58,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let pluginConfiguration: PluginConfiguration?
 
     /// The llbuild build delegate reference.
-    private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
+    private var buildSystemDelegate: AsyncLLBuildDelegate?
 
     /// The llbuild build system reference.
     private var buildSystem: SPMLLBuild.BuildSystem?
@@ -108,6 +113,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Map of  root package identities by target names which are declared in them.
     private let rootPackageIdentityByTargetName: [String: PackageIdentity]
 
+    private let eventsContinuation: AsyncStream<BuildSystemEvent>.Continuation
+
     public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
@@ -118,6 +125,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         pkgConfigDirectories: [AbsolutePath],
         dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
         targetsByRootPackageIdentity: [PackageIdentity: [String]],
+        eventsContinuation: AsyncStream<BuildSystemEvent>.Continuation,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
@@ -138,16 +146,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
         self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
-        self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
+        self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(
+            throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })
+        ) ?? [:]
+        self.eventsContinuation = eventsContinuation
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
-    public func getPackageGraph() throws -> ModulesGraph {
-        try self.packageGraph.memoize {
-            try self.packageGraphLoader()
+    public var modulesGraph: ModulesGraph {
+        get throws {
+            try self.packageGraph.memoize {
+                try self.packageGraphLoader()
+            }
         }
     }
 
@@ -384,7 +397,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             duration: duration,
             subsetDescriptor: subsetDescriptor
         )
-        self.delegate?.buildSystem(self, didFinishWithResult: success)
+        self.eventsContinuation.yield(.didFinishWithResult(success: success))
+
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.
@@ -454,8 +468,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Compile the plugin, getting back a PluginCompilationResult.
         class Delegate: PluginScriptCompilerDelegate {
             let preparationStepName: String
-            let buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
-            init(preparationStepName: String, buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?) {
+            let buildSystemDelegate: AsyncLLBuildDelegate?
+            init(preparationStepName: String, buildSystemDelegate: AsyncLLBuildDelegate?) {
                 self.preparationStepName = preparationStepName
                 self.buildSystemDelegate = buildSystemDelegate
             }
@@ -490,7 +504,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }
         }
-        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
+        let delegate = Delegate(
+            preparationStepName: "Compiling plugin \(plugin.targetName)",
+            buildSystemDelegate: self.buildSystemDelegate
+        )
         let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
@@ -517,7 +534,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return LLBuildManifestBuilder.TargetKind.test.targetName
         default:
             // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try getPackageGraph()
+            let graph = try self.modulesGraph
             if let result = subset.llbuildTargetName(
                 for: graph,
                 config: self.productsBuildParameters.configuration.dirname,
@@ -532,7 +549,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Create the build plan and return the build description.
     private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
-        let graph = try getPackageGraph()
+        let graph = try self.modulesGraph
         let buildToolPluginInvocationResults: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])]
         let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
@@ -616,7 +633,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedTarget]
-        if let subset = subset, let recursiveDependencies = try 
+        if let subset = subset, let recursiveDependencies = try
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
@@ -709,14 +726,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Create the build delegate.
-        let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
+        let buildSystemDelegate = AsyncLLBuildDelegate(
             buildSystem: self,
             buildExecutionContext: buildExecutionContext,
+            eventsContinuation: self.eventsContinuation,
             outputStream: self.outputStream,
             progressAnimation: progressAnimation,
             logLevel: self.logLevel,
-            observabilityScope: self.observabilityScope,
-            delegate: self.delegate
+            observabilityScope: self.observabilityScope
         )
         self.buildSystemDelegate = buildSystemDelegate
 
@@ -731,7 +748,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
         buildSystemDelegate.commandFailureHandler = {
             buildSystem.cancel()
-            self.delegate?.buildSystemDidCancel(self)
+            self.eventsContinuation.yield(.didCancel)
         }
 
         return buildSystem
@@ -816,111 +833,5 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return false
         }
         return true
-    }
-}
-
-extension BuildOperation {
-    public typealias PluginConfiguration = Build.PluginConfiguration
-}
-
-extension BuildDescription {
-    static func create(
-        with plan: BuildPlan,
-        disableSandboxForPluginCommands: Bool,
-        fileSystem: Basics.FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws -> (BuildDescription, LLBuildManifest) {
-        // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
-        let buildManifest = try llbuild.generateManifest(at: plan.destinationBuildParameters.llbuildManifest)
-
-        let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
-        let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
-        let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
-        let testEntryPointCommands = llbuild.manifest.getCmdToolMap(kind: TestEntryPointTool.self)
-        let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
-        let writeCommands = llbuild.manifest.getCmdToolMap(kind: WriteAuxiliaryFile.self)
-
-        // Create the build description.
-        let buildDescription = try BuildDescription(
-            plan: plan,
-            swiftCommands: swiftCommands,
-            swiftFrontendCommands: swiftFrontendCommands,
-            testDiscoveryCommands: testDiscoveryCommands,
-            testEntryPointCommands: testEntryPointCommands,
-            copyCommands: copyCommands,
-            writeCommands: writeCommands,
-            pluginDescriptions: plan.pluginDescriptions
-        )
-        try fileSystem.createDirectory(
-            plan.destinationBuildParameters.buildDescriptionPath.parentDirectory,
-            recursive: true
-        )
-        try buildDescription.write(fileSystem: fileSystem, path: plan.destinationBuildParameters.buildDescriptionPath)
-        return (buildDescription, buildManifest)
-    }
-}
-
-extension BuildSubset {
-    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
-        switch self {
-        case .allIncludingTests:
-            return Array(graph.reachableTargets)
-        case .allExcludingTests:
-            return graph.reachableTargets.filter { $0.type != .test }
-        case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                observabilityScope.emit(error: "no product named '\(productName)'")
-                return nil
-            }
-            return try product.recursiveTargetDependencies()
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                observabilityScope.emit(error: "no target named '\(targetName)'")
-                return nil
-            }
-            return try target.recursiveTargetDependencies()
-        }
-    }
-
-    /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: ModulesGraph, config: String, observabilityScope: ObservabilityScope)
-        -> String?
-    {
-        switch self {
-        case .allExcludingTests:
-            return LLBuildManifestBuilder.TargetKind.main.targetName
-        case .allIncludingTests:
-            return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                observabilityScope.emit(error: "no product named '\(productName)'")
-                return nil
-            }
-            // If the product is automatic, we build the main target because automatic products
-            // do not produce a binary right now.
-            if product.type == .library(.automatic) {
-                observabilityScope.emit(
-                    warning:
-                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
-                )
-                return LLBuildManifestBuilder.TargetKind.main.targetName
-            }
-            return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
-            }
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                observabilityScope.emit(error: "no target named '\(targetName)'")
-                return nil
-            }
-            return target.getLLBuildTargetName(config: config)
-        }
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        return self <= .info
     }
 }

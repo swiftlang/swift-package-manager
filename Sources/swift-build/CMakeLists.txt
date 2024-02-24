@@ -10,6 +10,9 @@ add_executable(swift-build
     main.swift)
 target_link_libraries(swift-build PRIVATE
     Commands)
+    
+target_compile_options(swift-package PRIVATE
+  -parse-as-library)
 
 install(TARGETS swift-build
   DESTINATION bin)

@@ -95,7 +95,7 @@ struct BuildToolOptions: ParsableArguments {
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool: SwiftCommand {
+public struct SwiftBuildTool: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "build",
         _superCommandName: "swift",
@@ -110,7 +110,7 @@ public struct SwiftBuildTool: SwiftCommand {
     @OptionGroup()
     var options: BuildToolOptions
 
-    public func run(_ swiftTool: SwiftTool) throws {
+    public func run(_ swiftTool: SwiftTool) async throws {
         if options.shouldPrintBinPath {
             return try print(swiftTool.productsBuildParameters.buildPath.description)
         }
@@ -132,17 +132,33 @@ public struct SwiftBuildTool: SwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
             throw ExitCode.failure
         }
-        let buildSystem = try swiftTool.createBuildSystem(
-            explicitProduct: options.product,
-            shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-            // command result output goes on stdout
-            // ie "swift build" should output to stdout
-            outputStream: TSCBasic.stdoutStream
-        )
-        do {
-            try buildSystem.build(subset: subset)
-        } catch _ as Diagnostics {
-            throw ExitCode.failure
+
+        if self.globalOptions.build.useAsyncBuildSystem {
+            let buildSystem = try swiftTool.createAsyncBuildSystem(
+                explicitProduct: options.product,
+                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+                // command result output goes on stdout
+                // ie "swift build" should output to stdout
+                outputStream: TSCBasic.stdoutStream
+            )
+            do {
+                try await buildSystem.build(subset: subset)
+            } catch _ as Diagnostics {
+                throw ExitCode.failure
+            }
+        } else {
+            let buildSystem = try swiftTool.createBuildSystem(
+                explicitProduct: options.product,
+                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+                // command result output goes on stdout
+                // ie "swift build" should output to stdout
+                outputStream: TSCBasic.stdoutStream
+            )
+            do {
+                try buildSystem.build(subset: subset)
+            } catch _ as Diagnostics {
+                throw ExitCode.failure
+            }
         }
     }
 
