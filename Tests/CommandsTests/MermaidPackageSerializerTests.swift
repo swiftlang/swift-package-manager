@@ -15,7 +15,7 @@ import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import class TSCBasic.InMemoryFileSystem
-import func SPMTestSupport.loadPackageGraph
+import func SPMTestSupport.loadModulesGraph
 import func SPMTestSupport.XCTAssertNoDiagnostics
 
 @testable
@@ -31,7 +31,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
             "/A/Sources/ATarget/main.swift",
             "/A/Tests/ATargetTests/TestCases.swift"
         )
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -76,7 +76,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -135,7 +135,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(

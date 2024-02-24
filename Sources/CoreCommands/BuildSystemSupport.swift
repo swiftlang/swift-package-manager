@@ -10,10 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Build
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if !DISABLE_XCBUILD_SUPPORT
+@_spi(SwiftPMInternal)
 import XCBuildSupport
 #endif
 
@@ -94,6 +98,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
 #endif
 
 extension SwiftTool {
+    @_spi(SwiftPMInternal)
     public var defaultBuildSystemProvider: BuildSystemProvider {
         #if !DISABLE_XCBUILD_SUPPORT
         .init(providers: [

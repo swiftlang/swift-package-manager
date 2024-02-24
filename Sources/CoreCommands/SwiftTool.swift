@@ -17,9 +17,13 @@ import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
+
 @_spi(SwiftPMInternal)
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -80,6 +84,7 @@ public typealias WorkspaceDelegateProvider = (
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 
+@_spi(SwiftPMInternal)
 public protocol _SwiftCommand {
     var globalOptions: GlobalOptions { get }
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
@@ -94,6 +99,7 @@ extension _SwiftCommand {
     }
 }
 
+@_spi(SwiftPMInternal)
 public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
     func run(_ swiftTool: SwiftTool) throws
 }
@@ -134,6 +140,7 @@ extension SwiftCommand {
     }
 }
 
+@_spi(SwiftPMInternal)
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftTool: SwiftTool) async throws
 }
@@ -175,6 +182,7 @@ extension AsyncSwiftCommand {
     }
 }
 
+@_spi(SwiftPMInternal)
 public final class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler

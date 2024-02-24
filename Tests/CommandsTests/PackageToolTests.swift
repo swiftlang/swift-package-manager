@@ -11,8 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import CoreCommands
-@testable import Commands
+
+@_spi(SwiftPMInternal)
+@testable 
+import CoreCommands
+
+@testable 
+import Commands
+
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -630,7 +636,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [manifestA, manifestB, manifestC, manifestD],
             observabilityScope: observability.topScope

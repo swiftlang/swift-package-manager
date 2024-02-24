@@ -12,7 +12,10 @@
 
 import ArgumentParser
 import Basics
+
+@_spi(SwiftPMInternal)
 import Build
+
 import Dispatch
 
 @_spi(SwiftPMInternal)
@@ -23,9 +26,12 @@ import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if !DISABLE_XCBUILD_SUPPORT
+@_spi(SwiftPMInternal)
 import XCBuildSupport
 #endif
 

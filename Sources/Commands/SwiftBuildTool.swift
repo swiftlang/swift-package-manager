@@ -12,9 +12,16 @@
 
 import ArgumentParser
 import Basics
+
+@_spi(SwiftPMInternal)
 import Build
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if !DISABLE_XCBUILD_SUPPORT
@@ -95,6 +102,7 @@ struct BuildToolOptions: ParsableArguments {
 }
 
 /// swift-build tool namespace
+@_spi(SwiftPMInternal)
 public struct SwiftBuildTool: SwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "build",

@@ -11,9 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Foundation
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream

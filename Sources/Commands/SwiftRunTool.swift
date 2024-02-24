@@ -12,10 +12,16 @@
 
 import ArgumentParser
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Foundation
 import PackageGraph
 import PackageModel
+
+@_spi(SwiftPMInternal)
+import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
@@ -90,6 +96,7 @@ struct RunToolOptions: ParsableArguments {
 }
 
 /// swift-run tool namespace
+@_spi(SwiftPMInternal)
 public struct SwiftRunTool: SwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "run",
