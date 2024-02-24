@@ -21,9 +21,13 @@ import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
+
 @_spi(SwiftPMInternal)
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -724,6 +728,7 @@ public final class SwiftTool {
     // "customOutputStream" is designed to support build output redirection
     // but it is only expected to be used when invoking builds from "swift build" command.
     // in all other cases, the build output should go to the default which is stderr
+    @_spi(SwiftPMInternal)
     public func createAsyncBuildSystem(
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
