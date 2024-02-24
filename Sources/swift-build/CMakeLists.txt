@@ -11,7 +11,7 @@ add_executable(swift-build
 target_link_libraries(swift-build PRIVATE
     Commands)
     
-target_compile_options(swift-package PRIVATE
+target_compile_options(swift-build PRIVATE
   -parse-as-library)
 
 install(TARGETS swift-build
