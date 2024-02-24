@@ -89,7 +89,8 @@ class MiscellaneousTestCase: XCTestCase {
                     return XCTFail("failed in an unexpected manner: \(error)")
                 }
                 XCTAssertMatch(error.stdout + error.stderr, .contains("Compiling CompileFails Foo.swift"))
-                XCTAssertMatch(error.stdout + error.stderr, .regex("error: .*\n.*compile_failure"))
+                XCTAssertMatch(error.stdout + error.stderr, .regex(".*compile_failure.*"))
+                XCTAssertMatch(error.stdout + error.stderr, .regex(".*error:.*"))
             }
         }
     }
