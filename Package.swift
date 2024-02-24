@@ -168,8 +168,7 @@ let package = Package(
                 "Build",
                 "SPMBuildCore"
             ],
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: [.enableExperimentalFeature("AccessLevelOnImport")]
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: SwiftPM specific support libraries
