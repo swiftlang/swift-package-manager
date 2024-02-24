@@ -13,7 +13,10 @@
 import Basics
 import Build
 import Commands
+
+@_spi(SwiftPMInternal)
 import DriverSupport
+
 import Foundation
 import PackageModel
 import SourceControl

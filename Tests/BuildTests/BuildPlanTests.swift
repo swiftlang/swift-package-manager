@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,11 @@
 
 @testable import Basics
 @testable import Build
+
+@testable
+@_spi(SwiftPMInternal)
 import DriverSupport
+
 @testable import PackageGraph
 import PackageLoading
 @testable import PackageModel
@@ -644,6 +648,37 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
     }
+
+    #if os(macOS)
+    func testPackageNameFlagXCBuild() throws {
+        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
+            flags: ["package-name"],
+            toolchain: UserToolchain.default,
+            fileSystem: localFileSystem
+        )
+        try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(
+                fixturePath.appending("appPkg"),
+                extraArgs: ["--build-system", "xcode", "-vv"]
+            )
+            XCTAssertMatch(stdout, .contains("-module-name Foo"))
+            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
+            XCTAssertMatch(stdout, .contains("-module-name Bar"))
+            XCTAssertMatch(stdout, .contains("-module-name Baz"))
+            XCTAssertMatch(stdout, .contains("-module-name App"))
+            XCTAssertMatch(stdout, .contains("-module-name exe"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
+                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
+                // the flag is not supported if tools-version < 5.9
+                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(stdout, .contains("-package-name"))
+            }
+            XCTAssertMatch(stdout, .contains("Build succeeded"))
+        }
+    }
+    #endif
 
     func testTargetsWithPackageAccess() throws {
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
