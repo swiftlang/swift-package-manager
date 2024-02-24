@@ -12,13 +12,13 @@
 
 import Foundation
 
-private import struct Basics.AbsolutePath
-private import func Basics.resolveSymlinks
+/*private*/ import struct Basics.AbsolutePath
+/*private*/ import func Basics.resolveSymlinks
 // FIXME: should not import this module
 import Build
 // FIXME: should be internal imports
 import PackageGraph
-private import SPMBuildCore
+/*private*/ import SPMBuildCore
 
 public protocol BuildTarget {
     var sources: [URL] { get }
