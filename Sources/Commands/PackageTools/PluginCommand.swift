@@ -211,7 +211,7 @@ struct PluginCommand: SwiftCommand {
     static func run(
         plugin: PluginTarget,
         package: ResolvedPackage,
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         options: PluginOptions,
         arguments: [String],
         swiftTool: SwiftTool
@@ -369,7 +369,7 @@ struct PluginCommand: SwiftCommand {
         // TODO: We should also emit a final line of output regarding the result.
     }
 
-    static func availableCommandPlugins(in graph: PackageGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
+    static func availableCommandPlugins(in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
         // All targets from plugin products of direct dependencies are "available".
         let directDependencyPackages = graph.rootPackages.flatMap { $0.dependencies }.filter { $0.matching(identity: packageIdentity) }
         let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
@@ -383,7 +383,7 @@ struct PluginCommand: SwiftCommand {
         }
     }
 
-    static func findPlugins(matching verb: String, in graph: PackageGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
+    static func findPlugins(matching verb: String, in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
         // Find and return the command plugins that match the command.
         Self.availableCommandPlugins(in: graph, limitedTo: packageIdentity).filter {
             // Filter out any non-command plugins and any whose verb is different.

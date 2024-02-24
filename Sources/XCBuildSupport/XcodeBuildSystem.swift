@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,6 +16,8 @@ import Dispatch
 import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
@@ -28,10 +30,10 @@ import enum TSCUtility.Diagnostics
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
-    private let packageGraphLoader: () throws -> PackageGraph
+    private let packageGraphLoader: () throws -> ModulesGraph
     private let logLevel: Basics.Diagnostic.Severity
     private let xcbuildPath: AbsolutePath
-    private var packageGraph: PackageGraph?
+    private var packageGraph: ModulesGraph?
     private var pifBuilder: PIFBuilder?
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
@@ -77,7 +79,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     public init(
         buildParameters: BuildParameters,
-        packageGraphLoader: @escaping () throws -> PackageGraph,
+        packageGraphLoader: @escaping () throws -> ModulesGraph,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
@@ -278,7 +280,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     /// Returns the package graph using the graph loader closure.
     ///
     /// First access will cache the graph.
-    public func getPackageGraph() throws -> PackageGraph {
+    public func getPackageGraph() throws -> ModulesGraph {
         try memoize(to: &packageGraph) {
             try packageGraphLoader()
         }
@@ -320,6 +322,7 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
+            isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
             enableTestability: buildParameters.testingParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,

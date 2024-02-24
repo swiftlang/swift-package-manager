@@ -17,14 +17,14 @@ import struct Basics.IdentifiableSet
 import PackageModel
 import PackageGraph
 
-public func PackageGraphTester(_ graph: PackageGraph, _ result: (PackageGraphResult) -> Void) {
+public func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) -> Void) {
     result(PackageGraphResult(graph))
 }
 
 public final class PackageGraphResult {
-    public let graph: PackageGraph
+    public let graph: ModulesGraph
 
-    public init(_ graph: PackageGraph) {
+    public init(_ graph: ModulesGraph) {
         self.graph = graph
     }
 

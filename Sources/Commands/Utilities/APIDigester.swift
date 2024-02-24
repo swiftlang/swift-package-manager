@@ -310,7 +310,7 @@ extension BuildParameters {
     }
 }
 
-extension PackageGraph {
+extension ModulesGraph {
     /// The list of modules that should be used as an input to the API digester.
     var apiDigesterModules: [String] {
         self.rootPackages

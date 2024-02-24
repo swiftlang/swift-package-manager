@@ -11,10 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
 import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -287,7 +290,7 @@ public final class SwiftTargetBuildDescription {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
-        (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
+        (self.pluginDerivedSources, self.pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
             target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,
@@ -419,18 +422,6 @@ public final class SwiftTargetBuildDescription {
         try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
-    private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, packageAccess: Bool) -> [String] {
-        let flag = "-package-name"
-        if pkg.manifest.usePackageNameFlag,
-           DriverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
-            if packageAccess {
-                let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
-                return [flag, pkgID]
-            } 
-        }
-        return []
-    }
-
     private func macroArguments() throws -> [String] {
         var args = [String]()
 
@@ -450,7 +441,14 @@ public final class SwiftTargetBuildDescription {
         #endif
 
         // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, DriverSupport.checkSupportedFrontendFlags(flags: ["-external-plugin-path"], toolchain: self.buildParameters.toolchain, fileSystem: self.fileSystem), let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath {
+        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, 
+            DriverSupport.checkSupportedFrontendFlags(
+                flags: ["-external-plugin-path"],
+                toolchain: self.buildParameters.toolchain,
+                fileSystem: self.fileSystem
+            ), 
+            let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath
+        {
             let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
             let pluginPathComponents = ["lib", "swift", "host", "plugins"]
 
@@ -631,7 +629,10 @@ public final class SwiftTargetBuildDescription {
             args += ["-user-module-version", version.description]
         }
 
-        args += self.packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess)
+        args += self.package.packageNameArgument(
+            target: self.target,
+            isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
+        )
         args += try self.macroArguments()
         
         // rdar://117578677
@@ -656,7 +657,12 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, packageAccess: self.target.packageAccess))
+        result.append(
+            contentsOf: self.package.packageNameArgument(
+                target: self.target,
+                isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
+            )
+        )
         if !scanInvocation {
             result.append("-emit-dependencies")
 

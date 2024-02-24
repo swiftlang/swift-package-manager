@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,8 +23,11 @@ import SPMBuildCore
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
+@_implementationOnly
+@_spi(SwiftPMInternal)
+import DriverSupport
 #else
+@_spi(SwiftPMInternal)
 import DriverSupport
 #endif
 
@@ -594,7 +597,7 @@ public final class SwiftTool {
     public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
-    ) throws -> PackageGraph {
+    ) throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace()
 
@@ -684,7 +687,7 @@ public final class SwiftTool {
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
@@ -757,7 +760,11 @@ public final class SwiftTool {
                 enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
                 explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
                 useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.build.useExplicitModuleBuild
+                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
+                isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
+                    toolchain: toolchain,
+                    fileSystem: self.fileSystem
+                )
             ),
             linkingParameters: .init(
                 linkerDeadStrip: options.linker.linkerDeadStrip,

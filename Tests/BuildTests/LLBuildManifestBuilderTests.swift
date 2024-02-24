@@ -32,7 +32,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(

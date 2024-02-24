@@ -316,6 +316,11 @@ private func swiftArgs(
     return args
 }
 
+@available(*, 
+    deprecated,
+    renamed: "loadModulesGraph",
+    message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
+)
 public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fileSystem: FileSystem,
@@ -327,7 +332,33 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope
-) throws -> PackageGraph {
+) throws -> ModulesGraph {
+    try loadModulesGraph(
+        identityResolver: identityResolver,
+        fileSystem: fileSystem,
+        manifests: manifests,
+        binaryArtifacts: binaryArtifacts,
+        explicitProduct: explicitProduct,
+        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+        createREPLProduct: createREPLProduct,
+        useXCBuildFileRules: useXCBuildFileRules,
+        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+        observabilityScope: observabilityScope
+    )
+}
+
+public func loadModulesGraph(
+    identityResolver: IdentityResolver = DefaultIdentityResolver(),
+    fileSystem: FileSystem,
+    manifests: [Manifest],
+    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
+    explicitProduct: String? = .none,
+    shouldCreateMultipleTestProducts: Bool = false,
+    createREPLProduct: Bool = false,
+    useXCBuildFileRules: Bool = false,
+    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+    observabilityScope: ObservabilityScope
+) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
         .reduce(
@@ -346,7 +377,7 @@ public func loadPackageGraph(
         observabilityScope: observabilityScope
     )
 
-    return try PackageGraph.load(
+    return try ModulesGraph.load(
         root: graphRoot,
         identityResolver: identityResolver,
         additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription

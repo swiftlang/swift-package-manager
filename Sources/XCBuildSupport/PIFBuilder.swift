@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,6 +15,8 @@ import Basics
 import PackageModel
 import PackageLoading
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort
@@ -22,6 +24,8 @@ import func TSCBasic.memoize
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
+    /// Whether the toolchain supports `-package-name` option.
+    let isPackageAccessModifierSupported: Bool
 
     /// Whether or not build for testability is enabled.
     let enableTestability: Bool
@@ -49,7 +53,7 @@ public final class PIFBuilder {
     public static let allIncludingTestsTargetName = "AllIncludingTests"
 
     /// The package graph to build from.
-    let graph: PackageGraph
+    let graph: ModulesGraph
 
     /// The parameters used to configure the PIF.
     let parameters: PIFBuilderParameters
@@ -69,7 +73,7 @@ public final class PIFBuilder {
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
     init(
-        graph: PackageGraph,
+        graph: ModulesGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -132,7 +136,13 @@ public final class PIFBuilder {
     }
 
     // Convenience method for generating PIF.
-    public static func generatePIF(buildParameters: BuildParameters, packageGraph: PackageGraph, fileSystem: FileSystem, observabilityScope: ObservabilityScope, preservePIFModelStructure: Bool) throws -> String {
+    public static func generatePIF(
+        buildParameters: BuildParameters,
+        packageGraph: ModulesGraph,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        preservePIFModelStructure: Bool
+    ) throws -> String {
         let parameters = PIFBuilderParameters(buildParameters)
         let builder = Self.init(
             graph: packageGraph,
@@ -258,12 +268,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         super.init()
 
-        guid = package.pifProjectGUID
-        name = package.manifest.displayName // TODO: use identity instead?
-        path = package.path
-        projectDirectory = package.path
-        developmentRegion = package.manifest.defaultLocalization ?? "en"
-        binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
+        self.guid = package.pifProjectGUID
+        self.name = package.manifest.displayName // TODO: use identity instead?
+        self.path = package.path
+        self.projectDirectory = package.path
+        self.developmentRegion = package.manifest.defaultLocalization ?? "en"
+        self.binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
 
         // Configure the project-wide build settings.  First we set those that are in common between the "Debug" and
         // "Release" configurations, and then we set those that are different.
@@ -465,6 +475,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.CLANG_CXX_LANGUAGE_STANDARD] = clangTarget.cxxLanguageStandard
         } else if let swiftTarget = mainTarget.underlying as? SwiftTarget {
             settings[.SWIFT_VERSION] = swiftTarget.swiftVersion.description
+
+            settings.addCommonSwiftSettings(package: self.package, target: mainTarget, parameters: self.parameters)
         }
 
         if let resourceBundle = addResourceBundle(for: mainTarget, in: pifTarget) {
@@ -495,7 +507,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let executableName: String
         let productType: PIF.Target.ProductType
         if product.type == .library(.dynamic) {
-            if parameters.shouldCreateDylibForDynamicProducts {
+            if self.parameters.shouldCreateDylibForDynamicProducts {
                 pifTargetProductName = "lib\(product.name).dylib"
                 executableName = pifTargetProductName
                 productType = .dynamicLibrary
@@ -514,7 +526,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // depend on. XCBuild will not produce a separate artifact for a package product, but will instead consider any
         // dependency on the package product to be a dependency on the whole set of targets on which the package product
         // depends.
-        let pifTarget = addTarget(
+        let pifTarget = self.addTarget(
             guid: product.pifTargetGUID,
             name: targetName(for: product),
             productType: productType,
@@ -644,6 +656,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             // Generate ObjC compatibility header for Swift library targets.
             settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
             settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(target.name)-Swift.h"
+
+            settings.addCommonSwiftSettings(package: self.package, target: target, parameters: self.parameters)
 
             moduleMapFileContents = """
                 module \(target.c99name) {
@@ -1655,6 +1669,22 @@ extension PIF.PlatformFilter {
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
     ]
+}
+
+private extension PIF.BuildSettings {
+    mutating func addCommonSwiftSettings(
+        package: ResolvedPackage,
+        target: ResolvedTarget,
+        parameters: PIFBuilderParameters
+    ) {
+        let packageOptions = package.packageNameArgument(
+            target: target,
+            isPackageNameSupported: parameters.isPackageAccessModifierSupported
+        )
+        if !packageOptions.isEmpty {
+            self[.OTHER_SWIFT_FLAGS] = packageOptions
+        }
+    }
 }
 
 private extension PIF.BuildSettings.Platform {
