@@ -23,7 +23,14 @@ let baseNameWithoutExtension = (try? AbsolutePath(validating: firstArg).basename
 @main
 struct SwiftPM {
     static func main() async {
-        await main(execName: baseNameWithoutExtension)
+        // Workaround a bug in Swift 5.9, where multiple executables with an `async` main entrypoint can't be linked
+        // into the same test bundle. We're then linking single `swift-package-manager` binary instead and passing
+        // executable name via `SWIFTPM_EXEC_NAME`.
+        if baseNameWithoutExtension == "swift-package-manager" {
+            await main(execName: EnvironmentVariables.process()["SWIFTPM_EXEC_NAME"])
+        } else {
+            await main(execName: baseNameWithoutExtension)
+        }
     }
 
     @discardableResult
@@ -44,12 +51,7 @@ struct SwiftPM {
         case "swift-package-registry":
             await SwiftPackageRegistryTool.main()
         default:
-            // Workaround a bug in Swift 5.9, where multiple executables with an `async` main entrypoint can't be linked
-            // into the same test bundle. We're then linking single `swift-package-manager` binary instead and passing
-            // executable name via `SWIFTPM_EXEC_NAME`.
-            if await !main(execName: EnvironmentVariables.process()["SWIFTPM_EXEC_NAME"]) {
-                fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
-            }
+            fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }
 
         return true
