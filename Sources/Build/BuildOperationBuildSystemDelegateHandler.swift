@@ -14,7 +14,10 @@
 import Basics
 import Dispatch
 import Foundation
+
+@_spi(SwiftPMInternal)
 import LLBuildManifest
+
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
@@ -320,6 +323,7 @@ private final class InProcessTool: Tool {
 }
 
 /// Contains the description of the build that is needed during the execution.
+@_spi(SwiftPMInternal)
 public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
@@ -440,6 +444,7 @@ public protocol BuildErrorAdviceProvider {
 }
 
 /// The context available during build execution.
+@_spi(SwiftPMInternal)
 public final class BuildExecutionContext {
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters

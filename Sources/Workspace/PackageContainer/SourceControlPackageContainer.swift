@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import Dispatch
 import class Foundation.NSLock
 import PackageFingerprint
@@ -21,7 +23,6 @@ import SourceControl
 
 import struct TSCBasic.RegEx
 
-import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.

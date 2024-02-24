@@ -15,17 +15,21 @@ import typealias TSCBasic.ProcessEnvironmentBlock
 import struct TSCBasic.ProcessEnvironmentKey
 import enum TSCBasic.ProcessEnv
 
+@_spi(SwiftPMInternal)
 public typealias EnvironmentVariables = ProcessEnvironmentBlock
 
-extension EnvironmentVariables {
+extension ProcessEnvironmentBlock {
+    @_spi(SwiftPMInternal)
     public static func empty() -> EnvironmentVariables {
         [:]
     }
 
+    @_spi(SwiftPMInternal)
     public static func process() -> EnvironmentVariables {
         ProcessEnv.block
     }
 
+    @_spi(SwiftPMInternal)
     public mutating func prependPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
@@ -34,6 +38,7 @@ extension EnvironmentVariables {
         self.setPath(key, values)
     }
 
+    @_spi(SwiftPMInternal)
     public mutating func appendPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
@@ -60,7 +65,7 @@ extension EnvironmentVariables {
 // filter env variable that should not be included in a cache as they change
 // often and should not be considered in business logic
 // rdar://107029374
-extension EnvironmentVariables {
+extension ProcessEnvironmentBlock {
     // internal for testing
     static let nonCachableKeys: Set<ProcessEnvironmentKey> = [
         "TERM",
@@ -80,6 +85,7 @@ extension EnvironmentVariables {
         "SSH_AUTH_SOCK",
     ]
 
+    @_spi(SwiftPMInternal)
     public var cachable: EnvironmentVariables {
         return self.filter { !Self.nonCachableKeys.contains($0.key) }
     }

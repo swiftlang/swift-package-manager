@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -22,7 +24,6 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 private class MockRepository: Repository {

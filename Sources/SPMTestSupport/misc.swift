@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import struct Foundation.URL
 #if os(macOS)
 import class Foundation.Bundle
@@ -28,10 +30,11 @@ import func XCTest.XCTFail
 import struct TSCBasic.ByteString
 import struct TSCBasic.ProcessResult
 
-import enum TSCUtility.Git
+@_exported
+import func TSCTestSupport.systemQuietly
 
-@_exported import func TSCTestSupport.systemQuietly
-@_exported import enum TSCTestSupport.StringPattern
+@_exported
+import enum TSCTestSupport.StringPattern
 
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
@@ -236,6 +239,7 @@ public func initGitRepo(
     }
 }
 
+@_spi(SwiftPMInternal)
 @discardableResult
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath,
@@ -250,6 +254,7 @@ public func executeSwiftBuild(
     return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
+@_spi(SwiftPMInternal)
 @discardableResult
 public func executeSwiftRun(
     _ packagePath: AbsolutePath,
@@ -266,6 +271,7 @@ public func executeSwiftRun(
     return try SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
+@_spi(SwiftPMInternal)
 @discardableResult
 public func executeSwiftPackage(
     _ packagePath: AbsolutePath,
@@ -280,6 +286,7 @@ public func executeSwiftPackage(
     return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
+@_spi(SwiftPMInternal)
 @discardableResult
 public func executeSwiftTest(
     _ packagePath: AbsolutePath,

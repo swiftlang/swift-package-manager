@@ -10,8 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
-@testable import SourceControl
+
+@testable
+import SourceControl
+
 import SPMTestSupport
 import XCTest
 
@@ -19,17 +23,14 @@ import struct TSCBasic.FileSystemError
 import func TSCBasic.makeDirectories
 import class TSCBasic.Process
 
-import enum TSCUtility.Git
-
-class GitRepositoryTests: XCTestCase {
-
+final class GitRepositoryTests: XCTestCase {
     override func setUp() {
         // needed for submodule tests
-        Git.environment = ["GIT_ALLOW_PROTOCOL": "file"]
+        Git.environmentBlock = ["GIT_ALLOW_PROTOCOL": "file"]
     }
 
     override func tearDown() {
-        Git.environment = ProcessInfo.processInfo.environment
+        Git.environmentBlock = EnvironmentVariables.process()
     }
 
     /// Test the basic provider functions.

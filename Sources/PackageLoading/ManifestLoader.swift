@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+
+@_spi(SwiftPMInternal)
 import Basics
+
 import Dispatch
 import Foundation
 import PackageModel

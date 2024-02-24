@@ -31,6 +31,7 @@ public struct SwiftcImportScanner: ImportScanner {
     private let swiftCompilerFlags: [String]
     private let swiftCompilerPath: AbsolutePath
 
+    @_spi(SwiftPMInternal)
     public init(
         swiftCompilerEnvironment: EnvironmentVariables,
         swiftCompilerFlags: [String],

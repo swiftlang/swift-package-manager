@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import LLBuildManifest
+
 import PackageGraph
 import PackageModel
 import SPMBuildCore
@@ -27,6 +30,7 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
+@_spi(SwiftPMInternal)
 public class LLBuildManifestBuilder {
     enum Error: Swift.Error {
         case ldPathDriverOptionUnavailable(option: String)

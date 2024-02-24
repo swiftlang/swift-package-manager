@@ -15,7 +15,10 @@ import struct Basics.AbsolutePath
 import struct Basics.RelativePath
 import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
+
+@_spi(SwiftPMInternal)
 import struct LLBuildManifest.LLBuildManifest
+
 import struct SPMBuildCore.BuildParameters
 import struct PackageGraph.ResolvedTarget
 import protocol TSCBasic.FileSystem

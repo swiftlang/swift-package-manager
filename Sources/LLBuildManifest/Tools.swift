@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import class Foundation.ProcessInfo
 
 public protocol ToolProtocol: Codable {
@@ -110,6 +112,7 @@ public struct PackageStructureTool: ToolProtocol {
     }
 }
 
+@_spi(SwiftPMInternal)
 public struct ShellTool: ToolProtocol {
     public static let name: String = "shell"
 

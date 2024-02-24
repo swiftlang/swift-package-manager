@@ -10,10 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 
 private let namesToExclude = [".git", ".build"]
 
+@_spi(SwiftPMInternal)
 public struct LLBuildManifestWriter {
     private let manifest: LLBuildManifest
     // FIXME: since JSON is a superset of YAML and we don't need to parse these manifests,
@@ -38,6 +40,7 @@ public struct LLBuildManifestWriter {
         self.render(commands: manifest.commands)
     }
 
+    @_spi(SwiftPMInternal)
     public static func write(_ manifest: LLBuildManifest, at path: AbsolutePath, fileSystem: FileSystem) throws {
         let writer = LLBuildManifestWriter(manifest: manifest)
 
@@ -184,6 +187,7 @@ public struct ManifestToolStream {
         }
     }
 
+    @_spi(SwiftPMInternal)
     public subscript(key: String) -> EnvironmentVariables {
         get { fatalError() }
         set {

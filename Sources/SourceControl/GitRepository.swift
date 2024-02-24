@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+
 import Dispatch
 import class Foundation.NSLock
 
@@ -25,7 +27,6 @@ import struct TSCBasic.ProcessResult
 import struct TSCBasic.RegEx
 
 import protocol TSCUtility.DiagnosticLocationProviding
-import enum TSCUtility.Git
 
 // MARK: - GitShellHelper
 
