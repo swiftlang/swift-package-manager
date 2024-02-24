@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,15 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Foundation.URL
 
-/*private*/ import struct Basics.AbsolutePath
-/*private*/ import func Basics.resolveSymlinks
-// FIXME: should not import this module
-import Build
-// FIXME: should be internal imports
-import PackageGraph
-/*private*/ import SPMBuildCore
+private import struct Basics.AbsolutePath
+private import func Basics.resolveSymlinks
+
+private import SPMBuildCore
+
+// FIXME: should import these module with `private` or `internal` access control
+import class Build.BuildPlan
+import class Build.ClangTargetBuildDescription
+import class Build.SwiftTargetBuildDescription
+import struct PackageGraph.ResolvedTarget
 
 public protocol BuildTarget {
     var sources: [URL] { get }
@@ -49,7 +52,8 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
-        // Note: we ignore the `fileURL` here as the expectation is that we get a commandline for the entire target in case of Swift.
+        // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
+        // in case of Swift.
         return try description.emitCommandLine(scanInvocation: false)
     }
 }
