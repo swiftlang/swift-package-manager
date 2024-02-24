@@ -95,7 +95,7 @@ struct BuildToolOptions: ParsableArguments {
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool: SwiftCommand {
+public struct SwiftBuildTool: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "build",
         _superCommandName: "swift",
@@ -110,7 +110,7 @@ public struct SwiftBuildTool: SwiftCommand {
     @OptionGroup()
     var options: BuildToolOptions
 
-    public func run(_ swiftTool: SwiftTool) throws {
+    public func run(_ swiftTool: SwiftTool) async throws {
         if options.shouldPrintBinPath {
             return try print(swiftTool.productsBuildParameters.buildPath.description)
         }

@@ -681,9 +681,7 @@ package.targets.append(contentsOf: [
     .testTarget(
         name: "FunctionalPerformanceTests",
         dependencies: [
-            "swift-build",
-            "swift-package",
-            "swift-test",
+            "swift-package-manager",
             "SPMTestSupport"
         ]
     ),
@@ -695,9 +693,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         .testTarget(
             name: "FunctionalTests",
             dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
+                "swift-package-manager",
                 "PackageModel",
                 "SPMTestSupport"
             ]
@@ -713,10 +709,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         .testTarget(
             name: "CommandsTests",
             dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
-                "swift-run",
+                "swift-package-manager",
                 "Basics",
                 "Build",
                 "Commands",
