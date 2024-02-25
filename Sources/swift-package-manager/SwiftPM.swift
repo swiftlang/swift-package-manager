@@ -12,9 +12,9 @@
 
 import Basics
 import Commands
-import SwiftSDKTool
-import PackageCollectionsTool
-import PackageRegistryTool
+import SwiftSDKCommand
+import PackageCollectionsCommand
+import PackageRegistryCommand
 
 let firstArg = CommandLine.arguments[0]
 let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
@@ -25,19 +25,19 @@ struct SwiftPM {
     static func main() async {
         switch execName {
         case "swift-package":
-            await SwiftPackageTool.main()
+            await SwiftPackageCommand.main()
         case "swift-build":
-            SwiftBuildTool.main()
+            SwiftBuildCommand.main()
         case "swift-experimental-sdk":
-            await SwiftSDKTool.main()
+            await SwiftSDKCommand.main()
         case "swift-test":
-            SwiftTestTool.main()
+            SwiftTestCommand.main()
         case "swift-run":
-            SwiftRunTool.main()
+            SwiftRunCommand.main()
         case "swift-package-collection":
-            await SwiftPackageCollectionsTool.main()
+            await PackageCollectionsCommand.main()
         case "swift-package-registry":
-            await SwiftPackageRegistryTool.main()
+            await PackageRegistryCommand.main()
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }
