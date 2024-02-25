@@ -27,12 +27,12 @@ import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
-    let swiftTool: SwiftTool
+    let swiftCommandState: SwiftCommandState
     let plugin: PluginTarget
     var lineBufferedOutput: Data
 
-    init(swiftTool: SwiftTool, plugin: PluginTarget) {
-        self.swiftTool = swiftTool
+    init(swiftCommandState: SwiftCommandState, plugin: PluginTarget) {
+        self.swiftCommandState = swiftCommandState
         self.plugin = plugin
         self.lineBufferedOutput = Data()
     }
@@ -56,12 +56,12 @@ final class PluginDelegate: PluginInvocationDelegate {
     }
 
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-        swiftTool.observabilityScope.emit(diagnostic)
+        swiftCommandState.observabilityScope.emit(diagnostic)
     }
 
     func pluginEmittedProgress(_ message: String) {
-        swiftTool.outputStream.write("[\(plugin.name)] \(message)\n")
-        swiftTool.outputStream.flush()
+        swiftCommandState.outputStream.write("[\(plugin.name)] \(message)\n")
+        swiftCommandState.outputStream.flush()
     }
 
     func pluginRequestedBuildOperation(
@@ -116,7 +116,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         parameters: PluginInvocationBuildParameters
     ) throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
-        var buildParameters = try self.swiftTool.productsBuildParameters
+        var buildParameters = try self.swiftCommandState.productsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
@@ -160,10 +160,10 @@ final class PluginDelegate: PluginInvocationDelegate {
         let bufferedOutputStream = BufferedOutputByteStream()
         let outputStream = TeeOutputByteStream([bufferedOutputStream])
         if parameters.echoLogs {
-            outputStream.addStream(swiftTool.outputStream)
+            outputStream.addStream(swiftCommandState.outputStream)
         }
 
-        let buildSystem = try swiftTool.createBuildSystem(
+        let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             explicitProduct: explicitProduct,
             cacheBuildManifest: false,
@@ -224,24 +224,24 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) throws -> PluginInvocationTestResult {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know
         // which ones they are until we've built them and can examine the binaries.
-        let toolchain = try swiftTool.getHostToolchain()
-        var toolsBuildParameters = try swiftTool.toolsBuildParameters
+        let toolchain = try swiftCommandState.getHostToolchain()
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
         toolsBuildParameters.testingParameters.enableTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
-        let buildSystem = try swiftTool.createBuildSystem(toolsBuildParameters: toolsBuildParameters)
+        let buildSystem = try swiftCommandState.createBuildSystem(toolsBuildParameters: toolsBuildParameters)
         try buildSystem.build(subset: .allIncludingTests)
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
         if parameters.enableCodeCoverage {
-            try swiftTool.fileSystem.removeFileTree(toolsBuildParameters.codeCovPath)
+            try swiftCommandState.fileSystem.removeFileTree(toolsBuildParameters.codeCovPath)
         }
 
         // Construct the environment we'll pass down to the tests.
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             buildParameters: toolsBuildParameters,
-            sanitizers: swiftTool.options.build.sanitizers
+            sanitizers: swiftCommandState.options.build.sanitizers
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -251,11 +251,11 @@ final class PluginDelegate: PluginInvocationDelegate {
             // Get the test suites in the bundle. Each is just a container for test cases.
             let testSuites = try TestingSupport.getTestSuites(
                 fromTestAt: testProduct.bundlePath,
-                swiftTool: swiftTool,
+                swiftCommandState: swiftCommandState,
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
                 experimentalTestOutput: false,
-                sanitizers: swiftTool.options.build.sanitizers
+                sanitizers: swiftCommandState.options.build.sanitizers
             )
             for testSuite in testSuites {
                 // Each test suite is just a container for test cases (confusingly called "tests",
@@ -280,10 +280,10 @@ final class PluginDelegate: PluginInvocationDelegate {
                         let testRunner = TestRunner(
                             bundlePaths: [testProduct.bundlePath],
                             additionalArguments: additionalArguments,
-                            cancellator: swiftTool.cancellator,
+                            cancellator: swiftCommandState.cancellator,
                             toolchain: toolchain,
                             testEnv: testEnvironment,
-                            observabilityScope: swiftTool.observabilityScope,
+                            observabilityScope: swiftCommandState.observabilityScope,
                             library: .xctest) // FIXME: support both libraries
 
                         // Run the test — for now we run the sequentially so we can capture accurate timing results.
@@ -326,7 +326,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         if parameters.enableCodeCoverage {
             // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
             let mergedCovFile = toolsBuildParameters.codeCovDataFile
-            let codeCovFileNames = try swiftTool.fileSystem.getDirectoryContents(toolsBuildParameters.codeCovPath)
+            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(toolsBuildParameters.codeCovPath)
             var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
             llvmProfCommand += ["merge", "-sparse"]
             for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
@@ -348,7 +348,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
                 component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
             )
-            try swiftTool.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
+            try swiftCommandState.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
 
             // Return the path of the exported code coverage data file.
             codeCoverageDataFile = jsonCovFile
@@ -385,7 +385,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // while building.
 
         // Create a build system for building the target., skipping the the cache because we need the build plan.
-        let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()
@@ -398,9 +398,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
-            fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getTargetToolchain().getSymbolGraphExtract(),
-            observabilityScope: swiftTool.observabilityScope
+            fileSystem: swiftCommandState.fileSystem,
+            tool: swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
+            observabilityScope: swiftCommandState.observabilityScope
         )
         symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
         switch options.minimumAccessLevel {
@@ -428,7 +428,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             package.identity.description,
             target.name
         )
-        try swiftTool.fileSystem.removeFileTree(outputDir)
+        try swiftCommandState.fileSystem.removeFileTree(outputDir)
 
         // Run the symbol graph extractor on the target.
         let result = try symbolGraphExtractor.extractSymbolGraph(
@@ -436,7 +436,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             buildPlan: try buildSystem.buildPlan,
             outputRedirection: .collect,
             outputDirectory: outputDir,
-            verboseOutput: self.swiftTool.logLevel <= .info
+            verboseOutput: self.swiftCommandState.logLevel <= .info
         )
 
         guard result.exitStatus == .terminated(code: 0) else {

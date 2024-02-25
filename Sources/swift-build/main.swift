@@ -13,4 +13,4 @@
 @_spi(SwiftPMInternal)
 import Commands
 
-SwiftBuildTool.main()
+SwiftBuildCommand.main()
