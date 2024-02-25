@@ -132,6 +132,7 @@ public struct BuildSystemProvider {
     public enum Kind: String, CaseIterable {
         case native
         case xcode
+        case experimentalAsync = "experimental-async"
     }
 
     public let providers: [Kind: any BuildSystemFactory]

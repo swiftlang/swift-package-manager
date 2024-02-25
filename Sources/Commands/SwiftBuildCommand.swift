@@ -140,7 +140,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
 
-        if self.globalOptions.build.useAsyncBuildSystem {
+        if self.globalOptions.build.buildSystem == .experimentalAsync {
             let buildSystem = try swiftCommandState.createAsyncBuildSystem(
                 explicitProduct: options.product,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
