@@ -33,7 +33,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        let _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -83,7 +83,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        let _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -135,7 +135,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -214,7 +214,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadPackageGraph(
+        XCTAssertThrowsError(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -276,7 +276,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadPackageGraph(
+        XCTAssertThrowsError(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -337,7 +337,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/bazPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -421,7 +421,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/bazPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -507,7 +507,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/yPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -638,7 +638,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -694,9 +694,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -725,33 +724,33 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #endif
     }
@@ -768,7 +767,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -813,9 +812,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -844,23 +842,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
+             "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence]
         )
         XCTAssertNoMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "/path/to/build/\(buildParameters.triple)/debug/Logging.build/Logging-Swift.h", .anySequence]
+             "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence]
         )
         #endif
     }
@@ -875,7 +873,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadPackageGraph(
+        XCTAssertThrowsError(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -938,7 +936,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/swift-metrics/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -1019,7 +1017,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/fooPkg/Sources/Logging/include/fileLogging.h"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        let _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1075,7 +1073,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        let _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1147,7 +1145,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/fooPkg/Sources/Perf/include/filePerf.h"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertNoThrow(try loadPackageGraph(
+        XCTAssertNoThrow(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1200,7 +1198,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertNoThrow(try loadPackageGraph(
+        XCTAssertNoThrow(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1264,7 +1262,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1353,7 +1351,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -1473,7 +1471,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -1685,7 +1683,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -1886,7 +1884,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2096,7 +2094,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2310,7 +2308,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2460,7 +2458,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2597,7 +2595,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2743,7 +2741,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2895,7 +2893,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -3046,7 +3044,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -3146,7 +3144,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -3259,7 +3257,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/xPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3327,7 +3325,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/cPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3486,7 +3484,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/zPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3657,7 +3655,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/zPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3785,7 +3783,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/zPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3914,7 +3912,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/yPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -4072,7 +4070,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/zPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -4238,7 +4236,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/zPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -4413,7 +4411,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/aPkg/Sources/Utils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -4570,7 +4568,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/Other/Sources/Other/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -4640,7 +4638,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         let observability = ObservabilitySystem.makeForTesting()
         do {
-            _ = try loadPackageGraph(
+            _ = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [
                     Manifest.createRootManifest(

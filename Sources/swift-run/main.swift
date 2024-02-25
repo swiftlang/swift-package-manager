@@ -12,4 +12,4 @@
 
 import Commands
 
-SwiftRunTool.main()
+SwiftRunCommand.main()

@@ -42,7 +42,7 @@ public protocol BuildSystem: Cancellable {
     var builtTestProducts: [BuiltTestProduct] { get }
 
     /// Returns the package graph used by the build system.
-    func getPackageGraph() throws -> PackageGraph
+    func getPackageGraph() throws -> ModulesGraph
 
     /// Builds a subset of the package graph.
     /// - Parameters:
@@ -74,7 +74,7 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            try self.buildParameters.binaryPath(for: product)
+            return try self.buildParameters.binaryPath(for: product)
         }
     }
 }
@@ -120,7 +120,7 @@ public protocol BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
@@ -146,7 +146,7 @@ public struct BuildSystemProvider {
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none

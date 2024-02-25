@@ -185,7 +185,7 @@ public struct TargetSourcesBuilder {
         }
 
         let additionalResources: [Resource]
-        if toolsVersion >= .v5_11 {
+        if toolsVersion >= .v6_0 {
             additionalResources = declaredResources.compactMap { resource in
                 if handledResources.contains(resource.path) {
                     return nil

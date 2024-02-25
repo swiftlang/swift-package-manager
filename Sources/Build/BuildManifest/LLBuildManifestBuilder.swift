@@ -14,8 +14,6 @@ import Basics
 import LLBuildManifest
 import PackageGraph
 import PackageModel
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -222,12 +220,12 @@ extension LLBuildManifestBuilder {
                 }
                 let additionalOutputs: [Node]
                 if command.outputFiles.isEmpty {
-                    if target.toolsVersion >= .v5_11 {
+                    if target.toolsVersion >= .v6_0 {
                         additionalOutputs = [.virtual("\(target.target.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
                         phonyOutputs += additionalOutputs
                     } else {
                         additionalOutputs = []
-                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 5.11 (or higher) which would run such a build tool command even without declared outputs.")
+                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 6.0 (or higher) which would run such a build tool command even without declared outputs.")
                     }
                     pluginNumber += 1
                 } else {
@@ -324,26 +322,26 @@ extension ResolvedTarget {
     }
 
     public func getLLBuildTargetName(config: String) -> String {
-        "\(self.name)-\(config)\(self.buildTriple.suffix).module"
+        "\(name)-\(config).module"
     }
 
     public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(self.name)-\(config).module-resources"
+        "\(name)-\(config).module-resources"
     }
 }
 
 extension ResolvedProduct {
     public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config)\(self.buildTriple.suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(config)\(self.buildTriple.suffix).dylib"
+        let potentialExecutableTargetName = "\(name)-\(config).exe"
+        let potentialLibraryTargetName = "\(name)-\(config).dylib"
 
         switch type {
         case .library(.dynamic):
             return potentialLibraryTargetName
         case .test:
-            return "\(name)-\(config)\(self.buildTriple.suffix).test"
+            return "\(name)-\(config).test"
         case .library(.static):
-            return "\(name)-\(config)\(self.buildTriple.suffix).a"
+            return "\(name)-\(config).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
@@ -360,7 +358,7 @@ extension ResolvedProduct {
     }
 
     public func getCommandName(config: String) throws -> String {
-        try "C.\(self.getLLBuildTargetName(config: config))\(self.buildTriple.suffix)"
+        try "C." + self.getLLBuildTargetName(config: config)
     }
 }
 

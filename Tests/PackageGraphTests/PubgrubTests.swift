@@ -3361,7 +3361,7 @@ extension PackageReference {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension Term: ExpressibleByStringLiteral {}
 extension PackageReference: ExpressibleByStringLiteral {}
 #else

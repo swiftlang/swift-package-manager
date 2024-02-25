@@ -230,7 +230,7 @@ class PluginTests: XCTestCase {
             XCTAssertTrue(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
             XCTAssertFalse(localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
 
-            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_11)
+            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
             let (_, stderr2) = try executeSwiftBuild(packageDir)
             XCTAssertEqual("", stderr2)
             XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")

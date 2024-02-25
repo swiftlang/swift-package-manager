@@ -135,7 +135,7 @@ class ResourcesTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: 5.11
+                // swift-tools-version: 6.0
                 import PackageDescription
                 let package = Package(name: "MyPackage",
                     targets: [

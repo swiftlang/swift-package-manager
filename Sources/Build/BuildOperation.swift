@@ -13,10 +13,7 @@
 @_spi(SwiftPMInternal)
 import Basics
 import LLBuildManifest
-
-@_spi(SwiftPMInternal)
 import PackageGraph
-
 import PackageLoading
 import PackageModel
 import SPMBuildCore
@@ -50,7 +47,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let toolsBuildParameters: BuildParameters
 
     /// The closure for loading the package graph.
-    let packageGraphLoader: () throws -> PackageGraph
+    let packageGraphLoader: () throws -> ModulesGraph
 
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
@@ -81,7 +78,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let buildDescription = ThreadSafeBox<BuildDescription>()
 
     /// The loaded package graph.
-    private let packageGraph = ThreadSafeBox<PackageGraph>()
+    private let packageGraph = ThreadSafeBox<ModulesGraph>()
 
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
@@ -115,7 +112,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
-        packageGraphLoader: @escaping () throws -> PackageGraph,
+        packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
@@ -148,7 +145,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
-    public func getPackageGraph() throws -> PackageGraph {
+    public func getPackageGraph() throws -> ModulesGraph {
         try self.packageGraph.memoize {
             try self.packageGraphLoader()
         }
@@ -272,7 +269,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     // TODO: Currently this function will only match frameworks.
-    func detectUnexpressedDependencies(
+    internal func detectUnexpressedDependencies(
         availableLibraries: [LibraryMetadata],
         targetDependencyMap: [String: [String]]?
     ) {
@@ -298,9 +295,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
-                guard let contents = try? self.fileSystem.readFileContents(
-                    possibleTempsPath.appending(component: "\(c99name).d")
-                ) else {
+                guard let contents = try? self.fileSystem.readFileContents(possibleTempsPath.appending(component: "\(c99name).d")) else {
                     return [String]()
                 }
 
@@ -543,20 +538,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
-            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
+            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
             // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
-            var buildToolsGraph = graph
-            try buildToolsGraph.updateBuildTripleRecursively(.tools)
-
             let buildOperationForPluginDependencies = BuildOperation(
                 // FIXME: this doesn't maintain the products/tools split cleanly
                 productsBuildParameters: pluginsBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { buildToolsGraph },
+                packageGraphLoader: { return graph },
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -566,7 +558,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
@@ -583,6 +575,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     return nil
                 }
             }
+
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
@@ -663,7 +656,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            destinationBuildParameters: self.productsBuildParameters,
+            productsBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -884,7 +877,7 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
-    func recursiveDependencies(for graph: PackageGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
+    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
         switch self {
         case .allIncludingTests:
             return Array(graph.reachableTargets)
@@ -906,7 +899,7 @@ extension BuildSubset {
     }
 
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
+    func llbuildTargetName(for graph: ModulesGraph, config: String, observabilityScope: ObservabilityScope)
         -> String?
     {
         switch self {

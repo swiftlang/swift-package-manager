@@ -9,7 +9,7 @@
 add_executable(swift-experimental-sdk
   Entrypoint.swift)
 target_link_libraries(swift-experimental-sdk PRIVATE
-  SwiftSDKTool)
+  SwiftSDKCommand)
 
 target_compile_options(swift-experimental-sdk PRIVATE
   -parse-as-library)

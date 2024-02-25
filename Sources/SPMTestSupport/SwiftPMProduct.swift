@@ -128,7 +128,7 @@ extension SwiftPM {
             completeArgs += ["--package-path", packagePath.pathString]
         }
         completeArgs += args
-        
+
         return try Process.popen(arguments: completeArgs, environment: environment)
     }
 }

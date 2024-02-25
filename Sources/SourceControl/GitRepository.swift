@@ -1105,7 +1105,7 @@ private class GitFileSystemView: FileSystem {
         case .symlink:
             let path = try repository.readLink(hash: hash)
             return try readFileContents(AbsolutePath(validating: path))
-        case .blob:
+        case .blob, .executableBlob:
             return try self.repository.readBlob(hash: hash)
         default:
             throw InternalError("unsupported git entry type \(entry.type) at path \(path)")

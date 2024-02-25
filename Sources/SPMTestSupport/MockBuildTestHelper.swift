@@ -15,8 +15,6 @@ import Basics
 @_spi(SwiftPMInternal)
 import Build
 
-import struct PackageGraph.ResolvedTarget
-import struct PackageGraph.ResolvedProduct
 import PackageModel
 import SPMBuildCore
 import TSCUtility
@@ -75,14 +73,14 @@ public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
 public func mockBuildParameters(
-    buildPath: AbsolutePath? = nil,
+    buildPath: AbsolutePath = "/path/to/build",
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
-    triple: Basics.Triple = hostTriple,
+    targetTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
@@ -90,16 +88,16 @@ public func mockBuildParameters(
     omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     try! BuildParameters(
-        dataPath: buildPath ?? AbsolutePath("/path/to/build").appending(triple.tripleString),
+        dataPath: buildPath,
         configuration: config,
         toolchain: toolchain,
-        triple: triple,
+        triple: targetTriple,
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
         debuggingParameters: .init(
-            triple: triple,
+            triple: targetTriple,
             shouldEnableDebuggingEntitlement: config == .debug,
             omitFramePointers: omitFramePointers
         ),
@@ -131,7 +129,7 @@ public func mockBuildParameters(environment: BuildEnvironment) -> BuildParameter
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug, triple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug, targetTriple: triple)
 }
 
 enum BuildError: Swift.Error {
@@ -140,15 +138,15 @@ enum BuildError: Swift.Error {
 
 public struct BuildPlanResult {
     public let plan: Build.BuildPlan
-    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
-    public let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
+    public let targetMap: [String: TargetBuildDescription]
+    public let productMap: [String: Build.ProductBuildDescription]
 
     public init(plan: Build.BuildPlan) throws {
         self.plan = plan
         self.productMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.buildProducts
                 .compactMap { $0 as? Build.ProductBuildDescription }
-                .map { ($0.product.id, $0) }
+                .map { ($0.product.name, $0) }
         )
         self.targetMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.targetMap.compactMap {
@@ -158,7 +156,7 @@ public struct BuildPlanResult {
                 else {
                     throw BuildError.error("Target \($0) not found.")
                 }
-                return (target.id, $1)
+                return (target.name, $1)
             }
         )
     }
@@ -172,26 +170,16 @@ public struct BuildPlanResult {
     }
 
     public func target(for name: String) throws -> TargetBuildDescription {
-        let matchingIDs = targetMap.keys.filter({ $0.targetName == name })
-        guard matchingIDs.count == 1, let target = targetMap[matchingIDs[0]] else {
-            if matchingIDs.isEmpty {
-                throw BuildError.error("Target \(name) not found.")
-            } else {
-                throw BuildError.error("More than one target \(name) found.")
-            }
+        guard let target = targetMap[name] else {
+            throw BuildError.error("Target \(name) not found.")
         }
         return target
     }
 
     public func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
-        let matchingIDs = productMap.keys.filter({ $0.productName == name })
-        guard matchingIDs.count == 1, let product = productMap[matchingIDs[0]] else {
-            if matchingIDs.isEmpty {
-                // <rdar://problem/30162871> Display the thrown error on macOS
-                throw BuildError.error("Product \(name) not found.")
-            } else {
-                throw BuildError.error("More than one target \(name) found.")
-            }
+        guard let product = productMap[name] else {
+            // <rdar://problem/30162871> Display the thrown error on macOS
+            throw BuildError.error("Product \(name) not found.")
         }
         return product
     }
