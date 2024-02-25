@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import LLBuildManifest
 import enum PackageModel.BuildConfiguration
