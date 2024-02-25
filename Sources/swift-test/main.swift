@@ -12,4 +12,4 @@
 
 import Commands
 
-SwiftTestTool.main()
+SwiftTestCommand.main()

@@ -34,17 +34,17 @@ struct CardStack {
     var cards = [Card]()
 
     /// The tool used for eventually building and running a chosen snippet.
-    var swiftTool: SwiftTool
+    var swiftCommandState: SwiftCommandState
 
     /// When true, the escape sequence for clearing the terminal should be
     /// printed first.
     private var needsToClearScreen = true
 
-    init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftTool: SwiftTool) {
+    init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftCommandState: SwiftCommandState) {
         // this interaction is done on stdout
         self.terminal = TerminalController(stream: TSCBasic.stdoutStream)!
-        self.cards = [TopCard(package: package, snippetGroups: snippetGroups, swiftTool: swiftTool)]
-        self.swiftTool = swiftTool
+        self.cards = [TopCard(package: package, snippetGroups: snippetGroups, swiftCommandState: swiftCommandState)]
+        self.swiftCommandState = swiftCommandState
     }
 
     mutating func push(_ card: Card) {
@@ -102,7 +102,7 @@ struct CardStack {
                 case let .pop(error):
                     cards.removeLast()
                     if let error {
-                        self.swiftTool.observabilityScope.emit(error)
+                        self.swiftCommandState.observabilityScope.emit(error)
                         needsToClearScreen = false
                     } else {
                         needsToClearScreen = !cards.isEmpty

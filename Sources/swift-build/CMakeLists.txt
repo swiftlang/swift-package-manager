@@ -7,10 +7,13 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-build
-    main.swift)
+    Entrypoint.swift)
 target_link_libraries(swift-build PRIVATE
     Commands)
     
+target_compile_options(swift-build PRIVATE
+  -parse-as-library)
+
 target_compile_options(swift-build PRIVATE
   -parse-as-library)
 
