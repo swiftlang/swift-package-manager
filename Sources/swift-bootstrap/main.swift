@@ -342,8 +342,10 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     observabilityScope: self.observabilityScope
                 )
                 #else
-                fatalError("SwiftPM was built without XCBuild support")
+                throw InternalError("SwiftPM was built without XCBuild support")
                 #endif
+            case .experimentalAsync:
+                throw InternalError("Experimental async build system can't be created in this codepath.")
             }
         }
 
