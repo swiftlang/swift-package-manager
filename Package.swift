@@ -416,7 +416,7 @@ let package = Package(
 
         .target(
             /** Interacts with Swift SDKs used for cross-compilation */
-            name: "SwiftSDKTool",
+            name: "SwiftSDKCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -429,7 +429,7 @@ let package = Package(
 
         .target(
             /** Interacts with package collections */
-            name: "PackageCollectionsTool",
+            name: "PackageCollectionsCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -442,7 +442,7 @@ let package = Package(
 
         .target(
             /** Interact with package registry */
-            name: "PackageRegistryTool",
+            name: "PackageRegistryCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -488,7 +488,7 @@ let package = Package(
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
             name: "swift-experimental-sdk",
-            dependencies: ["Commands", "SwiftSDKTool"],
+            dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
@@ -506,24 +506,24 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands", "PackageCollectionsTool"]
+            dependencies: ["Commands", "PackageCollectionsCommand"]
         ),
         .executableTarget(
-            /** Multi-tool entry point for SwiftPM. */
+            /** Multi-command entry point for SwiftPM. */
             name: "swift-package-manager",
             dependencies: [
                 "Basics",
                 "Commands",
-                "SwiftSDKTool",
-                "PackageCollectionsTool",
-                "PackageRegistryTool"
+                "SwiftSDKCommand",
+                "PackageCollectionsCommand",
+                "PackageRegistryCommand"
             ],
             linkerSettings: swiftpmLinkSettings
         ),
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands", "PackageRegistryTool"]
+            dependencies: ["Commands", "PackageRegistryCommand"]
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
@@ -714,7 +714,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Build",
                 "Commands",
                 "PackageModel",
-                "PackageRegistryTool",
+                "PackageRegistryCommand",
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",

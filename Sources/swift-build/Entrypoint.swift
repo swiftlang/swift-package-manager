@@ -15,6 +15,6 @@ import Commands
 @main
 struct Entrypoint {
     static func main() async {
-        await SwiftBuildTool.main()
+        await SwiftBuildCommand.main()
     }
 }
