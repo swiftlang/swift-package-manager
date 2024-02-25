@@ -102,7 +102,7 @@ extension SwiftCommandState {
         ])
         #else
         .init(providers: [
-            .native: NativeBuildSystemFactory(swiftTool: self),
+            .native: NativeBuildSystemFactory(swiftCommandState: self),
         ])
         #endif
     }
