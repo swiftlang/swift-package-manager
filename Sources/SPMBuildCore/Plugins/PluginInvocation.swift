@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -29,46 +29,6 @@ public enum PluginAction {
 }
 
 extension PluginTarget {
-    public func invoke(
-        action: PluginAction,
-        buildEnvironment: BuildEnvironment,
-        scriptRunner: PluginScriptRunner,
-        workingDirectory: AbsolutePath,
-        outputDirectory: AbsolutePath,
-        toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
-        allowNetworkConnections: [SandboxNetworkPermission],
-        pkgConfigDirectories: [AbsolutePath],
-        sdkRootPath: AbsolutePath?,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate
-    ) async throws -> Bool {
-        try await safe_async {
-            self.invoke(
-                action: action,
-                buildEnvironment: buildEnvironment,
-                scriptRunner: scriptRunner,
-                workingDirectory: workingDirectory,
-                outputDirectory: outputDirectory,
-                toolSearchDirectories: toolSearchDirectories,
-                accessibleTools: accessibleTools,
-                writableDirectories: writableDirectories,
-                readOnlyDirectories: readOnlyDirectories,
-                allowNetworkConnections: allowNetworkConnections,
-                pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: sdkRootPath,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                delegate: delegate,
-                completion: $0
-            )
-        }
-    }
     /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
     /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
     /// determine the context that is available to the plugin.
@@ -354,13 +314,13 @@ extension PluginTarget {
     }
 }
 
-fileprivate extension HostToPluginMessage {
+extension HostToPluginMessage {
     func toData() throws -> Data {
         return try JSONEncoder.makeWithDefaults().encode(self)
     }
 }
 
-fileprivate extension PluginToHostMessage {
+extension PluginToHostMessage {
     init(_ data: Data) throws {
         self = try JSONDecoder.makeWithDefaults().decode(Self.self, from: data)
     }
@@ -801,46 +761,11 @@ public struct BuildToolPluginInvocationResult {
 
 /// An error in plugin evaluation.
 public enum PluginEvaluationError: Swift.Error {
-    case couldNotCreateOuputDirectory(path: AbsolutePath, underlyingError: Error)
+    case couldNotCreateOutputDirectory(path: AbsolutePath, underlyingError: Error)
     case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
     case pluginUsesIncompatibleVersion(expected: Int, actual: Int)
-}
-
-public protocol PluginInvocationDelegate {
-    /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
-    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables)
-    
-    /// Called after a plugin is compiled. This call always follows a `pluginCompilationStarted()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
-    func pluginCompilationEnded(result: PluginCompilationResult)
-    
-    /// Called if a plugin didn't need to be recompiled. This call is always mutually exclusive with `pluginCompilationStarted()` and `pluginCompilationEnded()`.
-    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult)
-    
-    /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
-    func pluginEmittedOutput(_: Data)
-    
-    /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
-    func pluginEmittedDiagnostic(_: Basics.Diagnostic)
-
-    /// Called when a plugin emits a progress message through the PackagePlugin APIs.
-    func pluginEmittedProgress(_: String)
-
-    /// Called when a plugin defines a build command through the PackagePlugin APIs.
-    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath])
-
-    /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
-    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
-    
-    /// Called when a plugin requests a build operation through the PackagePlugin APIs.
-    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void)
-
-    /// Called when a plugin requests a test operation through the PackagePlugin APIs.
-    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void)
-
-    /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
-    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
 }
 
 public struct PluginInvocationSymbolGraphOptions {
@@ -954,24 +879,7 @@ public struct PluginInvocationTestResult {
     }
 }
 
-public extension PluginInvocationDelegate {
-    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
-    }
-    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
-        return true
-    }
-    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
-    }
-    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
-    }
-    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
-    }
-}
-
-fileprivate extension PluginInvocationBuildSubset {
+extension PluginInvocationBuildSubset {
     init(_ subset: PluginToHostMessage.BuildSubset) {
         switch subset {
         case .all(let includingTests):
@@ -984,7 +892,7 @@ fileprivate extension PluginInvocationBuildSubset {
     }
 }
 
-fileprivate extension PluginInvocationBuildParameters {
+extension PluginInvocationBuildParameters {
     init(_ parameters: PluginToHostMessage.BuildParameters) {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
@@ -996,7 +904,7 @@ fileprivate extension PluginInvocationBuildParameters {
     }
 }
 
-fileprivate extension PluginInvocationBuildParameters.Configuration {
+extension PluginInvocationBuildParameters.Configuration {
     init(_ configuration: PluginToHostMessage.BuildParameters.Configuration) {
         switch configuration {
         case .debug:
@@ -1009,7 +917,7 @@ fileprivate extension PluginInvocationBuildParameters.Configuration {
     }
 }
 
-fileprivate extension PluginInvocationBuildParameters.LogVerbosity {
+extension PluginInvocationBuildParameters.LogVerbosity {
     init(_ verbosity: PluginToHostMessage.BuildParameters.LogVerbosity) {
         switch verbosity {
         case .concise:
@@ -1110,7 +1018,7 @@ fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase.Test.Re
     }
 }
 
-fileprivate extension PluginInvocationSymbolGraphOptions {
+extension PluginInvocationSymbolGraphOptions {
     init(_ options: PluginToHostMessage.SymbolGraphOptions) {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
         self.includeSynthesized = options.includeSynthesized
@@ -1119,7 +1027,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions {
     }
 }
 
-fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
+extension PluginInvocationSymbolGraphOptions.AccessLevel {
     init(_ accessLevel: PluginToHostMessage.SymbolGraphOptions.AccessLevel) {
         switch accessLevel {
         case .private:
@@ -1136,7 +1044,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
     }
 }
 
-fileprivate extension HostToPluginMessage.SymbolGraphResult {
+extension HostToPluginMessage.SymbolGraphResult {
     init(_ result: PluginInvocationSymbolGraphResult) {
         self.directoryPath = .init(fileURLWithPath: result.directoryPath)
     }

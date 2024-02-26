@@ -472,24 +472,24 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    public func getRootPackageInformation() async throws -> (
+        dependencies: [PackageIdentity: [PackageIdentity]],
+        targets: [PackageIdentity: [String]]
+    ) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: self.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: self.observabilityScope
+        )
 
         var identities = [PackageIdentity: [PackageIdentity]]()
         var targets = [PackageIdentity: [String]]()
 
-        rootManifests.forEach {
-            let identity = PackageIdentity(path: $0.key)
-            identities[identity] = $0.value.dependencies.map(\.identity)
-            targets[identity] = $0.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
+        for (path, manifest) in rootManifests {
+            let identity = PackageIdentity(path: path)
+            identities[identity] = manifest.dependencies.map(\.identity)
+            targets[identity] = manifest.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
         }
 
         return (identities, targets)
@@ -700,7 +700,7 @@ public final class SwiftCommandState {
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> any BuildSystem {
+    ) async throws -> any BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
@@ -708,7 +708,7 @@ public final class SwiftCommandState {
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
-        let buildSystem = try buildSystemProvider.createBuildSystem(
+        let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
@@ -740,7 +740,7 @@ public final class SwiftCommandState {
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> any AsyncBuildSystem {
+    ) async throws -> any AsyncBuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
@@ -748,7 +748,7 @@ public final class SwiftCommandState {
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
-        let rootPackageInfo = try self.getRootPackageInformation()
+        let rootPackageInfo = try await self.getRootPackageInformation()
         let testEntryPointPath = productsBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
         let (stream, continuation) = AsyncStream.makeStream(of: BuildSystemEvent.self)
 
@@ -769,7 +769,7 @@ public final class SwiftCommandState {
             ),
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.options.locations.pkgConfigDirectories,
-            dependenciesByRootPackageIdentity: rootPackageInfo.dependecies,
+            dependenciesByRootPackageIdentity: rootPackageInfo.dependencies,
             targetsByRootPackageIdentity: rootPackageInfo.targets,
             eventsContinuation: continuation,
             outputStream: outputStream ?? self.outputStream,

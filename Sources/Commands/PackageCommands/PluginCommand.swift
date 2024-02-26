@@ -19,7 +19,7 @@ import PackageModel
 
 import enum TSCBasic.ProcessEnv
 
-struct PluginCommand: SwiftCommand {
+struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
         abstract: "Invoke a command plugin or perform other actions on command plugins"
@@ -137,7 +137,7 @@ struct PluginCommand: SwiftCommand {
     )
     var arguments: [String] = []
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         // Check for a missing plugin command verb.
         if self.command == "" && !self.listCommands {
             throw ValidationError("Missing expected plugin command")
@@ -161,7 +161,7 @@ struct PluginCommand: SwiftCommand {
             return
         }
 
-        try Self.run(
+        try await Self.run(
             command: self.command,
             options: self.pluginOptions,
             arguments: self.arguments,
@@ -174,7 +174,7 @@ struct PluginCommand: SwiftCommand {
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         // Load the workspace and resolve the package graph.
         let packageGraph = try swiftCommandState.loadPackageGraph()
 
@@ -198,7 +198,7 @@ struct PluginCommand: SwiftCommand {
             .shouldDisableSandbox
 
         // At this point we know we found exactly one command plugin, so we run it. In SwiftPM CLI, we have only one root package.
-        try PluginCommand.run(
+        try await PluginCommand.run(
             plugin: matchingPlugins[0],
             package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
             packageGraph: packageGraph,
@@ -215,7 +215,7 @@ struct PluginCommand: SwiftCommand {
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
-    ) throws {
+    ) async throws {
         swiftCommandState.observabilityScope
             .emit(
                 info: "Running command plugin \(plugin) on package \(package) with options \(options) and arguments \(arguments)"
@@ -317,7 +317,7 @@ struct PluginCommand: SwiftCommand {
 
         let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
             // Force all dependencies to be built for the host, to work around the fact that BuildOperation.plan

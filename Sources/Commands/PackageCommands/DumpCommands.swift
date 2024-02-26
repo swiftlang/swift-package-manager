@@ -20,7 +20,7 @@ import PackageModel
 import XCBuildSupport
 #endif
 
-struct DumpSymbolGraph: SwiftCommand {
+struct DumpSymbolGraph: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "Dump Symbol Graph")
     static let defaultMinimumAccessLevel = SymbolGraphExtract.AccessLevel.public
@@ -46,11 +46,14 @@ struct DumpSymbolGraph: SwiftCommand {
     @Flag(help: "Emit extension block symbols for extensions to external types or directly associate members and conformances with the extended nominal.")
     var extensionBlockSymbolBehavior: ExtensionBlockSymbolBehavior = .omitExtensionBlockSymbols
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         // Build the current package.
         //
         // We turn build manifest caching off because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try await swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .native,
+            cacheBuildManifest: false
+        )
         try buildSystem.build()
 
         // Configure the symbol graph extractor.

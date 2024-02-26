@@ -124,7 +124,7 @@ public protocol BuildSystemFactory {
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
-    ) throws -> any BuildSystem
+    ) async throws -> any BuildSystem
 }
 
 public struct BuildSystemProvider {
@@ -151,11 +151,11 @@ public struct BuildSystemProvider {
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> any BuildSystem {
+    ) async throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
         }
-        return try buildSystemFactory.makeBuildSystem(
+        return try await buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsBuildParameters,

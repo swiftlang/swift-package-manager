@@ -20,8 +20,11 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystemDelegate.swift
   BuildSystem/BuildSystemEvent.swift
   BuiltTestProduct.swift
+  Plugins/AsyncPluginInvocationDelegate.swift
   Plugins/PluginContextSerializer.swift
   Plugins/PluginInvocation.swift
+  Plugins/PluginInvocation+Async.swift
+  Plugins/PluginInvocationDelegate.swift
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
   PrebuildCommandResult.swift

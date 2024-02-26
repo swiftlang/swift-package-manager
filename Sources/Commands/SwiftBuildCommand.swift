@@ -124,7 +124,9 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
         if options.printManifestGraphviz {
             // FIXME: Doesn't seem ideal that we need an explicit build operation, but this concretely uses the `LLBuildManifest`.
-            guard let buildOperation = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native) as? BuildOperation else {
+            guard let buildOperation = try await swiftCommandState.createBuildSystem(
+                explicitBuildSystem: .native
+            ) as? BuildOperation else {
                 throw StringError("asked for native build system but did not get it")
             }
             let buildManifest = try buildOperation.getBuildManifest()
@@ -141,7 +143,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         }
 
         if self.globalOptions.build.buildSystem == .experimentalAsync {
-            let buildSystem = try swiftCommandState.createAsyncBuildSystem(
+            let buildSystem = try await swiftCommandState.createAsyncBuildSystem(
                 explicitProduct: options.product,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 // command result output goes on stdout
@@ -154,7 +156,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 throw ExitCode.failure
             }
         } else {
-            let buildSystem = try swiftCommandState.createBuildSystem(
+            let buildSystem = try await swiftCommandState.createBuildSystem(
                 explicitProduct: options.product,
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 // command result output goes on stdout
