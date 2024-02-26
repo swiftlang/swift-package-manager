@@ -90,7 +90,7 @@ struct RunCommandOptions: ParsableArguments {
 }
 
 /// swift-run command namespace
-public struct SwiftRunCommand: SwiftCommand {
+public struct SwiftRunCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "run",
         _superCommandName: "swift",
@@ -109,7 +109,7 @@ public struct SwiftRunCommand: SwiftCommand {
         return .init(wantsREPLProduct: options.mode == .repl)
     }
 
-    public func run(_ swiftCommandState: SwiftCommandState) throws {
+    public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftCommandState.observabilityScope.emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"])
@@ -284,9 +284,20 @@ public struct SwiftRunCommand: SwiftCommand {
     /// A safe wrapper of TSCBasic.exec.
     private func execute(path: String, args: [String]) throws -> Never {
         #if !os(Windows)
-        // On platforms other than Windows, signal(SIGINT, SIG_IGN) is used for handling SIGINT by DispatchSourceSignal,
-        // but this process is about to be replaced by exec, so SIG_IGN must be returned to default.
-        signal(SIGINT, SIG_DFL)
+        // Dispatch will disable almost all asynchronous signals on its worker threads, and this is called from `async`
+        // context. To correctly `exec` a freshly built binary, we will need to:
+        // 1. reset the signal masks
+        for i in 1..<NSIG {
+            signal(i, SIG_DFL)
+        }
+        var sig_set_all = sigset_t()
+        sigfillset(&sig_set_all)
+        sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
+        
+        // 2. close all file descriptors.
+        for i in 3..<getdtablesize() {
+            close(i)
+        }
         #endif
 
         try TSCBasic.exec(path: path, args: args)

@@ -14,8 +14,5 @@ target_link_libraries(swift-build PRIVATE
 target_compile_options(swift-build PRIVATE
   -parse-as-library)
 
-target_compile_options(swift-build PRIVATE
-  -parse-as-library)
-
 install(TARGETS swift-build
   DESTINATION bin)
