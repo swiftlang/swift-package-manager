@@ -376,7 +376,8 @@ fileprivate extension PackageDependency {
             nameForTargetDependencyResolutionOnly: nil,
             location: .remote(swiftSyntaxURL),
             requirement: .range(.upToNextMajor(from: swiftSyntaxVersion)),
-            productFilter: .everything
+            productFilter: .everything,
+            traits: []
         )
     }
 }
@@ -408,7 +409,8 @@ fileprivate extension PackageDependency {
             nameForTargetDependencyResolutionOnly: nil,
             location: .remote(swiftTestingURL),
             requirement: .range(.upToNextMajor(from: swiftTestingVersion)),
-            productFilter: .everything
+            productFilter: .everything,
+            traits: []
         )
     }
 }

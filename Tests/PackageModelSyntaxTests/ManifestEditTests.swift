@@ -72,7 +72,8 @@ class ManifestEditTests: XCTestCase {
             identity: PackageIdentity(url: swiftSystemURL),
             nameForTargetDependencyResolutionOnly: nil,
             url: swiftSystemURL,
-            requirement: .branch("main"), productFilter: .nothing
+            requirement: .branch("main"), productFilter: .nothing,
+            traits: []
         )
 
     func testAddPackageDependencyExistingComma() throws {
@@ -99,7 +100,8 @@ class ManifestEditTests: XCTestCase {
                         identity: PackageIdentity(url: Self.swiftSystemURL),
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
-                        requirement: .branch("main"), productFilter: .nothing
+                        requirement: .branch("main"), productFilter: .nothing,
+                        traits:[]
                     ),
                     to: manifest
                 )
@@ -131,7 +133,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .exact("510.0.0"),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                     to: manifest
                 )
@@ -165,7 +168,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .range(versionRange),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                     to: manifest
                 )
@@ -194,7 +198,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .range(versionRange),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                     to: manifest
                 )
@@ -223,7 +228,8 @@ class ManifestEditTests: XCTestCase {
                         nameForTargetDependencyResolutionOnly: nil,
                         url: Self.swiftSystemURL,
                         requirement: .range(Version(508,0,0)..<Version(510,0,0)),
-                        productFilter: .nothing
+                        productFilter: .nothing,
+                        traits: []
                     ),
                 to: manifest
             )

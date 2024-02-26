@@ -22,11 +22,18 @@ public struct MockDependency {
     public let deprecatedName: String?
     public let location: Location
     public let products: ProductFilter
+    public let traits: Set<PackageDependency.Trait>
 
-    init(deprecatedName: String? = nil, location: Location, products: ProductFilter = .everything) {
+    init(
+        deprecatedName: String? = nil,
+        location: Location,
+        products: ProductFilter = .everything,
+        traits: Set<PackageDependency.Trait> = []
+    ) {
         self.deprecatedName = deprecatedName
         self.location = location
         self.products = products
+        self.traits = traits
     }
 
     public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) throws -> PackageDependency {
@@ -74,7 +81,8 @@ public struct MockDependency {
                 return .registry(
                     identity: identity,
                     requirement: requirement,
-                    productFilter: self.products
+                    productFilter: self.products,
+                    traits: self.traits
                 )
 
             } else {
@@ -95,7 +103,8 @@ public struct MockDependency {
                 return .registry(
                     identity: identity,
                     requirement: _requirement,
-                    productFilter: self.products
+                    productFilter: self.products,
+                    traits: self.traits
                 )
             } else {
                 let mappedURL = SourceControlURL(mappedLocation)
