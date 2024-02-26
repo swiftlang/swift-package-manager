@@ -45,7 +45,7 @@ struct SwiftPM {
         case "swift-test":
             SwiftTestCommand.main()
         case "swift-run":
-            SwiftRunCommand.main()
+            await SwiftRunCommand.main()
         case "swift-package-collection":
             await PackageCollectionsCommand.main()
         case "swift-package-registry":

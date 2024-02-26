@@ -12,4 +12,9 @@
 
 import Commands
 
-SwiftRunCommand.main()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftRunCommand.main()
+    }
+}
