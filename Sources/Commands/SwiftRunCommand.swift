@@ -285,7 +285,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
     private func execute(path: String, args: [String]) throws -> Never {
         #if !os(Windows)
         // Dispatch will disable almost all asynchronous signals on its worker threads, and this is called from `async`
-        // context. To correctly `exec` a process, we will need to:
+        // context. To correctly `exec` a freshly built binary, we will need to:
         // 1. reset the signal masks
         for i in 1..<NSIG {
             signal(i, SIG_DFL)
