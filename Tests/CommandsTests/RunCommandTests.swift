@@ -103,12 +103,6 @@ final class RunCommandTests: CommandsTestCase {
     }
 
     func testSwiftRunSIGINT() throws {
-        // FIXME: not sure how this was supposed to work previously, since `swift-run` uses `execv` that doesn't inherit
-        // signal handlers, and the spawned process doesn't install signal handlers on its own. `async` effect on
-        // `@main` arguably makes it behave correctly?
-
-        throw XCTSkip("desired logic should be clarified")
-
         try XCTSkipIfCI()
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
