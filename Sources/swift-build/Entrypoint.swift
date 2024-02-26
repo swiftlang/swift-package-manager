@@ -13,4 +13,9 @@
 @_spi(SwiftPMInternal)
 import Commands
 
-SwiftBuildCommand.main()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftBuildCommand.main()
+    }
+}

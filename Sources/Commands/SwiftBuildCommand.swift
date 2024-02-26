@@ -103,7 +103,7 @@ struct BuildCommandOptions: ParsableArguments {
 
 /// swift-build command namespace
 @_spi(SwiftPMInternal)
-public struct SwiftBuildCommand: SwiftCommand {
+public struct SwiftBuildCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "build",
         _superCommandName: "swift",
@@ -118,7 +118,7 @@ public struct SwiftBuildCommand: SwiftCommand {
     @OptionGroup()
     var options: BuildCommandOptions
 
-    public func run(_ swiftCommandState: SwiftCommandState) throws {
+    public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldPrintBinPath {
             return try print(swiftCommandState.productsBuildParameters.buildPath.description)
         }
