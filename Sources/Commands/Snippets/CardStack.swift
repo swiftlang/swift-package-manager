@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import PackageGraph
 import PackageModel
 

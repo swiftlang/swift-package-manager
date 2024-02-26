@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Dispatch
 import class Foundation.NSLock
 import struct Foundation.URL

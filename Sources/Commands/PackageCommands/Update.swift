@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Dispatch
 import PackageModel
 import PackageGraph

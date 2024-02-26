@@ -10,11 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Build
-@testable import PackageModel
+@_spi(SwiftPMInternal)
+@testable
+import Build
+
+@testable
+import PackageModel
 
 import Basics
 import SPMTestSupport
+
+@_spi(SwiftPMInternal)
+import SPMBuildCore
+
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream
