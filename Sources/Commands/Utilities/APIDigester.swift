@@ -13,9 +13,14 @@
 import Dispatch
 import Foundation
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import PackageGraph
 import PackageModel
 import SourceControl

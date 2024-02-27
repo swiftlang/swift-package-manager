@@ -12,7 +12,10 @@
 
 import ArgumentParser
 import Basics
+
+@_spi(SwiftPMInternal)
 import Build
+
 import Dispatch
 
 @_spi(SwiftPMInternal)
@@ -23,7 +26,11 @@ import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
+@_spi(SwiftPMInternal)
 import XCBuildSupport
 
 import struct TSCBasic.KeyedPair

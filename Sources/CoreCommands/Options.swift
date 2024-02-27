@@ -24,6 +24,7 @@ import struct PackageModel.EnabledSanitizers
 import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
 
+@_spi(SwiftPMInternal)
 import struct SPMBuildCore.BuildSystemProvider
 
 import struct TSCBasic.StringError
@@ -32,6 +33,7 @@ import struct TSCUtility.Version
 
 import struct Workspace.WorkspaceConfiguration
 
+@_spi(SwiftPMInternal)
 public struct GlobalOptions: ParsableArguments {
     public init() {}
 
@@ -295,6 +297,7 @@ public struct ResolverOptions: ParsableArguments {
     }
 }
 
+@_spi(SwiftPMInternal)
 public struct BuildOptions: ParsableArguments {
     public init() {}
 

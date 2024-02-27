@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import PackageModel
 
 /// A card showing the snippets in a ``SnippetGroup``.

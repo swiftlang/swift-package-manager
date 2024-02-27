@@ -16,7 +16,10 @@ import Dispatch
 import Foundation
 import LLBuildManifest
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
 import SPMLLBuild
 
 import struct TSCBasic.ByteString
