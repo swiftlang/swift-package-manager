@@ -16,6 +16,7 @@ import Build
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
+@_spi(SwiftPMInternal)
 import XCBuildSupport
 
 import class Basics.ObservabilityScope
