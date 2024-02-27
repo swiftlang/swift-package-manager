@@ -20,15 +20,13 @@ import struct PackageModel.TargetDescription
 import protocol TSCBasic.FileSystem
 import class TSCBasic.InMemoryFileSystem
 
-@_spi(SwiftPMInternal)
-public typealias MockPackageGraph = (
+package typealias MockPackageGraph = (
     graph: ModulesGraph,
     fileSystem: any FileSystem,
     observabilityScope: ObservabilityScope
 )
 
-@_spi(SwiftPMInternal)
-public func macrosPackageGraph() throws -> MockPackageGraph {
+package func macrosPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
@@ -126,8 +124,7 @@ public func macrosPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-@_spi(SwiftPMInternal)
-public func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -157,8 +154,7 @@ public func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackage
     return (graph, fs, observability.topScope)
 }
 
-@_spi(SwiftPMInternal)
-public func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
