@@ -16,10 +16,7 @@ import Build
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
-#if !DISABLE_XCBUILD_SUPPORT
-@_spi(SwiftPMInternal)
 import XCBuildSupport
-#endif
 
 import class Basics.ObservabilityScope
 import struct PackageGraph.ModulesGraph
@@ -67,7 +64,6 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
     }
 }
 
-#if !DISABLE_XCBUILD_SUPPORT
 private struct XcodeBuildSystemFactory: BuildSystemFactory {
     let swiftCommandState: SwiftCommandState
 
@@ -95,20 +91,13 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         )
     }
 }
-#endif
 
 extension SwiftCommandState {
     @_spi(SwiftPMInternal)
     public var defaultBuildSystemProvider: BuildSystemProvider {
-        #if !DISABLE_XCBUILD_SUPPORT
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
             .xcode: XcodeBuildSystemFactory(swiftCommandState: self)
         ])
-        #else
-        .init(providers: [
-            .native: NativeBuildSystemFactory(swiftCommandState: self),
-        ])
-        #endif
     }
 }
