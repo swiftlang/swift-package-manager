@@ -30,6 +30,7 @@ import PackageModel
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
+@_spi(SwiftPMInternal)
 import XCBuildSupport
 
 import struct TSCBasic.KeyedPair
