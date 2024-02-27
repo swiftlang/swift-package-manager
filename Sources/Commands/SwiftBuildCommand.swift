@@ -16,10 +16,7 @@ import Build
 import CoreCommands
 import PackageGraph
 import SPMBuildCore
-
-#if !DISABLE_XCBUILD_SUPPORT
 import XCBuildSupport
-#endif
 
 import class TSCBasic.Process
 import var TSCBasic.stdoutStream
