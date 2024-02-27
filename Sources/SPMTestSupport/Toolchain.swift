@@ -38,7 +38,7 @@ private func resolveBinDir() throws -> AbsolutePath {
 }
 
 extension SwiftSDK {
-    public static var `default`: Self {
+    package static var `default`: Self {
         get throws {
             let binDir = try resolveBinDir()
             return try! SwiftSDK.hostSwiftSDK(binDir)
@@ -47,7 +47,7 @@ extension SwiftSDK {
 }
 
 extension UserToolchain {
-    public static var `default`: Self {
+    package static var `default`: Self {
         get throws {
             return try .init(swiftSDK: SwiftSDK.default)
         }
@@ -56,7 +56,7 @@ extension UserToolchain {
 
 extension UserToolchain {
     /// Helper function to determine if async await actually works in the current environment.
-    public func supportsSwiftConcurrency() -> Bool {
+    package func supportsSwiftConcurrency() -> Bool {
       #if os(macOS)
         if #available(macOS 12.0, *) {
             // On macOS 12 and later, concurrency is assumed to work.
@@ -67,7 +67,7 @@ extension UserToolchain {
             do {
                 try testWithTemporaryDirectory { tmpPath in
                     let inputPath = tmpPath.appending("foo.swift")
-                    try localFileSystem.writeFileContents(inputPath, string: "public func foo() async {}\nTask { await foo() }")
+                    try localFileSystem.writeFileContents(inputPath, string: "package func foo() async {}\nTask { await foo() }")
                     let outputPath = tmpPath.appending("foo")
                     let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
                     let backDeploymentLibPath = toolchainPath.appending(components: "lib", "swift-5.5", "macosx")
@@ -88,7 +88,7 @@ extension UserToolchain {
     }
 
     /// Helper function to determine whether serialized diagnostics work properly in the current environment.
-    public func supportsSerializedDiagnostics(otherSwiftFlags: [String] = []) -> Bool {
+    package func supportsSerializedDiagnostics(otherSwiftFlags: [String] = []) -> Bool {
         do {
             try testWithTemporaryDirectory { tmpPath in
                 let inputPath = tmpPath.appending("best.swift")
@@ -112,7 +112,7 @@ extension UserToolchain {
     }
 
     /// Helper function to determine whether we should run SDK-dependent tests.
-    public func supportsSDKDependentTests() -> Bool {
+    package func supportsSDKDependentTests() -> Bool {
         return ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil
     }
 }

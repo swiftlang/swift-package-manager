@@ -19,7 +19,7 @@ import struct TSCBasic.ProcessResult
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
-public enum SwiftPM {
+package enum SwiftPM {
     case Build
     case Package
     case Registry
@@ -44,11 +44,11 @@ extension SwiftPM {
         }
     }
 
-    public var xctestBinaryPath: AbsolutePath {
+    package var xctestBinaryPath: AbsolutePath {
         Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
     }
 
-    public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
+    package static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
         #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
@@ -71,7 +71,7 @@ extension SwiftPM {
     ///
     /// - Returns: The output of the process.
     @discardableResult
-    public func execute(
+    package func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
         env: [String: String]? = nil
@@ -135,7 +135,7 @@ extension SwiftPM {
 }
 
 extension SwiftPM {
-    public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
+    package static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
         // FIXME: The directory paths are hard coded right now and should be replaced by --get-package-path
         // whenever we design that. https://bugs.swift.org/browse/SR-2753
         let packagesPath = packageRoot.appending(components: ".build", "checkouts")
@@ -148,12 +148,12 @@ extension SwiftPM {
     }
 }
 
-public enum SwiftPMError: Error {
+package enum SwiftPMError: Error {
     case packagePathNotFound
     case executionFailure(underlying: Error, stdout: String, stderr: String)
 }
 
-public enum SwiftPMProductError: Swift.Error {
+package enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
     case executionFailure(error: Swift.Error, output: String, stderr: String)
 }
