@@ -135,7 +135,7 @@ struct DumpPIF: SwiftCommand {
     @Flag(help: "Preserve the internal structure of PIF")
     var preserveStructure: Bool = false
 
-    func run(_ swiftTool: SwiftTool) throws {
+    func run(_ swiftCommandState: SwiftCommandState) throws {
         let graph = try swiftCommandState.loadPackageGraph()
         let pif = try PIFBuilder.generatePIF(
             buildParameters: swiftCommandState.productsBuildParameters,
