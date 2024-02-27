@@ -36,8 +36,7 @@ struct SwiftPM {
         }
     }
 
-    @discardableResult
-    private static func main(execName: String?) async -> Bool {
+    private static func main(execName: String?) async {
         switch execName {
         case "swift-package":
             await SwiftPackageCommand.main()
@@ -56,7 +55,5 @@ struct SwiftPM {
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }
-
-        return true
     }
 }

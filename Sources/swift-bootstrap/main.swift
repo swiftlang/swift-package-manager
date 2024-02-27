@@ -30,10 +30,7 @@ import PackageModel
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
-#if !DISABLE_XCBUILD_SUPPORT
-@_spi(SwiftPMInternal)
 import XCBuildSupport
-#endif
 
 import struct TSCBasic.KeyedPair
 import func TSCBasic.topologicalSort
@@ -338,7 +335,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     observabilityScope: self.observabilityScope
                 )
             case .xcode:
-                #if !DISABLE_XCBUILD_SUPPORT
                 return try XcodeBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: packageGraphLoader,
@@ -347,9 +343,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope
                 )
-                #else
-                throw InternalError("SwiftPM was built without XCBuild support")
-                #endif
             case .experimentalAsync:
                 throw InternalError("Experimental async build system can't be created in this codepath.")
             }
