@@ -75,23 +75,39 @@ struct SharedOptions: ParsableArguments {
     /// to choose from (usually in multiroot packages).
     @Option(help: .hidden)
     var testProduct: String?
+}
 
-    /// Whether to enable support for XCTest.
+/// Which testing libraries to use (and any related options.)
+struct TestLibraryOptions: ParsableArguments {
+    /// Whether to enable support for XCTest (as explicitly specified by the user.)
+    ///
+    /// Callers will generally want to use ``enableXCTestSupport`` since it will
+    /// have the correct default value if the user didn't specify one.
     @Flag(name: .customLong("xctest"),
           inversion: .prefixedEnableDisable,
           help: "Enable support for XCTest")
-    var enableXCTestSupport: Bool = true
+    var explicitlyEnableXCTestSupport: Bool?
 
-    /// Storage for whether to enable support for swift-testing.
+    /// Whether to enable support for XCTest.
+    var enableXCTestSupport: Bool {
+        // Default to enabled.
+        explicitlyEnableXCTestSupport ?? true
+    }
+
+    /// Whether to enable support for swift-testing (as explicitly specified by the user.)
+    ///
+    /// Callers (other than `swift package init`) will generally want to use
+    /// ``enableSwiftTestingLibrarySupport(swiftCommandState:)`` since it will
+    /// take into account whether the package has a dependency on swift-testing.
     @Flag(name: .customLong("experimental-swift-testing"),
           inversion: .prefixedEnableDisable,
           help: "Enable experimental support for swift-testing")
-    var _enableSwiftTestingLibrarySupport: Bool?
+    var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
     /// Whether to enable support for swift-testing.
     func enableSwiftTestingLibrarySupport(swiftCommandState: SwiftCommandState) throws -> Bool {
         // Honor the user's explicit command-line selection, if any.
-        if let callerSuppliedValue = _enableSwiftTestingLibrarySupport {
+        if let callerSuppliedValue = explicitlyEnableSwiftTestingLibrarySupport {
             return callerSuppliedValue
         }
 
@@ -132,6 +148,20 @@ struct SharedOptions: ParsableArguments {
         // Default to disabled since swift-testing is experimental (opt-in.)
         return false
     }
+
+    /// Get the set of enabled testing libraries.
+    func enabledTestingLibraries(swiftCommandState: SwiftCommandState) throws -> Set<BuildParameters.Testing.Library> {
+        var result = Set<BuildParameters.Testing.Library>()
+
+        if enableXCTestSupport {
+            result.insert(.xctest)
+        }
+        if try enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+            result.insert(.swiftTesting)
+        }
+
+        return result
+    }
 }
 
 struct TestCommandOptions: ParsableArguments {
@@ -140,6 +170,10 @@ struct TestCommandOptions: ParsableArguments {
 
     @OptionGroup()
     var sharedOptions: SharedOptions
+
+    /// Which testing libraries to use (and any related options.)
+    @OptionGroup()
+    var testingLibraryOptions: TestLibraryOptions
 
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
@@ -425,10 +459,10 @@ public struct SwiftTestCommand: SwiftCommand {
             let command = try List.parse()
             try command.run(swiftCommandState)
         } else {
-            if try options.sharedOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+            if try options.testingLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
                 try swiftTestingRun(swiftCommandState)
             }
-            if options.sharedOptions.enableXCTestSupport {
+            if options.testingLibraryOptions.enableXCTestSupport {
                 try xctestRun(swiftCommandState)
             }
         }
@@ -624,7 +658,7 @@ public struct SwiftTestCommand: SwiftCommand {
                 throw StringError("'--num-workers' must be greater than zero")
             }
 
-            if !options.sharedOptions.enableXCTestSupport {
+            if !options.testingLibraryOptions.enableXCTestSupport {
                 throw StringError("'--num-workers' is only supported when testing with XCTest")
             }
         }
@@ -752,10 +786,10 @@ extension SwiftTestCommand {
         // MARK: - Common implementation
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            if try sharedOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+            if try testingLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
                 try swiftTestingRun(swiftCommandState)
             }
-            if sharedOptions.enableXCTestSupport {
+            if testingLibraryOptions.enableXCTestSupport {
                 try xctestRun(swiftCommandState)
             }
         }
@@ -1327,7 +1361,7 @@ extension SwiftCommandState {
             experimentalTestOutput: options.enableExperimentalTestOutput,
             library: library
         )
-        if try options.sharedOptions.enableSwiftTestingLibrarySupport(swiftCommandState: self) {
+        if try options.testingLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: self) {
             result.flags.swiftCompilerFlags += ["-DSWIFT_PM_SUPPORTS_SWIFT_TESTING"]
         }
         return result

@@ -42,17 +42,9 @@ extension SwiftPackageCommand {
                 """))
         var initMode: InitPackage.PackageType = .library
 
-        /// Whether to enable support for XCTest.
-        @Flag(name: .customLong("xctest"),
-              inversion: .prefixedEnableDisable,
-              help: "Enable support for XCTest")
-        var enableXCTestSupport: Bool = true
-
-        /// Whether to enable support for swift-testing.
-        @Flag(name: .customLong("experimental-swift-testing"),
-              inversion: .prefixedEnableDisable,
-              help: "Enable experimental support for swift-testing")
-        var enableSwiftTestingLibrarySupport: Bool = false
+        /// Which testing libraries to use (and any related options.)
+        @OptionGroup()
+        var testingLibraryOptions: TestLibraryOptions
 
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
@@ -62,11 +54,13 @@ extension SwiftPackageCommand {
                 throw InternalError("Could not find the current working directory")
             }
 
+            // NOTE: Do not use testingLibraryOptions.enabledTestingLibraries(swiftCommandState:) here
+            // because the package doesn't exist yet, so there are no dependencies for it to query.
             var testingLibraries: Set<BuildParameters.Testing.Library> = []
-            if enableXCTestSupport {
+            if testingLibraryOptions.enableXCTestSupport {
                 testingLibraries.insert(.xctest)
             }
-            if enableSwiftTestingLibrarySupport {
+            if testingLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport == true {
                 testingLibraries.insert(.swiftTesting)
             }
             let packageName = self.packageName ?? cwd.basename
