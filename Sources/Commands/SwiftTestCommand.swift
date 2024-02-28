@@ -716,6 +716,10 @@ extension SwiftTestCommand {
         @OptionGroup()
         var sharedOptions: SharedOptions
 
+        /// Which testing libraries to use (and any related options.)
+        @OptionGroup()
+        var testingLibraryOptions: TestLibraryOptions
+
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
         var _deprecated_passthrough: Bool = false
