@@ -150,7 +150,9 @@ struct TestLibraryOptions: ParsableArguments {
     }
 
     /// Get the set of enabled testing libraries.
-    func enabledTestingLibraries(swiftCommandState: SwiftCommandState) throws -> Set<BuildParameters.Testing.Library> {
+    func enabledTestingLibraries(
+        swiftCommandState: SwiftCommandState
+    ) throws -> Set<BuildParameters.Testing.Library> {
         var result = Set<BuildParameters.Testing.Library>()
 
         if enableXCTestSupport {
