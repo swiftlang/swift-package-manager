@@ -99,14 +99,14 @@ struct BuildCommandOptions: ParsableArguments {
 
     /// Which testing libraries to use (and any related options.)
     @OptionGroup()
-    var testingLibraryOptions: TestLibraryOptions
+    var testLibraryOptions: TestLibraryOptions
 
     func validate() throws {
         // If --build-tests was not specified, it does not make sense to enable
         // or disable either testing library.
         if !buildTests {
-            if testingLibraryOptions.explicitlyEnableXCTestSupport != nil
-                || testingLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport != nil {
+            if testLibraryOptions.explicitlyEnableXCTestSupport != nil
+                || testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport != nil {
                 throw StringError("pass --build-tests to build test targets")
             }
         }
@@ -154,7 +154,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         }
         if case .allIncludingTests = subset {
             var buildParameters = try swiftCommandState.productsBuildParameters
-            for library in try options.testingLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
                 buildParameters.testingParameters = .init(
                     configuration: buildParameters.configuration,
                     targetTriple: buildParameters.triple,

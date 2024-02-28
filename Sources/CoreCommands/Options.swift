@@ -15,6 +15,7 @@ import ArgumentParser
 import var Basics.localFileSystem
 import struct Basics.AbsolutePath
 import struct Basics.Triple
+import func Basics.temp_await
 
 import struct Foundation.URL
 
@@ -22,8 +23,10 @@ import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
 import struct PackageModel.PackageIdentity
+import class PackageModel.Manifest
 import enum PackageModel.Sanitizer
 
+import struct SPMBuildCore.BuildParameters
 @_spi(SwiftPMInternal)
 import struct SPMBuildCore.BuildSystemProvider
 
@@ -31,6 +34,7 @@ import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
 
+import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration
 
 @_spi(SwiftPMInternal)
@@ -538,6 +542,100 @@ public struct LinkerOptions: ParsableArguments {
     /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
     @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
     public var shouldDisableLocalRpath: Bool = false
+}
+
+/// Which testing libraries to use (and any related options.)
+@_spi(SwiftPMInternal)
+public struct TestLibraryOptions: ParsableArguments {
+    public init() {}
+
+    /// Whether to enable support for XCTest (as explicitly specified by the user.)
+    ///
+    /// Callers will generally want to use ``enableXCTestSupport`` since it will
+    /// have the correct default value if the user didn't specify one.
+    @Flag(name: .customLong("xctest"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable support for XCTest")
+    public var explicitlyEnableXCTestSupport: Bool?
+
+    /// Whether to enable support for XCTest.
+    public var enableXCTestSupport: Bool {
+        // Default to enabled.
+        explicitlyEnableXCTestSupport ?? true
+    }
+
+    /// Whether to enable support for swift-testing (as explicitly specified by the user.)
+    ///
+    /// Callers (other than `swift package init`) will generally want to use
+    /// ``enableSwiftTestingLibrarySupport(swiftCommandState:)`` since it will
+    /// take into account whether the package has a dependency on swift-testing.
+    @Flag(name: .customLong("experimental-swift-testing"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable experimental support for swift-testing")
+    public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
+
+    /// Whether to enable support for swift-testing.
+    public func enableSwiftTestingLibrarySupport(
+        swiftCommandState: SwiftCommandState
+    ) throws -> Bool {
+        // Honor the user's explicit command-line selection, if any.
+        if let callerSuppliedValue = explicitlyEnableSwiftTestingLibrarySupport {
+            return callerSuppliedValue
+        }
+
+        // If the active package has a dependency on swift-testing, automatically enable support for it so that extra steps are not needed.
+        let workspace = try swiftCommandState.getActiveWorkspace()
+        let root = try swiftCommandState.getWorkspaceRoot()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: swiftCommandState.observabilityScope,
+                completion: $0
+            )
+        }
+
+        // Is swift-testing among the dependencies of the package being built?
+        // If so, enable support.
+        let isEnabledByDependency = rootManifests.values.lazy
+            .flatMap(\.dependencies)
+            .map(\.identity)
+            .map(String.init(describing:))
+            .contains("swift-testing")
+        if isEnabledByDependency {
+            swiftCommandState.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
+            return true
+        }
+
+        // Is swift-testing the package being built itself (unlikely)? If so,
+        // enable support.
+        let isEnabledByName = root.packages.lazy
+            .map(PackageIdentity.init(path:))
+            .map(String.init(describing:))
+            .contains("swift-testing")
+        if isEnabledByName {
+            swiftCommandState.observabilityScope.emit(debug: "Enabling swift-testing support because it is a root package.")
+            return true
+        }
+
+        // Default to disabled since swift-testing is experimental (opt-in.)
+        return false
+    }
+
+    /// Get the set of enabled testing libraries.
+    public func enabledTestingLibraries(
+        swiftCommandState: SwiftCommandState
+    ) throws -> Set<BuildParameters.Testing.Library> {
+        var result = Set<BuildParameters.Testing.Library>()
+
+        if enableXCTestSupport {
+            result.insert(.xctest)
+        }
+        if try enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+            result.insert(.swiftTesting)
+        }
+
+        return result
+    }
 }
 
 // MARK: - Extensions
