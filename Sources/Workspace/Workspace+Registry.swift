@@ -16,6 +16,8 @@ import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
+import func Basics.temp_await
+import class PackageGraph.PinsStore
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -373,7 +375,74 @@ extension PackageDependency.SourceControl.Requirement {
         case .exact(let version):
             return .exact(version)
         case .branch, .revision:
-            throw InternalError("invalid source control to registry requirement tranformation")
+            throw InternalError("invalid source control to registry requirement transformation")
         }
+    }
+}
+
+// MARK: - Registry Source archive management
+
+extension Workspace {
+    func downloadRegistryArchive(
+        package: PackageReference,
+        at version: Version,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
+        // FIXME: this should not block
+        let downloadPath = try temp_await {
+            self.registryDownloadsManager.lookup(
+                package: package.identity,
+                version: version,
+                observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+
+        // Record the new state.
+        observabilityScope.emit(
+            debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
+            metadata: package.diagnosticsMetadata
+        )
+        try self.state.dependencies.add(
+            .registryDownload(
+                packageRef: package,
+                version: version,
+                subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
+            )
+        )
+        try self.state.save()
+
+        return downloadPath
+    }
+
+    func downloadRegistryArchive(
+        package: PackageReference,
+        at pinState: PinsStore.PinState,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
+        switch pinState {
+        case .version(let version, _):
+            return try self.downloadRegistryArchive(
+                package: package,
+                at: version,
+                observabilityScope: observabilityScope
+            )
+        default:
+            throw InternalError("invalid pin state: \(pinState)")
+        }
+    }
+
+    func removeRegistryArchive(for dependency: ManagedDependency) throws {
+        guard case .registryDownload = dependency.state else {
+            throw InternalError("cannot remove source archive for \(dependency) with state \(dependency.state)")
+        }
+
+        let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
+        try self.fileSystem.removeFileTree(downloadPath)
+
+        // remove the local copy
+        try registryDownloadsManager.remove(package: dependency.packageRef.identity)
     }
 }

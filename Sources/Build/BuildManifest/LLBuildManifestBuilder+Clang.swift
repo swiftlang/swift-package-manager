@@ -13,7 +13,8 @@
 import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
-import class PackageGraph.ResolvedTarget
+import class Basics.ObservabilityScope
+import struct PackageGraph.ResolvedTarget
 import PackageModel
 
 extension LLBuildManifestBuilder {
@@ -21,11 +22,6 @@ extension LLBuildManifestBuilder {
     func createClangCompileCommand(
         _ target: ClangTargetBuildDescription
     ) throws {
-        let standards = [
-            (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
-            (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
-        ]
-
         var inputs: [Node] = []
 
         // Add resources node as the input to the target. This isn't great because we
@@ -37,12 +33,12 @@ extension LLBuildManifestBuilder {
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
+            if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: self.buildEnvironment) {
+        for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
             switch dependency {
             case .target(let target, _):
                 addStaticTargetInputs(target)
@@ -50,7 +46,7 @@ extension LLBuildManifestBuilder {
             case .product(let product, _):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
+                    guard let planProduct = plan.productMap[product.id] else {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
@@ -68,7 +64,7 @@ extension LLBuildManifestBuilder {
         }
 
         for binaryPath in target.libraryBinaryPaths {
-            let path = destinationPath(forBinaryAt: binaryPath)
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
@@ -79,26 +75,7 @@ extension LLBuildManifestBuilder {
         var objectFileNodes: [Node] = []
 
         for path in try target.compilePaths() {
-            let isCXX = path.source.extension.map { SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
-            let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
-
-            var args = try target.basicArguments(isCXX: isCXX, isC: isC)
-
-            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
-
-            // Add language standard flag if needed.
-            if let ext = path.source.extension {
-                for (standard, validExtensions) in standards {
-                    if let standard, validExtensions.contains(ext) {
-                        args += ["-std=\(standard)"]
-                    }
-                }
-            }
-
-            args += ["-c", path.source.pathString, "-o", path.object.pathString]
-
-            let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
-            args.insert(clangCompiler, at: 0)
+            let args = try target.emitCommandLine(for: path.source)
 
             let objectFileNode: Node = .file(path.object)
             objectFileNodes.append(objectFileNode)
@@ -113,20 +90,20 @@ extension LLBuildManifestBuilder {
             )
         }
 
-        try addBuildToolPlugins(.clang(target))
+        let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: self.buildConfig)
+        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
         self.manifest.addPhonyCmd(
             name: output.name,
-            inputs: objectFileNodes,
+            inputs: objectFileNodes + additionalInputs,
             outputs: [output]
         )
 
-        if self.plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
+        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
             if !target.isTestTarget {
                 self.addNode(output, toTarget: .main)
             }

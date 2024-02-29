@@ -33,6 +33,7 @@ public enum BuildSubset {
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
+@_spi(SwiftPMInternal)
 public protocol BuildSystem: Cancellable {
 
     /// The delegate used by the build system.
@@ -42,7 +43,7 @@ public protocol BuildSystem: Cancellable {
     var builtTestProducts: [BuiltTestProduct] { get }
 
     /// Returns the package graph used by the build system.
-    func getPackageGraph() throws -> PackageGraph
+    func getPackageGraph() throws -> ModulesGraph
 
     /// Builds a subset of the package graph.
     /// - Parameters:
@@ -74,31 +75,61 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            return try buildParameters.binaryPath(for: product)
+            return try self.buildParameters.binaryPath(for: product)
         }
     }
 }
 
 public protocol BuildPlan {
-    var buildParameters: BuildParameters { get }
+    /// Parameters used when building end products for the destination platform.
+    var destinationBuildParameters: BuildParameters { get }
+
+    /// Parameters used when building tools (macros and plugins).
+    var toolsBuildParameters: BuildParameters { get }
+
     var buildProducts: AnySequence<ProductBuildDescription> { get }
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
 }
 
+extension BuildPlan {
+    /// Parameters used for building a given target.
+    public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
+        switch target.buildTriple {
+        case .tools:
+            return self.toolsBuildParameters
+        case .destination:
+            return self.destinationBuildParameters
+        }
+    }
+
+    /// Parameters used for building a given product.
+    public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
+        switch product.buildTriple {
+        case .tools:
+            return self.toolsBuildParameters
+        case .destination:
+            return self.destinationBuildParameters
+        }
+    }
+}
+
+@_spi(SwiftPMInternal)
 public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
-        customBuildParameters: BuildParameters?,
-        customPackageGraphLoader: (() throws -> PackageGraph)?,
-        customOutputStream: OutputByteStream?,
-        customLogLevel: Diagnostic.Severity?,
-        customObservabilityScope: ObservabilityScope?
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() throws -> ModulesGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem
 }
 
+@_spi(SwiftPMInternal)
 public struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
     public enum Kind: String, CaseIterable {
@@ -116,11 +147,12 @@ public struct BuildSystemProvider {
         kind: Kind,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
-        customBuildParameters: BuildParameters? = .none,
-        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
-        customOutputStream: OutputByteStream? = .none,
-        customLogLevel: Diagnostic.Severity? = .none,
-        customObservabilityScope: ObservabilityScope? = .none
+        productsBuildParameters: BuildParameters? = .none,
+        toolsBuildParameters: BuildParameters? = .none,
+        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
+        outputStream: OutputByteStream? = .none,
+        logLevel: Diagnostic.Severity? = .none,
+        observabilityScope: ObservabilityScope? = .none
     ) throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
@@ -128,11 +160,12 @@ public struct BuildSystemProvider {
         return try buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
-            customBuildParameters: customBuildParameters,
-            customPackageGraphLoader: customPackageGraphLoader,
-            customOutputStream: customOutputStream,
-            customLogLevel: customLogLevel,
-            customObservabilityScope: customObservabilityScope
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
+            packageGraphLoader: packageGraphLoader,
+            outputStream: outputStream,
+            logLevel: logLevel,
+            observabilityScope: observabilityScope
         )
     }
 }
@@ -141,6 +174,7 @@ private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }
 
+@_spi(SwiftPMInternal)
 public enum BuildSystemUtilities {
     /// Returns the build path from the environment, if present.
     public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {

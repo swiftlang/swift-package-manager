@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
+import Foundation
 
 typealias WireInput = HostToPluginMessage.InputContext
 
@@ -21,7 +21,7 @@ typealias WireInput = HostToPluginMessage.InputContext
 /// the plugin in the `PluginContext` struct.
 internal struct PluginContextDeserializer {
     let wireInput: WireInput
-    var pathsById: [WireInput.Path.Id: Path] = [:]
+    var urlsById: [WireInput.URL.Id: URL] = [:]
     var packagesById: [WireInput.Package.Id: Package] = [:]
     var productsById: [WireInput.Product.Id: Product] = [:]
     var targetsById: [WireInput.Target.Id: Target] = [:]
@@ -31,30 +31,34 @@ internal struct PluginContextDeserializer {
         self.wireInput = input
     }
     
-    /// Returns the `Path` that corresponds to the given ID (a small integer),
-    /// or throws an error if the ID is invalid. The path is deserialized on-
+    /// Returns the `URL` that corresponds to the given ID (a small integer),
+    /// or throws an error if the ID is invalid. The URL is deserialized on-
     /// demand if it hasn't already been deserialized.
-    mutating func path(for id: WireInput.Path.Id) throws -> Path {
-        if let path = pathsById[id] { return path }
+    mutating func url(for id: WireInput.URL.Id) throws -> URL {
+        if let path = urlsById[id] { return path }
         guard id < wireInput.paths.count else {
-            throw PluginDeserializationError.malformedInputJSON("invalid path id (\(id))")
+            throw PluginDeserializationError.malformedInputJSON("invalid URL id (\(id))")
         }
         
         // Compose a path based on an optional base path and a subpath.
         let wirePath = wireInput.paths[id]
-        let basePath = try wireInput.paths[id].basePathId.map{ try self.path(for: $0) } ?? Path("/")
-        let path = basePath.appending(subpath: wirePath.subpath)
-        
+        let basePath = try wireInput.paths[id].baseURLId.map{ try self.url(for: $0) } ?? URL(fileURLWithPath: "/")
+        let path = basePath.appendingPathComponent(wirePath.subpath)
+
         // Store it for the next look up.
-        pathsById[id] = path
+        urlsById[id] = path
         return path
     }
 
     /// Returns the `Target` that corresponds to the given ID (a small integer),
     /// or throws an error if the ID is invalid. The target is deserialized on-
     /// demand if it hasn't already been deserialized.
-    mutating func target(for id: WireInput.Target.Id) throws -> Target {
-        if let target = targetsById[id] { return target }
+    mutating func target(for id: WireInput.Target.Id, pluginGeneratedSources: [URL] = [], pluginGeneratedResources: [URL] = []) throws -> Target {
+        if let target = targetsById[id],
+           target.sourceModule?.pluginGeneratedSources.count == pluginGeneratedSources.count,
+           target.sourceModule?.pluginGeneratedResources.count == pluginGeneratedResources.count {
+            return target
+        }
         guard id < wireInput.targets.count else {
             throw PluginDeserializationError.malformedInputJSON("invalid target id (\(id))")
         }
@@ -70,13 +74,13 @@ internal struct PluginContextDeserializer {
                 return .product(product)
             }
         }
-        let directory = try self.path(for: wireTarget.directoryId)
+        let directory = try self.url(for: wireTarget.directoryId)
         let target: Target
         switch wireTarget.info {
         
         case let .swiftSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
             let sourceFiles = FileList(try sourceFiles.map {
-                let path = try self.path(for: $0.basePathId).appending($0.name)
+                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
                 let type: FileType
                 switch $0.type {
                 case .source:
@@ -88,24 +92,28 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return File(path: path, type: type)
+                return File(path: Path(url: path), url: path, type: type)
             })
             target = SwiftSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
                 kind: .init(kind),
-                directory: directory,
+                directory: Path(url: directory),
+                directoryURL: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
                 sourceFiles: sourceFiles,
                 compilationConditions: compilationConditions,
                 linkedLibraries: linkedLibraries,
-                linkedFrameworks: linkedFrameworks)
+                linkedFrameworks: linkedFrameworks,
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources
+            )
 
         case let .clangSourceModuleInfo(moduleName, kind, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
-            let publicHeadersDir = try publicHeadersDirId.map { try self.path(for: $0) }
+            let publicHeadersDir = try publicHeadersDirId.map { try self.url(for: $0) }
             let sourceFiles = FileList(try sourceFiles.map {
-                let path = try self.path(for: $0.basePathId).appending($0.name)
+                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
                 let type: FileType
                 switch $0.type {
                 case .source:
@@ -117,24 +125,29 @@ internal struct PluginContextDeserializer {
                 case .unknown:
                     type = .unknown
                 }
-                return File(path: path, type: type)
+                return File(path: Path(url: path), url: path, type: type)
             })
             target = ClangSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
                 kind: .init(kind),
-                directory: directory,
+                directory: Path(url: directory),
+                directoryURL: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
                 sourceFiles: sourceFiles,
                 preprocessorDefinitions: preprocessorDefinitions,
                 headerSearchPaths: headerSearchPaths,
-                publicHeadersDirectory: publicHeadersDir,
+                publicHeadersDirectory: publicHeadersDir.map { .init(url: $0) },
+                publicHeadersDirectoryURL: publicHeadersDir,
                 linkedLibraries: linkedLibraries,
-                linkedFrameworks: linkedFrameworks)
+                linkedFrameworks: linkedFrameworks,
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources
+            )
 
         case let .binaryArtifactInfo(kind, origin, artifactId):
-            let artifact = try self.path(for: artifactId)
+            let artifact = try self.url(for: artifactId)
             let artifactKind: BinaryArtifactTarget.Kind
             switch kind {
             case .artifactsArchive:
@@ -152,17 +165,20 @@ internal struct PluginContextDeserializer {
             target = BinaryArtifactTarget(
                 id: String(id),
                 name: wireTarget.name,
-                directory: directory,
+                directory: Path(url: directory),
+                directoryURL: directory,
                 dependencies: dependencies,
                 kind: artifactKind,
                 origin: artifactOrigin,
-                artifact: artifact)
+                artifact: Path(url: artifact),
+                artifactURL: artifact)
 
         case let .systemLibraryInfo(pkgConfig, compilerFlags, linkerFlags):
             target = SystemLibraryTarget(
                 id: String(id),
                 name: wireTarget.name,
-                directory: directory,
+                directory: Path(url: directory),
+                directoryURL: directory,
                 dependencies: dependencies,
                 pkgConfig: pkgConfig,
                 compilerFlags: compilerFlags,
@@ -225,7 +241,7 @@ internal struct PluginContextDeserializer {
             throw PluginDeserializationError.malformedInputJSON("invalid package id (\(id))") }
         
         let wirePackage = wireInput.packages[id]
-        let directory = try self.path(for: wirePackage.directoryId)
+        let directory = try self.url(for: wirePackage.directoryId)
         let toolsVersion = ToolsVersion(
             major: wirePackage.toolsVersion.major,
             minor: wirePackage.toolsVersion.minor,
@@ -238,7 +254,8 @@ internal struct PluginContextDeserializer {
         let package = Package(
             id: wirePackage.identity,
             displayName: wirePackage.displayName,
-            directory: directory,
+            directory: Path(url: directory),
+            directoryURL: directory,
             origin: .root,
             toolsVersion: toolsVersion,
             dependencies: dependencies,

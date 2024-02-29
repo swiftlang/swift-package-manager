@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,8 +19,7 @@ import XCTest
 import class TSCBasic.InMemoryFileSystem
 
 /// Tests for the handling of source layout conventions.
-class PackageBuilderTests: XCTestCase {
-
+final class PackageBuilderTests: XCTestCase {
     func testDotFilesAreIgnored() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/.Bar.swift",
@@ -1964,15 +1963,36 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = try createManifest(swiftVersions: [])
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "5")!])
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty", severity: .error)
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "5")
+            }
+            package.checkProduct("foo") { _ in }
         }
 
-        manifest = try createManifest(
-            swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "6")!])
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.current))", severity: .error)
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "6")
+            }
+            package.checkProduct("foo") { _ in }
+        }
+
+        manifest = try createManifest(swiftVersions: [])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty",
+                severity: .error
+            )
+        }
+
+        manifest = try createManifest(swiftVersions: [SwiftLanguageVersion(string: "7")!])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 7 which is not supported by the current tools version (\(ToolsVersion.current))",
+                severity: .error
+            )
         }
     }
 
@@ -2990,7 +3010,7 @@ class PackageBuilderTests: XCTestCase {
 
         var assignment = BuildSettings.Assignment()
         assignment.values = ["YOLO"]
-        assignment.conditions = [PlatformsCondition(platforms: [PackageModel.Platform.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
+        assignment.conditions = [PackageCondition(platforms: [.custom(name: "bestOS", oldestSupportedVersion: .unknown)])]
 
         var settings = BuildSettings.AssignmentTable()
         settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)

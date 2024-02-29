@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
 
 /// Name of the module map file recognized by the Clang and Swift compilers.

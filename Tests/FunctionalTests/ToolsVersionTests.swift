@@ -18,8 +18,7 @@ import SPMTestSupport
 import Workspace
 import XCTest
 
-class ToolsVersionTests: XCTestCase {
-
+final class ToolsVersionTests: XCTestCase {
     func testToolsVersion() throws {
         try testWithTemporaryDirectory{ path in
             let fs = localFileSystem
@@ -124,6 +123,7 @@ class ToolsVersionTests: XCTestCase {
                 XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), error.stderr)
             }
 
+#if compiler(>=6.0)
             try fs.writeFileContents(
                 primaryPath.appending("Package.swift"),
                 string: """
@@ -138,6 +138,7 @@ class ToolsVersionTests: XCTestCase {
              _ = try SwiftPM.Package.execute(
                  ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
              _ = try SwiftPM.Build.execute(packagePath: primaryPath)
+#endif
         }
     }
 }

@@ -23,12 +23,12 @@ import protocol TSCBasic.HashAlgorithm
 
 import struct TSCUtility.Version
 
-public class MockRegistry {
+package class MockRegistry {
     private let baseURL: URL
     private let fileSystem: FileSystem
     private let identityResolver: IdentityResolver
     private let checksumAlgorithm: HashAlgorithm
-    public var registryClient: RegistryClient!
+    package var registryClient: RegistryClient!
     private let jsonEncoder: JSONEncoder
 
     private var packageVersions = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
@@ -36,7 +36,7 @@ public class MockRegistry {
     private var sourceControlURLs = [URL: PackageIdentity]()
     private let packagesLock = NSLock()
 
-    public init(
+    package init(
         filesystem: FileSystem,
         identityResolver: IdentityResolver,
         checksumAlgorithm: HashAlgorithm,
@@ -74,7 +74,7 @@ public class MockRegistry {
         )
     }
 
-    public func addPackage(
+    package func addPackage(
         identity: PackageIdentity,
         versions: [Version],
         sourceControlURLs: [URL]? = .none,
@@ -88,7 +88,7 @@ public class MockRegistry {
         )
     }
 
-    public func addPackage(
+    package func addPackage(
         identity: PackageIdentity,
         versions: [String],
         sourceControlURLs: [URL]? = .none,
@@ -356,16 +356,16 @@ public class MockRegistry {
     }
 }
 
-public struct InMemoryRegistryPackageSource {
+package struct InMemoryRegistryPackageSource {
     let fileSystem: FileSystem
-    public let path: AbsolutePath
+    package let path: AbsolutePath
 
-    public init(fileSystem: FileSystem, path: AbsolutePath, writeContent: Bool = true) {
+    package init(fileSystem: FileSystem, path: AbsolutePath, writeContent: Bool = true) {
         self.fileSystem = fileSystem
         self.path = path
     }
 
-    public func writePackageContent(targets: [String] = [], toolsVersion: ToolsVersion = .current) throws {
+    package func writePackageContent(targets: [String] = [], toolsVersion: ToolsVersion = .current) throws {
         try self.fileSystem.createDirectory(self.path, recursive: true)
         let sourcesDir = self.path.appending("Sources")
         for target in targets {
@@ -377,7 +377,7 @@ public struct InMemoryRegistryPackageSource {
         try self.fileSystem.writeFileContents(manifestPath, string: "// swift-tools-version:\(toolsVersion)")
     }
 
-    public func listFiles(root: AbsolutePath? = .none) throws -> [AbsolutePath] {
+    package func listFiles(root: AbsolutePath? = .none) throws -> [AbsolutePath] {
         var files = [AbsolutePath]()
         let root = root ?? self.path
         let entries = try self.fileSystem.getDirectoryContents(root)
@@ -450,12 +450,12 @@ private struct MockRegistryArchiver: Archiver {
 
     private func readFileContents(_ path: AbsolutePath) throws -> [String] {
         let content: String = try self.fileSystem.readFileContents(path)
-        return content.split(separator: "\n").map(String.init)
+        return content.split(whereSeparator: { $0.isNewline }).map(String.init)
     }
 }
 
 extension RegistryConfiguration.Security {
-    public static let testDefault: RegistryConfiguration.Security = {
+    package static let testDefault: RegistryConfiguration.Security = {
         var signing = RegistryConfiguration.Security.Signing()
         signing.onUnsigned = .silentAllow
         signing.onUntrustedCertificate = .silentAllow

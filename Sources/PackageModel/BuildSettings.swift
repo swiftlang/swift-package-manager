@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2018 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -43,14 +43,14 @@ public enum BuildSettings {
         /// The assignment value.
         public var values: [String]
 
-        // FIXME: This should be a set but we need Equatable existential (or AnyEquatable) for that.
+        // FIXME: This should use `Set` but we need to investigate potential build failures on Linux caused by using it.
         /// The condition associated with this assignment.
-        public var conditions: [PackageConditionProtocol] {
+        public var conditions: [PackageCondition] {
             get {
-                return _conditions.map{ $0.condition }
+                return _conditions.map { $0.underlying }
             }
             set {
-                _conditions = newValue.map{ PackageConditionWrapper($0) }
+                _conditions = newValue.map { PackageConditionWrapper($0) }
             }
         }
 

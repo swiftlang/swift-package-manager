@@ -9,6 +9,7 @@
 add_library(SPMBuildCore
   BinaryTarget+Extensions.swift
   BuildParameters/BuildParameters.swift
+  BuildParameters/BuildParameters+Debugging.swift
   BuildParameters/BuildParameters+Driver.swift
   BuildParameters/BuildParameters+Linking.swift
   BuildParameters/BuildParameters+Output.swift
@@ -22,6 +23,7 @@ add_library(SPMBuildCore
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
   PrebuildCommandResult.swift
+  ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
   XCFrameworkMetadata.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
@@ -34,10 +36,8 @@ target_link_libraries(SPMBuildCore PUBLIC
   PackageGraph)
 
 
-if(USE_CMAKE_INSTALL)
 install(TARGETS SPMBuildCore
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SPMBuildCore)

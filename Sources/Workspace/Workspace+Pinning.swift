@@ -30,10 +30,16 @@ extension Workspace {
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
+            } else if let managedDependency = self.state.dependencies[dependency.identity] {
+                observabilityScope
+                    .emit(
+                        info: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies, using alternative location '\(managedDependency.packageRef.locationString)' instead"
+                    )
+                dependenciesToPin.append(ManagedDependency(packageRef: dependency, state: managedDependency.state, subpath: managedDependency.subpath))
             } else {
                 observabilityScope
                     .emit(
-                        warning: "required dependency \(dependency.identity) (\(dependency.locationString)) was not found in managed dependencies and will not be recorded in resolved file"
+                        warning: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies and will not be recorded in resolved file"
                     )
             }
         }
@@ -49,10 +55,8 @@ extension Workspace {
                 needsUpdate = true
             } else {
                 for dependency in dependenciesToPin {
-                    if let pin = storedPinStore.pins
-                        .first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) })
-                    {
-                        if pin.value.state != PinsStore.Pin(dependency)?.state {
+                    if let pin = storedPinStore.pins[comparingLocation: dependency.packageRef] {
+                        if pin.state != PinsStore.Pin(dependency)?.state {
                             needsUpdate = true
                             break
                         }
@@ -180,5 +184,14 @@ extension PinsStore.PinState {
         default:
             return false
         }
+    }
+}
+
+extension PinsStore.Pins {
+    subscript(comparingLocation package: PackageReference) -> PinsStore.Pin? {
+        if let pin = self[package.identity], pin.packageRef.equalsIncludingLocation(package) {
+            return pin
+        }
+        return .none
     }
 }

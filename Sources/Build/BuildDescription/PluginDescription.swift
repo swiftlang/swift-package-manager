@@ -50,7 +50,7 @@ public final class PluginDescription: Codable {
         testDiscoveryTarget: Bool = false,
         fileSystem: FileSystem
     ) throws {
-        guard target.underlyingTarget is PluginTarget else {
+        guard target.underlying is PluginTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
 

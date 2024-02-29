@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 /// Provides specialized information and services from the Swift Package Manager
 /// or an IDE that supports Swift Packages. Different plugin hosts implement the
 /// functionality in whatever way is appropriate for them, but should preserve
@@ -57,7 +59,10 @@ public struct PackageManager {
         
         /// Controls the amount of detail in the log returned in the build result.
         public var logging: BuildLogVerbosity
-        
+
+        /// Whether to print build logs to the console
+        public var echoLogs: Bool
+
         /// Additional flags to pass to all C compiler invocations.
         public var otherCFlags: [String] = []
 
@@ -70,16 +75,17 @@ public struct PackageManager {
         /// Additional flags to pass to all linker invocations.
         public var otherLinkerFlags: [String] = []
 
-        public init(configuration: BuildConfiguration = .debug, logging: BuildLogVerbosity = .concise) {
+        public init(configuration: BuildConfiguration = .debug, logging: BuildLogVerbosity = .concise, echoLogs: Bool = false) {
             self.configuration = configuration
             self.logging = logging
+            self.echoLogs = echoLogs
         }
     }
     
     /// Represents an overall purpose of the build, which affects such things
     /// as optimization and generation of debug symbols.
     public enum BuildConfiguration: String {
-        case debug, release
+        case debug, release, inherit
     }
     
     /// Represents the amount of detail in a build log.
@@ -102,8 +108,15 @@ public struct PackageManager {
         /// Represents a single artifact produced during a build.
         public struct BuiltArtifact {
             /// Full path of the built artifact in the local file system.
-            public var path: Path
-            
+            @available(_PackageDescription, deprecated: 6.0)
+            public var path: Path {
+                return Path(url: url)
+            }
+
+            /// Full path of the built artifact in the local file system.
+            @available(_PackageDescription, introduced: 6.0)
+            public var url: URL
+
             /// The kind of artifact that was built.
             public var kind: Kind
             
@@ -169,7 +182,15 @@ public struct PackageManager {
         
         /// Path of a generated `.profdata` file suitable for processing using
         /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
-        public var codeCoverageDataFile: Path?
+        @available(_PackageDescription, deprecated: 6.0)
+        public var codeCoverageDataFile: Path? {
+            return codeCoverageDataFileURL.map { Path(url: $0) }
+        }
+
+        /// Path of a generated `.profdata` file suitable for processing using
+        /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
+        @available(_PackageDescription, introduced: 6.0)
+        public var codeCoverageDataFileURL: URL?
 
         /// Represents the results of running some or all of the tests in a
         /// single test target.
@@ -244,7 +265,14 @@ public struct PackageManager {
     /// Represents the result of symbol graph generation.
     public struct SymbolGraphResult {
         /// The directory that contains the symbol graph files for the target.
-        public var directoryPath: Path
+        @available(_PackageDescription, deprecated: 6.0)
+        public var directoryPath: Path {
+            return Path(url: directoryURL)
+        }
+
+        /// The directory that contains the symbol graph files for the target.
+        @available(_PackageDescription, introduced: 6.0)
+        public var directoryURL: URL
     }
 }
 
@@ -290,6 +318,7 @@ fileprivate extension PluginToHostMessage.BuildParameters {
     init(_ parameters: PackageManager.BuildParameters) {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
+        self.echoLogs = parameters.echoLogs
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags
@@ -304,6 +333,8 @@ fileprivate extension PluginToHostMessage.BuildParameters.Configuration {
             self = .debug
         case .release:
             self = .release
+        case .inherit:
+            self = .inherit
         }
     }
 }
@@ -331,8 +362,8 @@ fileprivate extension PackageManager.BuildResult {
 
 fileprivate extension PackageManager.BuildResult.BuiltArtifact {
     init(_ artifact: HostToPluginMessage.BuildResult.BuiltArtifact) {
-        self.path = .init(artifact.path)
         self.kind = .init(artifact.kind)
+        self.url = artifact.path
     }
 }
 
@@ -370,7 +401,7 @@ fileprivate extension PackageManager.TestResult {
     init(_ result: HostToPluginMessage.TestResult) {
         self.succeeded = result.succeeded
         self.testTargets = result.testTargets.map{ .init($0) }
-        self.codeCoverageDataFile = result.codeCoverageDataFile.map{ .init($0) }
+        self.codeCoverageDataFileURL = result.codeCoverageDataFile.map { URL(fileURLWithPath: $0) }
     }
 }
 
@@ -437,6 +468,6 @@ fileprivate extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
 
 fileprivate extension PackageManager.SymbolGraphResult {
     init(_ result: HostToPluginMessage.SymbolGraphResult) {
-        self.directoryPath = .init(result.directoryPath)
+        self.directoryURL = result.directoryPath
     }
 }

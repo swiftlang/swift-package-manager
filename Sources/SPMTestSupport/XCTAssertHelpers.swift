@@ -26,30 +26,47 @@ import struct TSCUtility.Version
 @_exported import func TSCTestSupport.XCTAssertResultSuccess
 @_exported import func TSCTestSupport.XCTAssertThrows
 
-public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+package func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertFileExists(TSCAbsolutePath(path), file: file, line: line)
 }
 
-public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+package func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertDirectoryExists(TSCAbsolutePath(path), file: file, line: line)
 }
 
-public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+package func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertNoSuchPath(TSCAbsolutePath(path), file: file, line: line)
 }
 
 
-public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), file: StaticString = #file, line: UInt = #line) {
+package func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
 }
 
-public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
+package func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
     if let ci = ProcessInfo.processInfo.environment["CI"] as? NSString, ci.boolValue {
         throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
     }
 }
 
-public func XCTAssertBuilds(
+/// An `async`-friendly replacement for `XCTAssertThrowsError`.
+package func XCTAssertAsyncThrowsError<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ errorHandler: (_ error: any Error) -> Void = { _ in }
+) async {
+    do {
+        _ = try await expression()
+        XCTFail(message(), file: file, line: line)
+    } catch {
+        errorHandler(error)
+    }
+}
+
+
+package func XCTAssertBuilds(
     _ path: AbsolutePath,
     configurations: Set<Configuration> = [.Debug, .Release],
     extraArgs: [String] = [],
@@ -77,7 +94,7 @@ public func XCTAssertBuilds(
     }
 }
 
-public func XCTAssertSwiftTest(
+package func XCTAssertSwiftTest(
     _ path: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -104,7 +121,7 @@ public func XCTAssertSwiftTest(
 }
 
 @discardableResult
-public func XCTAssertBuildFails(
+package func XCTAssertBuildFails(
     _ path: AbsolutePath,
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -120,7 +137,7 @@ public func XCTAssertBuildFails(
     return failure
 }
 
-public func XCTAssertEqual<T: CustomStringConvertible>(
+package func XCTAssertEqual<T: CustomStringConvertible>(
     _ assignment: [(container: T, version: Version)],
     _ expected: [T: Version],
     file: StaticString = #file,
@@ -133,7 +150,27 @@ public func XCTAssertEqual<T: CustomStringConvertible>(
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
 
-public func XCTAssertThrowsCommandExecutionError<T>(
+package func XCTAssertAsyncTrue(
+    _ expression: @autoclosure () async throws -> Bool,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async rethrows {
+    let result = try await expression()
+    XCTAssertTrue(result, message(), file: file, line: line)
+}
+
+package func XCTAssertAsyncFalse(
+    _ expression: @autoclosure () async throws -> Bool,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async rethrows {
+    let result = try await expression()
+    XCTAssertFalse(result, message(), file: file, line: line)
+}
+
+package func XCTAssertThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () throws -> T,
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath,
@@ -150,8 +187,37 @@ public func XCTAssertThrowsCommandExecutionError<T>(
     }
 }
 
-public struct CommandExecutionError: Error {
-    public let result: ProcessResult
-    public let stdout: String
-    public let stderr: String
+package func XCTAssertAsyncEqual<T: Equatable>(
+    _ expression1: @autoclosure () async throws -> T,
+    _ expression2: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #file,
+    line: UInt = #line
+) async rethrows {
+    let value1 = try await expression1()
+    let value2 = try await expression2()
+
+    XCTAssertEqual(value1, value2, message(), file: file, line: line)
+}
+
+struct XCAsyncTestErrorWhileUnwrappingOptional: Error {}
+
+package func XCTAsyncUnwrap<T>(
+    _ expression: @autoclosure () async throws -> T?,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async throws -> T {
+    guard let result = try await expression() else {
+        throw XCAsyncTestErrorWhileUnwrappingOptional()
+    }
+
+    return result
+}
+
+
+package struct CommandExecutionError: Error {
+    package let result: ProcessResult
+    package let stdout: String
+    package let stderr: String
 }

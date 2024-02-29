@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,6 +15,8 @@ import Basics
 import PackageModel
 import PackageLoading
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort
@@ -22,6 +24,8 @@ import func TSCBasic.memoize
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
+    /// Whether the toolchain supports `-package-name` option.
+    let isPackageAccessModifierSupported: Bool
 
     /// Whether or not build for testability is enabled.
     let enableTestability: Bool
@@ -49,7 +53,7 @@ public final class PIFBuilder {
     public static let allIncludingTestsTargetName = "AllIncludingTests"
 
     /// The package graph to build from.
-    let graph: PackageGraph
+    let graph: ModulesGraph
 
     /// The parameters used to configure the PIF.
     let parameters: PIFBuilderParameters
@@ -69,7 +73,7 @@ public final class PIFBuilder {
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
     init(
-        graph: PackageGraph,
+        graph: ModulesGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -106,7 +110,7 @@ public final class PIFBuilder {
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     public func construct() throws -> PIF.TopLevelObject {
         try memoize(to: &pif) {
-            let rootPackage = graph.rootPackages[0]
+            let rootPackage = self.graph.rootPackages[graph.rootPackages.startIndex]
 
             let sortedPackages = graph.packages.sorted { $0.manifest.displayName < $1.manifest.displayName } // TODO: use identity instead?
             var projects: [PIFProjectBuilder] = try sortedPackages.map { package in
@@ -132,7 +136,13 @@ public final class PIFBuilder {
     }
 
     // Convenience method for generating PIF.
-    public static func generatePIF(buildParameters: BuildParameters, packageGraph: PackageGraph, fileSystem: FileSystem, observabilityScope: ObservabilityScope, preservePIFModelStructure: Bool) throws -> String {
+    public static func generatePIF(
+        buildParameters: BuildParameters,
+        packageGraph: ModulesGraph,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        preservePIFModelStructure: Bool
+    ) throws -> String {
         let parameters = PIFBuilderParameters(buildParameters)
         let builder = Self.init(
             graph: packageGraph,
@@ -232,7 +242,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private var binaryGroup: PIFGroupBuilder!
-    private let executableTargetProductMap: [ResolvedTarget: ResolvedProduct]
+    private let executableTargetProductMap: [ResolvedTarget.ID: ResolvedProduct]
 
     var isRootPackage: Bool { package.manifest.packageKind.isRoot }
 
@@ -247,21 +257,23 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "Package PIF Builder",
-            metadata: package.underlyingPackage.diagnosticsMetadata
+            metadata: package.underlying.diagnosticsMetadata
         )
 
-        executableTargetProductMap = try Dictionary(throwingUniqueKeysWithValues:
-            package.products.filter { $0.type == .executable }.map { ($0.mainTarget, $0) }
+        self.executableTargetProductMap = try Dictionary(
+            throwingUniqueKeysWithValues: package.products
+                .filter { $0.type == .executable }
+                .map { ($0.mainTarget.id, $0) }
         )
 
         super.init()
 
-        guid = package.pifProjectGUID
-        name = package.manifest.displayName // TODO: use identity instead?
-        path = package.path
-        projectDirectory = package.path
-        developmentRegion = package.manifest.defaultLocalization ?? "en"
-        binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
+        self.guid = package.pifProjectGUID
+        self.name = package.manifest.displayName // TODO: use identity instead?
+        self.path = package.path
+        self.projectDirectory = package.path
+        self.developmentRegion = package.manifest.defaultLocalization ?? "en"
+        self.binaryGroup = groupTree.addGroup(path: "/", sourceTree: .absolute, name: "Binaries")
 
         // Configure the project-wide build settings.  First we set those that are in common between the "Debug" and
         // "Release" configurations, and then we set those that are different.
@@ -271,13 +283,13 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SDKROOT] = "auto"
         settings[.SDK_VARIANT] = "auto"
         settings[.SKIP_INSTALL] = "YES"
-        settings[.MACOSX_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .macOS)
-        settings[.IPHONEOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .iOS)
-        settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst] = package.platforms.deploymentTarget(for: .macCatalyst)
-        settings[.TVOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .tvOS)
-        settings[.WATCHOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .watchOS)
-        settings[.XROS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .visionOS)
-        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .driverKit)
+        settings[.MACOSX_DEPLOYMENT_TARGET] = package.deploymentTarget(for: .macOS)
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = package.deploymentTarget(for: .iOS)
+        settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst] = package.deploymentTarget(for: .macCatalyst)
+        settings[.TVOS_DEPLOYMENT_TARGET] = package.deploymentTarget(for: .tvOS)
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = package.deploymentTarget(for: .watchOS)
+        settings[.XROS_DEPLOYMENT_TARGET] = package.deploymentTarget(for: .visionOS)
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = package.deploymentTarget(for: .driverKit)
         settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
         settings[.USE_HEADERMAP] = "NO"
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
@@ -301,7 +313,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         PlatformRegistry.default.knownPlatforms.forEach {
             guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
-            let supportedPlatform = package.platforms.getDerived(for: $0, usingXCTest: false)
+            let supportedPlatform = package.getSupportedPlatform(for: $0, usingXCTest: false)
             if !supportedPlatform.options.isEmpty {
                 settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
             }
@@ -429,12 +441,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
-        if mainTarget.underlyingTarget.type == .test {
-            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .macOS, usingXCTest: true)
-            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS, usingXCTest: true)
-            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS, usingXCTest: true)
-            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS, usingXCTest: true)
-            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .visionOS, usingXCTest: true)
+        if mainTarget.underlying.type == .test {
+            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .macOS, usingXCTest: true)
+            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .iOS, usingXCTest: true)
+            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .tvOS, usingXCTest: true)
+            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .watchOS, usingXCTest: true)
+            settings[.XROS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .visionOS, usingXCTest: true)
         }
 
         if product.type == .executable {
@@ -456,13 +468,15 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
         }
 
-        if let clangTarget = mainTarget.underlyingTarget as? ClangTarget {
+        if let clangTarget = mainTarget.underlying as? ClangTarget {
             // Let the target itself find its own headers.
             settings[.HEADER_SEARCH_PATHS, default: ["$(inherited)"]].append(clangTarget.includeDir.pathString)
             settings[.GCC_C_LANGUAGE_STANDARD] = clangTarget.cLanguageStandard
             settings[.CLANG_CXX_LANGUAGE_STANDARD] = clangTarget.cxxLanguageStandard
-        } else if let swiftTarget = mainTarget.underlyingTarget as? SwiftTarget {
+        } else if let swiftTarget = mainTarget.underlying as? SwiftTarget {
             settings[.SWIFT_VERSION] = swiftTarget.swiftVersion.description
+
+            settings.addCommonSwiftSettings(package: self.package, target: mainTarget, parameters: self.parameters)
         }
 
         if let resourceBundle = addResourceBundle(for: mainTarget, in: pifTarget) {
@@ -477,7 +491,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         var impartedSettings = PIF.BuildSettings()
         try addManifestBuildSettings(
-            from: mainTarget.underlyingTarget,
+            from: mainTarget.underlying,
             debugSettings: &debugSettings,
             releaseSettings: &releaseSettings,
             impartedSettings: &impartedSettings
@@ -493,7 +507,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let executableName: String
         let productType: PIF.Target.ProductType
         if product.type == .library(.dynamic) {
-            if parameters.shouldCreateDylibForDynamicProducts {
+            if self.parameters.shouldCreateDylibForDynamicProducts {
                 pifTargetProductName = "lib\(product.name).dylib"
                 executableName = pifTargetProductName
                 productType = .dynamicLibrary
@@ -512,7 +526,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // depend on. XCBuild will not produce a separate artifact for a package product, but will instead consider any
         // dependency on the package product to be a dependency on the whole set of targets on which the package product
         // depends.
-        let pifTarget = addTarget(
+        let pifTarget = self.addTarget(
             guid: product.pifTargetGUID,
             name: targetName(for: product),
             productType: productType,
@@ -534,7 +548,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         var settings = PIF.BuildSettings()
-        let usesUnsafeFlags = dependencies.contains { $0.target?.underlyingTarget.usesUnsafeFlags == true }
+        let usesUnsafeFlags = dependencies.contains { $0.target?.underlying.usesUnsafeFlags == true }
         settings[.USES_SWIFTPM_UNSAFE_FLAGS] = usesUnsafeFlags ? "YES" : "NO"
 
         // If there are no system modules in the dependency graph, mark the target as extension-safe.
@@ -612,7 +626,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let moduleMapFileContents: String?
         let shouldImpartModuleMap: Bool
 
-        if let clangTarget = target.underlyingTarget as? ClangTarget {
+        if let clangTarget = target.underlying as? ClangTarget {
             // Let the target itself find its own headers.
             settings[.HEADER_SEARCH_PATHS, default: ["$(inherited)"]].append(clangTarget.includeDir.pathString)
             settings[.GCC_C_LANGUAGE_STANDARD] = clangTarget.cLanguageStandard
@@ -637,11 +651,13 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 moduleMapFileContents = nil
                 shouldImpartModuleMap = false
             }
-        } else if let swiftTarget = target.underlyingTarget as? SwiftTarget {
+        } else if let swiftTarget = target.underlying as? SwiftTarget {
             settings[.SWIFT_VERSION] = swiftTarget.swiftVersion.description
             // Generate ObjC compatibility header for Swift library targets.
             settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
             settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(target.name)-Swift.h"
+
+            settings.addCommonSwiftSettings(package: self.package, target: target, parameters: self.parameters)
 
             moduleMapFileContents = """
                 module \(target.c99name) {
@@ -666,7 +682,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
         impartedSettings[.OTHER_LDRFLAGS] = []
 
-        if target.underlyingTarget.isCxx {
+        if target.underlying.isCxx {
             impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-lc++")
         }
 
@@ -690,7 +706,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var releaseSettings = settings
 
         try addManifestBuildSettings(
-            from: target.underlyingTarget,
+            from: target.underlying,
             debugSettings: &debugSettings,
             releaseSettings: &releaseSettings,
             impartedSettings: &impartedSettings
@@ -703,7 +719,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     }
 
     private func addSystemTarget(for target: ResolvedTarget) throws {
-        guard let systemTarget = target.underlyingTarget as? SystemLibraryTarget else {
+        guard let systemTarget = target.underlying as? SystemLibraryTarget else {
             throw InternalError("unexpected target type")
         }
 
@@ -781,17 +797,17 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(
         to target: ResolvedTarget,
         in pifTarget: PIFTargetBuilder,
-        conditions: [PackageConditionProtocol],
+        conditions: [PackageCondition],
         linkProduct: Bool
     ) {
         // Only add the binary target as a library when we want to link against the product.
-        if let binaryTarget = target.underlyingTarget as? BinaryTarget {
+        if let binaryTarget = target.underlying as? BinaryTarget {
             let ref = binaryGroup.addFileReference(path: binaryTarget.artifactPath.pathString)
             pifTarget.addLibrary(ref, platformFilters: conditions.toPlatformFilters())
         } else {
             // If this is an executable target, the dependency should be to the PIF target created from the its
             // product, as we don't have PIF targets corresponding to executable targets.
-            let targetGUID = executableTargetProductMap[target]?.pifTargetGUID ?? target.pifTargetGUID
+            let targetGUID = executableTargetProductMap[target.id]?.pifTargetGUID ?? target.pifTargetGUID
             let linkProduct = linkProduct && target.type != .systemModule && target.type != .executable
             pifTarget.addDependency(
                 toTargetWithGUID: targetGUID,
@@ -803,7 +819,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private func addDependency(
         to product: ResolvedProduct,
         in pifTarget: PIFTargetBuilder,
-        conditions: [PackageConditionProtocol],
+        conditions: [PackageCondition],
         linkProduct: Bool
     ) {
         pifTarget.addDependency(
@@ -814,7 +830,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     }
 
     private func addResourceBundle(for target: ResolvedTarget, in pifTarget: PIFTargetBuilder) -> String? {
-        guard !target.underlyingTarget.resources.isEmpty else {
+        guard !target.underlying.resources.isEmpty else {
             return nil
         }
 
@@ -845,7 +861,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         resourcesTarget.addBuildConfiguration(name: "Release", settings: settings)
 
         let coreDataFileTypes = [XCBuildFileType.xcdatamodeld, .xcdatamodel].flatMap { $0.fileTypes }
-        for resource in target.underlyingTarget.resources {
+        for resource in target.underlying.resources {
             // FIXME: Handle rules here.
             let resourceFile = groupTree.addFileReference(
                 path: resource.path.pathString,
@@ -1378,7 +1394,7 @@ extension ResolvedProduct {
     var pifTargetGUID: PIF.GUID { "PACKAGE-PRODUCT:\(name)" }
 
     var mainTarget: ResolvedTarget {
-        targets.first { $0.type == underlyingProduct.type.targetType }!
+        targets.first { $0.type == underlying.type.targetType }!
     }
 
     /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
@@ -1417,9 +1433,15 @@ extension Array where Element == ResolvedTarget.Dependency {
     }
 }
 
-extension SupportedPlatforms {
+extension ResolvedPackage {
     func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
-        return self.getDerived(for: platform, usingXCTest: usingXCTest).version.versionString
+        return self.getSupportedPlatform(for: platform, usingXCTest: usingXCTest).version.versionString
+    }
+}
+
+extension ResolvedTarget {
+    func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
+        return self.getSupportedPlatform(for: platform, usingXCTest: usingXCTest).version.versionString
     }
 }
 
@@ -1498,7 +1520,7 @@ private extension BuildSettings.AssignmentTable {
 
 private extension BuildSettings.Assignment {
     var configurations: [BuildConfiguration] {
-        if let configurationCondition = conditions.lazy.compactMap({ $0 as? ConfigurationCondition }).first {
+        if let configurationCondition = conditions.lazy.compactMap(\.configurationCondition).first {
             return [configurationCondition.configuration]
         } else {
             return BuildConfiguration.allCases
@@ -1506,7 +1528,7 @@ private extension BuildSettings.Assignment {
     }
 
     var pifPlatforms: [PIF.BuildSettings.Platform]? {
-        if let platformsCondition = conditions.lazy.compactMap({ $0 as? PlatformsCondition }).first {
+        if let platformsCondition = conditions.lazy.compactMap(\.platformsCondition).first {
             return platformsCondition.platforms.compactMap { PIF.BuildSettings.Platform(rawValue: $0.name) }
         } else {
             return nil
@@ -1537,10 +1559,10 @@ public struct DelayedImmutable<Value> {
     }
 }
 
-extension Array where Element == PackageConditionProtocol {
+extension [PackageCondition] {
     func toPlatformFilters() -> [PIF.PlatformFilter] {
         var result: [PIF.PlatformFilter] = []
-        let platformConditions = self.compactMap{ $0 as? PlatformsCondition }.flatMap{ $0.platforms }
+        let platformConditions = self.compactMap(\.platformsCondition).flatMap { $0.platforms }
 
         for condition in platformConditions {
             switch condition {
@@ -1643,10 +1665,26 @@ extension PIF.PlatformFilter {
         .init(platform: "openbsd"),
     ]
 
-    /// Web Assembly platform filters.
+    /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
     ]
+}
+
+private extension PIF.BuildSettings {
+    mutating func addCommonSwiftSettings(
+        package: ResolvedPackage,
+        target: ResolvedTarget,
+        parameters: PIFBuilderParameters
+    ) {
+        let packageOptions = package.packageNameArgument(
+            target: target,
+            isPackageNameSupported: parameters.isPackageAccessModifierSupported
+        )
+        if !packageOptions.isEmpty {
+            self[.OTHER_SWIFT_FLAGS] = packageOptions
+        }
+    }
 }
 
 private extension PIF.BuildSettings.Platform {

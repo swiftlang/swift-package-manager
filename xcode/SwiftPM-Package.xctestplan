@@ -191,6 +191,22 @@
         "identifier" : "XCBuildSupportTests",
         "name" : "XCBuildSupportTests"
       }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "LLBuildManifestTests",
+        "name" : "LLBuildManifestTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SourceKitLSPAPITests",
+        "name" : "SourceKitLSPAPITests"
+      }
     }
   ],
   "version" : 1

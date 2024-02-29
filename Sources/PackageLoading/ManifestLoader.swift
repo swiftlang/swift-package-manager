@@ -13,8 +13,9 @@
 import _Concurrency
 import Basics
 import Dispatch
-@_implementationOnly import Foundation
+import Foundation
 import PackageModel
+import SourceControl
 
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
@@ -231,6 +232,39 @@ extension ManifestLoaderProtocol {
                 completion(.failure(error))
             }
         }
+    }    
+
+    public func load(
+        packagePath: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        currentToolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest {
+        try await withCheckedThrowingContinuation {
+            self.load(
+                packagePath: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion,
+                currentToolsVersion: currentToolsVersion,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue,
+                completion: $0.resume(with:)
+            )
+        }
     }
 }
 
@@ -293,7 +327,41 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.evaluationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
         self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
     }
-
+    
+    public func load(
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest {
+        try await safe_async {
+            self.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue, 
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
+    
+    @available(*, noasync, message: "Use the async alternative")
     public func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
@@ -409,6 +477,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
         packageLocation: String,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
@@ -453,6 +522,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             v4: manifestJSON,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
+            packagePath: packagePath,
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem
@@ -497,7 +567,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageLocation: packageLocation,
                 manifestPath: path,
                 toolsVersion: toolsVersion,
-                env: ProcessEnv.vars,
+                env: ProcessEnv.cachableVars,
                 swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
@@ -560,6 +630,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     evaluationResult,
                     packageIdentity: packageIdentity,
                     packageKind: packageKind,
+                    packagePath: path.parentDirectory,
                     packageLocation: packageLocation,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
@@ -602,6 +673,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         evaluationResult,
                         packageIdentity: packageIdentity,
                         packageKind: packageKind,
+                        packagePath: path.parentDirectory,
                         packageLocation: packageLocation,
                         toolsVersion: toolsVersion,
                         identityResolver: identityResolver,
@@ -920,7 +992,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                         do {
                             let packageDirectory = manifestPath.parentDirectory.pathString
-                            let contextModel = ContextModel(packageDirectory: packageDirectory)
+
+                            let gitInformation: ContextModel.GitInformation?
+                            do {
+                                let repo = GitRepository(path: manifestPath.parentDirectory)
+                                gitInformation = ContextModel.GitInformation(
+                                    currentTag: repo.getCurrentTag(),
+                                    currentCommit: try repo.getCurrentRevision().identifier,
+                                    hasUncommittedChanges: repo.hasUncommittedChanges()
+                                )
+                            } catch {
+                                gitInformation = nil
+                            }
+
+                            let contextModel = ContextModel(
+                                packageDirectory: packageDirectory,
+                                gitInformation: gitInformation
+                            )
                             cmd += ["-context", try contextModel.encode()]
                         } catch {
                             return completion(.failure(error))
@@ -930,7 +1018,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // This provides some safety against arbitrary code execution when parsing manifest files.
                         // We only allow the permissions which are absolutely necessary.
                         if self.isManifestSandboxEnabled {
-                            let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                            let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
                                 cmd = try Sandbox.apply(command: cmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
@@ -1043,14 +1131,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         for toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
+        let modulesPath = self.toolchain.swiftPMLibrariesLocation.manifestModulesPath
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if runtimePath.extension == "framework" {
-            cmd += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
+        if modulesPath.extension == "framework" {
+            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
         } else {
-            cmd += ["-I", runtimePath.pathString]
+            cmd += ["-I", modulesPath.pathString]
         }
       #if os(macOS)
         if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
@@ -1208,5 +1296,11 @@ extension ManifestLoader {
             action = nil
             return next
         }
+    }
+}
+
+extension ProcessEnv {
+    fileprivate static var cachableVars: EnvironmentVariables {
+        Self.vars.cachable
     }
 }

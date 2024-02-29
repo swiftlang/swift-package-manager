@@ -28,6 +28,7 @@ import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
+import struct PackageModel.LibraryMetadata
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -60,6 +61,8 @@ extension Workspace {
 
         private let workspace: Workspace
 
+        private let availableLibraries: [LibraryMetadata]
+
         private let observabilityScope: ObservabilityScope
 
         private let _dependencies: LoadableResult<(
@@ -78,17 +81,20 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
+            availableLibraries: [LibraryMetadata],
             observabilityScope: ObservabilityScope
         ) {
             self.root = root
             self.dependencies = dependencies
             self.workspace = workspace
+            self.availableLibraries = availableLibraries
             self.observabilityScope = observabilityScope
             self._dependencies = LoadableResult {
                 try Self.computeDependencies(
                     root: root,
                     dependencies: dependencies,
                     workspace: workspace,
+                    availableLibraries: availableLibraries,
                     observabilityScope: observabilityScope
                 )
             }
@@ -160,6 +166,7 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
+            availableLibraries: [LibraryMetadata],
             observabilityScope: ObservabilityScope
         ) throws
             -> (
@@ -175,73 +182,6 @@ extension Workspace {
                     }
             )
 
-            var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
-            let inputNodes: [GraphLoadingNode] = root.packages.map { identity, package in
-                inputIdentities.append(package.reference)
-                let node = GraphLoadingNode(
-                    identity: identity,
-                    manifest: package.manifest,
-                    productFilter: .everything,
-                    fileSystem: workspace.fileSystem
-                )
-                return node
-            } + root.dependencies.compactMap { dependency in
-                let package = dependency.packageRef
-                inputIdentities.append(package)
-                return manifestsMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(
-                        identity: dependency.identity,
-                        manifest: manifest,
-                        productFilter: dependency.productFilter,
-                        fileSystem: workspace.fileSystem
-                    )
-                }
-            }
-
-            var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
-            _ = transitiveClosure(inputNodes) { node in
-                node.manifest.dependenciesRequired(for: node.productFilter).compactMap { dependency in
-                    let package = dependency.packageRef
-                    let (inserted, index) = requiredIdentities.append(package)
-                    if !inserted {
-                        let existing = requiredIdentities.elements[index]
-                        // if identity already tracked, compare the locations and used the preferred variant
-                        if existing.canonicalLocation == package.canonicalLocation {
-                            // same literal location is fine
-                            if existing.locationString != package.locationString {
-                                let preferred = [existing, package].sorted(by: {
-                                    $0.locationString > $1.locationString
-                                }).first! // safe
-                                observabilityScope.emit(debug: """
-                                similar variants of package '\(package.identity)' \
-                                found at '\(package.locationString)' and '\(existing.locationString)'. \
-                                using preferred variant '\(preferred.locationString)'
-                                """)
-                                if preferred.locationString != existing.locationString {
-                                    requiredIdentities.remove(existing)
-                                    requiredIdentities.insert(preferred, at: index)
-                                }
-                            }
-                        } else {
-                            observabilityScope.emit(debug: """
-                            '\(package.identity)' from '\(package.locationString)' was omitted \
-                            from required dependencies because it has the same identity as the \
-                            one from '\(existing.locationString)'
-                            """)
-                        }
-                    }
-                    return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(
-                            identity: dependency.identity,
-                            manifest: manifest,
-                            productFilter: dependency.productFilter,
-                            fileSystem: workspace.fileSystem
-                        )
-                    }
-                }
-            }
-            requiredIdentities = inputIdentities.union(requiredIdentities)
-
             let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
                 // FIXME: adding this guard to ensure refactoring is correct 9/21
                 // we only care about remoteSourceControl for this validation. it would otherwise trigger for
@@ -256,6 +196,100 @@ extension Workspace {
                 }
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
             })
+
+            let identitiesAvailableInSDK = availableLibraries.flatMap {
+                $0.identities.map {
+                    $0.ref
+                }.filter {
+                    // We "trust the process" here, if an identity from the SDK is available, filter it.
+                    !availableIdentities.contains($0)
+                }.map {
+                    $0.identity
+                }
+            }
+
+            var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
+            let inputNodes: [GraphLoadingNode] = root.packages.map { identity, package in
+                inputIdentities.append(package.reference)
+                let node = GraphLoadingNode(
+                    identity: identity,
+                    manifest: package.manifest,
+                    productFilter: .everything
+                )
+                return node
+            } + root.dependencies.compactMap { dependency in
+                let package = dependency.packageRef
+                inputIdentities.append(package)
+                return manifestsMap[dependency.identity].map { manifest in
+                    GraphLoadingNode(
+                        identity: dependency.identity,
+                        manifest: manifest,
+                        productFilter: dependency.productFilter
+                    )
+                }
+            }
+
+            let topLevelDependencies = root.packages.flatMap { $1.manifest.dependencies.map(\.packageRef) }
+
+            var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
+            _ = transitiveClosure(inputNodes) { node in
+                node.manifest.dependenciesRequired(for: node.productFilter).compactMap { dependency in
+                    let package = dependency.packageRef
+                    let (inserted, index) = requiredIdentities.append(package)
+                    if !inserted {
+                        let existing = requiredIdentities.elements[index]
+                        // if identity already tracked, compare the locations and used the preferred variant
+                        if existing.canonicalLocation == package.canonicalLocation {
+                            // same literal location is fine
+                            if existing.locationString != package.locationString {
+                                // we prefer the top level dependencies
+                                if topLevelDependencies.contains(where: {
+                                    $0.locationString == existing.locationString
+                                }) {
+                                    observabilityScope.emit(debug: """
+                                    similar variants of package '\(package.identity)' \
+                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                    using preferred root variant '\(existing.locationString)'
+                                    """)
+                                } else {
+                                    let preferred = [existing, package].sorted(by: {
+                                        $0.locationString > $1.locationString
+                                    }).first! // safe
+                                    observabilityScope.emit(debug: """
+                                    similar variants of package '\(package.identity)' \
+                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                    using preferred variant '\(preferred.locationString)'
+                                    """)
+                                    if preferred.locationString != existing.locationString {
+                                        requiredIdentities.remove(existing)
+                                        requiredIdentities.insert(preferred, at: index)
+                                    }
+                                }
+                            }
+                        } else {
+                            observabilityScope.emit(debug: """
+                            '\(package.identity)' from '\(package.locationString)' was omitted \
+                            from required dependencies because it has the same identity as the \
+                            one from '\(existing.locationString)'
+                            """)
+                        }
+                    }
+                    return manifestsMap[dependency.identity].map { manifest in
+                        GraphLoadingNode(
+                            identity: dependency.identity,
+                            manifest: manifest,
+                            productFilter: dependency.productFilter
+                        )
+                    }
+                }
+            }
+            requiredIdentities = inputIdentities.union(requiredIdentities)
+
+            let identitiesToFilter = requiredIdentities.filter {
+                return identitiesAvailableInSDK.contains($0.identity)
+            }
+            requiredIdentities = requiredIdentities.subtracting(identitiesToFilter)
+
             // We should never have loaded a manifest we don't need.
             assert(
                 availableIdentities.isSubset(of: requiredIdentities),
@@ -395,8 +429,27 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
+        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
+        let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
+            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
+            // file)
+            if automaticallyAddManagedDependencies {
+                try refs.forEach { ref in
+                    // Since we are creating managed dependencies based on the resolved file in this mode, but local
+                    // packages aren't part of that file, they will be missing from it. So we're eagerly adding them
+                    // here, but explicitly don't add any that are overridden by a root with the same identity since
+                    // that would lead to loading the given package twice, once as a root and once as a dependency
+                    // which violates various assumptions.
+                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
+                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
+                    }
+                }
+                observabilityScope.trap { try self.state.save() }
+            }
+        }
+
         // Utility Just because a raw tuple cannot be hashable.
         struct Key: Hashable {
             let identity: PackageIdentity
@@ -418,19 +471,24 @@ extension Workspace {
         }
 
         // Validates that all the managed dependencies are still present in the file system.
-        self.fixManagedDependencies(observabilityScope: observabilityScope)
+        self.fixManagedDependencies(
+            availableLibraries: availableLibraries,
+            observabilityScope: observabilityScope
+        )
         guard !observabilityScope.errorsReported else {
             // return partial results
             return DependencyManifests(
                 root: root,
                 dependencies: [],
                 workspace: self,
+                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         }
 
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map(\.packageRef)
+        try prepopulateManagedDependencies(rootDependencies)
         let rootDependenciesManifests = try temp_await { self.loadManagedManifests(
             for: rootDependencies,
             observabilityScope: observabilityScope,
@@ -462,21 +520,7 @@ extension Workspace {
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
-            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved
-            // file)
-            if automaticallyAddManagedDependencies {
-                try dependenciesToLoad.forEach { ref in
-                    // Since we are creating managed dependencies based on the resolved file in this mode, but local
-                    // packages aren't part of that file, they will be missing from it. So we're eagerly adding them
-                    // here, but explicitly don't add any that are overridden by a root with the same identity since
-                    // that would lead to loading the given package twice, once as a root and once as a dependency 
-                    // which violates various assumptions.
-                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
-                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
-                    }
-                }
-                observabilityScope.trap { try self.state.save() }
-            }
+            try prepopulateManagedDependencies(dependenciesToLoad)
             let dependenciesManifests = try temp_await { self.loadManagedManifests(
                 for: dependenciesToLoad,
                 observabilityScope: observabilityScope,
@@ -511,6 +555,7 @@ extension Workspace {
                 root: root,
                 dependencies: [],
                 workspace: self,
+                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         }
@@ -571,6 +616,7 @@ extension Workspace {
             root: root,
             dependencies: dependencies,
             workspace: self,
+            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -762,7 +808,10 @@ extension Workspace {
     /// If some checkout dependency is removed form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    private func fixManagedDependencies(observabilityScope: ObservabilityScope) {
+    private func fixManagedDependencies(
+        availableLibraries: [LibraryMetadata],
+        observabilityScope: ObservabilityScope
+    ) {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
             try? self.state.reset()
@@ -831,7 +880,12 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try self.unedit(dependency: dependency, forceRemove: true, observabilityScope: observabilityScope)
+                    try self.unedit(
+                        dependency: dependency,
+                        forceRemove: true,
+                        availableLibraries: availableLibraries,
+                        observabilityScope: observabilityScope
+                    )
 
                     observabilityScope
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))

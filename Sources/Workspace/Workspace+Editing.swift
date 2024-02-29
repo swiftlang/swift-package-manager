@@ -15,6 +15,7 @@ import class Basics.ObservabilityScope
 import struct Basics.RelativePath
 import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
+import struct PackageModel.LibraryMetadata
 import struct SourceControl.Revision
 import class TSCBasic.InMemoryFileSystem
 
@@ -169,6 +170,7 @@ extension Workspace {
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
+        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws {
         // Compute if we need to force remove.
@@ -189,11 +191,11 @@ extension Workspace {
 
         // Form the edit working repo path.
         let path = self.location.editSubdirectory(for: dependency)
-        // Check for uncommited and unpushed changes if force removal is off.
+        // Check for uncommitted and unpushed changes if force removal is off.
         if !forceRemove {
             let workingCopy = try repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
-                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
+                throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: path)
             }
             guard try !workingCopy.hasUnpushedCommits() else {
                 throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
@@ -233,6 +235,7 @@ extension Workspace {
             try self._resolve(
                 root: root,
                 explicitProduct: .none,
+                availableLibraries: availableLibraries,
                 resolvedFileStrategy: .update(forceResolution: false),
                 observabilityScope: observabilityScope
             )

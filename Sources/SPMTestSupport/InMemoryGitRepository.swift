@@ -21,7 +21,7 @@ import struct TSCBasic.FileSystemError
 import class TSCBasic.InMemoryFileSystem
 
 /// The error encountered during in memory git repository operations.
-public enum InMemoryGitRepositoryError: Swift.Error {
+package enum InMemoryGitRepositoryError: Swift.Error {
     case unknownRevision
     case unknownTag
     case tagAlreadyPresent
@@ -34,9 +34,9 @@ public enum InMemoryGitRepositoryError: Swift.Error {
 /// repository path, as well as on the file system interface of this class.
 /// Note: This class is intended to be used as testing infrastructure only.
 /// Note: This class is not thread safe yet.
-public final class InMemoryGitRepository {
+package final class InMemoryGitRepository {
     /// The revision identifier.
-    public typealias RevisionIdentifier = String
+    package typealias RevisionIdentifier = String
 
     /// A struct representing a revision state. Minimally it contains a hash identifier for the revision
     /// and the file system state.
@@ -62,7 +62,7 @@ public final class InMemoryGitRepository {
     /// The map containing tag name to revision identifier values.
     fileprivate var tagsMap: [String: RevisionIdentifier] = [:]
 
-    /// Indicates whether there are any uncommited changes in the repository.
+    /// Indicates whether there are any uncommitted changes in the repository.
     fileprivate var isDirty = false
 
     /// The path at which this repository is located.
@@ -74,7 +74,7 @@ public final class InMemoryGitRepository {
     private let lock = NSLock()
 
     /// Create a new repository at the given path and filesystem.
-    public init(path: AbsolutePath, fs: InMemoryFileSystem) {
+    package init(path: AbsolutePath, fs: InMemoryFileSystem) {
         self.path = path
         self.fs = fs
         // Point head to a new revision state with empty hash to begin with.
@@ -82,14 +82,14 @@ public final class InMemoryGitRepository {
     }
 
     /// The array of current tags in the repository.
-    public func getTags() throws -> [String] {
+    package func getTags() throws -> [String] {
         self.lock.withLock {
             Array(self.tagsMap.keys)
         }
     }
 
     /// The list of revisions in the repository.
-    public var revisions: [RevisionIdentifier] {
+    package var revisions: [RevisionIdentifier] {
         self.lock.withLock {
             Array(self.history.keys)
         }
@@ -112,7 +112,7 @@ public final class InMemoryGitRepository {
 
     /// Commits the current state of the repository filesystem and returns the commit identifier.
     @discardableResult
-    public func commit(hash: String? = nil) throws -> String {
+    package func commit(hash: String? = nil) throws -> String {
         // Create a fake hash for this commit.
         let hash = hash ?? String((UUID().uuidString + UUID().uuidString).prefix(40))
         self.lock.withLock {
@@ -128,7 +128,7 @@ public final class InMemoryGitRepository {
     }
 
     /// Checks out the provided revision.
-    public func checkout(revision: RevisionIdentifier) throws {
+    package func checkout(revision: RevisionIdentifier) throws {
         guard let state = (self.lock.withLock { history[revision] }) else {
             throw InMemoryGitRepositoryError.unknownRevision
         }
@@ -142,7 +142,7 @@ public final class InMemoryGitRepository {
     }
 
     /// Checks out a given tag.
-    public func checkout(tag: String) throws {
+    package func checkout(tag: String) throws {
         guard let hash = (self.lock.withLock { tagsMap[tag] }) else {
             throw InMemoryGitRepositoryError.unknownTag
         }
@@ -191,7 +191,7 @@ public final class InMemoryGitRepository {
     }
 
     /// Tag the current HEAD with the given name.
-    public func tag(name: String) throws {
+    package func tag(name: String) throws {
         guard (self.lock.withLock { self.tagsMap[name] }) == nil else {
             throw InMemoryGitRepositoryError.tagAlreadyPresent
         }
@@ -200,124 +200,124 @@ public final class InMemoryGitRepository {
         }
     }
 
-    public func hasUncommittedChanges() -> Bool {
+    package func hasUncommittedChanges() -> Bool {
         self.lock.withLock {
             isDirty
         }
     }
 
-    public func fetch() throws {
+    package func fetch() throws {
         // TODO.
     }
 }
 
 extension InMemoryGitRepository: FileSystem {
-    public func exists(_ path: TSCAbsolutePath, followSymlink: Bool) -> Bool {
+    package func exists(_ path: TSCAbsolutePath, followSymlink: Bool) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.exists(path, followSymlink: followSymlink)
         }
     }
 
-    public func isDirectory(_ path: TSCAbsolutePath) -> Bool {
+    package func isDirectory(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isDirectory(path)
         }
     }
 
-    public func isFile(_ path: TSCAbsolutePath) -> Bool {
+    package func isFile(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isFile(path)
         }
     }
 
-    public func isSymlink(_ path: TSCAbsolutePath) -> Bool {
+    package func isSymlink(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isSymlink(path)
         }
     }
 
-    public func isExecutableFile(_ path: TSCAbsolutePath) -> Bool {
+    package func isExecutableFile(_ path: TSCAbsolutePath) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.isExecutableFile(path)
         }
     }
 
-    public func isReadable(_ path: TSCAbsolutePath) -> Bool {
+    package func isReadable(_ path: TSCAbsolutePath) -> Bool {
         return self.exists(path)
     }
 
-    public func isWritable(_ path: TSCAbsolutePath) -> Bool {
+    package func isWritable(_ path: TSCAbsolutePath) -> Bool {
         return false
     }
 
-    public var currentWorkingDirectory: TSCAbsolutePath? {
+    package var currentWorkingDirectory: TSCAbsolutePath? {
         return .root
     }
 
-    public func changeCurrentWorkingDirectory(to path: TSCAbsolutePath) throws {
+    package func changeCurrentWorkingDirectory(to path: TSCAbsolutePath) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    public var homeDirectory: TSCAbsolutePath {
+    package var homeDirectory: TSCAbsolutePath {
         fatalError("Unsupported")
     }
 
-    public var cachesDirectory: TSCAbsolutePath? {
+    package var cachesDirectory: TSCAbsolutePath? {
         fatalError("Unsupported")
     }
 
-    public var tempDirectory: TSCAbsolutePath {
+    package var tempDirectory: TSCAbsolutePath {
         fatalError("Unsupported")
     }
 
-    public func getDirectoryContents(_ path: TSCAbsolutePath) throws -> [String] {
+    package func getDirectoryContents(_ path: TSCAbsolutePath) throws -> [String] {
         try self.lock.withLock {
             try self.head.fileSystem.getDirectoryContents(path)
         }
     }
 
-    public func createDirectory(_ path: TSCAbsolutePath, recursive: Bool) throws {
+    package func createDirectory(_ path: TSCAbsolutePath, recursive: Bool) throws {
         try self.lock.withLock {
             try self.head.fileSystem.createDirectory(path, recursive: recursive)
         }
     }
     
-    public func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
+    package func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
         throw FileSystemError(.unsupported, path)
     }
 
-    public func readFileContents(_ path: TSCAbsolutePath) throws -> ByteString {
+    package func readFileContents(_ path: TSCAbsolutePath) throws -> ByteString {
         try self.lock.withLock {
             return try head.fileSystem.readFileContents(path)
         }
     }
 
-    public func writeFileContents(_ path: TSCAbsolutePath, bytes: ByteString) throws {
+    package func writeFileContents(_ path: TSCAbsolutePath, bytes: ByteString) throws {
         try self.lock.withLock {
             try self.head.fileSystem.writeFileContents(path, bytes: bytes)
             self.isDirty = true
         }
     }
 
-    public func removeFileTree(_ path: TSCAbsolutePath) throws {
+    package func removeFileTree(_ path: TSCAbsolutePath) throws {
         try self.lock.withLock {
             try self.head.fileSystem.removeFileTree(path)
         }
     }
 
-    public func chmod(_ mode: FileMode, path: TSCAbsolutePath, options: Set<FileMode.Option>) throws {
+    package func chmod(_ mode: FileMode, path: TSCAbsolutePath, options: Set<FileMode.Option>) throws {
         try self.lock.withLock {
             try self.head.fileSystem.chmod(mode, path: path, options: options)
         }
     }
 
-    public func copy(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
+    package func copy(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         try self.lock.withLock {
             try self.head.fileSystem.copy(from: sourcePath, to: destinationPath)
         }
     }
 
-    public func move(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
+    package func move(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
         try self.lock.withLock {
             try self.head.fileSystem.move(from: sourcePath, to: destinationPath)
         }
@@ -325,7 +325,7 @@ extension InMemoryGitRepository: FileSystem {
 }
 
 extension InMemoryGitRepository: Repository {
-    public func resolveRevision(tag: String) throws -> Revision {
+    package func resolveRevision(tag: String) throws -> Revision {
         try self.lock.withLock {
             guard let revision = self.tagsMap[tag] else {
                 throw InternalError("unknown tag \(tag)")
@@ -334,19 +334,19 @@ extension InMemoryGitRepository: Repository {
         }
     }
 
-    public func resolveRevision(identifier: String) throws -> Revision {
+    package func resolveRevision(identifier: String) throws -> Revision {
         self.lock.withLock {
             return Revision(identifier: self.tagsMap[identifier] ?? identifier)
         }
     }
 
-    public func exists(revision: Revision) -> Bool {
+    package func exists(revision: Revision) -> Bool {
         self.lock.withLock {
             return self.history[revision.identifier] != nil
         }
     }
 
-    public func openFileView(revision: Revision) throws -> FileSystem {
+    package func openFileView(revision: Revision) throws -> FileSystem {
         try self.lock.withLock {
             guard let entry = self.history[revision.identifier] else {
                 throw InternalError("unknown revision \(revision)")
@@ -355,70 +355,70 @@ extension InMemoryGitRepository: Repository {
         }
     }
 
-    public func openFileView(tag: String) throws -> FileSystem {
+    package func openFileView(tag: String) throws -> FileSystem {
         let revision = try self.resolveRevision(tag: tag)
         return try self.openFileView(revision: revision)
     }
 }
 
 extension InMemoryGitRepository: WorkingCheckout {
-    public func getCurrentRevision() throws -> Revision {
+    package func getCurrentRevision() throws -> Revision {
         self.lock.withLock {
             return Revision(identifier: self.head.hash)
         }
     }
 
-    public func checkout(revision: Revision) throws {
+    package func checkout(revision: Revision) throws {
         // will lock
         try checkout(revision: revision.identifier)
     }
 
-    public func hasUnpushedCommits() throws -> Bool {
+    package func hasUnpushedCommits() throws -> Bool {
         return false
     }
 
-    public func checkout(newBranch: String) throws {
+    package func checkout(newBranch: String) throws {
         self.lock.withLock {
             self.history[newBranch] = head
         }
     }
 
-    public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
+    package func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
         return true
     }
 
-    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+    package func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
         return [false]
     }
 }
 
-// Public mutation of `InMemoryGitRepository` is protected with a lock.
+// package mutation of `InMemoryGitRepository` is protected with a lock.
 extension InMemoryGitRepository: @unchecked Sendable {}
 
 /// This class implement provider for in memory git repository.
-public final class InMemoryGitRepositoryProvider: RepositoryProvider {
+package final class InMemoryGitRepositoryProvider: RepositoryProvider {
     /// Contains the repository added to this provider.
-    public var specifierMap = ThreadSafeKeyValueStore<RepositorySpecifier, InMemoryGitRepository>()
+    package var specifierMap = ThreadSafeKeyValueStore<RepositorySpecifier, InMemoryGitRepository>()
 
     /// Contains the repositories which are fetched using this provider.
-    public var fetchedMap = ThreadSafeKeyValueStore<AbsolutePath, InMemoryGitRepository>()
+    package var fetchedMap = ThreadSafeKeyValueStore<AbsolutePath, InMemoryGitRepository>()
 
     /// Contains the repositories which are checked out using this provider.
-    public var checkoutsMap = ThreadSafeKeyValueStore<AbsolutePath, InMemoryGitRepository>()
+    package var checkoutsMap = ThreadSafeKeyValueStore<AbsolutePath, InMemoryGitRepository>()
 
     /// Create a new provider.
-    public init() {
+    package init() {
     }
 
     /// Add a repository to this provider. Only the repositories added with this interface can be operated on
     /// with this provider.
-    public func add(specifier: RepositorySpecifier, repository: InMemoryGitRepository) {
+    package func add(specifier: RepositorySpecifier, repository: InMemoryGitRepository) {
         // Save the repository in specifier map.
         specifierMap[specifier] = repository
     }
 
     /// This method returns the stored reference to the git repository which was fetched or checked out.
-    public func openRepo(at path: AbsolutePath) throws -> InMemoryGitRepository {
+    package func openRepo(at path: AbsolutePath) throws -> InMemoryGitRepository {
         if let fetch = fetchedMap[path] {
             return fetch
         }
@@ -431,7 +431,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // MARK: - RepositoryProvider conformance
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
+    package func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         guard let repo = specifierMap[RepositorySpecifier(location: repository.location)] else {
             throw InternalError("unknown repo at \(repository.location)")
         }
@@ -439,25 +439,25 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
-    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
+    package func repositoryExists(at path: AbsolutePath) throws -> Bool {
         return fetchedMap[path] != nil
     }
 
-    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    package func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         guard let repo = fetchedMap[sourcePath] else {
             throw InternalError("unknown repo at \(sourcePath)")
         }
         fetchedMap[destinationPath] = try repo.copy()
     }
 
-    public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
+    package func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
         guard let repository = self.fetchedMap[path] else {
             throw InternalError("unknown repository at \(path)")
         }
         return repository
     }
 
-    public func createWorkingCopy(
+    package func createWorkingCopy(
         repository: RepositorySpecifier,
         sourcePath: AbsolutePath,
         at destinationPath: AbsolutePath,
@@ -471,26 +471,26 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return copy
     }
 
-    public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
+    package func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         return checkoutsMap.contains(path)
     }
 
-    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+    package func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         guard let checkout = checkoutsMap[path] else {
             throw InternalError("unknown checkout at \(path)")
         }
         return checkout
     }
 
-    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+    package func isValidDirectory(_ directory: AbsolutePath) throws -> Bool {
         return true
     }
 
-    public func isValidRefFormat(_ ref: String) -> Bool {
+    package func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         return true
     }
 
-    public func cancel(deadline: DispatchTime) throws {
+    package func cancel(deadline: DispatchTime) throws {
         // noop
     }
 }

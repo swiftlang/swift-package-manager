@@ -31,62 +31,10 @@ public actor AsyncWorkspace {
         case initial
     }
 
-    init(
-        // core
-        fileSystem: any FileSystem,
-        location: Workspace.Location,
-        authorizationProvider: (any AuthorizationProvider)?,
-        registryAuthorizationProvider: (any AuthorizationProvider)?,
-        configuration: WorkspaceConfiguration?,
-        cancellator: Cancellator?,
-        initializationWarningHandler: ((String) -> Void)?,
-        // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
-        customRegistriesConfiguration: RegistryConfiguration?,
-        customFingerprints: (any PackageFingerprintStorage)?,
-        customSigningEntities: (any PackageSigningEntityStorage)?,
-        skipSignatureValidation: Bool,
-        customMirrors: DependencyMirrors?,
-        customToolsVersion: ToolsVersion?,
-        customHostToolchain: UserToolchain?,
-        customManifestLoader: ManifestLoaderProtocol?,
-        customPackageContainerProvider: PackageContainerProvider?,
-        customRepositoryManager: RepositoryManager?,
-        customRepositoryProvider: RepositoryProvider?,
-        customRegistryClient: RegistryClient?,
-        customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
-        customIdentityResolver: IdentityResolver?,
-        customDependencyMapper: DependencyMapper?,
-        customChecksumAlgorithm: HashAlgorithm?
-    ) {
-        let (stream, continuation) = AsyncStream<Workspace.Event>.makeStream()
-        self.events = stream
-        self.workspace = Workspace(
-            fileSystem: fileSystem,
-            location: location,
-            authorizationProvider: authorizationProvider,
-            registryAuthorizationProvider: registryAuthorizationProvider,
-            configuration: configuration,
-            cancellator: cancellator,
-            initializationWarningHandler: initializationWarningHandler,
-            customRegistriesConfiguration: customRegistriesConfiguration,
-            customFingerprints: customFingerprints,
-            customSigningEntities: customSigningEntities,
-            skipSignatureValidation: skipSignatureValidation,
-            customMirrors: customMirrors,
-            customToolsVersion: customToolsVersion,
-            customHostToolchain: customHostToolchain,
-            customManifestLoader: customManifestLoader,
-            customPackageContainerProvider: customPackageContainerProvider,
-            customRepositoryManager: customRepositoryManager,
-            customRepositoryProvider: customRepositoryProvider,
-            customRegistryClient: customRegistryClient,
-            customBinaryArtifactsManager: customBinaryArtifactsManager,
-            customIdentityResolver: customIdentityResolver,
-            customDependencyMapper: customDependencyMapper,
-            customChecksumAlgorithm: customChecksumAlgorithm,
-            delegate: nil,
-            eventsContinuation: continuation
-        )
+    init(workspace: Workspace, state: AsyncWorkspace.State = State.initial, events: AsyncStream<Workspace.Event>) {
+        self.workspace = workspace
+        self.state = state
+        self.events = events
     }
 }
 

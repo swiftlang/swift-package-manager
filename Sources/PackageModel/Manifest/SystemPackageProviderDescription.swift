@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Represents system package providers.
-public enum SystemPackageProviderDescription: Equatable, Codable, Sendable {
+public enum SystemPackageProviderDescription: Hashable, Codable, Sendable {
     case brew([String])
     case apt([String])
     case yum([String])

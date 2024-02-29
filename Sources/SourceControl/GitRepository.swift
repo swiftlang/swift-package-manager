@@ -205,23 +205,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return localFileSystem.isDirectory(directory)
     }
 
-    public func isValidDirectory(_ directory: Basics.AbsolutePath) -> Bool {
-        do {
-            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return result == ".git" || result == "." || result == directory.pathString
-        } catch {
-            return false
-        }
+    public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
+        let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+        return result == ".git" || result == "." || result == directory.pathString
     }
 
-    /// Returns true if the git reference name is well formed.
-    public func isValidRefFormat(_ ref: String) -> Bool {
-        do {
-            _ = try self.git.run(["check-ref-format", "--allow-onelevel", ref])
-            return true
-        } catch {
-            return false
-        }
+    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+        let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        return remoteURL == repository.url
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
@@ -514,7 +505,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "remote",
                 failureMessage: "Couldn’t get the list of remotes"
             )
-            let remoteNames = remoteNamesOutput.split(separator: "\n").map(String.init)
+            let remoteNames = remoteNamesOutput.split(whereSeparator: { $0.isNewline }).map(String.init)
             return try remoteNames.map { name in
                 // For each remote get the url.
                 let url = try callGit(
@@ -538,7 +529,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         try self.cachedBranches.memoize {
             try self.lock.withLock {
                 let branches = try callGit("branch", "-l", failureMessage: "Couldn’t get the list of branches")
-                return branches.split(separator: "\n").map { $0.dropFirst(2) }.map(String.init)
+                return branches.split(whereSeparator: { $0.isNewline }).map { $0.dropFirst(2) }.map(String.init)
             }
         }
     }
@@ -555,7 +546,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     "-l",
                     failureMessage: "Couldn’t get the list of tags"
                 )
-                return tagList.split(separator: "\n").map(String.init)
+                return tagList.split(whereSeparator: { $0.isNewline }).map(String.init)
             }
         }
     }
@@ -629,6 +620,17 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "HEAD",
                 failureMessage: "Couldn’t get current revision"
             ))
+        }
+    }
+
+    public func getCurrentTag() -> String? {
+        self.lock.withLock {
+            try? callGit(
+                "describe",
+                "--exact-match",
+                "--tags",
+                failureMessage: "Couldn’t get current tag"
+            )
         }
     }
 
@@ -778,7 +780,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 output = try error.result.utf8Output().spm_chomp()
             }
 
-            return stringPaths.map(output.split(separator: "\n").map {
+            return stringPaths.map(output.split(whereSeparator: { $0.isNewline }).map {
                 let string = String($0).replacingOccurrences(of: "\\\\", with: "\\")
                 if string.utf8.first == UInt8(ascii: "\"") {
                     return String(string.dropFirst(1).dropLast(1))
@@ -927,6 +929,14 @@ public final class GitRepository: Repository, WorkingCheckout {
                 return ByteString(encodingAsUTF8: output)
             }
         }
+    }
+
+    /// Read a symbolic link.
+    func readLink(hash: Hash) throws -> String {
+        return try callGit(
+            "cat-file", "-p", String(describing: hash.bytes),
+            failureMessage: "Couldn't read '\(String(describing: hash.bytes))'"
+        )
     }
 }
 
@@ -1088,13 +1098,18 @@ private class GitFileSystemView: FileSystem {
         guard entry.type != .tree else {
             throw FileSystemError(.isDirectory, path)
         }
-        guard entry.type != .symlink else {
-            throw InternalError("symlinks not supported")
-        }
         guard case .hash(let hash) = entry.location else {
             throw InternalError("only hash locations supported")
         }
-        return try self.repository.readBlob(hash: hash)
+        switch entry.type {
+        case .symlink:
+            let path = try repository.readLink(hash: hash)
+            return try readFileContents(AbsolutePath(validating: path))
+        case .blob, .executableBlob:
+            return try self.repository.readBlob(hash: hash)
+        default:
+            throw InternalError("unsupported git entry type \(entry.type) at path \(path)")
+        }
     }
 
     // MARK: Unsupported methods.

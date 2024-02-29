@@ -141,6 +141,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
+        let pluginModulesPath = self.toolchain.swiftPMLibrariesLocation.pluginModulesPath
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
@@ -196,10 +197,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if pluginLibraryPath.extension == "framework" {
-            commandLine += ["-I", pluginLibraryPath.parentDirectory.parentDirectory.pathString]
+        if pluginModulesPath.extension == "framework" {
+            commandLine += ["-I", pluginModulesPath.parentDirectory.parentDirectory.pathString]
         } else {
-            commandLine += ["-I", pluginLibraryPath.pathString]
+            commandLine += ["-I", pluginModulesPath.pathString]
         }
         #if os(macOS)
         if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
@@ -270,7 +271,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
-            var environment: [String:String]
+            var environment: EnvironmentVariables
             var inputHash: String?
             var output: String
             var result: Result
@@ -364,7 +365,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 // Save the persisted compilation state for possible reuse next time.
                 let compilationState = PersistedCompilationState(
                     commandLine: commandLine,
-                    environment: toolchain.swiftCompilerEnvironment,
+                    environment: toolchain.swiftCompilerEnvironment.cachable,
                     inputHash: compilerInputHash,
                     output: compilerOutput,
                     result: .init(process.exitStatus))
@@ -502,6 +503,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                                         }
                                     }
                                 })
+                            }
+                            catch DecodingError.keyNotFound(let key, _) where key.stringValue == "version" {
+                                print("message from plugin did not contain a 'version' key, likely an incompatible plugin library is being loaded by the plugin")
                             }
                             catch {
                                 print("error while trying to handle message from plugin: \(error.interpolationDescription)")

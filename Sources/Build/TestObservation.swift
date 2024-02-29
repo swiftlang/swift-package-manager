@@ -13,7 +13,7 @@
 import SPMBuildCore
 
 public func generateTestObservationCode(buildParameters: BuildParameters) -> String {
-    guard buildParameters.targetTriple.supportsTestSummary else {
+    guard buildParameters.triple.supportsTestSummary else {
         return ""
     }
 
@@ -130,6 +130,8 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
         #elseif os(Windows)
         @_exported import CRT
         @_exported import WinSDK
+        #elseif os(WASI)
+        @_exported import WASILibc
         #else
         @_exported import Darwin.C
         #endif
@@ -176,6 +178,8 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
                                    UInt32.max, UInt32.max, &overlapped) {
                         throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
                     }
+              #elseif os(WASI)
+                // WASI doesn't support flock
               #else
                 if fileDescriptor == nil {
                     let fd = open(lockFile.path, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
@@ -189,7 +193,7 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
                         break
                     }
                     if errno == EINTR { continue }
-                    fatalError("unable to aquire lock, errno: \\(errno)")
+                    fatalError("unable to acquire lock, errno: \\(errno)")
                 }
               #endif
             }
@@ -201,6 +205,8 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
                 overlapped.OffsetHigh = 0
                 overlapped.hEvent = nil
                 UnlockFileEx(handle, 0, UInt32.max, UInt32.max, &overlapped)
+              #elseif os(WASI)
+                // WASI doesn't support flock
               #else
                 guard let fd = fileDescriptor else { return }
                 flock(fd, LOCK_UN)
@@ -211,6 +217,8 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
               #if os(Windows)
                 guard let handle = handle else { return }
                 CloseHandle(handle)
+              #elseif os(WASI)
+                // WASI doesn't support flock
               #else
                 guard let fd = fileDescriptor else { return }
                 close(fd)

@@ -43,8 +43,8 @@ class ManifestSourceGenerationTests: XCTestCase {
         toolsVersionHeaderComment: String? = .none,
         additionalImportModuleNames: [String] = [],
         fs: FileSystem = localFileSystem
-    ) throws -> String {
-        try withTemporaryDirectory { packageDir in
+    ) async throws -> String {
+        try await withTemporaryDirectory { packageDir in
             let observability = ObservabilitySystem.makeForTesting()
 
             // Write the original manifest file contents, and load it.
@@ -53,23 +53,20 @@ class ManifestSourceGenerationTests: XCTestCase {
             let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
-            let manifest = try temp_await {
-                manifestLoader.load(
-                    manifestPath: manifestPath,
-                    manifestToolsVersion: toolsVersion,
-                    packageIdentity: .plain("Root"),
-                    packageKind: .root(packageDir),
-                    packageLocation: packageDir.pathString,
-                    packageVersion: nil,
-                    identityResolver: identityResolver,
-                    dependencyMapper: dependencyMapper,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            let manifest = try await manifestLoader.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: toolsVersion,
+                packageIdentity: .plain("Root"),
+                packageKind: .root(packageDir),
+                packageLocation: packageDir.pathString,
+                packageVersion: nil,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fs,
+                observabilityScope: observability.topScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -85,23 +82,20 @@ class ManifestSourceGenerationTests: XCTestCase {
 
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(manifestPath, string: newContents)
-            let newManifest = try temp_await {
-                manifestLoader.load(
-                    manifestPath: manifestPath,
-                    manifestToolsVersion: toolsVersion,
-                    packageIdentity: .plain("Root"),
-                    packageKind: .root(packageDir),
-                    packageLocation: packageDir.pathString,
-                    packageVersion: nil,
-                    identityResolver: identityResolver,
-                    dependencyMapper: dependencyMapper,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            let newManifest = try await manifestLoader.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: toolsVersion,
+                packageIdentity: .plain("Root"),
+                packageKind: .root(packageDir),
+                packageLocation: packageDir.pathString,
+                packageVersion: nil,
+                identityResolver: identityResolver,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fs,
+                observabilityScope: observability.topScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -125,7 +119,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         }
     }
 
-    func testBasics() throws {
+    func testBasics() async throws {
         let manifestContents = """
             // swift-tools-version:5.3
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -160,10 +154,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
     }
 
-    func testCustomPlatform() throws {
+    func testCustomPlatform() async throws {
         let manifestContents = """
             // swift-tools-version:5.6
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -197,10 +191,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_6)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_6)
     }
 
-    func testAdvancedFeatures() throws {
+    func testAdvancedFeatures() async throws {
         let manifestContents = """
             // swift-tools-version:5.3
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -246,10 +240,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 cxxLanguageStandard: .cxx11
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
     }
 
-    func testPackageDependencyVariations() throws {
+    func testPackageDependencyVariations() async throws {
         let manifestContents = """
             // swift-tools-version:5.4
             import PackageDescription
@@ -281,7 +275,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+        let newContents = try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
 
         // Check some things about the contents of the manifest.
         XCTAssertTrue(newContents.contains("url: \"\("../MyPkg10".nativePathString(escaped: true))\""), newContents)
@@ -289,7 +283,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         XCTAssertTrue(newContents.contains("path: \"\("packages/path/to/MyPkg12".nativePathString(escaped: true))"), newContents)
     }
 
-    func testResources() throws {
+    func testResources() async throws {
         let manifestContents = """
             // swift-tools-version:5.3
             import PackageDescription
@@ -320,10 +314,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
     }
 
-    func testBuildSettings() throws {
+    func testBuildSettings() async throws {
         let manifestContents = """
             // swift-tools-version:5.3
             import PackageDescription
@@ -356,10 +350,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
     }
 
-    func testPluginTargets() throws {
+    func testPluginTargets() async throws {
         let manifestContents = """
             // swift-tools-version:5.5
             import PackageDescription
@@ -378,10 +372,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
     }
 
-    func testCustomToolsVersionHeaderComment() throws {
+    func testCustomToolsVersionHeaderComment() async throws {
         let manifestContents = """
             // swift-tools-version:5.5
             import PackageDescription
@@ -400,12 +394,12 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5, toolsVersionHeaderComment: "a comment")
+        let newContents = try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5, toolsVersionHeaderComment: "a comment")
 
         XCTAssertTrue(newContents.hasPrefix("// swift-tools-version: 5.5; a comment\n"), "contents: \(newContents)")
     }
 
-    func testAdditionalModuleImports() throws {
+    func testAdditionalModuleImports() async throws {
         let manifestContents = """
             // swift-tools-version:5.5
             import PackageDescription
@@ -420,12 +414,12 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5, additionalImportModuleNames: ["Foundation"])
+        let newContents = try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5, additionalImportModuleNames: ["Foundation"])
 
         XCTAssertTrue(newContents.contains("import Foundation\n"), "contents: \(newContents)")
     }
 
-    func testLatestPlatformVersions() throws {
+    func testLatestPlatformVersions() async throws {
         let manifestContents = """
             // swift-tools-version: 5.9
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -447,10 +441,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
     }
 
-    func testTargetPlatformConditions() throws {
+    func testTargetPlatformConditions() async throws {
         let manifestContents = """
             // swift-tools-version: 5.9
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -475,7 +469,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
     }
     
     func testCustomProductSourceGeneration() throws {
@@ -517,7 +511,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         XCTAssertTrue(contents.contains(".library(name: \"Foo\", targets: [\"Bar\"], type: .static)"), "contents: \(contents)")
     }
 
-    func testModuleAliasGeneration() throws {
+    func testModuleAliasGeneration() async throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
             path: "/thisPkg",
@@ -558,10 +552,10 @@ class ManifestSourceGenerationTests: XCTestCase {
         let isContained = trimmedParts.allSatisfy(trimmedContents.contains(_:))
         XCTAssertTrue(isContained)
 
-        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_8)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_8)
     }
 
-    func testUpcomingAndExperimentalFeatures() throws {
+    func testUpcomingAndExperimentalFeatures() async throws {
         let manifestContents = """
             // swift-tools-version:5.8
             import PackageDescription
@@ -580,10 +574,10 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
     }
 
-    func testPluginNetworkingPermissionGeneration() throws {
+    func testPluginNetworkingPermissionGeneration() async throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
             path: "/thisPkg",
@@ -593,6 +587,6 @@ class ManifestSourceGenerationTests: XCTestCase {
                 try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: "internet good")]))
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
-        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
     }
 }

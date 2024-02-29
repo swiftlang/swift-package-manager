@@ -21,7 +21,7 @@ import XCTest
 import struct TSCUtility.Version
 
 final class PackageVersionChecksumTOFUTests: XCTestCase {
-    func testSourceArchiveChecksumSeenForTheFirstTime() throws {
+    func testSourceArchiveChecksumSeenForTheFirstTime() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -93,17 +93,15 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // Checksum for package version not found in storage,
         // so we fetch metadata to get the expected checksum,
         // then save it to storage for future reference.
-        XCTAssertNoThrow(
-            try tofu.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum
-            )
+        try await tofu.validateSourceArchive(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum
         )
 
         // Checksum should have been saved to storage
-        let fingerprint = try temp_await { callback in
+        let fingerprint = try await safe_async {
             fingerprintStorage.get(
                 package: identity,
                 version: version,
@@ -111,14 +109,14 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 contentType: .sourceCode,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
-                callback: callback
+                callback: $0
             )
         }
         XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
         XCTAssertEqual(checksum, fingerprint.value)
     }
 
-    func testSourceArchiveMetadataChecksumConflictsWithStorage_strictMode() throws {
+    func testSourceArchiveMetadataChecksumConflictsWithStorage_strictMode() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -189,8 +187,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // We get expected checksum from metadata but it's different
         // from value in storage, and because of .strict mode,
         // an error is thrown.
-        XCTAssertThrowsError(
-            try tofu.validateSourceArchive(
+        await XCTAssertAsyncThrowsError(
+            try await tofu.validateSourceArchive(
                 registry: registry,
                 package: package,
                 version: version,
@@ -203,7 +201,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testSourceArchiveMetadataChecksumConflictsWithStorage_warnMode() throws {
+    func testSourceArchiveMetadataChecksumConflictsWithStorage_warnMode() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -276,14 +274,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // We get expected checksum from metadata and it's different
         // from value in storage, but because of .warn mode,
         // no error is thrown.
-        XCTAssertNoThrow(
-            try tofu.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                observabilityScope: observability.topScope
-            )
+        try await tofu.validateSourceArchive(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum,
+            observabilityScope: observability.topScope
         )
 
         // But there should be a warning
@@ -292,7 +288,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testFetchSourceArchiveMetadataChecksum_404() throws {
+    func testFetchSourceArchiveMetadataChecksum_404() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -331,8 +327,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             versionMetadataProvider: registryClient.getPackageVersionMetadata
         )
 
-        XCTAssertThrowsError(
-            try tofu.validateSourceArchive(
+        await XCTAssertAsyncThrowsError(
+            try await tofu.validateSourceArchive(
                 registry: registry,
                 package: package,
                 version: version,
@@ -345,7 +341,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testFetchSourceArchiveMetadataChecksum_ServerError() throws {
+    func testFetchSourceArchiveMetadataChecksum_ServerError() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -384,8 +380,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             versionMetadataProvider: registryClient.getPackageVersionMetadata
         )
 
-        XCTAssertThrowsError(
-            try tofu.validateSourceArchive(
+        await XCTAssertAsyncThrowsError(
+            try await tofu.validateSourceArchive(
                 registry: registry,
                 package: package,
                 version: version,
@@ -398,7 +394,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testFetchSourceArchiveMetadataChecksum_RegistryNotAvailable() throws {
+    func testFetchSourceArchiveMetadataChecksum_RegistryNotAvailable() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -431,8 +427,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             versionMetadataProvider: registryClient.getPackageVersionMetadata
         )
 
-        XCTAssertThrowsError(
-            try tofu.validateSourceArchive(
+        await XCTAssertAsyncThrowsError(
+            try await tofu.validateSourceArchive(
                 registry: registry,
                 package: package,
                 version: version,
@@ -445,7 +441,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testSourceArchiveChecksumMatchingStorage() throws {
+    func testSourceArchiveChecksumMatchingStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -495,17 +491,15 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksum for package version found in storage,
         // so we just compare that with the given checksum.
-        XCTAssertNoThrow(
-            try tofu.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum
-            )
+        try await tofu.validateSourceArchive(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum
         )
     }
 
-    func testSourceArchiveChecksumDoesNotMatchExpectedFromStorage_strictMode() throws {
+    func testSourceArchiveChecksumDoesNotMatchExpectedFromStorage_strictMode() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -557,8 +551,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // so we just compare that with the given checksum.
         // Since the checksums don't match, and because of
         // .strict mode, an error is thrown.
-        XCTAssertThrowsError(
-            try tofu.validateSourceArchive(
+        await XCTAssertAsyncThrowsError(
+            try await tofu.validateSourceArchive(
                 registry: registry,
                 package: package,
                 version: version,
@@ -571,7 +565,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testSourceArchiveChecksumDoesNotMatchExpectedFromStorage_warnMode() throws {
+    func testSourceArchiveChecksumDoesNotMatchExpectedFromStorage_warnMode() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -625,14 +619,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // so we just compare that with the given checksum.
         // The checksums don't match, but because of
         // .warn mode, no error is thrown.
-        XCTAssertNoThrow(
-            try tofu.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                observabilityScope: observability.topScope
-            )
+        try await tofu.validateSourceArchive(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum,
+            observabilityScope: observability.topScope
         )
 
         // But there should be a warning
@@ -641,7 +633,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testManifestChecksumSeenForTheFirstTime() throws {
+    func testManifestChecksumSeenForTheFirstTime() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -678,28 +670,25 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksum for package version not found in storage,
         // so we save it to storage for future reference.
-        XCTAssertNoThrow(
-            try tofu.validateManifest(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .v5_6, // Version specific manifest
-                checksum: "Package@swift-5.6.swift checksum"
-            )
+        try await tofu.validateManifest(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .v5_6, // Version specific manifest
+            checksum: "Package@swift-5.6.swift checksum"
         )
-        XCTAssertNoThrow(
-            try tofu.validateManifest(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none, // default manifest
-                checksum: "Package.swift checksum"
-            )
+
+        try await tofu.validateManifest(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none, // default manifest
+            checksum: "Package.swift checksum"
         )
 
         // Checksums should have been saved to storage
         do {
-            let fingerprint = try temp_await { callback in
+            let fingerprint = try await safe_async {
                 fingerprintStorage.get(
                     package: identity,
                     version: version,
@@ -707,14 +696,14 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                     contentType: .manifest(.none),
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: .sharedConcurrent,
-                    callback: callback
+                    callback: $0
                 )
             }
             XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
             XCTAssertEqual("Package.swift checksum", fingerprint.value)
         }
         do {
-            let fingerprint = try temp_await { callback in
+            let fingerprint = try await safe_async {
                 fingerprintStorage.get(
                     package: identity,
                     version: version,
@@ -722,7 +711,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                     contentType: .manifest(.v5_6),
                     observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: .sharedConcurrent,
-                    callback: callback
+                    callback: $0
                 )
             }
             XCTAssertEqual(SourceControlURL(registryURL), fingerprint.origin.url)
@@ -730,7 +719,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testManifestChecksumMatchingStorage() throws {
+    func testManifestChecksumMatchingStorage() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -781,18 +770,16 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
         // Checksum for package version found in storage,
         // so we just compare that with the given checksum.
-        XCTAssertNoThrow(
-            try tofu.validateManifest(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                checksum: checksum
-            )
+        try await tofu.validateManifest(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none,
+            checksum: checksum
         )
     }
 
-    func testManifestChecksumDoesNotMatchExpectedFromStorage_strictMode() throws {
+    func testManifestChecksumDoesNotMatchExpectedFromStorage_strictMode() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -845,8 +832,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // so we just compare that with the given checksum.
         // Since the checksums don't match, and because of
         // .strict mode, an error is thrown.
-        XCTAssertThrowsError(
-            try tofu.validateManifest(
+        await XCTAssertAsyncThrowsError(
+            try await tofu.validateManifest(
                 registry: registry,
                 package: package,
                 version: version,
@@ -860,7 +847,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         }
     }
 
-    func testManifestChecksumDoesNotMatchExpectedFromStorage_warnMode() throws {
+    func testManifestChecksumDoesNotMatchExpectedFromStorage_warnMode() async throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let package = identity.registry!
@@ -915,15 +902,13 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // so we just compare that with the given checksum.
         // The checksums don't match, but because of
         // .warn mode, no error is thrown.
-        XCTAssertNoThrow(
-            try tofu.validateManifest(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                checksum: checksum,
-                observabilityScope: observability.topScope
-            )
+        try await tofu.validateManifest(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: .none,
+            checksum: checksum,
+            observabilityScope: observability.topScope
         )
 
         // But there should be a warning
@@ -940,19 +925,16 @@ extension PackageVersionChecksumTOFU {
         version: Version,
         checksum: String,
         observabilityScope: ObservabilityScope? = nil
-    ) throws {
-        try temp_await {
-            self.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                timeout: nil,
-                observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws {
+        try await self.validateSourceArchive(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum,
+            timeout: nil,
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     fileprivate func validateManifest(
@@ -962,20 +944,17 @@ extension PackageVersionChecksumTOFU {
         toolsVersion: ToolsVersion?,
         checksum: String,
         observabilityScope: ObservabilityScope? = nil
-    ) throws {
-        try temp_await {
-            self.validateManifest(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: toolsVersion,
-                checksum: checksum,
-                timeout: nil,
-                observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws {
+        try await self.validateManifest(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: toolsVersion,
+            checksum: checksum,
+            timeout: nil,
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
+            callbackQueue: .sharedConcurrent
+        )
     }
 }
 

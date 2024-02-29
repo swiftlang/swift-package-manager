@@ -88,6 +88,10 @@ def add_build_args(parser):
     """Configures the parser with the arguments necessary for build-related actions."""
     add_global_args(parser)
     parser.add_argument(
+        "--swift-build-path",
+        help="path to the prebuilt SwiftPM `swift-build` binary",
+        metavar="PATH")
+    parser.add_argument(
         "--swiftc-path",
         help="path to the swift compiler",
         metavar="PATH")
@@ -154,7 +158,7 @@ def add_build_args(parser):
         default=[])
     parser.add_argument(
         "--cross-compile-config",
-        help="Swift flags to cross-compile SPM with itself")
+        help="Swift flags to cross-compile SwiftPM with itself")
 
 def add_test_args(parser):
     """Configures the parser with the arguments necessary for the test action."""
@@ -220,8 +224,9 @@ def parse_build_args(args):
 
     args.swiftc_path = get_swiftc_path(args)
     args.clang_path = get_tool_path(args, "clang")
-    args.cmake_path = get_tool_path(args, "cmake")
-    args.ninja_path = get_tool_path(args, "ninja")
+    if not args.skip_cmake_bootstrap:
+        args.cmake_path = get_tool_path(args, "cmake")
+        args.ninja_path = get_tool_path(args, "ninja")
     args.ar_path = get_tool_path(args, "ar")
     args.ranlib_path = get_tool_path(args, "ranlib")
     if args.cross_compile_hosts:
@@ -449,20 +454,26 @@ def install_dylib(args, library_name, install_dir, module_names):
     # Install the swiftmodule/swiftinterface and swiftdoc files for all the modules.
     for module in module_names:
         # If we're cross-compiling, we expect the .swiftmodule to be a directory that contains everything.
-        if args.cross_compile_hosts:
+        if args.cross_compile_hosts and re.match("macosx-", args.cross_compile_hosts):
             install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
+        elif args.cross_compile_hosts:
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'], subpath="Modules")
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
             if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
-                install_binary(args, module + ".swiftinterface", install_dir)
+                install_binary(args, module + ".swiftinterface", install_dir, subpath="Modules")
             else:
-                install_binary(args, module + ".swiftmodule", install_dir)
-            install_binary(args, module + ".swiftdoc", install_dir)
+                install_binary(args, module + ".swiftmodule", install_dir, subpath="Modules")
+            install_binary(args, module + ".swiftdoc", install_dir, subpath="Modules")
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
-def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[]):
-    src = os.path.join(args.bin_dir, binary)
+def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[], subpath=None):
+    if subpath:
+        basepath = os.path.join(args.bin_dir, subpath)
+    else:
+        basepath = args.bin_dir
+    src = os.path.join(basepath, binary)
     install_file(args, src, destination, destination_is_directory=destination_is_directory, ignored_patterns=ignored_patterns)
 
 def install_file(args, src, destination, destination_is_directory=True, ignored_patterns=[]):
@@ -634,7 +645,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
         swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-bootstrap"))
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")
-        swiftpm_args.append(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
+        swiftpm_args.append(args.swift_build_path or os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
         swiftpm_args.append("--disable-sandbox")
 
         # Enforce resolved versions to avoid stray dependencies that aren't local.
@@ -695,17 +706,17 @@ def call_swiftpm(args, cmd, cwd=None):
 # -----------------------------------------------------------
 
 def get_dispatch_cmake_arg(args):
-    """Returns the CMake argument to the Dispatch configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Dispatch configuration to use for building SwiftPM."""
     dispatch_dir = os.path.join(args.dispatch_build_dir, "cmake/modules")
     return "-Ddispatch_DIR=" + dispatch_dir
 
 def get_foundation_cmake_arg(args):
-    """Returns the CMake argument to the Foundation configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Foundation configuration to use for building SwiftPM."""
     foundation_dir = os.path.join(args.foundation_build_dir, "cmake/modules")
     return "-DFoundation_DIR=" + foundation_dir
 
 def get_llbuild_cmake_arg(args):
-    """Returns the CMake argument to the LLBuild framework/binary to use for bulding SwiftPM."""
+    """Returns the CMake argument to the LLBuild framework/binary to use for building SwiftPM."""
     if args.llbuild_link_framework:
         return "-DCMAKE_FIND_FRAMEWORK_EXTRA_LOCATIONS=%s" % args.build_dirs["llbuild"]
     else:

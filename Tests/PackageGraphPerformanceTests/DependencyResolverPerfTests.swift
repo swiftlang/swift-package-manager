@@ -69,7 +69,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
                 switch resolver.solve(constraints: graph.constraints) {
                 case .success(let result):
                     let result: [(container: PackageReference, version: Version)] = result.compactMap {
-                        guard case .version(let version) = $0.binding else {
+                        guard case .version(let version) = $0.boundVersion else {
                             XCTFail("Unexpected result")
                             return nil
                         }
@@ -95,7 +95,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
 // MARK: - JSON
 
-public extension MockDependencyGraph {
+extension MockDependencyGraph {
     init(_ json: JSON) {
         guard case .dictionary(let dict) = json else { fatalError() }
         guard case .string(let name)? = dict["name"] else { fatalError() }
@@ -182,7 +182,7 @@ private extension VersionSetSpecifier {
     }
 }
 
-extension ProductFilter: JSONSerializable, JSONMappable {
+extension ProductFilter {
     public func toJSON() -> JSON {
         switch self {
         case .everything:
@@ -200,3 +200,9 @@ extension ProductFilter: JSONSerializable, JSONMappable {
         }
     }
 }
+
+#if swift(<6.0)
+extension ProductFilter: JSONSerializable, JSONMappable {}
+#else
+extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}
+#endif

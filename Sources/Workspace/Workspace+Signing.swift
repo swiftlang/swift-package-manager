@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import enum PackageFingerprint.FingerprintCheckingMode
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageModel.PackageIdentity
 import struct PackageModel.RegistryReleaseMetadata
 import enum PackageSigning.SigningEntityCheckingMode
@@ -42,7 +42,7 @@ extension SigningEntityCheckingMode {
 
 extension Workspace {
     func validateSignatures(
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity]
     ) throws {
         try expectedSigningEntities.forEach { identity, expectedSigningEntity in

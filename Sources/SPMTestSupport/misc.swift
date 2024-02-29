@@ -20,6 +20,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
 import func XCTest.XCTFail
@@ -33,7 +34,7 @@ import enum TSCUtility.Git
 @_exported import enum TSCTestSupport.StringPattern
 
 /// Test helper utility for executing a block with a temporary directory.
-public func testWithTemporaryDirectory(
+package func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: (AbsolutePath) throws -> Void
 ) throws {
@@ -47,22 +48,23 @@ public func testWithTemporaryDirectory(
     )
 }
 
-public func testWithTemporaryDirectory(
+@discardableResult
+package func testWithTemporaryDirectory<Result>(
     function: StaticString = #function,
-    body: (AbsolutePath) async throws -> Void
-) async throws {
+    body: (AbsolutePath) async throws -> Result
+) async throws -> Result {
     let cleanedFunction = function.description
         .replacingOccurrences(of: "(", with: "")
         .replacingOccurrences(of: ")", with: "")
         .replacingOccurrences(of: ".", with: "")
         .replacingOccurrences(of: ":", with: "_")
-    try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+    return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
         }
-        try await body(tmpDirPath)
+        return try await body(tmpDirPath)
     }
 }
 
@@ -72,20 +74,20 @@ public func testWithTemporaryDirectory(
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-public func fixture(
+@discardableResult package func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
-    body: (AbsolutePath) throws -> Void
-) throws {
+    body: (AbsolutePath) throws -> T
+) throws -> T {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = try RelativePath(validating: name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
@@ -93,48 +95,14 @@ public func fixture(
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            // Construct the expected path of the fixture.
-            // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
-                .appending(fixtureSubpath)
-
-            // Check that the fixture is really there.
-            guard localFileSystem.isDirectory(fixtureDir) else {
-                XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
-                return
-            }
-
-            // The fixture contains either a checkout or just a Git directory.
-            if localFileSystem.isFile(fixtureDir.appending("Package.swift")) {
-                // It's a single package, so copy the whole directory as-is.
-                let dstDir = tmpDirPath.appending(component: copyName)
-#if os(Windows)
-                try localFileSystem.copy(from: fixtureDir, to: dstDir)
-#else
-                try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)
-#endif
-
-                // Invoke the block, passing it the path of the copied fixture.
-                try body(dstDir)
-            } else {
-                // Copy each of the package directories and construct a git repo in it.
-                for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
-                    let srcDir = fixtureDir.appending(component: fileName)
-                    guard localFileSystem.isDirectory(srcDir) else { continue }
-                    let dstDir = tmpDirPath.appending(component: fileName)
-#if os(Windows)
-                    try localFileSystem.copy(from: srcDir, to: dstDir)
-#else
-                    try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-#endif
-                    if createGitRepo {
-                        initGitRepo(dstDir, tag: "1.2.3", addFile: false)
-                    }
-                }
-
-                // Invoke the block, passing it the path of the copied fixture.
-                try body(tmpDirPath)
-            }
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try body(preparedFixture)
         }
     } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
         print("**** FAILURE EXECUTING SUBPROCESS ****")
@@ -144,10 +112,92 @@ public func fixture(
     }
 }
 
+@discardableResult package func fixture<T>(
+    name: String,
+    createGitRepo: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line,
+    body: (AbsolutePath) async throws -> T
+) async throws -> T {
+    do {
+        // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = try RelativePath(validating: name)
+        let copyName = fixtureSubpath.components.joined(separator: "_")
+
+        // Create a temporary directory for the duration of the block.
+        return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+
+            defer {
+                // Unblock and remove the tmp dir on deinit.
+                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                try? localFileSystem.removeFileTree(tmpDirPath)
+            }
+
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try await body(preparedFixture)
+        }
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
+        print("stderr:", stderr)
+        throw error
+    }
+}
+
+fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: StaticString = #file, line: UInt = #line) throws -> AbsolutePath {
+    let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
+        .appending(fixtureSubpath)
+
+    // Check that the fixture is really there.
+    guard localFileSystem.isDirectory(fixtureDir) else {
+        XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+        throw SwiftPMError.packagePathNotFound
+    }
+
+    return fixtureDir
+}
+
+fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, copyName: String, createGitRepo: Bool = true) throws -> AbsolutePath {
+    func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
+#if os(Windows)
+        try localFileSystem.copy(from: srcDir, to: dstDir)
+#else
+        try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+#endif
+    }
+
+    // The fixture contains either a checkout or just a Git directory.
+    if localFileSystem.isFile(fixtureDir.appending("Package.swift")) {
+        // It's a single package, so copy the whole directory as-is.
+        let dstDir = tmpDirPath.appending(component: copyName)
+        try copy(from: fixtureDir, to: dstDir)
+        // Invoke the block, passing it the path of the copied fixture.
+        return dstDir
+    }
+    // Copy each of the package directories and construct a git repo in it.
+    for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
+        let srcDir = fixtureDir.appending(component: fileName)
+        guard localFileSystem.isDirectory(srcDir) else { continue }
+        let dstDir = tmpDirPath.appending(component: fileName)
+
+        try copy(from: srcDir, to: dstDir)
+        if createGitRepo {
+            initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+        }
+    }
+    return tmpDirPath
+}
+
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain
 /// exactly one empty file unless `addFile` is `false`, and if a tag name is provided, a tag with that name will be
 /// created.
-public func initGitRepo(
+package func initGitRepo(
     _ dir: AbsolutePath,
     tag: String? = nil,
     addFile: Bool = true,
@@ -157,7 +207,7 @@ public func initGitRepo(
     initGitRepo(dir, tags: tag.flatMap { [$0] } ?? [], addFile: addFile, file: file, line: line)
 }
 
-public func initGitRepo(
+package func initGitRepo(
     _ dir: AbsolutePath,
     tags: [String],
     addFile: Bool = true,
@@ -187,7 +237,7 @@ public func initGitRepo(
 }
 
 @discardableResult
-public func executeSwiftBuild(
+package func executeSwiftBuild(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -201,7 +251,7 @@ public func executeSwiftBuild(
 }
 
 @discardableResult
-public func executeSwiftRun(
+package func executeSwiftRun(
     _ packagePath: AbsolutePath,
     _ executable: String,
     configuration: Configuration = .Debug,
@@ -217,7 +267,7 @@ public func executeSwiftRun(
 }
 
 @discardableResult
-public func executeSwiftPackage(
+package func executeSwiftPackage(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -231,7 +281,7 @@ public func executeSwiftPackage(
 }
 
 @discardableResult
-public func executeSwiftTest(
+package func executeSwiftTest(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -266,7 +316,12 @@ private func swiftArgs(
     return args
 }
 
-public func loadPackageGraph(
+@available(*, 
+    deprecated,
+    renamed: "loadModulesGraph",
+    message: "Renamed for consistency: the type of this functions return value is named `ModulesGraph`."
+)
+package func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fileSystem: FileSystem,
     manifests: [Manifest],
@@ -277,7 +332,33 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope
-) throws -> PackageGraph {
+) throws -> ModulesGraph {
+    try loadModulesGraph(
+        identityResolver: identityResolver,
+        fileSystem: fileSystem,
+        manifests: manifests,
+        binaryArtifacts: binaryArtifacts,
+        explicitProduct: explicitProduct,
+        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+        createREPLProduct: createREPLProduct,
+        useXCBuildFileRules: useXCBuildFileRules,
+        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+        observabilityScope: observabilityScope
+    )
+}
+
+package func loadModulesGraph(
+    identityResolver: IdentityResolver = DefaultIdentityResolver(),
+    fileSystem: FileSystem,
+    manifests: [Manifest],
+    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
+    explicitProduct: String? = .none,
+    shouldCreateMultipleTestProducts: Bool = false,
+    createREPLProduct: Bool = false,
+    useXCBuildFileRules: Bool = false,
+    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+    observabilityScope: ObservabilityScope
+) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
         .reduce(
@@ -296,7 +377,7 @@ public func loadPackageGraph(
         observabilityScope: observabilityScope
     )
 
-    return try PackageGraph.load(
+    return try ModulesGraph.load(
         root: graphRoot,
         identityResolver: identityResolver,
         additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription
@@ -306,72 +387,71 @@ public func loadPackageGraph(
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+        availableLibraries: [],
         fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )
 }
 
-public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
+package let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
 extension FileSystem {
     @_disfavoredOverload
-    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
+    package func createEmptyFiles(at root: AbsolutePath, files: String...) {
         self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
     }
 
     @_disfavoredOverload
-    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+    package func createEmptyFiles(at root: AbsolutePath, files: [String]) {
         self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
     }
 }
 
-extension URL: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
+extension URL {
+    package init(_ value: StringLiteralType) {
         self.init(string: value)!
     }
 }
 
-extension URL: ExpressibleByStringInterpolation {
+extension URL {
     public init(stringLiteral value: String) {
         self.init(string: value)!
     }
 }
 
-extension PackageIdentity: ExpressibleByStringLiteral {}
-
-extension PackageIdentity: ExpressibleByStringInterpolation {
+extension PackageIdentity {
     public init(stringLiteral value: String) {
         self = Self.plain(value)
     }
 }
 
 extension PackageIdentity {
-    public static func registry(_ value: String) -> RegistryIdentity {
+    package static func registry(_ value: String) -> RegistryIdentity {
         Self.plain(value).registry!
     }
 }
 
-extension AbsolutePath: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
+extension AbsolutePath {
+    package init(_ value: StringLiteralType) {
         try! self.init(validating: value)
     }
 }
 
-extension AbsolutePath: ExpressibleByStringInterpolation {
+extension AbsolutePath {
     public init(stringLiteral value: String) {
         try! self.init(validating: value)
     }
 }
 
 extension AbsolutePath {
-    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
+    package init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
         try! self.init(validating: path, relativeTo: basePath)
     }
 }
 
 extension RelativePath {
     @available(*, deprecated, message: "use direct string instead")
-    public init(static path: StaticString) {
+    package init(static path: StaticString) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
@@ -379,31 +459,52 @@ extension RelativePath {
     }
 }
 
-extension RelativePath: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
+extension RelativePath {
+    package init(_ value: StringLiteralType) {
         try! self.init(validating: value)
     }
 }
 
-extension RelativePath: ExpressibleByStringInterpolation {
+extension RelativePath {
     public init(stringLiteral value: String) {
         try! self.init(validating: value)
     }
 }
 
 extension InitPackage {
-    public convenience init(
+    package convenience init(
         name: String,
         packageType: PackageType,
+        supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
         destinationPath: AbsolutePath,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
-            options: InitPackageOptions(packageType: packageType),
+            options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem
         )
     }
 }
+
+#if swift(<6.0)
+extension RelativePath: ExpressibleByStringLiteral {}
+extension RelativePath: ExpressibleByStringInterpolation {}
+extension URL: ExpressibleByStringLiteral {}
+extension URL: ExpressibleByStringInterpolation {}
+extension PackageIdentity: ExpressibleByStringLiteral {}
+extension PackageIdentity: ExpressibleByStringInterpolation {}
+extension AbsolutePath: ExpressibleByStringLiteral {}
+extension AbsolutePath: ExpressibleByStringInterpolation {}
+#else
+extension RelativePath: @retroactive ExpressibleByStringLiteral {}
+extension RelativePath: @retroactive ExpressibleByStringInterpolation {}
+extension URL: @retroactive ExpressibleByStringLiteral {}
+extension URL: @retroactive ExpressibleByStringInterpolation {}
+extension PackageIdentity: @retroactive ExpressibleByStringLiteral {}
+extension PackageIdentity: @retroactive ExpressibleByStringInterpolation {}
+extension AbsolutePath: @retroactive ExpressibleByStringLiteral {}
+extension AbsolutePath: @retroactive ExpressibleByStringInterpolation {}
+#endif

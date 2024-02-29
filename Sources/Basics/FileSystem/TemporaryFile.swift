@@ -66,6 +66,7 @@ public func withTemporaryDirectory<Result>(
 ///             return value for the `withTemporaryDirectory` function.
 ///
 /// - Throws: An error when creating directory and rethrows all errors from `body`.
+@discardableResult
 public func withTemporaryDirectory<Result>(
     fileSystem: FileSystem = localFileSystem,
     dir: AbsolutePath? = nil,

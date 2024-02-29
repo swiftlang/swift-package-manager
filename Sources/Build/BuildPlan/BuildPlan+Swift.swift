@@ -19,10 +19,11 @@ extension BuildPlan {
     func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
-            switch dependency.underlyingTarget {
+        let environment = swiftTarget.buildParameters.buildEnvironment
+        for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: environment) {
+            switch dependency.underlying {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
-                guard case let .clang(target)? = targetMap[dependency] else {
+                guard case let .clang(target)? = targetMap[dependency.id] else {
                     throw InternalError("unexpected clang target \(underlyingTarget)")
                 }
                 // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a
@@ -39,7 +40,7 @@ extension BuildPlan {
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
-                    let libraries = try self.parseXCFramework(for: target)
+                    let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
                             swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]

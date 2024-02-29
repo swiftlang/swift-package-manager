@@ -224,7 +224,7 @@ extension Workspace {
         let dependencyPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
-            throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
+            throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: dependencyPath)
         }
 
         try self.fileSystem.chmod(.userWritable, path: dependencyPath, options: [.recursive, .onlyFiles])
@@ -232,73 +232,6 @@ extension Workspace {
 
         // Remove the clone.
         try self.repositoryManager.remove(repository: dependency.packageRef.makeRepositorySpecifier())
-    }
-}
-
-// MARK: - Registry Source archive management
-
-extension Workspace {
-    func downloadRegistryArchive(
-        package: PackageReference,
-        at version: Version,
-        observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
-        // FIXME: this should not block
-        let downloadPath = try temp_await {
-            self.registryDownloadsManager.lookup(
-                package: package.identity,
-                version: version,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
-
-        // Record the new state.
-        observabilityScope.emit(
-            debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
-            metadata: package.diagnosticsMetadata
-        )
-        try self.state.dependencies.add(
-            .registryDownload(
-                packageRef: package,
-                version: version,
-                subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
-            )
-        )
-        try self.state.save()
-
-        return downloadPath
-    }
-
-    func downloadRegistryArchive(
-        package: PackageReference,
-        at pinState: PinsStore.PinState,
-        observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
-        switch pinState {
-        case .version(let version, _):
-            return try self.downloadRegistryArchive(
-                package: package,
-                at: version,
-                observabilityScope: observabilityScope
-            )
-        default:
-            throw InternalError("invalid pin state: \(pinState)")
-        }
-    }
-
-    func removeRegistryArchive(for dependency: ManagedDependency) throws {
-        guard case .registryDownload = dependency.state else {
-            throw InternalError("cannot remove source archive for \(dependency) with state \(dependency.state)")
-        }
-
-        let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
-        try self.fileSystem.removeFileTree(downloadPath)
-
-        // remove the local copy
-        try self.registryDownloadsManager.remove(package: dependency.packageRef.identity)
     }
 }
 

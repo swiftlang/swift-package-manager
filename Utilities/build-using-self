@@ -34,3 +34,13 @@ cd IntegrationTests
 # Perform package update in order to get the latest commits for the dependencies.
 swift package update
 $SWIFTPM_BIN_DIR/swift-test --parallel
+
+if [ "$(uname)" == "Darwin" ]; then
+  cd ..
+  echo "Current working directory is ${PWD}"
+  echo "Bootstrapping with the XCBuild codepath..."
+  ./Utilities/bootstrap build --release \
+    --cross-compile-hosts macosx-arm64 \
+    --skip-cmake-bootstrap \
+    --swift-build-path "${SWIFTPM_BIN_DIR}/swift-build"
+fi

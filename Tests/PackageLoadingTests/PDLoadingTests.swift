@@ -66,8 +66,8 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
-        try Self.loadAndValidateManifest(
+    ) async throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
+        try await Self.loadAndValidateManifest(
             content,
             toolsVersion: toolsVersion ?? self.toolsVersion,
             packageKind: packageKind ?? .fileSystem(.root),
@@ -86,7 +86,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
+    ) async throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
         let packagePath: AbsolutePath
         switch packageKind {
         case .root(let path):
@@ -103,7 +103,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, string: content)
-        let manifest = try manifestLoader.load(
+        let manifest = try await manifestLoader.load(
             manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,
@@ -124,15 +124,6 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
 final class ManifestTestDelegate: ManifestLoaderDelegate {
     private let loaded = ThreadSafeArrayStore<AbsolutePath>()
     private let parsed = ThreadSafeArrayStore<AbsolutePath>()
-    private let loadingGroup = DispatchGroup()
-    private let parsingGroup = DispatchGroup()
-
-    func prepare(expectParsing: Bool = true) {
-        self.loadingGroup.enter()
-        if expectParsing {
-            self.parsingGroup.enter()
-        }
-    }
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
         // noop
@@ -140,7 +131,6 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
 
     func didLoad(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
         self.loaded.append(manifestPath)
-        self.loadingGroup.leave()
     }
 
     func willParse(packageIdentity: PackageIdentity, packageLocation: String) {
@@ -165,7 +155,6 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
 
     func didEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath, duration: DispatchTimeInterval) {
         self.parsed.append(manifestPath)
-        self.parsingGroup.leave()
     }
 
 
@@ -174,27 +163,19 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
         self.parsed.clear()
     }
 
-    func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
-        guard case .success = self.loadingGroup.wait(timeout: timeout) else {
-            throw StringError("timeout waiting for loading")
-        }
+    func loaded(timeout: Duration) async throws -> [AbsolutePath] {
+        try await Task.sleep(for: timeout)
         return self.loaded.get()
     }
 
-    func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
-        guard case .success = self.parsingGroup.wait(timeout: timeout) else {
-            throw StringError("timeout waiting for parsing")
-        }
+    func parsed(timeout: Duration) async throws -> [AbsolutePath] {
+        try await Task.sleep(for: timeout)
         return self.parsed.get()
     }
 }
 
 fileprivate struct NOOPManifestSourceControlValidator: ManifestSourceControlValidator {
-    func isValidRefFormat(_ revision: String) -> Bool {
-        true
-    }
-
-    func isValidDirectory(_ path: AbsolutePath) -> Bool {
+    func isValidDirectory(_ path: AbsolutePath) throws -> Bool {
         true
     }
 }

@@ -19,50 +19,50 @@ import class TSCBasic.InMemoryFileSystem
 import struct TSCBasic.FileSystemError
 
 class ZipArchiverTests: XCTestCase {
-    func testZipArchiverSuccess() throws {
-        try testWithTemporaryDirectory { tmpdir in
+    func testZipArchiverSuccess() async throws {
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.zip")
-            try archiver.extract(from: inputArchivePath, to: tmpdir)
+            try await archiver.extract(from: inputArchivePath, to: tmpdir)
             let content = tmpdir.appending("file")
             XCTAssert(localFileSystem.exists(content))
             XCTAssertEqual((try? localFileSystem.readFileContents(content))?.cString, "Hello World!")
         }
     }
 
-    func testZipArchiverArchiveDoesntExist() {
+    func testZipArchiverArchiveDoesntExist() async {
         let fileSystem = InMemoryFileSystem()
         let archiver = ZipArchiver(fileSystem: fileSystem)
         let archive = AbsolutePath("/archive.zip")
-        XCTAssertThrowsError(try archiver.extract(from: archive, to: "/")) { error in
+        await XCTAssertAsyncThrowsError(try await archiver.extract(from: archive, to: "/")) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, archive))
         }
     }
 
-    func testZipArchiverDestinationDoesntExist() throws {
+    func testZipArchiverDestinationDoesntExist() async throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip")
         let archiver = ZipArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath("/destination")
-        XCTAssertThrowsError(try archiver.extract(from: "/archive.zip", to: destination)) { error in
+        await XCTAssertAsyncThrowsError(try await archiver.extract(from: "/archive.zip", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
         }
     }
 
-    func testZipArchiverDestinationIsFile() throws {
+    func testZipArchiverDestinationIsFile() async throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip", "/destination")
         let archiver = ZipArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath("/destination")
-        XCTAssertThrowsError(try archiver.extract(from: "/archive.zip", to: destination)) { error in
+        await XCTAssertAsyncThrowsError(try await archiver.extract(from: "/archive.zip", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
         }
     }
 
-    func testZipArchiverInvalidArchive() throws {
-        try testWithTemporaryDirectory { tmpdir in
+    func testZipArchiverInvalidArchive() async throws {
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
-            XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
+            await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
 #if os(Windows)
                 XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
 #else
@@ -72,39 +72,39 @@ class ZipArchiverTests: XCTestCase {
         }
     }
 
-    func testValidation() throws {
+    func testValidation() async throws {
         // valid
-        try testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.zip")
-            XCTAssertTrue(try archiver.validate(path: path))
+            try await XCTAssertAsyncTrue(try await archiver.validate(path: path))
         }
         // invalid
-        try testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
-            XCTAssertFalse(try archiver.validate(path: path))
+            try await XCTAssertAsyncFalse(try await archiver.validate(path: path))
         }
         // error
-        try testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath.root.appending("does_not_exist.zip")
-            XCTAssertThrowsError(try archiver.validate(path: path)) { error in
+            await XCTAssertAsyncThrowsError(try await archiver.validate(path: path)) { error in
                 XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, path))
             }
         }
     }
 
-    func testCompress() throws {
+    func testCompress() async throws {
         #if os(Linux)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
         }
         #endif
 
-         try testWithTemporaryDirectory { tmpdir in
+         try await testWithTemporaryDirectory { tmpdir in
              let archiver = ZipArchiver(fileSystem: localFileSystem)
 
              let rootDir = tmpdir.appending(component: UUID().uuidString)
@@ -121,12 +121,12 @@ class ZipArchiverTests: XCTestCase {
              try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
 
              let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
-             try archiver.compress(directory: rootDir, to: archivePath)
+             try await archiver.compress(directory: rootDir, to: archivePath)
              XCTAssertFileExists(archivePath)
 
              let extractRootDir = tmpdir.appending(component: UUID().uuidString)
              try localFileSystem.createDirectory(extractRootDir)
-             try archiver.extract(from: archivePath, to: extractRootDir)
+             try await archiver.extract(from: archivePath, to: extractRootDir)
              try localFileSystem.stripFirstLevel(of: extractRootDir)
 
              XCTAssertFileExists(extractRootDir.appending("file1.txt"))
@@ -157,118 +157,4 @@ class ZipArchiverTests: XCTestCase {
              )
          }
      }
-}
-
-class ArchiverTests: XCTestCase {
-    func testCancel() throws {
-        struct MockArchiver: Archiver, Cancellable {
-            var supportedExtensions: Set<String> = []
-
-            let cancelSemaphores = ThreadSafeArrayStore<DispatchSemaphore>()
-            let startGroup = DispatchGroup()
-            let finishGroup = DispatchGroup()
-
-            func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
-                let cancelSemaphore = DispatchSemaphore(value: 0)
-                self.cancelSemaphores.append(cancelSemaphore)
-
-                self.startGroup.enter()
-                DispatchQueue.sharedConcurrent.async {
-                    self.startGroup.leave()
-                    self.finishGroup.enter()
-                    defer { self.finishGroup.leave() }
-                    switch cancelSemaphore.wait(timeout: .now() + .seconds(5)) {
-                    case .success:
-                        completion(.success(()))
-                    case .timedOut:
-                        completion(.failure(StringError("should be cancelled")))
-                    }
-                }
-            }
-
-            func compress(directory: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
-                let cancelSemaphore = DispatchSemaphore(value: 0)
-                self.cancelSemaphores.append(cancelSemaphore)
-
-                self.startGroup.enter()
-                DispatchQueue.sharedConcurrent.async {
-                    self.startGroup.leave()
-                    self.finishGroup.enter()
-                    defer { self.finishGroup.leave() }
-                    switch cancelSemaphore.wait(timeout: .now() + .seconds(5)) {
-                    case .success:
-                        completion(.success(()))
-                    case .timedOut:
-                        completion(.failure(StringError("should be cancelled")))
-                    }
-                }
-            }
-
-            func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
-                let cancelSemaphore = DispatchSemaphore(value: 0)
-                self.cancelSemaphores.append(cancelSemaphore)
-
-                self.startGroup.enter()
-                DispatchQueue.sharedConcurrent.async {
-                    self.startGroup.leave()
-                    self.finishGroup.enter()
-                    defer { self.finishGroup.leave() }
-                    switch cancelSemaphore.wait(timeout: .now() + .seconds(5)) {
-                    case .success:
-                        completion(.success(true))
-                    case .timedOut:
-                        completion(.failure(StringError("should be cancelled")))
-                    }
-                }
-            }
-
-            func cancel(deadline: DispatchTime) throws {
-                for semaphore in self.cancelSemaphores.get() {
-                    semaphore.signal()
-                }
-            }
-        }
-
-        let observability = ObservabilitySystem.makeForTesting()
-        let cancellator = Cancellator(observabilityScope: observability.topScope)
-
-        let archiver = MockArchiver()
-        cancellator.register(name: "archiver", handler: archiver)
-
-        archiver.extract(from: .root, to: .root) { result in
-            XCTAssertResultSuccess(result)
-        }
-
-        archiver.compress(directory: .root, to: .root) { result in
-            XCTAssertResultSuccess(result)
-        }
-
-        archiver.validate(path: .root) { result in
-            XCTAssertResultSuccess(result)
-        }
-
-        XCTAssertEqual(.success, archiver.startGroup.wait(timeout: .now() + .seconds(5)), "timeout waiting for tasks to start")
-
-        try cancellator.cancel(deadline: .now() + .seconds(5))
-
-        XCTAssertEqual(.success, archiver.finishGroup.wait(timeout: .now() + .seconds(5)), "timeout waiting for tasks to finish")
-    }
-}
-
-extension Archiver {
-    func extract(from: AbsolutePath, to: AbsolutePath) throws {
-        try temp_await {
-            self.extract(from: from, to: to, completion: $0)
-        }
-    }
-    func compress(directory: AbsolutePath, to: AbsolutePath) throws {
-        try temp_await {
-            self.compress(directory: directory, to: to, completion: $0)
-        }
-    }
-    func validate(path: AbsolutePath) throws -> Bool {
-        try temp_await {
-            self.validate(path: path, completion: $0)
-        }
-    }
 }

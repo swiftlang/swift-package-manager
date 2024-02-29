@@ -13,7 +13,10 @@
 import Basics
 import Build
 import Commands
-@_implementationOnly import DriverSupport
+
+@_spi(SwiftPMInternal)
+import DriverSupport
+
 import Foundation
 import PackageModel
 import SourceControl
@@ -24,8 +27,6 @@ import XCTest
 import enum TSCBasic.ProcessEnv
 
 final class APIDiffTests: CommandsTestCase {
-    private let driverSupport = DriverSupport()
-
     @discardableResult
     private func execute(
         _ args: [String],
@@ -56,7 +57,7 @@ final class APIDiffTests: CommandsTestCase {
       // not all of which can be tested for easily. Fortunately, we can test for the
       // `-disable-fail-on-error` option, and any version which supports this flag
       // will meet the other requirements.
-      guard driverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], toolchain: try UserToolchain.default, fileSystem: localFileSystem) else {
+      guard DriverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], toolchain: try UserToolchain.default, fileSystem: localFileSystem) else {
         throw XCTSkip("swift-api-digester is too old")
       }
     }

@@ -22,7 +22,19 @@ public struct Context {
     public static var packageDirectory : String {
         model.packageDirectory
     }
-    
+
+    /// Information about the git status of a given package, if available.
+    @available(_PackageDescription, introduced: 6.0)
+    public static var gitInformation: GitInformation? {
+        model.gitInformation.map {
+            GitInformation(
+                currentTag: $0.currentTag,
+                currentCommit: $0.currentCommit,
+                hasUncommittedChanges: $0.hasUncommittedChanges
+            )
+        }
+    }
+
     /// Snapshot of the system environment variables.
     public static var environment : [String : String] {
         model.environment
@@ -30,4 +42,12 @@ public struct Context {
     
     private init() {
     }
+}
+
+/// Information about the git status of a given package, if available.
+@available(_PackageDescription, introduced: 6.0)
+public struct GitInformation {
+    public let currentTag: String?
+    public let currentCommit: String
+    public let hasUncommittedChanges: Bool
 }

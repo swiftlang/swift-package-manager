@@ -500,7 +500,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             }
         }
     }
-
     func searchTargets(identifiers: [Model.CollectionIdentifier]? = nil,
                        query: String,
                        type: Model.TargetSearchType,
@@ -838,6 +837,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             self.useSearchIndices.get() ?? false
         }
     }
+    internal func populateTargetTrie() async throws {
+        try await safe_async { self.populateTargetTrie(callback: $0) }
+    }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
         // Check to see if there is any data before submitting task to queue because otherwise it's no-op anyway
@@ -1117,7 +1119,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         let maximumAttempts: Int
 
         var attempts: Int = 0
-        var multipler: Int = 1
+        var multiplier: Int = 1
 
         var canRetry: Bool {
             self.attempts < self.maximumAttempts
@@ -1133,10 +1135,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             guard self.canRetry else {
                 throw StringError("Maximum attempts reached")
             }
-            let delay = self.multipler * intervalInMilliseconds
+            let delay = self.multiplier * intervalInMilliseconds
             let jitter = Int.random(in: 0 ... self.randomizationFactor)
             self.attempts += 1
-            self.multipler *= 2
+            self.multiplier *= 2
             return .milliseconds(delay + jitter)
         }
     }

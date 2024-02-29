@@ -127,8 +127,8 @@ and apply them automatically when making registry API requests.
 ## Dependency Resolution Using Registry
 
 Resolving a registry dependency involves these steps:
-1. Fetch a package's available versions by calling the [list package releases](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#41-list-package-releases) API.
-2. Compute the dependency graph by [fetching manifest(s) for a package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#43-fetch-manifest-for-a-package-release).
+1. Fetch a package's available versions by calling the [list package releases](Registry.md#41-list-package-releases) API.
+2. Compute the dependency graph by [fetching manifest(s) for a package release](Registry.md#43-fetch-manifest-for-a-package-release).
 3. Pinpoint the package version to use.
 
 ### Using registry for source control dependencies 
@@ -151,20 +151,20 @@ they are considered different even though they are the same package,
 and would result in symbol clashes.
 
 SwiftPM can deduplicate packages by performing a 
-[lookup on the source control URL](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-5)
+[lookup on the source control URL](Registry.md#endpoint-5)
 (e.g., `https://github.com/mona/LinkedList`) to see if it is associated with 
 any package identifier (e.g., `mona.LinkedList`).
 
 One can control if/how SwiftPM should use registry in conjunction with 
 source control dependencies by setting one of these flags:
 - `--disable-scm-to-registry-transformation` (default): SwiftPM will not transform source control dependency to registry dependency. Source control dependency will be downloaded from its corresponding URL, while registry dependency will be resolved and downloaded using the configured registry (if any).
-- `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifer for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
+- `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifier for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
 - `--replace-scm-with-registry`: SwiftPM will look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible. In other words, SwiftPM will attempt to download a source control dependency from the registry first, and fall back to cloning the source repository iff the dependency is not found in the registry.
 
 ## Dependency Download From Registry
 
 After a registry dependency is resolved, SwiftPM can
-[download source archive](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-4)
+[download source archive](Registry.md#endpoint-4)
 of the computed package version from the registry.
 
 ### Checksum TOFU 
@@ -173,7 +173,7 @@ SwiftPM performs checksum TOFU
 ([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) 
 on the downloaded source archive. If the archive is downloaded
 for the first time, SwiftPM 
-[fetches metadata of the package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-2)
+[fetches metadata of the package release](Registry.md#endpoint-2)
 to obtain the expected checksum. Otherwise, SwiftPM
 compares the checksum with that in local storage (`~/.swiftpm/security/fingerprints/`)
 saved from previous download.
@@ -183,7 +183,7 @@ or previous value, SwiftPM will fail the build. This can be
 tuned down from error to warning by setting the build option 
 `--resolver-fingerprint-checking` to `warn` (default is `strict`).
 
-Checkum TOFU is also done for manifests downloaded from registry. 
+Checksum TOFU is also done for manifests downloaded from registry. 
 
 ### Validating signed packages
 
@@ -273,7 +273,7 @@ OPTIONS:
  
 The command creates source archive for the package release,
 optionally signs the package release, and 
-[publishes the package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-6)
+[publishes the package release](Registry.md#endpoint-6)
 to the registry.
 
 If authentication is required for package publication, 
@@ -456,7 +456,7 @@ $ swift package-registry set --scope foo https://local.example.com
 $ swift package-registry set --scope foo --global https://global.example.com  
 ```
 
-To remove a registry assignement, use the `swift package-registry unset` subcommand.
+To remove a registry assignment, use the `swift package-registry unset` subcommand.
   
 ### Security configuration
 

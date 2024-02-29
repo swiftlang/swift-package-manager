@@ -12,6 +12,8 @@
 
 import Basics
 import Foundation
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import class TSCBasic.ThreadSafeOutputByteStream
@@ -20,6 +22,7 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCUtility.Diagnostics
 import protocol TSCUtility.ProgressAnimationProtocol
 
+@_spi(SwiftPMInternal)
 public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem
     private var parser: XCBuildOutputParser!
@@ -127,7 +130,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: true)
                 }
             }
-        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate, .unknown:
             break
         }
     }
@@ -145,9 +148,8 @@ private extension Basics.Diagnostic {
     }
 }
 
-// FIXME: Move to TSC.
+@available(*, deprecated, message: "use ProgressAnimation.ninja(stream:) instead")
 public final class VerboseProgressAnimation: ProgressAnimationProtocol {
-
     private let stream: OutputByteStream
 
     public init(stream: OutputByteStream) {

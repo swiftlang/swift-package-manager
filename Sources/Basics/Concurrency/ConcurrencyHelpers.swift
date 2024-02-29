@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -40,10 +41,40 @@ public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
 
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
-    public static var sharedConcurrent = DispatchQueue(
+    public static let sharedConcurrent = DispatchQueue(
         label: "swift.org.swiftpm.shared.concurrent",
         attributes: .concurrent
     )
+}
+
+/// Bridges between potentially blocking methods that take a result completion closure and async/await
+public func safe_async<T, ErrorType: Error>(
+    _ body: @Sendable @escaping (@Sendable @escaping (Result<T, ErrorType>) -> Void) -> Void
+) async throws -> T {
+    try await withCheckedThrowingContinuation { continuation in
+        // It is possible that body make block indefinitely on a lock, semaphore,
+        // or similar then synchronously call the completion handler. For full safety
+        // it is essential to move the execution off the swift concurrency pool
+        DispatchQueue.sharedConcurrent.async {
+            body {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+}
+
+/// Bridges between potentially blocking methods that take a result completion closure and async/await
+public func safe_async<T>(_ body: @escaping (@escaping (Result<T, Never>) -> Void) -> Void) async -> T {
+    await withCheckedContinuation { continuation in
+        // It is possible that body make block indefinitely on a lock, semaphore,
+        // or similar then synchronously call the completion handler. For full safety
+        // it is essential to move the execution off the swift concurrency pool
+        DispatchQueue.sharedConcurrent.async {
+            body {
+                continuation.resume(with: $0)
+            }
+        }
+    }
 }
 
 #if !canImport(Darwin)

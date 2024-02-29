@@ -42,7 +42,7 @@ class PIFBuilderTests: XCTestCase {
             )
 
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [
                     Manifest.createLocalSourceControlManifest(
@@ -113,7 +113,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
@@ -189,7 +189,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "11.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "12.0")
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.13")
@@ -204,7 +204,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Onone")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
+                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "12.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "4.0")
                         XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
@@ -236,7 +236,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "11.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "12.0")
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.13")
@@ -250,7 +250,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Owholemodule")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
+                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "12.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "4.0")
                         XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
@@ -308,7 +308,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Onone")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
+                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "12.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "6.0")
                         XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
@@ -354,7 +354,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Owholemodule")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
+                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "12.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
                         XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "6.0")
                         XCTAssertEqual(settings[.XROS_DEPLOYMENT_TARGET], "1.0")
@@ -400,7 +400,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -734,7 +734,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -986,7 +986,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1188,7 +1188,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1486,7 +1486,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1709,7 +1709,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1762,7 +1762,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
@@ -1820,7 +1820,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1939,7 +1939,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2013,7 +2013,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2218,7 +2218,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testBuildSettings() throws {
+    func buildSettingsTestCase(isPackageAccessModifierSupported: Bool) throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
@@ -2228,35 +2228,41 @@ class PIFBuilderTests: XCTestCase {
                                     "/Foo/Sources/FooTests/FooTests.swift"
         )
 
+        let toolsVersion: ToolsVersion = if isPackageAccessModifierSupported { .v5_9 } else { .v5 }
+        let mainTargetType: TargetDescription.TargetType = if toolsVersion >= .v5_9 { .executable } else { .regular }
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
                     path: "/Foo",
-                    toolsVersion: .v5,
+                    toolsVersion: toolsVersion,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
                     targets: [
-                        .init(name: "foo", settings: [
-                            .init(
-                                tool: .c,
-                                kind: .define("ENABLE_BEST_MODE")),
-                            .init(
-                                tool: .cxx,
-                                kind: .headerSearchPath("some/path"),
-                                condition: .init(platformNames: ["macos"])),
-                            .init(
-                                tool: .linker,
-                                kind: .linkedLibrary("z"),
-                                condition: .init(config: "debug")),
-                            .init(
-                                tool: .swift,
-                                kind: .unsafeFlags(["-secret", "value"]),
-                                condition: .init(platformNames: ["macos", "linux"], config: "release")),
-                        ]),
+                        .init(
+                            name: "foo",
+                            type: mainTargetType,
+                            settings: [
+                                .init(
+                                    tool: .c,
+                                    kind: .define("ENABLE_BEST_MODE")),
+                                .init(
+                                    tool: .cxx,
+                                    kind: .headerSearchPath("some/path"),
+                                    condition: .init(platformNames: ["macos"])),
+                                .init(
+                                    tool: .linker,
+                                    kind: .linkedLibrary("z"),
+                                    condition: .init(config: "debug")),
+                                .init(
+                                    tool: .swift,
+                                    kind: .unsafeFlags(["-secret", "value"]),
+                                    condition: .init(platformNames: ["macos", "linux"], config: "release")),
+                            ]
+                        ),
                         .init(name: "FooLib", settings: [
                             .init(
                                 tool: .c,
@@ -2291,7 +2297,8 @@ class PIFBuilderTests: XCTestCase {
                                 kind: .unsafeFlags(["-secret", "value"]),
                                 condition: .init(platformNames: ["macos", "linux"], config: "release")),
                         ]),
-                    ]),
+                    ]
+                ),
             ],
             shouldCreateMultipleTestProducts: true,
             observabilityScope: observability.topScope
@@ -2299,13 +2306,19 @@ class PIFBuilderTests: XCTestCase {
 
         let builder = PIFBuilder(
             graph: graph,
-            parameters: .mock(),
+            parameters: .mock(isPackageAccessModifierSupported: isPackageAccessModifierSupported),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let packageNameOptions = if isPackageAccessModifierSupported {
+            ["-package-name", "foo"]
+        } else {
+            [String]?.none
+        }
 
         try PIFTester(pif) { workspace in
             try workspace.checkProject("PACKAGE:/Foo") { project in
@@ -2319,7 +2332,7 @@ class PIFBuilderTests: XCTestCase {
                                 "/Foo/Sources/foo/some/path"
                             ])
                             XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-lz"])
-                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], packageNameOptions)
                         }
                     }
 
@@ -2332,7 +2345,7 @@ class PIFBuilderTests: XCTestCase {
                                 "/Foo/Sources/foo/some/path"
                             ])
                             XCTAssertEqual(settings[.OTHER_LDFLAGS], nil)
-                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], packageNameOptions)
                             XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS, for: .macOS], ["$(inherited)", "-secret", "value"])
                             XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS, for: .linux], ["$(inherited)", "-secret", "value"])
                         }
@@ -2371,7 +2384,7 @@ class PIFBuilderTests: XCTestCase {
                                 "/Foo/Sources/FooLib/some/path"
                             ])
                             XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-lz"])
-                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], packageNameOptions)
                         }
                     }
 
@@ -2384,7 +2397,7 @@ class PIFBuilderTests: XCTestCase {
                                 "/Foo/Sources/FooLib/some/path"
                             ])
                             XCTAssertEqual(settings[.OTHER_LDFLAGS], nil)
-                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], packageNameOptions)
                             XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS, for: .macOS], ["$(inherited)", "-secret", "value"])
                             XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS, for: .linux], ["$(inherited)", "-secret", "value"])
                         }
@@ -2408,7 +2421,7 @@ class PIFBuilderTests: XCTestCase {
                                 "/Foo/Sources/FooTests/some/path"
                             ])
                             XCTAssertEqual(settings[.OTHER_LDFLAGS], ["$(inherited)", "-lz"])
-                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], packageNameOptions)
                         }
                     }
 
@@ -2421,7 +2434,7 @@ class PIFBuilderTests: XCTestCase {
                                 "/Foo/Sources/FooTests/some/path"
                             ])
                             XCTAssertEqual(settings[.OTHER_LDFLAGS], nil)
-                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], packageNameOptions)
                             XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS, for: .macOS], ["$(inherited)", "-secret", "value"])
                             XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS, for: .linux], ["$(inherited)", "-secret", "value"])
                         }
@@ -2429,6 +2442,14 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testBuildSettings() throws {
+        try buildSettingsTestCase(isPackageAccessModifierSupported: false)
+    }
+
+    func testBuildSettingsPackageAccess() throws {
+        try buildSettingsTestCase(isPackageAccessModifierSupported: true)
     }
 
     func testConditionalDependencies() throws {
@@ -2443,7 +2464,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
@@ -2512,7 +2533,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2562,7 +2583,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2620,9 +2641,11 @@ class PIFBuilderTests: XCTestCase {
 
 extension PIFBuilderParameters {
     static func mock(
+        isPackageAccessModifierSupported: Bool = false,
         shouldCreateDylibForDynamicProducts: Bool = false
     ) -> Self {
         PIFBuilderParameters(
+            isPackageAccessModifierSupported: isPackageAccessModifierSupported,
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
             toolchainLibDir: "/toolchain/lib",

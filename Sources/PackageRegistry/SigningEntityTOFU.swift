@@ -29,7 +29,29 @@ struct PackageSigningEntityTOFU {
         self.signingEntityStorage = signingEntityStorage
         self.signingEntityCheckingMode = signingEntityCheckingMode
     }
+    
+    func validate(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        signingEntity: SigningEntity?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue
+    ) async throws {
+        try await safe_async {
+            self.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: signingEntity,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: $0
+            )
+        }
+    }
 
+    @available(*, noasync, message: "Use the async alternative")
     func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,

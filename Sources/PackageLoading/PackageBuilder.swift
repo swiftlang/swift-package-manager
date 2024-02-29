@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -697,7 +697,7 @@ public final class PackageBuilder {
 
         // The created targets mapped to their name.
         var targets = [String: Target]()
-        // If a direcotry is empty, we don't create a target object for them.
+        // If a directory is empty, we don't create a target object for them.
         var emptyModules = Set<String>()
 
         // Start iterating the potential targets.
@@ -710,7 +710,7 @@ public final class PackageBuilder {
 
             // Get the dependencies of this target.
             let dependencies: [Target.Dependency] = try manifestTarget.map {
-                try $0.dependencies.compactMap { dependency in
+                try $0.dependencies.compactMap { dependency -> Target.Dependency? in
                     switch dependency {
                     case .target(let name, let condition):
                         // We don't create an object for targets which have no sources.
@@ -877,7 +877,11 @@ public final class PackageBuilder {
         }
 
         // Create the build setting assignment table for this target.
-        let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path, cxxLanguageStandard: self.manifest.cxxLanguageStandard)
+        let buildSettings = try self.buildSettings(
+            for: manifestTarget,
+            targetRoot: potentialModule.path,
+            cxxLanguageStandard: self.manifest.cxxLanguageStandard
+        )
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
@@ -969,6 +973,7 @@ public final class PackageBuilder {
                 packageAccess: potentialModule.packageAccess,
                 swiftVersion: try self.swiftVersion(),
                 buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         } else {
@@ -1011,14 +1016,18 @@ public final class PackageBuilder {
                 ignored: ignored,
                 dependencies: dependencies,
                 buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         }
     }
 
     /// Creates build setting assignment table for the given target.
-    func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath, cxxLanguageStandard: String? = nil) throws -> BuildSettings
-        .AssignmentTable
+    func buildSettings(
+        for target: TargetDescription?,
+        targetRoot: AbsolutePath,
+        cxxLanguageStandard: String? = nil
+    ) throws -> BuildSettings.AssignmentTable
     {
         var table = BuildSettings.AssignmentTable()
         guard let target else { return table }
@@ -1145,12 +1154,11 @@ public final class PackageBuilder {
         return table
     }
 
-    func buildConditions(from condition: PackageConditionDescription?) -> [PackageConditionProtocol] {
-        var conditions: [PackageConditionProtocol] = []
+    func buildConditions(from condition: PackageConditionDescription?) -> [PackageCondition] {
+        var conditions: [PackageCondition] = []
 
         if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
-            let condition = ConfigurationCondition(configuration: config)
-            conditions.append(condition)
+            conditions.append(.init(configuration: config))
         }
 
         if let platforms = condition?.platformNames.map({
@@ -1159,11 +1167,9 @@ public final class PackageBuilder {
             } else {
                 return PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
             }
-        }),
-           !platforms.isEmpty
+        }), !platforms.isEmpty
         {
-            let condition = PlatformsCondition(platforms: platforms)
-            conditions.append(condition)
+            conditions.append(.init(platforms: platforms))
         }
 
         return conditions
@@ -1656,23 +1662,21 @@ extension PackageBuilder {
                 let sources = Sources(paths: [sourceFile], root: sourceFile.parentDirectory)
                 let buildSettings: BuildSettings.AssignmentTable
 
-                do {
-                    let targetDescription = try TargetDescription(
-                        name: name,
-                        dependencies: dependencies
-                            .map {
-                                TargetDescription.Dependency.target(name: $0.name)
-                            },
-                        path: sourceFile.parentDirectory.pathString,
-                        sources: [sourceFile.pathString],
-                        type: .executable,
-                        packageAccess: false
-                    )
-                    buildSettings = try self.buildSettings(
-                        for: targetDescription,
-                        targetRoot: sourceFile.parentDirectory
-                    )
-                }
+                let targetDescription = try TargetDescription(
+                    name: name,
+                    dependencies: dependencies
+                        .map {
+                            TargetDescription.Dependency.target(name: $0.name)
+                        },
+                    path: sourceFile.parentDirectory.pathString,
+                    sources: [sourceFile.pathString],
+                    type: .executable,
+                    packageAccess: false
+                )
+                buildSettings = try self.buildSettings(
+                    for: targetDescription,
+                    targetRoot: sourceFile.parentDirectory
+                )
 
                 return SwiftTarget(
                     name: name,
@@ -1683,6 +1687,7 @@ extension PackageBuilder {
                     packageAccess: false,
                     swiftVersion: try swiftVersion(),
                     buildSettings: buildSettings,
+                    buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false
                 )
             }

@@ -426,7 +426,7 @@ extension Triple {
     }
   }
 
-  public enum Arch: String, CaseIterable {
+  public enum Arch: String, CaseIterable, Decodable {
     /// ARM (little endian): arm, armv.*, xscale
     case arm
     // ARM (big endian): armeb
@@ -439,7 +439,7 @@ extension Triple {
     case aarch64_be
     // AArch64 (little endian) ILP32: aarch64_32
     case aarch64_32
-    /// ARC: Synopsys ARC
+    /// ARC: Synopsis ARC
     case arc
     /// AVR: Atmel AVR microcontroller
     case avr

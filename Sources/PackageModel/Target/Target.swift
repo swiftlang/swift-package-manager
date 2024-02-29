@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Dispatch
 
 import protocol TSCUtility.PolymorphicCodableProtocol
 
@@ -42,9 +41,9 @@ public class Target: PolymorphicCodableProtocol {
         case package
         case excluded
     }
+
     /// A reference to a product from a target dependency.
     public struct ProductReference: Codable {
-
         /// The name of the product dependency.
         public let name: String
 
@@ -79,10 +78,10 @@ public class Target: PolymorphicCodableProtocol {
     /// A target dependency to a target or product.
     public enum Dependency {
         /// A dependency referencing another target, with conditions.
-        case target(_ target: Target, conditions: [PackageConditionProtocol])
+        case target(_ target: Target, conditions: [PackageCondition])
 
         /// A dependency referencing a product, with conditions.
-        case product(_ product: ProductReference, conditions: [PackageConditionProtocol])
+        case product(_ product: ProductReference, conditions: [PackageCondition])
 
         /// The target if the dependency is a target dependency.
         public var target: Target? {
@@ -103,7 +102,7 @@ public class Target: PolymorphicCodableProtocol {
         }
 
         /// The dependency conditions.
-        public var conditions: [PackageConditionProtocol] {
+        public var conditions: [PackageCondition] {
             switch self {
             case .target(_, let conditions):
                 return conditions
@@ -234,6 +233,9 @@ public class Target: PolymorphicCodableProtocol {
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
 
+    @_spi(SwiftPMInternal)
+    public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
+
     /// The usages of package plugins by this target.
     public let pluginUsages: [PluginUsage]
 
@@ -252,6 +254,7 @@ public class Target: PolymorphicCodableProtocol {
         dependencies: [Target.Dependency],
         packageAccess: Bool,
         buildSettings: BuildSettings.AssignmentTable,
+        buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool
     ) {
@@ -267,12 +270,27 @@ public class Target: PolymorphicCodableProtocol {
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.packageAccess = packageAccess
         self.buildSettings = buildSettings
+        self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, potentialBundleName, defaultLocalization, platforms, type, path, sources, resources, ignored, others, packageAccess, buildSettings, pluginUsages, usesUnsafeFlags
+        case name
+        case potentialBundleName
+        case defaultLocalization
+        case platforms
+        case type
+        case path
+        case sources
+        case resources
+        case ignored
+        case others
+        case packageAccess
+        case buildSettings
+        case buildSettingsDescription
+        case pluginUsages
+        case usesUnsafeFlags
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -290,6 +308,7 @@ public class Target: PolymorphicCodableProtocol {
         try container.encode(others, forKey: .others)
         try container.encode(packageAccess, forKey: .packageAccess)
         try container.encode(buildSettings, forKey: .buildSettings)
+        try container.encode(buildSettingsDescription, forKey: .buildSettingsDescription)
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
         try container.encode(usesUnsafeFlags, forKey: .usesUnsafeFlags)
@@ -311,10 +330,23 @@ public class Target: PolymorphicCodableProtocol {
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.packageAccess = try container.decode(Bool.self, forKey: .packageAccess)
         self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
+        self.buildSettingsDescription = try container.decode(
+            [TargetBuildSettingDescription.Setting].self,
+            forKey: .buildSettingsDescription
+        )
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
         self.pluginUsages = []
         self.usesUnsafeFlags = try container.decode(Bool.self, forKey: .usesUnsafeFlags)
+    }
+
+    @_spi(SwiftPMInternal)
+    public var isEmbeddedSwiftTarget: Bool {
+        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
+            return true
+        }
+
+        return false
     }
 }
 
@@ -346,5 +378,12 @@ public extension Sequence where Iterator.Element == Target {
                 return false
             }
         }
+    }
+}
+
+extension [TargetBuildSettingDescription.Setting] {
+    @_spi(SwiftPMInternal)
+    public var swiftSettings: Self {
+        self.filter { $0.tool == .swift }
     }
 }

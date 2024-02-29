@@ -99,20 +99,6 @@ class ResourcesTests: XCTestCase {
         }
     }
 
-    func testFoundationlessClient() throws {
-        try fixture(name: "Resources/FoundationlessClient") { fixturePath in
-            #if os(Linux) && swift(>=5.8)
-            let pkgPath = fixturePath.appending(components: "AppPkg")
-            guard let failure = XCTAssertBuildFails(pkgPath) else {
-                XCTFail("missing expected command execution error")
-                return
-            }
-            // Check that the following code expectedly doesn't compile for lack of 'import Foundation'
-            XCTAssertMatch(failure.stdout, .contains("print(FooUtils.foo.trimmingCharacters(in: .whitespaces))"))
-            #endif
-        }
-    }
-
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
         try fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             XCTAssertBuilds(
@@ -137,6 +123,52 @@ class ResourcesTests: XCTestCase {
         try fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
             let result = try executeSwiftRun(fixturePath, "EmbedInCodeSimple")
             XCTAssertEqual(result.stdout, "hello world\n\n")
+        }
+    }
+
+    func testResourcesOutsideOfTargetCanBeIncluded() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+
+            let manifestFile = packageDir.appending("Package.swift")
+            try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                manifestFile,
+                string: """
+                // swift-tools-version: 6.0
+                import PackageDescription
+                let package = Package(name: "MyPackage",
+                    targets: [
+                        .executableTarget(
+                            name: "exec",
+                            resources: [.copy("../resources")]
+                        )
+                    ])
+                """)
+
+            let targetSourceFile = packageDir.appending(components: "Sources", "exec", "main.swift")
+            try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(targetSourceFile, string: """
+            import Foundation
+            print(Bundle.module.resourcePath ?? "<empty>")
+            """)
+
+            let resource = packageDir.appending(components: "Sources", "resources", "best.txt")
+            try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(resource, string: "best")
+
+            let (_, stderr) = try executeSwiftBuild(packageDir)
+            // Filter some unrelated output that could show up on stderr.
+            let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }.joined(separator: "\n")
+            XCTAssertEqual(filteredStderr, "", "unexpectedly received error output: \(stderr)")
+
+            let builtProductsDir = packageDir.appending(components: [".build", "debug"])
+            // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
+            let potentialResourceBundleName = try XCTUnwrap(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)
+            let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName, "resources", "best.txt"])
+            XCTAssertTrue(localFileSystem.exists(resourcePath), "resource file wasn't copied by the build")
+            let contents = try String(contentsOfFile: resourcePath.pathString)
+            XCTAssertEqual(contents, "best", "unexpected resource contents: \(contents)")
         }
     }
 }

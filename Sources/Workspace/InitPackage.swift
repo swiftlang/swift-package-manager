@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
 
@@ -25,6 +26,9 @@ public final class InitPackage {
         /// The type of package to create.
         public var packageType: PackageType
 
+        /// The set of supported testing libraries to include in the package.
+        public var supportedTestingLibraries: Set<BuildParameters.Testing.Library>
+
         /// The list of platforms in the manifest.
         ///
         /// Note: This should only contain Apple platforms right now.
@@ -32,9 +36,11 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
+            supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
             platforms: [SupportedPlatform] = []
         ) {
             self.packageType = packageType
+            self.supportedTestingLibraries = supportedTestingLibraries
             self.platforms = platforms
         }
     }
@@ -87,13 +93,14 @@ public final class InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
+        supportedTestingLibraries: Set<BuildParameters.Testing.Library>,
         destinationPath: AbsolutePath,
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
-            options: InitPackageOptions(packageType: packageType),
+            options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: installedSwiftPMConfiguration,
             fileSystem: fileSystem
@@ -108,6 +115,11 @@ public final class InitPackage {
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
+        if options.packageType == .macro && options.supportedTestingLibraries.contains(.swiftTesting) {
+            // FIXME: https://github.com/apple/swift-syntax/issues/2400
+            throw InitError.unsupportedTestingLibraryForPackageType(.swiftTesting, .macro)
+        }
+
         self.options = options
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
@@ -174,8 +186,8 @@ public final class InitPackage {
 
             var platforms = options.platforms
 
-            // Macros require macOS 10.15, iOS 13, etc.
-            if packageType == .macro {
+            // Macros and swift-testing require macOS 10.15, iOS 13, etc.
+            if packageType == .macro || options.supportedTestingLibraries.contains(.swiftTesting) {
                 func addIfMissing(_ newPlatform: SupportedPlatform) {
                   if platforms.contains(where: { platform in
                       platform.platform == newPlatform.platform
@@ -257,16 +269,22 @@ public final class InitPackage {
             }
 
             // Package dependencies
+            var dependencies = [String]()
             if packageType == .tool {
-                pkgParams.append("""
-                    dependencies: [
-                        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0"),
-                    ]
-                """)
+                dependencies.append(#".package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0")"#)
             } else if packageType == .macro {
+                dependencies.append(#".package(url: "https://github.com/apple/swift-syntax.git", from: "\#(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)")"#)
+            }
+            if options.supportedTestingLibraries.contains(.swiftTesting) {
+                dependencies.append(#".package(url: "https://github.com/apple/swift-testing.git", from: "0.2.0")"#)
+            }
+            if !dependencies.isEmpty {
+                let dependencies = dependencies.map { dependency in
+                    "        \(dependency),"
+                }.joined(separator: "\n")
                 pkgParams.append("""
                     dependencies: [
-                        .package(url: "https://github.com/apple/swift-syntax.git", from: "\(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)"),
+                \(dependencies)
                     ]
                 """)
             }
@@ -317,6 +335,35 @@ public final class InitPackage {
                         ]
                     """
                 } else if packageType == .macro {
+                    let testTarget: String
+                    if options.supportedTestingLibraries.contains(.swiftTesting) {
+                        testTarget = """
+
+                                // A test target used to develop the macro implementation.
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: [
+                                        "\(pkgname)Macros",
+                                        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                        .product(name: "Testing", package: "swift-testing"),
+                                    ]
+                                ),
+                        """
+                    } else if options.supportedTestingLibraries.contains(.xctest) {
+                        testTarget = """
+
+                                // A test target used to develop the macro implementation.
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: [
+                                        "\(pkgname)Macros",
+                                        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                    ]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             // Macro implementation that performs the source transformation of a macro.
                             .macro(
@@ -332,24 +379,36 @@ public final class InitPackage {
 
                             // A client of the library, which is able to use the macro in its own code.
                             .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
-
-                            // A test target used to develop the macro implementation.
-                            .testTarget(
-                                name: "\(pkgname)Tests",
-                                dependencies: [
-                                    "\(pkgname)Macros",
-                                    .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                                ]
-                            ),
+                    \(testTarget)
                         ]
                     """
                 } else {
+                    let testTarget: String
+                    if options.supportedTestingLibraries.contains(.swiftTesting) {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: [
+                                        "\(pkgname)",
+                                        .product(name: "Testing", package: "swift-testing"),
+                                    ]
+                                ),
+                        """
+                    } else if options.supportedTestingLibraries.contains(.xctest) {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
+
                     param += """
                             .target(
                                 name: "\(pkgname)"),
-                            .testTarget(
-                                name: "\(pkgname)Tests",
-                                dependencies: ["\(pkgname)"]),
+                    \(testTarget)
                         ]
                     """
                 }
@@ -491,7 +550,7 @@ public final class InitPackage {
                 #if canImport(XcodeProjectPlugin)
                 import XcodeProjectPlugin
 
-                extension MyCommandPlugin: XcodeCommandPlugin {
+                extension \(typeName): XcodeCommandPlugin {
                     // Entry point for command plugins applied to Xcode projects.
                     func performCommand(context: XcodePluginContext, arguments: [String]) throws {
                         print("Hello, World!")
@@ -573,6 +632,7 @@ public final class InitPackage {
                     print("Hello, world!")
                 }
             }
+
             """
         case .macro:
             content = """
@@ -587,6 +647,7 @@ public final class InitPackage {
             /// produces a tuple `(x + y, "x + y")`.
             @freestanding(expression)
             public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
+
             """
 
         case .empty, .buildToolPlugin, .commandPlugin:
@@ -604,6 +665,12 @@ public final class InitPackage {
     }
 
     private func writeTests() throws {
+        if options.supportedTestingLibraries.isEmpty {
+            // If the developer disabled all testing libraries, do not bother to
+            // emit any test content.
+            return
+        }
+
         switch packageType {
         case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
             default: break
@@ -618,11 +685,31 @@ public final class InitPackage {
     }
 
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
-        try writePackageFile(path) { stream in
-            stream.send(
+        var content = ""
+
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            content += "import Testing\n"
+        }
+        if options.supportedTestingLibraries.contains(.xctest) {
+            content += "import XCTest\n"
+        }
+        content += "@testable import \(moduleName)\n"
+
+        // Prefer swift-testing if specified, otherwise XCTest. If both are
+        // specified, the developer is free to write tests using both
+        // libraries, but we still only want to present a single library's
+        // example tests.
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            content += """
+
+                @Test func example() throws {
+                    // swift-testing Documentation
+                    // https://swiftpackageindex.com/apple/swift-testing/main/documentation/testing
+                }
+
                 """
-                import XCTest
-                @testable import \(moduleName)
+        } else if options.supportedTestingLibraries.contains(.xctest) {
+            content += """
 
                 final class \(moduleName)Tests: XCTestCase {
                     func testExample() throws {
@@ -635,28 +722,53 @@ public final class InitPackage {
                 }
 
                 """
-            )
+        }
+
+        try writePackageFile(path) { stream in
+            stream.send(content)
         }
     }
 
     private func writeMacroTestsFile(_ path: AbsolutePath) throws {
-        try writePackageFile(path) { stream in
-            stream.send(##"""
-                import SwiftSyntax
-                import SwiftSyntaxBuilder
-                import SwiftSyntaxMacros
-                import SwiftSyntaxMacrosTestSupport
-                import XCTest
+        var content = ""
 
-                // Macro implementations build for the host, so the corresponding module is not available when cross-compiling. Cross-compiled tests may still make use of the macro itself in end-to-end tests.
-                #if canImport(\##(moduleName)Macros)
-                import \##(moduleName)Macros
+        content += ##"""
+            import SwiftSyntax
+            import SwiftSyntaxBuilder
+            import SwiftSyntaxMacros
+            import SwiftSyntaxMacrosTestSupport
 
-                let testMacros: [String: Macro.Type] = [
-                    "stringify": StringifyMacro.self,
-                ]
-                #endif
+            """##
 
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            content += "import Testing\n"
+        }
+        if options.supportedTestingLibraries.contains(.xctest) {
+            content += "import XCTest\n"
+        }
+
+        content += ##"""
+
+            // Macro implementations build for the host, so the corresponding module is not available when cross-compiling. Cross-compiled tests may still make use of the macro itself in end-to-end tests.
+            #if canImport(\##(moduleName)Macros)
+            import \##(moduleName)Macros
+
+            let testMacros: [String: Macro.Type] = [
+                "stringify": StringifyMacro.self,
+            ]
+            #endif
+
+
+            """##
+
+        // Prefer swift-testing if specified, otherwise XCTest. If both are
+        // specified, the developer is free to write tests using both
+        // libraries, but we still only want to present a single library's
+        // example tests.
+        if options.supportedTestingLibraries.contains(.swiftTesting) {
+            // FIXME: https://github.com/apple/swift-syntax/issues/2400
+        } else if options.supportedTestingLibraries.contains(.xctest) {
+            content += ##"""
                 final class \##(moduleName)Tests: XCTestCase {
                     func testMacro() throws {
                         #if canImport(\##(moduleName)Macros)
@@ -692,7 +804,10 @@ public final class InitPackage {
                 }
 
                 """##
-            )
+        }
+
+        try writePackageFile(path) { stream in
+            stream.send(content)
         }
     }
 
@@ -781,6 +896,7 @@ public final class InitPackage {
 
 private enum InitError: Swift.Error {
     case manifestAlreadyExists
+    case unsupportedTestingLibraryForPackageType(_ testingLibrary: BuildParameters.Testing.Library, _ packageType: InitPackage.PackageType)
 }
 
 extension InitError: CustomStringConvertible {
@@ -788,6 +904,8 @@ extension InitError: CustomStringConvertible {
         switch self {
         case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"
+        case let .unsupportedTestingLibraryForPackageType(library, packageType):
+            return "\(library) cannot be used when initializing a \(packageType) package"
         }
     }
 }

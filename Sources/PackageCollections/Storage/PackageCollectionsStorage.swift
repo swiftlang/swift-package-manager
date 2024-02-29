@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import PackageModel
+import Basics
 
 public protocol PackageCollectionsStorage {
     /// Writes `PackageCollection` to storage.
@@ -18,6 +19,7 @@ public protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - collection: The `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func put(collection: PackageCollectionsModel.Collection,
              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
 
@@ -26,6 +28,7 @@ public protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - identifier: The identifier of the `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func remove(identifier: PackageCollectionsModel.CollectionIdentifier,
                 callback: @escaping (Result<Void, Error>) -> Void)
 
@@ -34,6 +37,7 @@ public protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - identifier: The identifier of the `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func get(identifier: PackageCollectionsModel.CollectionIdentifier,
              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
 
@@ -42,6 +46,7 @@ public protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
               callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void)
 
@@ -51,6 +56,7 @@ public protocol PackageCollectionsStorage {
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - query: The search query expression
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
@@ -74,8 +80,42 @@ public protocol PackageCollectionsStorage {
     ///   - query: The search query expression
     ///   - type: The search type
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, noasync, message: "Use the async alternative")
     func searchTargets(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                        query: String,
                        type: PackageCollectionsModel.TargetSearchType,
                        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void)
+}
+
+public extension PackageCollectionsStorage {
+    func put(collection: PackageCollectionsModel.Collection) async throws -> PackageCollectionsModel.Collection {
+        try await safe_async {
+            self.put(collection: collection, callback: $0)
+        }
+    }
+    func remove(identifier: PackageCollectionsModel.CollectionIdentifier) async throws {
+        try await safe_async {
+            self.remove(identifier: identifier, callback: $0)
+        }
+    }
+    func get(identifier: PackageCollectionsModel.CollectionIdentifier) async throws -> PackageCollectionsModel.Collection {
+        try await safe_async {
+            self.get(identifier: identifier, callback: $0)
+        }
+    }
+    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil) async throws -> [PackageCollectionsModel.Collection] {
+        try await safe_async {
+            self.list(identifiers: identifiers, callback: $0)
+        }
+    }
+
+    func searchTargets(
+        identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
+        query: String,
+        type: PackageCollectionsModel.TargetSearchType
+    ) async throws -> PackageCollectionsModel.TargetSearchResult {
+        try await safe_async {
+            self.searchTargets(identifiers: identifiers, query: query, type: type, callback: $0)
+        }
+    }
 }

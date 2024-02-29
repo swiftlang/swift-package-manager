@@ -478,8 +478,8 @@ public struct SwiftSDK: Equatable {
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = lookupExecutablePath(filename: ProcessEnv.vars["SDKROOT"]) {
-            sdkPath = value
+        if let value = ProcessEnv.vars["SDKROOT"] {
+            sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
@@ -596,6 +596,83 @@ public struct SwiftSDK: Equatable {
             )
         }
         return nil
+    }
+
+    /// Computes the target Swift SDK for the given options.
+    @_spi(SwiftPMInternal)
+    public static func deriveTargetSwiftSDK(
+      hostSwiftSDK: SwiftSDK,
+      hostTriple: Triple,
+      customCompileDestination: AbsolutePath? = nil,
+      customCompileTriple: Triple? = nil,
+      customCompileToolchain: AbsolutePath? = nil,
+      customCompileSDK: AbsolutePath? = nil,
+      swiftSDKSelector: String? = nil,
+      architectures: [String] = [],
+      store: SwiftSDKBundleStore,
+      observabilityScope: ObservabilityScope,
+      fileSystem: FileSystem
+    ) throws -> SwiftSDK {
+        var swiftSDK: SwiftSDK
+        var isBasedOnHostSDK: Bool = false
+        // Create custom toolchain if present.
+        if let customDestination = customCompileDestination {
+            let swiftSDKs = try SwiftSDK.decode(
+                fromFile: customDestination,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
+            if swiftSDKs.count == 1 {
+                swiftSDK = swiftSDKs[0]
+            } else if swiftSDKs.count > 1,
+                      let triple = customCompileTriple,
+                      let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
+            {
+                swiftSDK = matchingSDK
+            } else {
+                throw SwiftSDKError.noSwiftSDKDecoded(customDestination)
+            }
+        } else if let triple = customCompileTriple,
+                  let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
+        {
+            swiftSDK = targetSwiftSDK
+        } else if let swiftSDKSelector {
+            swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+        } else {
+            // Otherwise use the host toolchain.
+            swiftSDK = hostSwiftSDK
+            isBasedOnHostSDK = true
+        }
+        // Apply any manual overrides.
+        if let triple = customCompileTriple {
+            swiftSDK.targetTriple = triple
+        }
+        if let binDir = customCompileToolchain {
+            if !fileSystem.exists(binDir) {
+                observabilityScope.emit(
+                    warning: """
+                        Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
+                            binDir
+                        )`
+                        """
+                )
+            }
+
+            swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
+        }
+        if let sdk = customCompileSDK {
+            swiftSDK.pathsConfiguration.sdkRootPath = sdk
+        }
+        swiftSDK.architectures = architectures.isEmpty ? nil : architectures
+
+        if !isBasedOnHostSDK {
+            // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
+            // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
+            // target Swift SDKs).
+            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.add(toolsetRootPath: $0) }
+        }
+
+        return swiftSDK
     }
 
     /// Propagates toolchain and SDK paths known to the Swift SDK to `swiftc` CLI options.
@@ -924,4 +1001,29 @@ struct SwiftSDKMetadataV4: Decodable {
 
     /// Mapping of triple strings to corresponding properties of such target triple.
     let targetTriples: [String: TripleProperties]
+}
+
+extension Optional where Wrapped == AbsolutePath {
+    fileprivate var configurationString: String {
+        self?.pathString ?? "not set"
+    }
+}
+
+extension Optional where Wrapped == [AbsolutePath] {
+    fileprivate var configurationString: String {
+        self?.map(\.pathString).description ?? "not set"
+    }
+}
+
+extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
+    public var description: String {
+        """
+        sdkRootPath: \(sdkRootPath.configurationString)
+        swiftResourcesPath: \(swiftResourcesPath.configurationString)
+        swiftStaticResourcesPath: \(swiftStaticResourcesPath.configurationString)
+        includeSearchPaths: \(includeSearchPaths.configurationString)
+        librarySearchPaths: \(librarySearchPaths.configurationString)
+        toolsetPaths: \(toolsetPaths.configurationString)
+        """
+    }
 }

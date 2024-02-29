@@ -12,7 +12,11 @@
 
 import Foundation
 
+#if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SPMSQLite3
+#else
+import SPMSQLite3
+#endif
 
 /// A minimal SQLite wrapper.
 public final class SQLite {
@@ -258,7 +262,7 @@ public final class SQLite {
             try SQLite.checkError { sqlite3_reset(stmt) }
         }
 
-        /// Clear bindings from the prepared statment.
+        /// Clear bindings from the prepared statement.
         public func clearBindings() throws {
             try SQLite.checkError { sqlite3_clear_bindings(stmt) }
         }

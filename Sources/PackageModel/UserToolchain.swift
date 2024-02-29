@@ -88,6 +88,8 @@ public final class UserToolchain: Toolchain {
 
     public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
+    public let providedLibraries: [LibraryMetadata]
+
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
         // FIXME: This is only for SwiftPM development time support. It is OK
@@ -128,6 +130,8 @@ public final class UserToolchain: Toolchain {
                 continue
             }
             toolPath = path
+            // Take the first match.
+            break
         }
         guard let toolPath else {
             throw InvalidToolchainDiagnostic("could not find CLI tool `\(name)` at any of these directories: \(binDirectories)")
@@ -349,7 +353,11 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: EnvironmentVariables
     ) throws -> [String] {
-        let swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
+        var swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
+
+        if let linker = swiftSDK.toolset.knownTools[.linker]?.path {
+            swiftCompilerFlags += ["-ld-path=\(linker)"]
+        }
 
         guard let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath else {
             if triple.isWindows() {
@@ -478,7 +486,8 @@ public final class UserToolchain: Toolchain {
         environment: EnvironmentVariables = .process(),
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
-        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil
+        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
+        customProvidedLibraries: [LibraryMetadata]? = nil
     ) throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
@@ -530,6 +539,33 @@ public final class UserToolchain: Toolchain {
             } else {
                 // We *could* eventually make this an error, but not for a few releases.
                 self.installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
+            }
+        }
+
+        if let customProvidedLibraries {
+            self.providedLibraries = customProvidedLibraries
+        } else {
+            // When building with CMake or `swift build --build-system xcode`, we need to skip resource support.
+            #if SKIP_RESOURCE_SUPPORT
+            let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
+            #else
+            let path: AbsolutePath
+            if let developmentPath = Bundle.module.path(forResource: "provided-libraries", ofType: "json") {
+                // During development, we should be able to find the metadata file using `Bundle.module`.
+                path = try AbsolutePath(validating: developmentPath)
+            } else {
+                // When deployed, we can find the metadata file in the toolchain.
+                path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
+            }
+            #endif
+            if localFileSystem.exists(path) {
+                self.providedLibraries = try JSONDecoder.makeWithDefaults().decode(
+                    path: path,
+                    fileSystem: localFileSystem,
+                    as: [LibraryMetadata].self
+                )
+            } else {
+                self.providedLibraries = []
             }
         }
 
@@ -695,9 +731,19 @@ public final class UserToolchain: Toolchain {
 
             // this tests if we are debugging / testing SwiftPM with SwiftPM
             if localFileSystem.exists(applicationPath.appending("swift-package")) {
+                // Newer versions of SwiftPM will emit modules to a "Modules" subdirectory, but we're also staying compatible with older versions for development.
+                let modulesPath: AbsolutePath
+                if localFileSystem.exists(applicationPath.appending("Modules")) {
+                    modulesPath = applicationPath.appending("Modules")
+                } else {
+                    modulesPath = applicationPath
+                }
+
                 return .init(
                     manifestLibraryPath: applicationPath,
-                    pluginLibraryPath: applicationPath
+                    manifestModulesPath: modulesPath,
+                    pluginLibraryPath: applicationPath,
+                    pluginModulesPath: modulesPath
                 )
             }
         }

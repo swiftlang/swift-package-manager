@@ -11,7 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
+
+@_spi(SwiftPMInternal)
+import SPMBuildCore
+
 import PackageModel
 
 import enum TSCBasic.ProcessEnv
@@ -36,7 +43,7 @@ struct SnippetCard: Card {
     var number: Int
 
     /// The tool used for eventually building and running a chosen snippet.
-    var swiftTool: SwiftTool
+    var swiftCommandState: SwiftCommandState
 
     func render() -> String {
         var rendered = colorized {
@@ -93,9 +100,9 @@ struct SnippetCard: Card {
 
     func runExample() throws {
         print("Building '\(snippet.path)'\n")
-        let buildSystem = try swiftTool.createBuildSystem(explicitProduct: snippet.name)
+        let buildSystem = try swiftCommandState.createBuildSystem(explicitProduct: snippet.name)
         try buildSystem.build(subset: .product(snippet.name))
-        let executablePath = try swiftTool.buildParameters().buildPath.appending(component: snippet.name)
+        let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
         if let exampleTarget = try buildSystem.getPackageGraph().allTargets.first(where: { $0.name == snippet.name }) {
             try ProcessEnv.chdir(exampleTarget.sources.paths[0].parentDirectory)
         }

@@ -17,7 +17,7 @@ import struct TSCBasic.RegEx
 import struct TSCUtility.Version
 
 /// Represents a Swift language version.
-public struct SwiftLanguageVersion: Sendable {
+public struct SwiftLanguageVersion: Hashable, Sendable {
 
     /// Swift language version 3.
     public static let v3 = SwiftLanguageVersion(uncheckedString: "3")
