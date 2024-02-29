@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-@_spi(SwiftPMInternal)
 import Basics
 import CoreCommands
 import Foundation
@@ -19,8 +18,8 @@ import PackageModel
 
 import var TSCBasic.stdoutStream
 
-public struct InstallSwiftSDK: SwiftSDKSubcommand {
-    public static let configuration = CommandConfiguration(
+package struct InstallSwiftSDK: SwiftSDKSubcommand {
+    package static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
         Installs a given Swift SDK bundle to a location discoverable by SwiftPM. If the artifact bundle \
@@ -34,7 +33,7 @@ public struct InstallSwiftSDK: SwiftSDKSubcommand {
     @Argument(help: "A local filesystem path or a URL of a Swift SDK bundle to install.")
     var bundlePathOrURL: String
 
-    public init() {}
+    package init() {}
 
     func run(
         hostTriple: Triple,

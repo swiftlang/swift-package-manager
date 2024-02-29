@@ -13,15 +13,12 @@
 import ArgumentParser
 import Basics
 
-@_spi(SwiftPMInternal)
 import Build
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import PackageGraph
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 import XCBuildSupport
 
@@ -95,7 +92,7 @@ struct BuildCommandOptions: ParsableArguments {
 
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    public var shouldLinkStaticSwiftStdlib: Bool = false
+    package var shouldLinkStaticSwiftStdlib: Bool = false
 
     /// Which testing libraries to use (and any related options.)
     @OptionGroup()
@@ -114,9 +111,8 @@ struct BuildCommandOptions: ParsableArguments {
 }
 
 /// swift-build command namespace
-@_spi(SwiftPMInternal)
-public struct SwiftBuildCommand: AsyncSwiftCommand {
-    public static var configuration = CommandConfiguration(
+package struct SwiftBuildCommand: AsyncSwiftCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "build",
         _superCommandName: "swift",
         abstract: "Build sources into binary products",
@@ -125,12 +121,12 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    public var globalOptions: GlobalOptions
+    package var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: BuildCommandOptions
 
-    public func run(_ swiftCommandState: SwiftCommandState) async throws {
+    package func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldPrintBinPath {
             return try print(swiftCommandState.productsBuildParameters.buildPath.description)
         }
@@ -183,10 +179,10 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         }
     }
 
-    public init() {}
+    package init() {}
 }
 
-public extension _SwiftCommand {
+package extension _SwiftCommand {
     func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider {
         swiftCommandState.defaultBuildSystemProvider
     }
