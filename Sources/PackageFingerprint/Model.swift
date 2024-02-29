@@ -14,7 +14,6 @@ import struct Foundation.URL
 
 import Basics
 import PackageModel
-import struct TSCUtility.Version
 
 public struct Fingerprint: Equatable {
     public let origin: Origin

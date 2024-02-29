@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import PackageModel
-
-import struct TSCUtility.Version
+import struct Basics.Version
 
 /// A node in the dependency resolution graph.
 ///

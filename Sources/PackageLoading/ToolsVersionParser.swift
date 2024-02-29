@@ -17,7 +17,7 @@ import PackageModel
 import struct TSCBasic.ByteString
 import struct TSCBasic.RegEx
 
-import struct TSCUtility.Version
+
 
 /// Protocol for the manifest loader interface.
 public struct ToolsVersionParser {

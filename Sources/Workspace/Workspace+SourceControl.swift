@@ -19,7 +19,7 @@ import enum PackageGraph.PackageRequirement
 import class PackageGraph.PinsStore
 import struct PackageModel.PackageReference
 import struct SourceControl.Revision
-import struct TSCUtility.Version
+
 
 // FIXME: this mixes quite a bit of workspace logic with repository specific one
 // need to better separate the concerns

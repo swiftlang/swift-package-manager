@@ -21,7 +21,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 package final class MockWorkspace {
     let sandbox: AbsolutePath
@@ -375,7 +375,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: ([Basics.Diagnostic]) -> Void) {
+    package func checkResolve(pkg: String, roots: [String], version: Version, _ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
         observability.topScope.trap {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
@@ -606,16 +606,16 @@ package final class MockWorkspace {
 
     package enum State {
         package enum CheckoutState {
-            case version(TSCUtility.Version)
+            case version(Version)
             case revision(String)
             case branch(String)
         }
 
         case checkout(CheckoutState)
-        case registryDownload(TSCUtility.Version)
+        case registryDownload(Version)
         case edited(AbsolutePath?)
         case local
-        case custom(TSCUtility.Version, AbsolutePath)
+        case custom(Version, AbsolutePath)
     }
 
     package struct ManagedDependencyResult {

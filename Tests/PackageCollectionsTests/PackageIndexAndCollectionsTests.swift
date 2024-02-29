@@ -17,7 +17,7 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import struct TSCUtility.Version
+
 
 class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() async throws {

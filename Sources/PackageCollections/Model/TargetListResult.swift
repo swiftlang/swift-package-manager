@@ -12,10 +12,9 @@
 
 import Foundation
 
+import struct Basics.Version
 import PackageModel
 import SourceControl
-
-import struct TSCUtility.Version
 
 extension PackageCollectionsModel {
     public typealias TargetListResult = [TargetListItem]
@@ -57,7 +56,7 @@ extension PackageCollectionsModel.TargetListResult {
     /// Represents a package version
     public struct PackageVersion: Hashable, Encodable, Comparable {
         /// The version
-        public let version: TSCUtility.Version
+        public let version: Basics.Version
 
         /// Tools version
         public let toolsVersion: ToolsVersion

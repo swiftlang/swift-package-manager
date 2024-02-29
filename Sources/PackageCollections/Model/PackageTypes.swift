@@ -13,10 +13,9 @@
 import struct Foundation.Date
 import struct Foundation.URL
 
+import struct Basics.Version
 import PackageModel
 import SourceControl
-
-import struct TSCUtility.Version
 
 extension PackageCollectionsModel {
     /// Package metadata
@@ -121,7 +120,7 @@ extension PackageCollectionsModel.Package {
         public typealias Product = PackageCollectionsModel.Product
 
         /// The version
-        public let version: TSCUtility.Version
+        public let version: Basics.Version
 
         /// The title or name of the version
         public let title: String?

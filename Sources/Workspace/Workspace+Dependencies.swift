@@ -18,6 +18,7 @@ import struct Basics.RelativePath
 import enum Basics.SignpostName
 import func Basics.temp_await
 import class Basics.ThreadSafeKeyValueStore
+import struct Basics.Version
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import enum Dispatch.DispatchTimeInterval
@@ -44,7 +45,6 @@ import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
 import struct SourceControl.Revision
-import struct TSCUtility.Version
 
 extension Workspace {
     enum ResolvedFileStrategy {

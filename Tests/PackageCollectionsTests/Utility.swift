@@ -22,7 +22,7 @@ import SourceControl
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {
     let isTrusted: [Bool?] = [true, false, nil]
@@ -96,7 +96,7 @@ func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
         let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
         let license = PackageCollectionsModel.License(type: licenseType, url: "http://\(licenseType).license")
 
-        return PackageCollectionsModel.Package.Version(version: TSCUtility.Version(versionIndex, 0, 0),
+        return PackageCollectionsModel.Package.Version(version: Version(versionIndex, 0, 0),
                                                        title: nil,
                                                        summary: "\(versionIndex) description",
                                                        manifests: manifests,
@@ -124,7 +124,7 @@ func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetad
     return .init(summary: UUID().uuidString,
                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                  versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(
-                    version: TSCUtility.Version($0, 0, 0),
+                    version: Version($0, 0, 0),
                     title: "title \($0)",
                     summary: "description \($0)",
                     author: nil,

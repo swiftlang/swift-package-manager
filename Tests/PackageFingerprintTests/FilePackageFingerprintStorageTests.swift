@@ -19,7 +19,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 final class FilePackageFingerprintStorageTests: XCTestCase {
     func testHappyCase() async throws {

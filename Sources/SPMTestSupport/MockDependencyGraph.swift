@@ -11,10 +11,9 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 
+import struct Basics.Version
 import PackageGraph
 import PackageModel
-
-import struct TSCUtility.Version
 
 package struct MockDependencyGraph {
     package let name: String

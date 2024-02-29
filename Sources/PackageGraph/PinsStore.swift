@@ -16,7 +16,7 @@ import PackageModel
 
 import enum TSCBasic.JSON
 
-import struct TSCUtility.Version
+
 
 public final class PinsStore {
     public typealias Pins = [PackageIdentity: PinsStore.Pin]

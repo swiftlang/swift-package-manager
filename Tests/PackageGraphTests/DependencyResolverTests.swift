@@ -12,14 +12,11 @@
 
 import XCTest
 
+import struct Basics.Version
 import PackageGraph
-import SourceControl
-
-import struct TSCUtility.Version
-
-import SPMTestSupport
-
 import PackageModel
+import SourceControl
+import SPMTestSupport
 
 private typealias MockPackageConstraint = PackageContainerConstraint
 

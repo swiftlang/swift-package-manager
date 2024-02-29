@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
+import struct Basics.Version
 
 extension Version {
     func nextPatch() -> Version {

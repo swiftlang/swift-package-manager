@@ -19,7 +19,7 @@ import PackageGraph
 import func XCTest.XCTFail
 
 import enum TSCBasic.ProcessEnv
-import struct TSCUtility.Version
+
 
 package enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)

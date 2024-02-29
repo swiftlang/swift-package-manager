@@ -16,8 +16,6 @@ import Basics
 import Dispatch
 import PackageModel
 
-import struct TSCUtility.Version
-
 public protocol PackageSigningEntityStorage {
     /// For a given package, return the signing entities and the package versions that each of them signed.
     @available(*, noasync, message: "Use the async alternative")

@@ -19,7 +19,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 class RegistryDownloadsManagerTests: XCTestCase {
     func testNoCache() async throws {

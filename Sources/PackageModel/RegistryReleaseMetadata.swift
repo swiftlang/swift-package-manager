@@ -12,7 +12,7 @@
 
 import struct Basics.SourceControlURL
 import struct Foundation.URL
-import struct TSCUtility.Version
+
 
 
 public struct RegistryReleaseMetadata: Hashable {

@@ -16,8 +16,6 @@ import Basics
 import PackageModel
 import PackageSigning
 
-import struct TSCUtility.Version
-
 struct PackageSigningEntityTOFU {
     private let signingEntityStorage: PackageSigningEntityStorage?
     private let signingEntityCheckingMode: SigningEntityCheckingMode

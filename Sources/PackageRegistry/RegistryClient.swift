@@ -20,8 +20,6 @@ import PackageSigning
 
 import protocol TSCBasic.HashAlgorithm
 
-import struct TSCUtility.Version
-
 public protocol RegistryClientDelegate {
     func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
     func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
@@ -2570,7 +2568,7 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
     func onUnsigned(
         registry: Registry,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        version: Basics.Version,
         completion: (Bool) -> Void
     ) {
         let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
@@ -2597,7 +2595,7 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
     func onUntrusted(
         registry: Registry,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        version: Basics.Version,
         completion: (Bool) -> Void
     ) {
         let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
@@ -2624,7 +2622,7 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
     private struct ResponseCacheKey: Hashable {
         let registry: Registry
         let package: PackageModel.PackageIdentity
-        let version: TSCUtility.Version
+        let version: Basics.Version
     }
 }
 

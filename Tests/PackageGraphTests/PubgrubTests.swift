@@ -21,7 +21,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 // There's some useful helper utilities defined below for easier testing:
 //

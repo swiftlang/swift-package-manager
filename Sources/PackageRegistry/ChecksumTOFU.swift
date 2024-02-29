@@ -16,8 +16,6 @@ import Basics
 import PackageFingerprint
 import PackageModel
 
-import struct TSCUtility.Version
-
 struct PackageVersionChecksumTOFU {
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode

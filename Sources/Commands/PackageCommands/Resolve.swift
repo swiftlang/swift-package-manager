@@ -12,10 +12,10 @@
 
 import ArgumentParser
 
+import struct Basics.Version
+
 @_spi(SwiftPMInternal)
 import CoreCommands
-
-import TSCUtility
 
 extension SwiftPackageCommand {
     struct ResolveOptions: ParsableArguments {

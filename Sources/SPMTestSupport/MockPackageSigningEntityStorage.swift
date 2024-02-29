@@ -16,7 +16,7 @@ import class Foundation.NSLock
 import PackageModel
 import PackageSigning
 
-import struct TSCUtility.Version
+
 
 package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     private var packageSigners: [PackageIdentity: PackageSigners]

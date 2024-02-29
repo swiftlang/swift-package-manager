@@ -17,6 +17,7 @@ import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import func Basics.temp_await
+import struct Basics.Version
 import class PackageGraph.PinsStore
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
@@ -28,7 +29,7 @@ import struct PackageModel.PackageReference
 import struct PackageModel.TargetDescription
 import struct PackageModel.ToolsVersion
 import class PackageRegistry.RegistryClient
-import struct TSCUtility.Version
+
 
 // Need to import the whole module to get access to `+` operator on `DispatchTimeInterval`
 import Dispatch

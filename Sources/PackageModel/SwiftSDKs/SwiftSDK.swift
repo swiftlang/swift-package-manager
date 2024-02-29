@@ -16,7 +16,7 @@ import Foundation
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 
-import struct TSCUtility.Version
+
 
 /// Errors related to Swift SDKs.
 public enum SwiftSDKError: Swift.Error {

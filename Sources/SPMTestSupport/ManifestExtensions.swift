@@ -14,15 +14,13 @@ import Basics
 import Foundation
 import PackageModel
 
-import struct TSCUtility.Version
-
 extension Manifest {
     package static func createRootManifest(
         displayName: String,
         path: AbsolutePath = .root,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        version: TSCUtility.Version? = nil,
+        version: Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -58,7 +56,7 @@ extension Manifest {
         path: AbsolutePath,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        version: TSCUtility.Version? = nil,
+        version: Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -94,7 +92,7 @@ extension Manifest {
         path: AbsolutePath,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        version: TSCUtility.Version? = nil,
+        version: Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -131,7 +129,7 @@ extension Manifest {
         path: AbsolutePath,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        version: TSCUtility.Version? = nil,
+        version: Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -168,7 +166,7 @@ extension Manifest {
         path: AbsolutePath = .root,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        version: TSCUtility.Version? = nil,
+        version: Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -206,7 +204,7 @@ extension Manifest {
         packageLocation: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        version: TSCUtility.Version? = nil,
+        version: Version? = nil,
         toolsVersion: ToolsVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,

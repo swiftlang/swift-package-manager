@@ -19,7 +19,7 @@ import PackageRegistry
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 public class RegistryPackageContainer: PackageContainer {
     public let package: PackageReference

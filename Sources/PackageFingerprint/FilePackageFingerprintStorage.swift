@@ -15,8 +15,6 @@ import Dispatch
 import Foundation
 import PackageModel
 
-import struct TSCUtility.Version
-
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem
     let directoryPath: AbsolutePath

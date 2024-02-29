@@ -17,6 +17,7 @@ import class Basics.ObservabilityScope
 import struct Basics.SwiftVersion
 import func Basics.temp_await
 import class Basics.ThreadSafeKeyValueStore
+import struct Basics.Version
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import struct OrderedCollections.OrderedDictionary
@@ -41,7 +42,6 @@ import struct TSCBasic.StringError
 import func TSCBasic.topologicalSort
 import func TSCBasic.transitiveClosure
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
 
 // MARK: - Manifest Loading and caching
 

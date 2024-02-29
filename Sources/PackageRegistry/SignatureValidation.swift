@@ -19,8 +19,6 @@ import PackageLoading
 import PackageModel
 import PackageSigning
 
-import struct TSCUtility.Version
-
 protocol SignatureValidationDelegate {
     func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
     func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)

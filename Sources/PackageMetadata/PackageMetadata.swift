@@ -21,7 +21,7 @@ import SourceControl
 import struct Foundation.Date
 import struct Foundation.URL
 
-import struct TSCUtility.Version
+
 
 public struct Package {
     public enum Source {

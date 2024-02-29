@@ -16,7 +16,7 @@ import PackageGraph
 import PackageModel
 import SourceControl
 
-import struct TSCUtility.Version
+
 
 /// Enumeration of the different errors that can arise from the `ResolverPrecomputationProvider` provider.
 enum ResolverPrecomputationError: Error {

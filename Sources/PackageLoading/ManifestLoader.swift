@@ -24,7 +24,7 @@ import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
+
 
 #if os(Windows)
 import WinSDK

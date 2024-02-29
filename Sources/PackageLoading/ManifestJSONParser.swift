@@ -18,12 +18,11 @@ import protocol Basics.FileSystem
 import struct Basics.SourceControlURL
 import struct Basics.InternalError
 import struct Basics.RelativePath
+import struct Basics.Version
 
 import enum TSCBasic.PathValidationError
 import struct TSCBasic.RegEx
 import struct TSCBasic.StringError
-
-import struct TSCUtility.Version
 
 enum ManifestJSONParser {
     struct Input: Codable {
@@ -275,8 +274,8 @@ extension PackageDependency.SourceControl.Requirement {
         case .exact(let version):
             self = .exact(.init(version))
         case .range(let lowerBound, let upperBound):
-            let lower: TSCUtility.Version = .init(lowerBound)
-            let upper: TSCUtility.Version = .init(upperBound)
+            let lower: Version = .init(lowerBound)
+            let upper: Version = .init(upperBound)
             self = .range(lower..<upper)
         case .revision(let revision):
             self = .revision(revision)
@@ -292,8 +291,8 @@ extension PackageDependency.Registry.Requirement {
         case .exact(let version):
             self = .exact(.init(version))
         case .range(let lowerBound, let upperBound):
-            let lower: TSCUtility.Version = .init(lowerBound)
-            let upper: TSCUtility.Version = .init(upperBound)
+            let lower: Version = .init(lowerBound)
+            let upper: Version = .init(upperBound)
             self = .range(lower..<upper)
         }
     }
@@ -432,7 +431,7 @@ extension TargetDescription.PluginUsage {
     }
 }
 
-extension TSCUtility.Version {
+extension Version {
     init(_ version: Serialization.Version) {
         self.init(
             version.major,

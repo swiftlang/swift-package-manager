@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 
-import struct TSCUtility.Version
+
 
 public let artifactBundleExtension = "artifactbundle"
 

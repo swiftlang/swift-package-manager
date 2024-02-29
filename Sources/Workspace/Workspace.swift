@@ -31,7 +31,7 @@ import func TSCBasic.topologicalSort
 import func TSCBasic.transitiveClosure
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
+
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {

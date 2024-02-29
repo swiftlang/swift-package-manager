@@ -22,7 +22,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 class RegistryPackageContainerTests: XCTestCase {
 

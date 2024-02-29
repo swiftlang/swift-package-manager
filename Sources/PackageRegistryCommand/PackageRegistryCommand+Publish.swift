@@ -35,7 +35,7 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.RegEx
 import struct TSCBasic.SHA256
 
-import struct TSCUtility.Version
+
 
 extension PackageRegistryCommand {
     struct Publish: AsyncSwiftCommand {

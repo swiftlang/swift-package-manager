@@ -14,7 +14,7 @@ import Basics
 import Dispatch
 import PackageModel
 
-import struct TSCUtility.Version
+
 
 public protocol DependencyResolverDelegate {
     func willResolve(term: Term)

@@ -15,8 +15,7 @@ import Foundation
 import PackageGraph
 import PackageModel
 import SourceControl
-
-import struct TSCUtility.Version
+import struct Basics.Version
 
 /// Represents the workspace internal state persisted on disk.
 public final class WorkspaceState {
@@ -256,7 +255,7 @@ extension WorkspaceStateStorage {
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
                         return try self
-                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                            .init(underlying: .registryDownload(version: Basics.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -267,7 +266,7 @@ extension WorkspaceStateStorage {
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(AbsolutePath.self, forKey: .path)
                         return try self.init(underlying: .custom(
-                            version: TSCUtility.Version(versionString: version),
+                            version: Basics.Version(versionString: version),
                             path: path
                         ))
                     default:
@@ -612,7 +611,7 @@ extension WorkspaceStateStorage {
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
                         return try self
-                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                            .init(underlying: .registryDownload(version: Basics.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -623,7 +622,7 @@ extension WorkspaceStateStorage {
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(AbsolutePath.self, forKey: .path)
                         return try self.init(underlying: .custom(
-                            version: TSCUtility.Version(versionString: version),
+                            version: Basics.Version(versionString: version),
                             path: path
                         ))
                     default:

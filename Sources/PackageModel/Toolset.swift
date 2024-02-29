@@ -14,7 +14,7 @@ import Basics
 import Foundation
 
 import struct TSCBasic.StringError
-import struct TSCUtility.Version
+
 
 /// A set of paths and flags for tools used for building Swift packages. This type unifies pre-existing assorted ways
 /// to specify these properties across SwiftPM codebase.

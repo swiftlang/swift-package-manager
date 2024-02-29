@@ -19,7 +19,7 @@ import Basics
 import PackageModel
 import SourceControl
 
-import struct TSCUtility.Version
+
 
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() async throws {

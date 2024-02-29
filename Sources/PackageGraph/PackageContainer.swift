@@ -14,8 +14,6 @@ import Basics
 import Dispatch
 import PackageModel
 
-import struct TSCUtility.Version
-
 /// A container of packages.
 ///
 /// This is the top-level unit of package resolution, i.e. the unit at which

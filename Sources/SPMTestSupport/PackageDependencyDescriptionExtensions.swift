@@ -14,7 +14,7 @@ import Basics
 import Foundation
 import PackageModel
 
-import struct TSCUtility.Version
+
 
 package extension PackageDependency {
     static func fileSystem(identity: PackageIdentity? = nil,

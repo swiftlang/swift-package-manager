@@ -18,7 +18,7 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import struct TSCUtility.Version
+
 
 final class PackageVersionChecksumTOFUTests: XCTestCase {
     func testSourceArchiveChecksumSeenForTheFirstTime() async throws {

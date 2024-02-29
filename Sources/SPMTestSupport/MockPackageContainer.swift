@@ -17,7 +17,7 @@ import PackageModel
 import SourceControl
 import XCTest
 
-import struct TSCUtility.Version
+
 
 package class MockPackageContainer: CustomPackageContainer {
     package typealias Constraint = PackageContainerConstraint

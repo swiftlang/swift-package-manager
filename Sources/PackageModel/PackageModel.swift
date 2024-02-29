@@ -15,7 +15,7 @@ import struct Foundation.URL
 
 import enum TSCUtility.PackageLocation
 import struct TSCUtility.PolymorphicCodableArray
-import struct TSCUtility.Version
+
 
 /// The basic package representation.
 ///

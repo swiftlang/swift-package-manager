@@ -17,7 +17,7 @@
 import XCTest
 import PackageModel
 
-import struct TSCUtility.Version
+import struct Basics.Version
 
 /// Test cases for the generation of Swift tools version specifications.
 class ToolsVersionSpecificationGenerationTests: XCTestCase {

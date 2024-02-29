@@ -30,7 +30,6 @@ import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics
 import func TSCUtility.getClangVersion
-import struct TSCUtility.Version
 
 extension BuildSubset {
     var argumentName: String {

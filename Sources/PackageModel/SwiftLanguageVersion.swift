@@ -12,9 +12,8 @@
 
 import Foundation
 
+import struct Basics.Version
 import struct TSCBasic.RegEx
-
-import struct TSCUtility.Version
 
 /// Represents a Swift language version.
 public struct SwiftLanguageVersion: Hashable, Sendable {

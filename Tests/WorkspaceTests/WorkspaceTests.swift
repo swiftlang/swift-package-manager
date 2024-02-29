@@ -26,7 +26,7 @@ import XCTest
 import struct TSCBasic.ByteString
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {

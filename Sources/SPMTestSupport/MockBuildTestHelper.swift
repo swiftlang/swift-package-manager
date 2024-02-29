@@ -17,7 +17,6 @@ import Build
 
 import PackageModel
 import SPMBuildCore
-import TSCUtility
 import XCTest
 
 package struct MockToolchain: PackageModel.Toolchain {

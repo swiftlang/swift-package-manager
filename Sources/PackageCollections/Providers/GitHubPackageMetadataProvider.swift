@@ -21,8 +21,6 @@ import PackageModel
 
 import protocol TSCBasic.Closable
 
-import struct TSCUtility.Version
-
 struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."
     private static let service = Model.Package.Author.Service(name: "GitHub")
@@ -151,7 +149,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
                         versions: releases.compactMap {
-                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
+                            guard let version = $0.tagName.flatMap(Basics.Version.init(tag:)) else {
                                 return nil
                             }
                             return Model.PackageBasicVersionMetadata(

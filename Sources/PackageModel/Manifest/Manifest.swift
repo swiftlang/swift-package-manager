@@ -15,8 +15,6 @@ import Foundation
 
 import func TSCBasic.transitiveClosure
 
-import struct TSCUtility.Version
-
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
 public final class Manifest: Sendable {
@@ -108,7 +106,7 @@ public final class Manifest: Sendable {
         packageLocation: String,
         defaultLocalization: String?,
         platforms: [PlatformDescription],
-        version: TSCUtility.Version?,
+        version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
         pkgConfig: String?,

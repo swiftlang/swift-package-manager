@@ -23,8 +23,6 @@ import Foundation
 import PackageCollections
 import PackageModel
 
-import struct TSCUtility.Version
-
 private enum CollectionsError: Swift.Error {
     case invalidArgument(String)
     case invalidVersionString(String)
@@ -295,7 +293,7 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
                     let result = try await collections.getPackageMetadata(identity: identity, location: self.packageURL)
 
                     if let versionString = version {
-                        guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
+                        guard let version = Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
                             throw CollectionsError.invalidVersionString(versionString)
                         }
 

@@ -19,7 +19,7 @@ import XCTest
 
 import struct TSCBasic.ProcessResult
 
-import struct TSCUtility.Version
+
 
 @_exported import func TSCTestSupport.XCTAssertMatch
 @_exported import func TSCTestSupport.XCTAssertNoMatch

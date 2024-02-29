@@ -12,6 +12,7 @@
 
 import struct Basics.AbsolutePath
 import struct Basics.Diagnostic
+import struct Basics.Version
 import enum Dispatch.DispatchTimeInterval
 import struct Foundation.URL
 import class PackageLoading.ManifestLoader
@@ -23,7 +24,6 @@ import class PackageRegistry.RegistryClient
 import class PackageRegistry.RegistryDownloadsManager
 import class SourceControl.RepositoryManager
 import struct SourceControl.RepositorySpecifier
-import struct TSCUtility.Version
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: AnyObject {
@@ -142,13 +142,13 @@ public protocol WorkspaceDelegate: AnyObject {
     func onUnsignedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        version: Version,
         completion: (Bool) -> Void
     )
     func onUntrustedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        version: Version,
         completion: (Bool) -> Void
     )
 
@@ -173,7 +173,7 @@ extension WorkspaceDelegate {
     public func onUnsignedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        version: Version,
         completion: (Bool) -> Void
     ) {
         // true == continue resolution
@@ -184,7 +184,7 @@ extension WorkspaceDelegate {
     public func onUntrustedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        version: Version,
         completion: (Bool) -> Void
     ) {
         // true == continue resolution

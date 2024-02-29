@@ -14,7 +14,7 @@ import class Basics.ObservabilityScope
 import class PackageGraph.PinsStore
 import struct PackageModel.PackageReference
 import struct PackageModel.ToolsVersion
-import struct TSCUtility.Version
+import struct Basics.Version
 
 extension Workspace {
     /// Pins all of the current managed dependencies at their checkout state.

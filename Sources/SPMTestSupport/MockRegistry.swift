@@ -21,7 +21,7 @@ import PackageSigning
 
 import protocol TSCBasic.HashAlgorithm
 
-import struct TSCUtility.Version
+
 
 package class MockRegistry {
     private let baseURL: URL

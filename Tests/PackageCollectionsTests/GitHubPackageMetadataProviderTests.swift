@@ -21,7 +21,7 @@ import SPMTestSupport
 
 import enum TSCBasic.ProcessEnv
 
-import struct TSCUtility.Version
+
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
@@ -107,11 +107,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions.count, 2)
-                XCTAssertEqual(metadata.versions[0].version, TSCUtility.Version(tag: "v2.0.0"))
+                XCTAssertEqual(metadata.versions[0].version, Version(tag: "v2.0.0"))
                 XCTAssertEqual(metadata.versions[0].title, "2.0.0")
                 XCTAssertEqual(metadata.versions[0].summary, "Description of the release")
                 XCTAssertEqual(metadata.versions[0].author?.username, "octocat")
-                XCTAssertEqual(metadata.versions[1].version, TSCUtility.Version("1.0.0"))
+                XCTAssertEqual(metadata.versions[1].version, Version("1.0.0"))
                 XCTAssertEqual(metadata.versions[1].title, "1.0.0")
                 XCTAssertEqual(metadata.versions[1].summary, "Description of the release")
                 XCTAssertEqual(metadata.versions[1].author?.username, "octocat")

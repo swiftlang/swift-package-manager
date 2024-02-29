@@ -16,7 +16,7 @@ import class Foundation.NSLock
 import OrderedCollections
 import PackageModel
 
-import struct TSCUtility.Version
+
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.

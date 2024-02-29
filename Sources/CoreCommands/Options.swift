@@ -16,6 +16,7 @@ import var Basics.localFileSystem
 import struct Basics.AbsolutePath
 import struct Basics.Triple
 import func Basics.temp_await
+import struct Basics.Version
 
 import struct Foundation.URL
 
@@ -31,8 +32,6 @@ import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
 
 import struct TSCBasic.StringError
-
-import struct TSCUtility.Version
 
 import class Workspace.Workspace
 import struct Workspace.WorkspaceConfiguration

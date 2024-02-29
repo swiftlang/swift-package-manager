@@ -15,7 +15,7 @@ import PackageGraph
 import PackageModel
 import SourceControl
 
-import struct TSCUtility.Version
+
 
 extension Workspace {
     /// An individual managed dependency.

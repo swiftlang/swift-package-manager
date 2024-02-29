@@ -19,7 +19,7 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import struct TSCUtility.Version
+
 
 final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntitySeenForTheFirstTime() async throws {

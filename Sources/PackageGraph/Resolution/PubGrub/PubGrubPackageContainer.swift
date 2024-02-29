@@ -14,7 +14,7 @@ import Basics
 import OrderedCollections
 import PackageModel
 
-import struct TSCUtility.Version
+
 
 /// A container for an individual package. This enhances PackageContainer to add PubGrub specific
 /// logic which is mostly related to computing incompatibilities at a particular version.

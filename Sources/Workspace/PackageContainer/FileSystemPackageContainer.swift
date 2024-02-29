@@ -16,7 +16,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 
-import struct TSCUtility.Version
+
 
 /// Local file system package container.
 ///

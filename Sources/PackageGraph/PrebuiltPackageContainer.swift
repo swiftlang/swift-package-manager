@@ -12,7 +12,7 @@
 
 import Basics
 import PackageModel
-import struct TSCUtility.Version
+
 
 /// A package container that can represent a prebuilt library from a package.
 public struct PrebuiltPackageContainer: PackageContainer {

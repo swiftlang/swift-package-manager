@@ -13,9 +13,8 @@
 import struct Foundation.Date
 import struct Foundation.URL
 
+import struct Basics.Version
 import PackageModel
-
-import struct TSCUtility.Version
 
 /// `PackageBasicMetadata` provider
 protocol PackageMetadataProvider {
@@ -45,7 +44,7 @@ extension Model {
     }
 
     struct PackageBasicVersionMetadata: Equatable, Codable {
-        let version: TSCUtility.Version
+        let version: Basics.Version
         let title: String?
         let summary: String?
         let author: PackageCollectionsModel.Package.Author?

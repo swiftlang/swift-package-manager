@@ -23,7 +23,7 @@ import XCTest
 import protocol TSCBasic.HashAlgorithm
 import class TSCBasic.InMemoryFileSystem
 
-import struct TSCUtility.Version
+
 
 final class RegistryClientTests: XCTestCase {
     func testGetPackageMetadata() async throws {

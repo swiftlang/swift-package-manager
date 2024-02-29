@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 
-import struct TSCUtility.Version
+
 
 /// Tools version represents version of the Swift toolchain.
 public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {

@@ -22,7 +22,7 @@ import enum TSCBasic.PathValidationError
 
 import func TSCTestSupport.withCustomEnv
 
-import struct TSCUtility.Version
+
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {

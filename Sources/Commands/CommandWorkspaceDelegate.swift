@@ -25,8 +25,7 @@ import SPMBuildCore
 import Workspace
 
 import protocol TSCBasic.OutputByteStream
-import struct TSCUtility.Version
-
+
 final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private struct DownloadProgress {
         let bytesDownloaded: Int64
@@ -187,7 +186,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     // registry signature handlers
 
-    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: Version, completion: (Bool) -> Void) {
         self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
@@ -201,7 +200,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: Version, completion: (Bool) -> Void) {
         self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":

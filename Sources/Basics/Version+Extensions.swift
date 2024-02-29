@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
-
-extension Version {
+extension Basics.Version {
     /// Try a version from a git tag.
     ///
     /// - Parameter tag: A version string possibly prepended with "v".

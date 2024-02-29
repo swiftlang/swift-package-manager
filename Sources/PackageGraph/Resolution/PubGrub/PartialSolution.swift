@@ -13,7 +13,7 @@
 import Basics
 import OrderedCollections
 
-import struct TSCUtility.Version
+
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.

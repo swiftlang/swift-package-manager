@@ -19,7 +19,7 @@ import SPMTestSupport
 import X509 // FIXME: need this import or else SwiftSigningIdentity init crashes
 import XCTest
 
-import struct TSCUtility.Version
+
 
 final class SignatureValidationTests: XCTestCase {
     private static let unsignedManifest = """

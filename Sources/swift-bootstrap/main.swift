@@ -38,7 +38,7 @@ import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
+
 
 SwiftBootstrapBuildTool.main()
 

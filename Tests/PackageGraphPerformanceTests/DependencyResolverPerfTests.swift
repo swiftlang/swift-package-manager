@@ -23,7 +23,7 @@ import protocol TSCBasic.JSONMappable
 import protocol TSCBasic.JSONSerializable
 
 import func TSCUtility.measure
-import struct TSCUtility.Version
+
 
 import class TSCTestSupport.XCTestCasePerf
 
