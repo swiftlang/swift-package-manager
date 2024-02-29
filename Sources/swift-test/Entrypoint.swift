@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Commands
 
-SwiftTestCommand.main()
+@main
+struct Entrypoint {
+    static func main() async {
+        await SwiftTestCommand.main()
+    }
+}

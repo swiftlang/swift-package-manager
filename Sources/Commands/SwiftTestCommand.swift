@@ -182,9 +182,8 @@ public enum TestOutput: String, ExpressibleByArgument {
 }
 
 /// swift-test tool namespace
-@_spi(SwiftPMInternal)
-public struct SwiftTestCommand: SwiftCommand {
-    public static var configuration = CommandConfiguration(
+package struct SwiftTestCommand: AsyncSwiftCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "test",
         _superCommandName: "swift",
         abstract: "Build and run tests",
@@ -204,7 +203,7 @@ public struct SwiftTestCommand: SwiftCommand {
 
     // MARK: - XCTest
 
-    private func xctestRun(_ swiftCommandState: SwiftCommandState) throws {
+    private func xctestRun(_ swiftCommandState: SwiftCommandState) async throws {
         // validate XCTest available on darwin based systems
         let toolchain = try swiftCommandState.getTargetToolchain()
         let isHostTestingAvailable = try swiftCommandState.getHostToolchain().swiftSDK.supportsTesting
@@ -222,7 +221,7 @@ public struct SwiftTestCommand: SwiftCommand {
         let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .xctest)
         if !self.options.shouldRunInParallel {
             let xctestArgs = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
-            try runTestProducts(
+            try await runTestProducts(
                 testProducts,
                 additionalArguments: xctestArgs,
                 buildParameters: buildParameters,
@@ -273,7 +272,7 @@ public struct SwiftTestCommand: SwiftCommand {
 
             // process code Coverage if request
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
-                try processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: .xctest)
+                try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: .xctest)
             }
 
             if !runner.ranSuccessfully {
@@ -341,11 +340,11 @@ public struct SwiftTestCommand: SwiftCommand {
 
     // MARK: - swift-testing
 
-    private func swiftTestingRun(_ swiftCommandState: SwiftCommandState) throws {
+    private func swiftTestingRun(_ swiftCommandState: SwiftCommandState) async throws {
         let buildParameters = try swiftCommandState.buildParametersForTest(options: self.options, library: .swiftTesting)
         let testProducts = try buildTestsIfNeeded(swiftCommandState: swiftCommandState, library: .swiftTesting)
         let additionalArguments = Array(CommandLine.arguments.dropFirst())
-        try runTestProducts(
+        try await runTestProducts(
             testProducts,
             additionalArguments: additionalArguments,
             buildParameters: buildParameters,
@@ -356,7 +355,7 @@ public struct SwiftTestCommand: SwiftCommand {
 
     // MARK: - Common implementation
 
-    public func run(_ swiftCommandState: SwiftCommandState) throws {
+    package func run(_ swiftCommandState: SwiftCommandState) async throws {
         do {
             // Validate commands arguments
             try self.validateArguments(observabilityScope: swiftCommandState.observabilityScope)
@@ -373,10 +372,10 @@ public struct SwiftTestCommand: SwiftCommand {
             try command.run(swiftCommandState)
         } else {
             if try options.testLibraryOptions.enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
-                try swiftTestingRun(swiftCommandState)
+                try await swiftTestingRun(swiftCommandState)
             }
             if options.testLibraryOptions.enableXCTestSupport {
-                try xctestRun(swiftCommandState)
+                try await xctestRun(swiftCommandState)
             }
         }
     }
@@ -387,7 +386,7 @@ public struct SwiftTestCommand: SwiftCommand {
         buildParameters: BuildParameters,
         swiftCommandState: SwiftCommandState,
         library: BuildParameters.Testing.Library
-    ) throws {
+    ) async throws {
         // Clean out the code coverage directory that may contain stale
         // profraw files from a previous run of the code coverage tool.
         if self.options.enableCodeCoverage {
@@ -422,7 +421,7 @@ public struct SwiftTestCommand: SwiftCommand {
         }
 
         if self.options.enableCodeCoverage, ranSuccessfully {
-            try processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: library)
+            try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: library)
         }
 
         if self.options.enableExperimentalTestOutput, !ranSuccessfully {
@@ -466,16 +465,13 @@ public struct SwiftTestCommand: SwiftCommand {
         _ testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
         library: BuildParameters.Testing.Library
-    ) throws {
+    ) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
         }
