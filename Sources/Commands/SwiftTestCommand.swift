@@ -12,10 +12,8 @@
 
 import ArgumentParser
 
-@_spi(SwiftPMInternal)
 import Basics
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Dispatch
@@ -23,7 +21,6 @@ import Foundation
 import PackageGraph
 import PackageModel
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCLibc.exit
@@ -147,7 +144,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// Configure test output.
     @Option(help: ArgumentHelp("", visibility: .hidden))
-    public var testOutput: TestOutput = .default
+    package var testOutput: TestOutput = .default
 
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
@@ -155,7 +152,7 @@ struct TestCommandOptions: ParsableArguments {
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
-public enum TestCaseSpecifier {
+package enum TestCaseSpecifier {
     /// No filtering
     case none
     
@@ -170,7 +167,7 @@ public enum TestCaseSpecifier {
 }
 
 /// Different styles of test output.
-public enum TestOutput: String, ExpressibleByArgument {
+package enum TestOutput: String, ExpressibleByArgument {
     /// Whatever `xctest` emits to the console.
     case `default`
 
@@ -194,7 +191,7 @@ package struct SwiftTestCommand: AsyncSwiftCommand {
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    public var globalOptions: GlobalOptions {
+    package var globalOptions: GlobalOptions {
         options.globalOptions
     }
 
@@ -577,7 +574,7 @@ package struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    public init() {}
+    package init() {}
 }
 
 extension SwiftTestCommand {
@@ -802,7 +799,7 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-    public func test(outputHandler: @escaping (String) -> Void) -> Bool {
+    package func test(outputHandler: @escaping (String) -> Void) -> Bool {
         var success = true
         for path in self.bundlePaths {
             let testSuccess = self.test(at: path, outputHandler: outputHandler)

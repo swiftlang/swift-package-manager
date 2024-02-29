@@ -14,7 +14,6 @@
 @testable import Build
 
 @testable
-@_spi(SwiftPMInternal)
 import DriverSupport
 
 @testable import PackageGraph

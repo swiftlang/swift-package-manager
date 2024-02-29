@@ -13,14 +13,12 @@
 import ArgumentParser
 import Basics
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Foundation
 import PackageGraph
 import PackageModel
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
@@ -96,9 +94,8 @@ struct RunCommandOptions: ParsableArguments {
 }
 
 /// swift-run command namespace
-@_spi(SwiftPMInternal)
-public struct SwiftRunCommand: AsyncSwiftCommand {
-    public static var configuration = CommandConfiguration(
+package struct SwiftRunCommand: AsyncSwiftCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "run",
         _superCommandName: "swift",
         abstract: "Build and run an executable product",
@@ -107,16 +104,16 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    public var globalOptions: GlobalOptions
+    package var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: RunCommandOptions
 
-    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+    package var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init(wantsREPLProduct: options.mode == .repl)
     }
 
-    public func run(_ swiftCommandState: SwiftCommandState) async throws {
+    package func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftCommandState.observabilityScope.emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"])
@@ -310,7 +307,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         try TSCBasic.exec(path: path, args: args)
     }
 
-    public init() {}
+    package init() {}
 }
 
 private extension Basics.Diagnostic {

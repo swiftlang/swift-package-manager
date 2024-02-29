@@ -12,7 +12,6 @@
 
 import Basics
 
-@_spi(SwiftPMInternal)
 import Commands
 
 import SwiftSDKCommand

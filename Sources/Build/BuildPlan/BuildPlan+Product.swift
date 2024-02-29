@@ -18,7 +18,6 @@ import struct PackageGraph.ResolvedTarget
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
 
-@_spi(SwiftPMInternal)
 import class PackageModel.Target
 
 import class PackageModel.SwiftTarget

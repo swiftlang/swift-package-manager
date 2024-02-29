@@ -13,8 +13,8 @@
 import ArgumentParser
 import Basics
     
-public struct SwiftSDKCommand: AsyncParsableCommand {
-    public static let configuration = CommandConfiguration(
+package struct SwiftSDKCommand: AsyncParsableCommand {
+    package static let configuration = CommandConfiguration(
         commandName: "experimental-sdk",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift SDKs.",
@@ -28,5 +28,5 @@ public struct SwiftSDKCommand: AsyncParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
-    public init() {}
+    package init() {}
 }
