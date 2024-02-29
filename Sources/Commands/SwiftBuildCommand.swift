@@ -96,6 +96,21 @@ struct BuildCommandOptions: ParsableArguments {
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
     public var shouldLinkStaticSwiftStdlib: Bool = false
+
+    /// Which testing libraries to use (and any related options.)
+    @OptionGroup()
+    var testLibraryOptions: TestLibraryOptions
+
+    func validate() throws {
+        // If --build-tests was not specified, it does not make sense to enable
+        // or disable either testing library.
+        if !buildTests {
+            if testLibraryOptions.explicitlyEnableXCTestSupport != nil
+                || testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport != nil {
+                throw StringError("pass --build-tests to build test targets")
+            }
+        }
+    }
 }
 
 /// swift-build command namespace
@@ -137,9 +152,26 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
+        if case .allIncludingTests = subset {
+            var buildParameters = try swiftCommandState.productsBuildParameters
+            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+                buildParameters.testingParameters = .init(
+                    configuration: buildParameters.configuration,
+                    targetTriple: buildParameters.triple,
+                    library: library
+                )
+                try build(swiftCommandState, subset: subset, buildParameters: buildParameters)
+            }
+        } else {
+            try build(swiftCommandState, subset: subset)
+        }
+    }
+
+    private func build(_ swiftCommandState: SwiftCommandState, subset: BuildSubset, buildParameters: BuildParameters? = nil) throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+            productsBuildParameters: buildParameters,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
             outputStream: TSCBasic.stdoutStream
