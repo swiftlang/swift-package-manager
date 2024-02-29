@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 
@@ -22,10 +21,10 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
-public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
+package struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     private let outputHandler: OutputHandler
 
-    public var diagnosticsHandler: DiagnosticsHandler {
+    package var diagnosticsHandler: DiagnosticsHandler {
         self.outputHandler
     }
 
@@ -34,7 +33,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   - outputStream: an instance of a stream used for output.
     ///   - logLevel: the lowest severity of diagnostics that this handler will forward to `outputStream`. Diagnostics
     ///   emitted below this level will be ignored.
-    public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity) {
+    package init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity) {
         let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
     }
@@ -59,7 +58,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler.prompt(message: message, completion: completion)
     }
 
-    public func wait(timeout: DispatchTime) {
+    package func wait(timeout: DispatchTime) {
         self.outputHandler.wait(timeout: timeout)
     }
 

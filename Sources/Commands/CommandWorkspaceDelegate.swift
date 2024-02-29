@@ -12,7 +12,6 @@
 
 import Basics
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Dispatch
@@ -215,22 +214,22 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    public func willUpdateDependencies() {
+    package func willUpdateDependencies() {
         self.observabilityScope.emit(debug: "Updating dependencies")
         os_signpost(.begin, name: SignpostName.updatingDependencies)
     }
 
-    public func didUpdateDependencies(duration: DispatchTimeInterval) {
+    package func didUpdateDependencies(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Dependencies updated in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.updatingDependencies)
     }
 
-    public func willResolveDependencies() {
+    package func willResolveDependencies() {
         self.observabilityScope.emit(debug: "Resolving dependencies")
         os_signpost(.begin, name: SignpostName.resolvingDependencies)
     }
 
-    public func didResolveDependencies(duration: DispatchTimeInterval) {
+    package func didResolveDependencies(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Dependencies resolved in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.resolvingDependencies)
     }
@@ -267,7 +266,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
 }
 
-public extension _SwiftCommand {
+package extension _SwiftCommand {
     var workspaceDelegateProvider: WorkspaceDelegateProvider {
         return {
             CommandWorkspaceDelegate(

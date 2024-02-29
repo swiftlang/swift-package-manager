@@ -13,10 +13,8 @@
 import ArgumentParser
 import Basics
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
-@_spi(SwiftPMInternal)
 import Commands
 
 import Foundation
@@ -24,8 +22,8 @@ import PackageModel
 import PackageRegistry
 import Workspace
 
-public struct PackageRegistryCommand: AsyncParsableCommand {
-    public static var configuration = CommandConfiguration(
+package struct PackageRegistryCommand: AsyncParsableCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",
         abstract: "Interact with package registry and manage related configuration",
@@ -44,7 +42,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
     @OptionGroup()
     var globalOptions: GlobalOptions
 
-    public init() {}
+    package init() {}
 
     struct Set: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(

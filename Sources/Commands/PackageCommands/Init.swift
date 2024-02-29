@@ -13,7 +13,6 @@
 import ArgumentParser
 import Basics
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Workspace
@@ -21,7 +20,7 @@ import SPMBuildCore
 
 extension SwiftPackageCommand {
     struct Init: SwiftCommand {
-        public static let configuration = CommandConfiguration(
+        package static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
 
         @OptionGroup(visibility: .hidden)

@@ -15,8 +15,7 @@ import protocol TSCBasic.WritableByteStream
 
 extension ProgressAnimation {
     /// A percent-based progress animation that adapts to the provided output stream.
-    @_spi(SwiftPMInternal)
-    public static func percent(
+    package static func percent(
         stream: WritableByteStream,
         verbose: Bool,
         header: String

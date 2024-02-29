@@ -12,8 +12,8 @@
 
 import ArgumentParser
 
-public struct ConfigureSwiftSDK: ParsableCommand {
-    public static let configuration = CommandConfiguration(
+package struct ConfigureSwiftSDK: ParsableCommand {
+    package static let configuration = CommandConfiguration(
         commandName: "configuration",
         abstract: """
         Manages configuration options for installed Swift SDKs.
@@ -25,5 +25,5 @@ public struct ConfigureSwiftSDK: ParsableCommand {
         ]
     )
 
-    public init() {}
+    package init() {}
 }
