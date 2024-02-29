@@ -36,7 +36,9 @@ extension ClangTargetBuildDescription: BuildTarget {
 
     public func compileArguments(for fileURL: URL) throws -> [String] {
         let filePath = try resolveSymlinks(try AbsolutePath(validating: fileURL.path))
-        return try self.emitCommandLine(for: filePath)
+        let commandLine = try self.emitCommandLine(for: filePath)
+        // First element on the command line is the compiler itself, not an argument.
+        return Array(commandLine.dropFirst())
     }
 }
 
@@ -54,7 +56,9 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     func compileArguments(for fileURL: URL) throws -> [String] {
         // Note: we ignore the `fileURL` here as the expectation is that we get a command line for the entire target
         // in case of Swift.
-        return try description.emitCommandLine(scanInvocation: false)
+        let commandLine = try description.emitCommandLine(scanInvocation: false)
+        // First element on the command line is the compiler itself, not an argument.
+        return Array(commandLine.dropFirst())
     }
 }
 
