@@ -126,7 +126,7 @@ package struct LocationOptions: ParsableArguments {
     )
     package var pkgConfigDirectories: [AbsolutePath] = []
 
-    @Option(name: .customLong("ignore-lock"), help: .hidden)
+    @Flag(name: .customLong("ignore-lock"), help: .hidden)
     package var ignoreLock: Bool = false
 }
 
