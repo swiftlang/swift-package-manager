@@ -63,7 +63,6 @@ add_library(Basics
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Triple+Basics.swift
-  Version.swift
   Version+Extensions.swift
   WritableByteStream+Extensions.swift
   Vendor/Triple.swift

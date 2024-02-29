@@ -13,7 +13,6 @@
 import struct Foundation.Date
 import struct Foundation.URL
 
-import struct Basics.Version
 import PackageModel
 import SourceControl
 
@@ -122,7 +121,7 @@ extension PackageCollectionsModel.Package {
         public typealias Product = PackageCollectionsModel.Product
 
         /// The version
-        public let version: Basics.Version
+        public let version: TSCUtility.Version
 
         /// The title or name of the version
         public let title: String?

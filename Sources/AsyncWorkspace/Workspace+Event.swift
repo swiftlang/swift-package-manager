@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-package import _Concurrency
-package import struct Basics.AbsolutePath
-private import struct Basics.Diagnostic
-private import enum Basics.SendableTimeInterval
-private import struct Basics.Version
-package import struct Foundation.URL
-private import class PackageModel.Manifest
-package import struct PackageModel.PackageIdentity
-private import struct PackageModel.PackageReference
-package import struct Workspace.PackageFetchDetails
-private import class Workspace.Workspace
-internal import enum Workspace.WorkspaceResolveReason
+import _Concurrency
+import struct Basics.AbsolutePath
+import struct Basics.Diagnostic
+import enum Basics.SendableTimeInterval
+import struct TSCUtility.Version
+import struct Foundation.URL
+import class PackageModel.Manifest
+import struct PackageModel.PackageIdentity
+import struct PackageModel.PackageReference
+import struct Workspace.PackageFetchDetails
+import class Workspace.Workspace
+import enum Workspace.WorkspaceResolveReason
 
 extension Workspace {
     /// The events interface used by the workspace to report status information.

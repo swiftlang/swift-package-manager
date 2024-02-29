@@ -68,13 +68,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
     private var dependenciesCacheLock = NSLock()
 
-    private var knownVersionsCache = ThreadSafeBox<[Basics.Version: String]>()
+    private var knownVersionsCache = ThreadSafeBox<[TSCUtility.Version: String]>()
     private var manifestsCache = ThreadSafeKeyValueStore<String, Manifest>()
-    private var toolsVersionsCache = ThreadSafeKeyValueStore<Basics.Version, ToolsVersion>()
+    private var toolsVersionsCache = ThreadSafeKeyValueStore<TSCUtility.Version, ToolsVersion>()
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Basics.Version, Bool>()
+    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<TSCUtility.Version, Bool>()
 
     init(
         package: PackageReference,
@@ -103,7 +103,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     // Compute the map of known versions.
-    private func knownVersions() throws -> [Basics.Version: String] {
+    private func knownVersions() throws -> [TSCUtility.Version: String] {
         try self.knownVersionsCache.memoize {
             let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: try repository.getTags(), toolsVersion: self.currentToolsVersion)
 
@@ -132,12 +132,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func versionsAscending() throws -> [Basics.Version] {
+    public func versionsAscending() throws -> [TSCUtility.Version] {
         [Version](try self.knownVersions().keys).sorted()
     }
 
     /// The available version list (in reverse order).
-    public func toolsVersionsAppropriateVersionsDescending() throws -> [Basics.Version] {
+    public func toolsVersionsAppropriateVersionsDescending() throws -> [TSCUtility.Version] {
         let reversedVersions = try self.versionsDescending()
         return reversedVersions.lazy.filter {
             // If we have the result cached, return that.
@@ -152,7 +152,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getTag(for version: Basics.Version) -> String? {
+    public func getTag(for version: TSCUtility.Version) -> String? {
         return try? self.knownVersions()[version]
     }
 
@@ -236,7 +236,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     /// Returns the tools version of the given version of the package.
-    public func toolsVersion(for version: Basics.Version) throws -> ToolsVersion {
+    public func toolsVersion(for version: TSCUtility.Version) throws -> ToolsVersion {
         try self.toolsVersionsCache.memoize(version) {
             guard let tag = try self.knownVersions()[version] else {
                 throw StringError("unknown tag \(version)")
@@ -248,7 +248,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at version: Basics.Version, productFilter: ProductFilter) throws -> [Constraint] {
+    public func getDependencies(at version: TSCUtility.Version, productFilter: ProductFilter) throws -> [Constraint] {
         do {
             return try self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
@@ -328,7 +328,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     /// Returns dependencies of a container at the given revision.
     private func loadDependencies(
         tag: String,
-        version: Basics.Version? = nil,
+        version: TSCUtility.Version? = nil,
         productFilter: ProductFilter
     ) throws -> (Manifest, [Constraint]) {
         let manifest = try self.loadManifest(tag: tag, version: version)
@@ -382,25 +382,25 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func isToolsVersionCompatible(at version: Basics.Version) -> Bool {
+    public func isToolsVersionCompatible(at version: TSCUtility.Version) -> Bool {
         return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
     }
 
-    private func loadManifest(tag: String, version: Basics.Version?) throws -> Manifest {
+    private func loadManifest(tag: String, version: TSCUtility.Version?) throws -> Manifest {
         try self.manifestsCache.memoize(tag) {
             let fileSystem = try repository.openFileView(tag: tag)
             return try self.loadManifest(fileSystem: fileSystem, version: version, revision: tag)
         }
     }
 
-    private func loadManifest(at revision: Revision, version: Basics.Version?) throws -> Manifest {
+    private func loadManifest(at revision: Revision, version: TSCUtility.Version?) throws -> Manifest {
         try self.manifestsCache.memoize(revision.identifier) {
             let fileSystem = try self.repository.openFileView(revision: revision)
             return try self.loadManifest(fileSystem: fileSystem, version: version, revision: revision.identifier)
         }
     }
 
-    private func loadManifest(fileSystem: FileSystem, version: Basics.Version?, revision: String) throws -> Manifest {
+    private func loadManifest(fileSystem: FileSystem, version: TSCUtility.Version?, revision: String) throws -> Manifest {
         // Load the manifest.
         // FIXME: this should not block
         return try temp_await {
@@ -432,23 +432,23 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 }
 
 extension Git {
-    fileprivate static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [Basics.Version: [String]] {
+    fileprivate static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [TSCUtility.Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
-        var knownVersions: [Basics.Version: [String]] = [:]
-        var versionSpecificKnownVersions: [Basics.Version: [String]] = [:]
+        var knownVersions: [TSCUtility.Version: [String]] = [:]
+        var versionSpecificKnownVersions: [TSCUtility.Version: [String]] = [:]
 
         for tag in tags {
             for versionSpecificKey in toolsVersion.versionSpecificKeys {
                 if tag.hasSuffix(versionSpecificKey) {
                     let trimmedTag = String(tag.dropLast(versionSpecificKey.count))
-                    if let version = Basics.Version(tag: trimmedTag) {
+                    if let version = TSCUtility.Version(tag: trimmedTag) {
                         versionSpecificKnownVersions[version, default: []].append(tag)
                     }
                     break
                 }
             }
 
-            if let version = Basics.Version(tag: tag) {
+            if let version = TSCUtility.Version(tag: tag) {
                 knownVersions[version, default: []].append(tag)
             }
         }

@@ -10,17 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-package import _Concurrency
-private import protocol Basics.AuthorizationProvider
-private import class Basics.Cancellator
-private import protocol Basics.FileSystem
-internal import struct Basics.Version
-internal import struct Foundation.URL
-private import protocol PackageFingerprint.PackageFingerprintStorage
-internal import struct PackageModel.PackageIdentity
-private import struct PackageRegistry.RegistryConfiguration
-private import protocol PackageSigning.PackageSigningEntityStorage
-private import class Workspace.Workspace
+import _Concurrency
+import protocol Basics.AuthorizationProvider
+import class Basics.Cancellator
+import protocol Basics.FileSystem
+import struct TSCUtility.Version
+import struct Foundation.URL
+import protocol PackageFingerprint.PackageFingerprintStorage
+import struct PackageModel.PackageIdentity
+import struct PackageRegistry.RegistryConfiguration
+import protocol PackageSigning.PackageSigningEntityStorage
+import class Workspace.Workspace
 
 package actor AsyncWorkspace {
     private let workspace: Workspace

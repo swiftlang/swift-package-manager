@@ -688,7 +688,7 @@ package.targets += [
             "PackageSigning",
             "Workspace"
         ],
-        swiftSettings: [.enableExperimentalFeature("AccessLevelOnImport")]
+        swiftSettings: [.enableExperimentalFeature("StrictConcurrency=complete")]
     )
 ]
 
