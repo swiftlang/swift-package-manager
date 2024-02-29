@@ -286,7 +286,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 let versions = try package.versions.compactMap { version -> Model.Package.Version? in
                     // note this filters out / ignores missing / bad data in attempt to make the most out of the
                     // provided set
-                    guard let parsedVersion = TSCUtility.Version(tag: version.version) else {
+                    guard let parsedVersion = Basics.Version(tag: version.version) else {
                         return nil
                     }
 

@@ -151,7 +151,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
                         versions: releases.compactMap {
-                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
+                            guard let version = $0.tagName.flatMap(Basics.Version.init(tag:)) else {
                                 return nil
                             }
                             return Model.PackageBasicVersionMetadata(

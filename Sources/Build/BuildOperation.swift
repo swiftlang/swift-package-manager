@@ -13,9 +13,6 @@
 @_spi(SwiftPMInternal)
 import Basics
 
-@_spi(SwiftPMInternal)
-import Build
-
 import LLBuildManifest
 import PackageGraph
 import PackageLoading

@@ -268,7 +268,8 @@ let package = Package(
             dependencies: [],
             exclude: [
                 "Formats/v1.md"
-            ]
+            ],
+            swiftSettings: [.enableExperimentalFeature("StrictConcurrency=complete")]
         ),
 
         .target(
@@ -675,7 +676,23 @@ let package = Package(
     swiftLanguageVersions: [.v5]
 )
 
-// Workaround SPM's attempt to link in executables which does not work on all
+// Modules that adopt structured concurrency
+package.targets += [
+    .target(
+        name: "AsyncWorkspace",
+        dependencies: [
+            "Basics",
+            "PackageFingerprint",
+            "PackageModel",
+            "PackageRegistry",
+            "PackageSigning",
+            "Workspace"
+        ],
+        swiftSettings: [.enableExperimentalFeature("AccessLevelOnImport")]
+    )
+]
+
+// Workaround SwiftPM's attempt to link in executables which does not work on all
 // platforms.
 #if !os(Windows)
 package.targets.append(contentsOf: [

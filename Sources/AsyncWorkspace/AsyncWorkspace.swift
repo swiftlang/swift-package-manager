@@ -10,22 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
-import protocol Basics.AuthorizationProvider
-import class Basics.Cancellator
-import protocol Basics.FileSystem
-import struct Foundation.URL
-import protocol PackageFingerprint.PackageFingerprintStorage
-import struct PackageModel.PackageIdentity
-import struct PackageRegistry.RegistryConfiguration
-import protocol PackageSigning.PackageSigningEntityStorage
-import struct TSCUtility.Version
+package import _Concurrency
+private import protocol Basics.AuthorizationProvider
+private import class Basics.Cancellator
+private import protocol Basics.FileSystem
+internal import struct Basics.Version
+internal import struct Foundation.URL
+private import protocol PackageFingerprint.PackageFingerprintStorage
+internal import struct PackageModel.PackageIdentity
+private import struct PackageRegistry.RegistryConfiguration
+private import protocol PackageSigning.PackageSigningEntityStorage
+private import class Workspace.Workspace
 
-public actor AsyncWorkspace {
+package actor AsyncWorkspace {
     private let workspace: Workspace
     private var state = State.initial
 
-    public var events: AsyncStream<Workspace.Event>
+    package var events: AsyncStream<Workspace.Event>
 
     enum State {
         case initial
@@ -48,12 +49,12 @@ protocol WorkspaceRegistryDelegate: AnyActor {
     func onUnsignedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version
+        version: Version
     ) -> UntrustedPackageContinuation
 
     func onUntrustedRegistryPackage(
         registryURL: URL,
         package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version
+        version: Version
     ) -> UntrustedPackageContinuation
 }

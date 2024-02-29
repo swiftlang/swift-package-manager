@@ -96,8 +96,8 @@ extension PackageCollectionModel.V1 {
             }
 
             var nonSemanticVersions = [String]()
-            let semanticVersions: [TSCUtility.Version] = package.versions.compactMap {
-                let semver = TSCUtility.Version(tag: $0.version)
+            let semanticVersions: [Basics.Version] = package.versions.compactMap {
+                let semver = Basics.Version(tag: $0.version)
                 if semver == nil {
                     nonSemanticVersions.append($0.version)
                 }

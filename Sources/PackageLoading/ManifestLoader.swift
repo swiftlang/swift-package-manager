@@ -195,7 +195,7 @@ extension ManifestLoaderProtocol {
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
-        packageVersion: (version: Version?, revision: String?)?,
+        packageVersion: (version: Basics.Version?, revision: String?)?,
         currentToolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,

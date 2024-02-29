@@ -10,19 +10,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
-import struct Basics.AbsolutePath
-import struct Basics.Diagnostic
-import enum Basics.SendableTimeInterval
-import struct Foundation.URL
-import class PackageModel.Manifest
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import struct TSCUtility.Version
+package import _Concurrency
+package import struct Basics.AbsolutePath
+private import struct Basics.Diagnostic
+private import enum Basics.SendableTimeInterval
+private import struct Basics.Version
+package import struct Foundation.URL
+private import class PackageModel.Manifest
+package import struct PackageModel.PackageIdentity
+private import struct PackageModel.PackageReference
+package import struct Workspace.PackageFetchDetails
+private import class Workspace.Workspace
+internal import enum Workspace.WorkspaceResolveReason
 
 extension Workspace {
     /// The events interface used by the workspace to report status information.
-    public enum Event {
+    package enum Event {
         /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed).
         /// Note that this does not include speculative loading of manifests that may occur during
         /// dependency resolution; rather, it includes only the final manifest loading that happens after a particular
