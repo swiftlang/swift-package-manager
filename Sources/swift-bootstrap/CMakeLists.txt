@@ -15,8 +15,7 @@ target_link_libraries(swift-bootstrap PRIVATE
   PackageGraph
   PackageLoading
   PackageModel
+  SwiftDriver
   TSCBasic
-  TSCUtility)
-
-target_compile_definitions(swift-bootstrap
-  PRIVATE DISABLE_XCBUILD_SUPPORT)
+  TSCUtility
+  XCBuildSupport)

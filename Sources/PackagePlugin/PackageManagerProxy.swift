@@ -108,13 +108,13 @@ public struct PackageManager {
         /// Represents a single artifact produced during a build.
         public struct BuiltArtifact {
             /// Full path of the built artifact in the local file system.
-            @available(_PackageDescription, deprecated: 5.11)
+            @available(_PackageDescription, deprecated: 6.0)
             public var path: Path {
                 return Path(url: url)
             }
 
             /// Full path of the built artifact in the local file system.
-            @available(_PackageDescription, introduced: 5.11)
+            @available(_PackageDescription, introduced: 6.0)
             public var url: URL
 
             /// The kind of artifact that was built.
@@ -182,14 +182,14 @@ public struct PackageManager {
         
         /// Path of a generated `.profdata` file suitable for processing using
         /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
-        @available(_PackageDescription, deprecated: 5.11)
+        @available(_PackageDescription, deprecated: 6.0)
         public var codeCoverageDataFile: Path? {
             return codeCoverageDataFileURL.map { Path(url: $0) }
         }
 
         /// Path of a generated `.profdata` file suitable for processing using
         /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
-        @available(_PackageDescription, introduced: 5.11)
+        @available(_PackageDescription, introduced: 6.0)
         public var codeCoverageDataFileURL: URL?
 
         /// Represents the results of running some or all of the tests in a
@@ -265,13 +265,13 @@ public struct PackageManager {
     /// Represents the result of symbol graph generation.
     public struct SymbolGraphResult {
         /// The directory that contains the symbol graph files for the target.
-        @available(_PackageDescription, deprecated: 5.11)
+        @available(_PackageDescription, deprecated: 6.0)
         public var directoryPath: Path {
             return Path(url: directoryURL)
         }
 
         /// The directory that contains the symbol graph files for the target.
-        @available(_PackageDescription, introduced: 5.11)
+        @available(_PackageDescription, introduced: 6.0)
         public var directoryURL: URL
     }
 }

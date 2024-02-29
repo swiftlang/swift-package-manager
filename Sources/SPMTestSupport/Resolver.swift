@@ -13,7 +13,7 @@
 import PackageGraph
 
 extension PubGrubDependencyResolver {
-    public func solve(constraints: [Constraint]) -> Result<[DependencyResolverBinding], Error> {
+    package func solve(constraints: [Constraint]) -> Result<[DependencyResolverBinding], Error> {
         return solve(constraints: constraints, availableLibraries: [], preferPrebuiltLibraries: false)
     }
 }

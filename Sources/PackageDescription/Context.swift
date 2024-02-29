@@ -24,7 +24,7 @@ public struct Context {
     }
 
     /// Information about the git status of a given package, if available.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     public static var gitInformation: GitInformation? {
         model.gitInformation.map {
             GitInformation(
@@ -45,7 +45,7 @@ public struct Context {
 }
 
 /// Information about the git status of a given package, if available.
-@available(_PackageDescription, introduced: 5.11)
+@available(_PackageDescription, introduced: 6.0)
 public struct GitInformation {
     public let currentTag: String?
     public let currentCommit: String

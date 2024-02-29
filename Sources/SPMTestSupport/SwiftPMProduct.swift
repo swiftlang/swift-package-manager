@@ -19,7 +19,7 @@ import struct TSCBasic.ProcessResult
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
-public enum SwiftPM {
+package enum SwiftPM {
     case Build
     case Package
     case Registry
@@ -29,7 +29,7 @@ public enum SwiftPM {
 
 extension SwiftPM {
     /// Executable name.
-    private var executableName: RelativePath {
+    private var executableName: String {
         switch self {
         case .Build:
             return "swift-build"
@@ -44,11 +44,11 @@ extension SwiftPM {
         }
     }
 
-    public var xctestBinaryPath: AbsolutePath {
-        Self.xctestBinaryPath(for: executableName)
+    package var xctestBinaryPath: AbsolutePath {
+        Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
     }
 
-    public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
+    package static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
         #if canImport(Darwin)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
@@ -71,7 +71,7 @@ extension SwiftPM {
     ///
     /// - Returns: The output of the process.
     @discardableResult
-    public func execute(
+    package func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
         env: [String: String]? = nil
@@ -114,11 +114,12 @@ extension SwiftPM {
 #endif
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
-        environment["SWIFTPM_TESTS_MODULECACHE"] = xctestBinaryPath.parentDirectory.pathString
-        
+        environment["SWIFTPM_TESTS_MODULECACHE"] = self.xctestBinaryPath.parentDirectory.pathString
+
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
-        
+        environment["SWIFTPM_EXEC_NAME"] = self.executableName
+
         for (key, value) in env ?? [:] {
             environment[key] = value
         }
@@ -128,13 +129,13 @@ extension SwiftPM {
             completeArgs += ["--package-path", packagePath.pathString]
         }
         completeArgs += args
-        
+
         return try Process.popen(arguments: completeArgs, environment: environment)
     }
 }
 
 extension SwiftPM {
-    public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
+    package static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
         // FIXME: The directory paths are hard coded right now and should be replaced by --get-package-path
         // whenever we design that. https://bugs.swift.org/browse/SR-2753
         let packagesPath = packageRoot.appending(components: ".build", "checkouts")
@@ -147,12 +148,12 @@ extension SwiftPM {
     }
 }
 
-public enum SwiftPMError: Error {
+package enum SwiftPMError: Error {
     case packagePathNotFound
     case executionFailure(underlying: Error, stdout: String, stderr: String)
 }
 
-public enum SwiftPMProductError: Swift.Error {
+package enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
     case executionFailure(error: Swift.Error, output: String, stderr: String)
 }

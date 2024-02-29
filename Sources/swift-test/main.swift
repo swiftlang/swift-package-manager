@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Commands
 
-SwiftTestTool.main()
+SwiftTestCommand.main()

@@ -12,11 +12,18 @@
 
 @_spi(SwiftPMInternal)
 import Basics
+
+@_spi(SwiftPMInternal)
+import Build
+
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
+
 import SPMLLBuild
 import Foundation
 
@@ -36,6 +43,7 @@ import DriverSupport
 import SwiftDriver
 #endif
 
+@_spi(SwiftPMInternal)
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
@@ -47,7 +55,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let toolsBuildParameters: BuildParameters
 
     /// The closure for loading the package graph.
-    let packageGraphLoader: () throws -> PackageGraph
+    let packageGraphLoader: () throws -> ModulesGraph
 
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
@@ -78,7 +86,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let buildDescription = ThreadSafeBox<BuildDescription>()
 
     /// The loaded package graph.
-    private let packageGraph = ThreadSafeBox<PackageGraph>()
+    private let packageGraph = ThreadSafeBox<ModulesGraph>()
 
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
@@ -112,7 +120,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
-        packageGraphLoader: @escaping () throws -> PackageGraph,
+        packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
@@ -145,7 +153,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
-    public func getPackageGraph() throws -> PackageGraph {
+    public func getPackageGraph() throws -> ModulesGraph {
         try self.packageGraph.memoize {
             try self.packageGraphLoader()
         }
@@ -877,7 +885,7 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
-    func recursiveDependencies(for graph: PackageGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
+    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
         switch self {
         case .allIncludingTests:
             return Array(graph.reachableTargets)
@@ -899,7 +907,7 @@ extension BuildSubset {
     }
 
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
+    func llbuildTargetName(for graph: ModulesGraph, config: String, observabilityScope: ObservabilityScope)
         -> String?
     {
         switch self {

@@ -1,10 +1,10 @@
-// swift-tools-version:5.8
+// swift-tools-version:5.9
 
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -168,7 +168,8 @@ let package = Package(
                 "Build",
                 "SPMBuildCore"
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [.enableExperimentalFeature("AccessLevelOnImport")]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -349,7 +350,7 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["SPMBuildCore", "PackageGraph"],
+            dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
             exclude: ["CMakeLists.txt", "CODEOWNERS"]
         ),
         .target(
@@ -416,7 +417,7 @@ let package = Package(
 
         .target(
             /** Interacts with Swift SDKs used for cross-compilation */
-            name: "SwiftSDKTool",
+            name: "SwiftSDKCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -429,7 +430,7 @@ let package = Package(
 
         .target(
             /** Interacts with package collections */
-            name: "PackageCollectionsTool",
+            name: "PackageCollectionsCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -442,7 +443,7 @@ let package = Package(
 
         .target(
             /** Interact with package registry */
-            name: "PackageRegistryTool",
+            name: "PackageRegistryCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -488,7 +489,7 @@ let package = Package(
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
             name: "swift-experimental-sdk",
-            dependencies: ["Commands", "SwiftSDKTool"],
+            dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
@@ -506,24 +507,24 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands", "PackageCollectionsTool"]
+            dependencies: ["Commands", "PackageCollectionsCommand"]
         ),
         .executableTarget(
-            /** Multi-tool entry point for SwiftPM. */
+            /** Multi-command entry point for SwiftPM. */
             name: "swift-package-manager",
             dependencies: [
                 "Basics",
                 "Commands",
-                "SwiftSDKTool",
-                "PackageCollectionsTool",
-                "PackageRegistryTool"
+                "SwiftSDKCommand",
+                "PackageCollectionsCommand",
+                "PackageRegistryCommand"
             ],
             linkerSettings: swiftpmLinkSettings
         ),
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands", "PackageRegistryTool"]
+            dependencies: ["Commands", "PackageRegistryCommand"]
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
@@ -681,9 +682,7 @@ package.targets.append(contentsOf: [
     .testTarget(
         name: "FunctionalPerformanceTests",
         dependencies: [
-            "swift-build",
-            "swift-package",
-            "swift-test",
+            "swift-package-manager",
             "SPMTestSupport"
         ]
     ),
@@ -695,9 +694,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         .testTarget(
             name: "FunctionalTests",
             dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
+                "swift-package-manager",
                 "PackageModel",
                 "SPMTestSupport"
             ]
@@ -713,15 +710,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         .testTarget(
             name: "CommandsTests",
             dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
-                "swift-run",
+                "swift-package-manager",
                 "Basics",
                 "Build",
                 "Commands",
                 "PackageModel",
-                "PackageRegistryTool",
+                "PackageRegistryCommand",
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",

@@ -22,7 +22,7 @@ import struct PackageModel.TargetDescription
 @testable
 import struct PackageGraph.ResolvedProduct
 
-import func SPMTestSupport.loadPackageGraph
+import func SPMTestSupport.loadModulesGraph
 import func SPMTestSupport.mockBuildParameters
 import func SPMTestSupport.XCTAssertNoDiagnostics
 import XCTest
@@ -35,7 +35,7 @@ final class ProductBuildDescriptionTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
