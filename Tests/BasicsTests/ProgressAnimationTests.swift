@@ -13,7 +13,6 @@
 import _Concurrency
 import XCTest
 
-@_spi(SwiftPMInternal)
 @testable
 import Basics
 

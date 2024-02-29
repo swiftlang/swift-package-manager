@@ -12,7 +12,6 @@
 
 import ArgumentParser
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 extension SwiftPackageCommand {

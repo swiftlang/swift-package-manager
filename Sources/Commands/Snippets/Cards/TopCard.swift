@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Foundation

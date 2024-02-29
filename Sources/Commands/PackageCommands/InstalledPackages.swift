@@ -12,13 +12,11 @@
 
 import ArgumentParser
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Foundation
 import PackageModel
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import TSCBasic

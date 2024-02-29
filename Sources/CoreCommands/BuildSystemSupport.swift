@@ -10,13 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Build
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
-@_spi(SwiftPMInternal)
 import XCBuildSupport
 
 import class Basics.ObservabilityScope
@@ -94,8 +91,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
 }
 
 extension SwiftCommandState {
-    @_spi(SwiftPMInternal)
-    public var defaultBuildSystemProvider: BuildSystemProvider {
+    package var defaultBuildSystemProvider: BuildSystemProvider {
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
             .xcode: XcodeBuildSystemFactory(swiftCommandState: self)

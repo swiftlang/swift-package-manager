@@ -13,8 +13,7 @@
 import Foundation
 
 /// ``BuildSystem`` delegate
-@_spi(SwiftPMInternal)
-public protocol BuildSystemDelegate: AnyObject {
+package protocol BuildSystemDelegate: AnyObject {
     ///Called when build command is about to start.
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand)
 
@@ -36,7 +35,7 @@ public protocol BuildSystemDelegate: AnyObject {
     func buildSystemDidCancel(_ buildSystem: BuildSystem)
 }
 
-public extension BuildSystemDelegate {
+extension BuildSystemDelegate {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
     func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) { }
     func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String) { }
