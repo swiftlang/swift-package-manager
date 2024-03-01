@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
 import Basics
 import Dispatch
 import class Foundation.NSLock
@@ -686,7 +685,7 @@ public struct PubGrubDependencyResolver {
         }
     }
 
-    func makeDecision(
+    internal func makeDecision(
         state: State,
         availableLibraries: [LibraryMetadata] = [],
         completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void
@@ -748,15 +747,6 @@ public struct PubGrubDependencyResolver {
             } catch {
                 completion(.failure(error))
             }
-        }
-    }
-
-    func makeDecision(
-        state: State,
-        availableLibraries: [LibraryMetadata] = []
-    ) async throws -> DependencyResolutionNode? {
-        try await withCheckedThrowingContinuation {
-            makeDecision(state: state, availableLibraries: availableLibraries, completion: $0.resume)
         }
     }
 }
