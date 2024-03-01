@@ -170,6 +170,16 @@ package func XCTAssertAsyncFalse(
     XCTAssertFalse(result, message(), file: file, line: line)
 }
 
+package func XCTAssertAsyncNil(
+    _ expression: @autoclosure () async throws -> Any?,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async rethrows {
+    let result = try await expression()
+    XCTAssertNil(result, message(), file: file, line: line)
+}
+
 package func XCTAssertThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () throws -> T,
     _ message: @autoclosure () -> String = "",
