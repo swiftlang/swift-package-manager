@@ -26,13 +26,12 @@ public protocol ImportScanner {
     func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String]
 }
 
-public struct SwiftcImportScanner: ImportScanner {
+package struct SwiftcImportScanner: ImportScanner {
     private let swiftCompilerEnvironment: EnvironmentVariables
     private let swiftCompilerFlags: [String]
     private let swiftCompilerPath: AbsolutePath
 
-    @_spi(SwiftPMInternal)
-    public init(
+    package init(
         swiftCompilerEnvironment: EnvironmentVariables,
         swiftCompilerFlags: [String],
         swiftCompilerPath: AbsolutePath

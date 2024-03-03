@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 
 import struct Foundation.URL
@@ -239,7 +238,6 @@ package func initGitRepo(
     }
 }
 
-@_spi(SwiftPMInternal)
 @discardableResult
 package func executeSwiftBuild(
     _ packagePath: AbsolutePath,
@@ -254,7 +252,6 @@ package func executeSwiftBuild(
     return try SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
-@_spi(SwiftPMInternal)
 @discardableResult
 package func executeSwiftRun(
     _ packagePath: AbsolutePath,
@@ -271,7 +268,6 @@ package func executeSwiftRun(
     return try SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
 }
 
-@_spi(SwiftPMInternal)
 @discardableResult
 package func executeSwiftPackage(
     _ packagePath: AbsolutePath,
@@ -286,7 +282,6 @@ package func executeSwiftPackage(
     return try SwiftPM.Package.execute(args, packagePath: packagePath, env: env)
 }
 
-@_spi(SwiftPMInternal)
 @discardableResult
 package func executeSwiftTest(
     _ packagePath: AbsolutePath,

@@ -200,7 +200,7 @@ extension PluginTarget {
                 self.observabilityScope = observabilityScope
             }
             
-            func willCompilePlugin(commandLine: [String], environment: [String: String]) {
+            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
                 invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
             }
             
@@ -475,7 +475,7 @@ extension ModulesGraph {
                         self.builtToolNames = builtToolNames
                     }
                     
-                    func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
+                    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
                     }
                     
                     func pluginCompilationEnded(result: PluginCompilationResult) {
@@ -500,7 +500,7 @@ extension ModulesGraph {
                         displayName: String?,
                         executable: AbsolutePath,
                         arguments: [String],
-                        environment: [String: String],
+                        environment: EnvironmentVariables,
                         workingDirectory: AbsolutePath?,
                         inputFiles: [AbsolutePath],
                         outputFiles: [AbsolutePath]
@@ -521,7 +521,7 @@ extension ModulesGraph {
                         displayName: String?,
                         executable: AbsolutePath,
                         arguments: [String],
-                        environment: [String: String],
+                        environment: EnvironmentVariables,
                         workingDirectory: AbsolutePath?,
                         outputFilesDirectory: AbsolutePath
                     ) -> Bool {
@@ -798,7 +798,7 @@ public struct BuildToolPluginInvocationResult {
         public var displayName: String?
         public var executable: AbsolutePath
         public var arguments: [String]
-        public var environment: [String: String]
+        public var environment: EnvironmentVariables
         public var workingDirectory: AbsolutePath?
     }
 
@@ -825,7 +825,7 @@ public enum PluginEvaluationError: Swift.Error {
 
 public protocol PluginInvocationDelegate {
     /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
-    func pluginCompilationStarted(commandLine: [String], environment: [String: String])
+    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables)
     
     /// Called after a plugin is compiled. This call always follows a `pluginCompilationStarted()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
     func pluginCompilationEnded(result: PluginCompilationResult)

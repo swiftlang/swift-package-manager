@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 
 import class Foundation.ProcessInfo
@@ -38,7 +37,7 @@ extension ToolProtocol {
     public func write(to stream: inout ManifestToolStream) {}
 }
 
-public struct PhonyTool: ToolProtocol {
+package struct PhonyTool: ToolProtocol {
     public static let name: String = "phony"
 
     public var inputs: [Node]
@@ -50,7 +49,7 @@ public struct PhonyTool: ToolProtocol {
     }
 }
 
-public struct TestDiscoveryTool: ToolProtocol {
+package struct TestDiscoveryTool: ToolProtocol {
     public static let name: String = "test-discovery-tool"
     public static let mainFileName: String = "all-discovered-tests.swift"
 
@@ -63,7 +62,7 @@ public struct TestDiscoveryTool: ToolProtocol {
     }
 }
 
-public struct TestEntryPointTool: ToolProtocol {
+package struct TestEntryPointTool: ToolProtocol {
     public static let name: String = "test-entry-point-tool"
 
     public var inputs: [Node]
@@ -75,7 +74,7 @@ public struct TestEntryPointTool: ToolProtocol {
     }
 }
 
-public struct CopyTool: ToolProtocol {
+package struct CopyTool: ToolProtocol {
     public static let name: String = "copy-tool"
 
     public var inputs: [Node]
@@ -112,8 +111,7 @@ public struct PackageStructureTool: ToolProtocol {
     }
 }
 
-@_spi(SwiftPMInternal)
-public struct ShellTool: ToolProtocol {
+package struct ShellTool: ToolProtocol {
     public static let name: String = "shell"
 
     public var description: String

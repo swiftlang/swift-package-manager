@@ -11,17 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
-import Build
-
 import LLBuildManifest
-
 import PackageGraph
 import PackageLoading
 import PackageModel
-
 import SPMBuildCore
-
 import SPMLLBuild
 import Foundation
 
@@ -188,7 +182,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         }
     }
 
-    public func getBuildManifest() throws -> LLBuildManifest {
+    package func getBuildManifest() throws -> LLBuildManifest {
         return try self.plan().manifest
     }
 

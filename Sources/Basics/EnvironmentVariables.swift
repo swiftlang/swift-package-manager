@@ -15,21 +15,17 @@ import typealias TSCBasic.ProcessEnvironmentBlock
 import struct TSCBasic.ProcessEnvironmentKey
 import enum TSCBasic.ProcessEnv
 
-@_spi(SwiftPMInternal)
 public typealias EnvironmentVariables = ProcessEnvironmentBlock
 
 extension ProcessEnvironmentBlock {
-    @_spi(SwiftPMInternal)
     public static func empty() -> EnvironmentVariables {
         [:]
     }
 
-    @_spi(SwiftPMInternal)
     public static func process() -> EnvironmentVariables {
         ProcessEnv.block
     }
 
-    @_spi(SwiftPMInternal)
     public mutating func prependPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
@@ -38,7 +34,6 @@ extension ProcessEnvironmentBlock {
         self.setPath(key, values)
     }
 
-    @_spi(SwiftPMInternal)
     public mutating func appendPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
@@ -57,7 +52,7 @@ extension ProcessEnvironmentBlock {
     }
 
     /// `PATH` variable in the process's environment (`Path` under Windows).
-    public var path: String? {
+    package var path: String? {
         ProcessEnv.path
     }
 }
@@ -85,8 +80,7 @@ extension ProcessEnvironmentBlock {
         "SSH_AUTH_SOCK",
     ]
 
-    @_spi(SwiftPMInternal)
-    public var cachable: EnvironmentVariables {
+    package var cachable: EnvironmentVariables {
         return self.filter { !Self.nonCachableKeys.contains($0.key) }
     }
 }

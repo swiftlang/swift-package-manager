@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 
 @testable
@@ -198,7 +197,7 @@ final class GitRepositoryTests: XCTestCase {
 
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
-                environment: Git.environment
+                environmentBlock: Git.environmentBlock
             )
             let repo = GitRepository(path: repoPath)
             try repo.stageEverything()
@@ -614,7 +613,7 @@ final class GitRepositoryTests: XCTestCase {
             try foo.checkout(newBranch: "submodule")
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
-                environment: Git.environment
+                environmentBlock: Git.environmentBlock
             )
 
             try foo.stageEverything()
@@ -636,7 +635,7 @@ final class GitRepositoryTests: XCTestCase {
             // Add a submodule too to check for recursive submodules.
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
-                environment: Git.environment
+                environmentBlock: Git.environmentBlock
             )
 
             try bar.stageEverything()

@@ -14,7 +14,6 @@ import Basics
 import Dispatch
 import Foundation
 
-@_spi(SwiftPMInternal)
 import LLBuildManifest
 
 import PackageModel
@@ -324,8 +323,7 @@ private final class InProcessTool: Tool {
 }
 
 /// Contains the description of the build that is needed during the execution.
-@_spi(SwiftPMInternal)
-public struct BuildDescription: Codable {
+package struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
     public typealias CommandLineFlag = String
@@ -367,7 +365,7 @@ public struct BuildDescription: Codable {
     /// Distilled information about any plugins defined in the package.
     let pluginDescriptions: [PluginDescription]
 
-    public init(
+    package init(
         plan: BuildPlan,
         swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
         swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
@@ -445,8 +443,7 @@ public protocol BuildErrorAdviceProvider {
 }
 
 /// The context available during build execution.
-@_spi(SwiftPMInternal)
-public final class BuildExecutionContext {
+package final class BuildExecutionContext {
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters
 
@@ -469,7 +466,7 @@ public final class BuildExecutionContext {
 
     let observabilityScope: ObservabilityScope
 
-    public init(
+    package init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,

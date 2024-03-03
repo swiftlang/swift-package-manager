@@ -158,16 +158,14 @@ public final class UserToolchain: Toolchain {
 
     // MARK: - public API
 
-    public static func determineLibrarian(
+    package static func determineLibrarian(
         triple: Triple,
         binDirectories: [AbsolutePath],
         useXcrun: Bool,
         environment: EnvironmentVariables,
         searchPaths: [AbsolutePath],
         extraSwiftFlags: [String]
-    ) throws
-        -> AbsolutePath
-    {
+    ) throws -> AbsolutePath {
         let variable: String = triple.isApple() ? "LIBTOOL" : "AR"
         let tool: String = {
             if triple.isApple() { return "libtool" }
@@ -220,7 +218,7 @@ public final class UserToolchain: Toolchain {
     }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    public static func determineSwiftCompilers(
+    package static func determineSwiftCompilers(
         binDirectories: [AbsolutePath],
         useXcrun: Bool,
         environment: EnvironmentVariables,

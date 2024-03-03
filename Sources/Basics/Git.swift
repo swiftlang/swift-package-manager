@@ -11,16 +11,13 @@
 import class Foundation.ProcessInfo
 import TSCBasic
 
-@_spi(SwiftPMInternal)
-public enum Git {
+package enum Git {
     /// A shell command to run for Git. Can be either a name or a path.
     ///  - Note: modification is not thread safe, designed for testing only
-    @_spi(SwiftPMInternal)
-    public static var tool: String = "git\(executableFileSuffix)"
+    package static var tool: String = "git\(executableFileSuffix)"
 
     /// Returns true if the git reference name is well formed.
-    @_spi(SwiftPMInternal)
-    public static func checkRefFormat(ref: String) -> Bool {
+    package static func checkRefFormat(ref: String) -> Bool {
         do {
             let result = try Process.popen(args: tool, "check-ref-format", "--allow-onelevel", ref)
             return result.exitStatus == .terminated(code: 0)
@@ -36,8 +33,7 @@ public enum Git {
     /// This contains the current environment with custom overrides for using
     /// git from swift build.
     ///  - Note: modification is not thread safe, designed for testing only
-    @_spi(SwiftPMInternal)
-    public static var environmentBlock: ProcessEnvironmentBlock {
+    package static var environmentBlock: ProcessEnvironmentBlock {
         get {
             var env = Self._gitEnvironment
 

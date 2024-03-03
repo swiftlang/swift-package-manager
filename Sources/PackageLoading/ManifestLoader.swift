@@ -12,7 +12,6 @@
 
 import _Concurrency
 
-@_spi(SwiftPMInternal)
 import Basics
 
 import Dispatch

@@ -10,22 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 
 import Foundation
 
 import class TSCBasic.Process
 
-@_spi(SwiftPMInternal)
-public protocol AuxiliaryFileType {
+package protocol AuxiliaryFileType {
     static var name: String { get }
 
     static func getFileContents(inputs: [Node]) throws -> String
 }
 
-@_spi(SwiftPMInternal)
-public enum WriteAuxiliary {
+package enum WriteAuxiliary {
     public static let fileTypes: [AuxiliaryFileType.Type] = [
         EntitlementPlist.self,
         LinkFileList.self,
@@ -165,8 +162,7 @@ public enum WriteAuxiliary {
     }
 }
 
-@_spi(SwiftPMInternal)
-public struct LLBuildManifest {
+package struct LLBuildManifest {
     public typealias TargetName = String
     public typealias CmdName = String
 
@@ -295,8 +291,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    @_spi(SwiftPMInternal)
-    public mutating func addShellCmd(
+    package mutating func addShellCmd(
         name: String,
         description: String,
         inputs: [Node],
