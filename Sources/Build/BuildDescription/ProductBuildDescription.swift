@@ -21,25 +21,25 @@ import SPMBuildCore
 import struct TSCBasic.SortedArray
 
 /// The build description for a product.
-public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
+package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
     /// The reference to the product.
-    public let package: ResolvedPackage
+    package let package: ResolvedPackage
 
     /// The reference to the product.
-    public let product: ResolvedProduct
+    package let product: ResolvedProduct
 
     /// The tools version of the package that declared the product.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    public let toolsVersion: ToolsVersion
+    package let toolsVersion: ToolsVersion
 
     /// The build parameters.
-    public let buildParameters: BuildParameters
+    package let buildParameters: BuildParameters
 
     /// All object files to link into this product.
     ///
     // Computed during build planning.
-    public internal(set) var objects = SortedArray<AbsolutePath>()
+    package internal(set) var objects = SortedArray<AbsolutePath>()
 
     /// The dynamic libraries this product needs to link with.
     // Computed during build planning.
@@ -128,7 +128,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     /// The arguments to the librarian to create a static library.
-    public func archiveArguments() throws -> [String] {
+    package func archiveArguments() throws -> [String] {
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
         let triple = self.buildParameters.triple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
@@ -141,7 +141,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     /// The arguments to link and create this product.
-    public func linkArguments() throws -> [String] {
+    package func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompilerPath.pathString]
         args += self.buildParameters.sanitizers.linkSwiftFlags()
         args += self.additionalFlags
@@ -390,7 +390,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 }
 
 extension SortedArray where Element == AbsolutePath {
-    public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
+    package static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
         lhs.insert(contentsOf: rhs)
     }
 }
