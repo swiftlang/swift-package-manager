@@ -16,7 +16,7 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-public extension PackageDependency {
+package extension PackageDependency {
     static func fileSystem(identity: PackageIdentity? = nil,
                            deprecatedName: String? = nil,
                            path: AbsolutePath,
@@ -70,19 +70,19 @@ public extension PackageDependency {
 // backwards compatibility with existing tests
 
 extension PackageDependency.SourceControl.Requirement {
-    public static func upToNextMajor(from version: Version) -> Self {
+    package static func upToNextMajor(from version: Version) -> Self {
         return .range(.upToNextMajor(from: version))
     }
-    public static func upToNextMinor(from version: Version) -> Self {
+    package static func upToNextMinor(from version: Version) -> Self {
         return .range(.upToNextMinor(from: version))
     }
 }
 
 extension PackageDependency.Registry.Requirement {
-    public static func upToNextMajor(from version: Version) -> Self {
+    package static func upToNextMajor(from version: Version) -> Self {
         return .range(.upToNextMajor(from: version))
     }
-    public static func upToNextMinor(from version: Version) -> Self {
+    package static func upToNextMinor(from version: Version) -> Self {
         return .range(.upToNextMinor(from: version))
     }
 }

@@ -14,8 +14,11 @@ import Dispatch
 import Foundation
 
 import SPMBuildCore
+
 import Basics
+
 import CoreCommands
+
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -73,7 +76,7 @@ struct APIDigesterBaselineDumper {
         at baselineDir: AbsolutePath?,
         force: Bool,
         logLevel: Basics.Diagnostic.Severity,
-        swiftTool: SwiftTool
+        swiftCommandState: SwiftCommandState
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = productsBuildParameters.apiDiff
@@ -85,7 +88,7 @@ struct APIDigesterBaselineDumper {
         if !force {
             // Baselines which already exist don't need to be regenerated.
             modulesToDiff = modulesToDiff.filter {
-                !swiftTool.fileSystem.exists(baselinePath($0))
+                !swiftCommandState.fileSystem.exists(baselinePath($0))
             }
         }
 
@@ -96,8 +99,8 @@ struct APIDigesterBaselineDumper {
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
         let baselinePackageRoot = apiDiffDir.appending("\(baselineRevision.identifier)-checkout")
-        if swiftTool.fileSystem.exists(baselinePackageRoot) {
-            try swiftTool.fileSystem.removeFileTree(baselinePackageRoot)
+        if swiftCommandState.fileSystem.exists(baselinePackageRoot) {
+            try swiftCommandState.fileSystem.removeFileTree(baselinePackageRoot)
         }
 
         // Clone the current package in a sandbox and checkout the baseline revision.
@@ -115,7 +118,7 @@ struct APIDigesterBaselineDumper {
         // Create the workspace for this package.
         let workspace = try Workspace(
             forRootPackage: baselinePackageRoot,
-            cancellator: swiftTool.cancellator
+            cancellator: swiftCommandState.cancellator
         )
 
         let graph = try workspace.loadPackageGraph(
@@ -137,7 +140,7 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildSystem = try swiftTool.createBuildSystem(
+        let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
@@ -147,7 +150,7 @@ struct APIDigesterBaselineDumper {
         try buildSystem.build()
 
         // Dump the SDK JSON.
-        try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
+        try swiftCommandState.fileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: Int(productsBuildParameters.workers))
         let errors = ThreadSafeArrayStore<Swift.Error>()
@@ -180,7 +183,7 @@ struct APIDigesterBaselineDumper {
 }
 
 /// A wrapper for the swift-api-digester tool.
-public struct SwiftAPIDigester {
+package struct SwiftAPIDigester {
     /// The file system to use
     let fileSystem: FileSystem
 
@@ -193,7 +196,7 @@ public struct SwiftAPIDigester {
     }
 
     /// Emit an API baseline file for the specified module at the specified location.
-    public func emitAPIBaseline(
+    package func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan
@@ -223,7 +226,7 @@ public struct SwiftAPIDigester {
     }
 
     /// Compare the current package API to a provided baseline file.
-    public func compareAPIToBaseline(
+    package func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan,
@@ -268,12 +271,12 @@ public struct SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
-    public enum Error: Swift.Error, CustomStringConvertible {
+    package enum Error: Swift.Error, CustomStringConvertible {
         case failedToGenerateBaseline(module: String)
         case failedToValidateBaseline(module: String)
         case noSymbolsInBaseline(module: String, toolOutput: String)
 
-        public var description: String {
+        package var description: String {
             switch self {
             case .failedToGenerateBaseline(let module):
                 return "failed to generate baseline for \(module)"
@@ -288,7 +291,7 @@ extension SwiftAPIDigester {
 
 extension SwiftAPIDigester {
     /// The result of comparing a module's API to a provided baseline.
-    public struct ComparisonResult {
+    package struct ComparisonResult {
         /// The name of the module being diffed.
         var moduleName: String
         /// Breaking changes made to the API since the baseline was generated.

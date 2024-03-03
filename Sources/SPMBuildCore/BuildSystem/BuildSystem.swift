@@ -33,7 +33,7 @@ public enum BuildSubset {
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
-public protocol BuildSystem: Cancellable {
+package protocol BuildSystem: Cancellable {
 
     /// The delegate used by the build system.
     var delegate: BuildSystemDelegate? { get }
@@ -114,7 +114,7 @@ extension BuildPlan {
     }
 }
 
-public protocol BuildSystemFactory {
+package protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
@@ -127,7 +127,7 @@ public protocol BuildSystemFactory {
     ) throws -> any BuildSystem
 }
 
-public struct BuildSystemProvider {
+package struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
     public enum Kind: String, CaseIterable {
         case native
@@ -171,7 +171,7 @@ private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }
 
-public enum BuildSystemUtilities {
+package enum BuildSystemUtilities {
     /// Returns the build path from the environment, if present.
     public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
         // Don't rely on build path from env for SwiftPM's own tests.

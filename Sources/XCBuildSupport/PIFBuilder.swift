@@ -16,7 +16,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort

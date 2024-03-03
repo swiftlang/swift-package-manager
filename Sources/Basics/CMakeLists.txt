@@ -77,6 +77,7 @@ target_link_libraries(Basics PUBLIC
 target_link_libraries(Basics PRIVATE
   SPMSQLite3
   TSCclibc)
+
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Basics PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

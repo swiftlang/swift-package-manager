@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import CoreCommands
+
 import PackageModel
 
 /// A card showing the snippets in a ``SnippetGroup``.
@@ -19,7 +20,7 @@ struct SnippetGroupCard: Card {
     var snippetGroup: SnippetGroup
 
     /// The tool used for eventually building and running a chosen snippet.
-    var swiftTool: SwiftTool
+    var swiftCommandState: SwiftCommandState
 
     var inputPrompt: String? {
         return """
@@ -39,9 +40,9 @@ struct SnippetGroupCard: Card {
         }
         if let index = Int(line),
            snippetGroup.snippets.indices.contains(index) {
-            return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftTool: swiftTool))
+            return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftCommandState: swiftCommandState))
         } else if let foundSnippetIndex = snippetGroup.snippets.firstIndex(where: { $0.name == line }) {
-            return .push(SnippetCard(snippet: snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftTool: swiftTool))
+            return .push(SnippetCard(snippet: snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftCommandState: swiftCommandState))
         } else {
             print(red { "There is not a snippet by that name or index." })
             return nil

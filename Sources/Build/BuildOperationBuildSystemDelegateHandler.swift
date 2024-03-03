@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import Foundation
@@ -19,7 +18,9 @@ import Foundation
 import LLBuildManifest
 
 import PackageModel
+
 import SPMBuildCore
+
 import SPMLLBuild
 
 import struct TSCBasic.ByteString
