@@ -166,7 +166,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 import XCTest
 
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                package func __allDiscoveredTests() -> [XCTestCaseEntry] {
+                public func __allDiscoveredTests() -> [XCTestCaseEntry] {
                     \#(testsKeyword) tests = [XCTestCaseEntry]()
 
                     \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))

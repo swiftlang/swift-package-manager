@@ -22,8 +22,8 @@ package func generateTestObservationCode(buildParameters: BuildParameters) -> St
         import Foundation
         import XCTest
 
-        package final class SwiftPMXCTestObserver: NSObject {
-            package override init() {
+        public final class SwiftPMXCTestObserver: NSObject {
+            public override init() {
                 super.init()
                 XCTestObservationCenter.shared.addTestObserver(self)
             }

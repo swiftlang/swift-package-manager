@@ -112,7 +112,7 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// The path to the swiftmodule file after compilation.
-    package var moduleOutputPath: AbsolutePath { // note: needs to be package because of sourcekit-lsp
+    public var moduleOutputPath: AbsolutePath { // note: needs to be `public` because of sourcekit-lsp
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) && self.toolsVersion >= .v5_5
