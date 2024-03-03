@@ -22,6 +22,18 @@ extension Optional {
       return .none
     }
   }
+
+  @inlinable
+  public func flatMap<U>(
+    _ transform: (Wrapped) throws -> U?
+  ) rethrows -> U? {
+    switch self {
+    case .some(let y):
+      return try transform(y)
+    case .none:
+      return .none
+    }
+  }
 }
 
 extension Dictionary {
