@@ -12,6 +12,7 @@
 
 import struct Foundation.Data
 import class Foundation.FileManager
+import class Foundation.ProcessInfo
 import struct Foundation.UUID
 import SystemPackage
 
@@ -211,9 +212,14 @@ extension FileSystem {
 
 extension FileSystem {
     /// SwiftPM directory under user's home directory (~/.swiftpm)
+    /// or under $XDG_CONFIG_HOME/swiftpm if the environmental variable is defined
     public var dotSwiftPM: AbsolutePath {
         get throws {
-            try self.homeDirectory.appending(".swiftpm")
+            if let configurationDirectory = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"] {
+                return try AbsolutePath(validating: configurationDirectory).appending("swiftpm")
+            } else {
+                return try self.homeDirectory.appending(".swiftpm")
+            }
         }
     }
 
