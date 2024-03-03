@@ -190,7 +190,7 @@ extension LLBuildManifestBuilder {
     // dependency graph of B. The driver is then responsible for the necessary post-processing
     // to merge the dependency graphs and plan the build for A, using artifacts of B as explicit
     // inputs.
-    public func addTargetsToExplicitBuildManifest() throws {
+    package func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
         let nodes: [ResolvedTarget.Dependency] = try self.plan.targetMap.keys.compactMap {

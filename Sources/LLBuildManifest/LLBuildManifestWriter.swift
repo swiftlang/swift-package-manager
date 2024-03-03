@@ -125,59 +125,59 @@ package struct LLBuildManifestWriter {
     }
 }
 
-public struct ManifestToolStream {
+package struct ManifestToolStream {
     fileprivate var buffer = ""
 
-    public subscript(key: String) -> Int {
+    package subscript(key: String) -> Int {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.description.asJSON)\n"
         }
     }
 
-    public subscript(key: String) -> String {
+    package subscript(key: String) -> String {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
-    public subscript(key: String) -> ToolProtocol {
+    package subscript(key: String) -> ToolProtocol {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(type(of: newValue).name)\n"
         }
     }
 
-    public subscript(key: String) -> AbsolutePath {
+    package subscript(key: String) -> AbsolutePath {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.pathString.asJSON)\n"
         }
     }
 
-    public subscript(key: String) -> [AbsolutePath] {
+    package subscript(key: String) -> [AbsolutePath] {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.map(\.pathString).asJSON)\n"
         }
     }
 
-    public subscript(key: String) -> [Node] {
+    package subscript(key: String) -> [Node] {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.map(\.encodingName).asJSON)\n"
         }
     }
 
-    public subscript(key: String) -> Bool {
+    package subscript(key: String) -> Bool {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.description)\n"
         }
     }
 
-    public subscript(key: String) -> [String] {
+    package subscript(key: String) -> [String] {
         get { fatalError() }
         set {
             self.buffer += "    \(key): \(newValue.asJSON)\n"

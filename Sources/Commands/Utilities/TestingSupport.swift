@@ -38,7 +38,12 @@ enum TestingSupport {
 
         func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
             // XCTestHelper tool is installed in libexec.
-            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", "swiftpm-xctest-helper")
+            let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(
+                components: "libexec",
+                "swift",
+                "pm",
+                "swiftpm-xctest-helper"
+            )
             if swiftCommandState.fileSystem.isFile(maybePath) {
                 return maybePath
             } else {
@@ -48,7 +53,10 @@ enum TestingSupport {
         }
 
         if let firstCLIArgument = CommandLine.arguments.first {
-            let runningSwiftBuildPath = try AbsolutePath(validating: firstCLIArgument, relativeTo: swiftCommandState.originalWorkingDirectory)
+            let runningSwiftBuildPath = try AbsolutePath(
+                validating: firstCLIArgument,
+                relativeTo: swiftCommandState.originalWorkingDirectory
+            )
             if let xctestHelperPath = findXCTestHelper(swiftBuildPath: runningSwiftBuildPath) {
                 return xctestHelperPath
             }
@@ -56,7 +64,12 @@ enum TestingSupport {
 
         // This will be true during swiftpm development or when using swift.org toolchains.
         let xcodePath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
-        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(args: "/usr/bin/xcrun", "--find", "swift-build", environment: ["DEVELOPER_DIR": xcodePath]).spm_chomp()
+        let installedSwiftBuildPath = try TSCBasic.Process.checkNonZeroExit(
+            args: "/usr/bin/xcrun",
+            "--find",
+            "swift-build",
+            environmentBlock: ["DEVELOPER_DIR": xcodePath]
+        ).spm_chomp()
         if let xctestHelperPath = findXCTestHelper(swiftBuildPath: try AbsolutePath(validating: installedSwiftBuildPath)) {
             return xctestHelperPath
         }
@@ -109,7 +122,13 @@ enum TestingSupport {
         var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
+            args = [
+                try Self.xctestHelperPath(
+                    swiftCommandState: swiftCommandState
+                ).pathString,
+                path.pathString,
+                tempFile.path.pathString
+            ]
             let env = try Self.constructTestEnvironment(
                 toolchain: try swiftCommandState.getTargetToolchain(),
                 buildParameters: swiftCommandState.buildParametersForTest(
@@ -136,7 +155,7 @@ enum TestingSupport {
             sanitizers: sanitizers
         )
         args = [path.description, "--dump-tests-json"]
-        let data = try Process.checkNonZeroExit(arguments: args, environment: env)
+        let data = try Process.checkNonZeroExit(arguments: args, environmentBlock: env)
         #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
