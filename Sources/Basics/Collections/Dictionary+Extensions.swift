@@ -10,6 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+extension Optional {
+  @inlinable
+  public func map<U>(
+    _ transform: (Wrapped) throws -> U
+  ) rethrows -> U? {
+    switch self {
+    case .some(let y):
+      return .some(try transform(y))
+    case .none:
+      return .none
+    }
+  }
+}
+
 extension Dictionary {
     @inlinable
     @discardableResult
