@@ -609,7 +609,7 @@ public final class SwiftTargetBuildDescription {
           let version = package.manifest.version, 
           version.prereleaseIdentifiers.isEmpty &&
           version.buildMetadataIdentifiers.isEmpty &&
-          toolsVersion >= .v5_11
+          toolsVersion >= .v6_0
         {
             args += ["-user-module-version", version.description]
         }
