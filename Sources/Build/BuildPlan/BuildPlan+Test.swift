@@ -184,12 +184,18 @@ extension BuildPlan {
 
                     result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
                 } else {
-                    // Ignore test entry point and synthesize one, declaring a dependency on the test discovery targets created above.
-                    let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(
-                        swiftTargetDependencies: swiftTargetDependencies,
-                        resolvedTargetDependencies: resolvedTargetDependencies
+                    // Use the test entry point as-is, without performing test discovery.
+                    let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
+                        package: package,
+                        target: entryPointResolvedTarget,
+                        toolsVersion: toolsVersion,
+                        buildParameters: buildParameters,
+                        testTargetRole: .entryPoint(isSynthesized: false),
+                        disableSandbox: disableSandbox,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
                     )
-                    result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
+                    result.append((testProduct, nil, entryPointTargetBuildDescription))
                 }
             } else {
                 // Synthesize a test entry point target, declaring a dependency on the test discovery targets.
