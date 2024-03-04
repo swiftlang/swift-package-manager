@@ -156,44 +156,21 @@ extension BuildPlan {
 
             if let entryPointResolvedTarget = testProduct.testEntryPointTarget {
                 if isEntryPointPathSpecifiedExplicitly {
-                    if isEntryPointPathSpecifiedExplicitly {
-                        // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
-                        let entryPointTarget = SwiftTarget(
-                            name: entryPointResolvedTarget.underlying.name,
-                            dependencies: entryPointResolvedTarget.underlying.dependencies + swiftTargetDependencies,
-                            packageAccess: entryPointResolvedTarget.packageAccess,
-                            testEntryPointSources: entryPointResolvedTarget.underlying.sources
-                        )
-                        let entryPointResolvedTarget = ResolvedTarget(
-                            packageIdentity: testProduct.packageIdentity,
-                            underlying: entryPointTarget,
-                            dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
-                            defaultLocalization: testProduct.defaultLocalization,
-                            supportedPlatforms: testProduct.supportedPlatforms,
-                            platformVersionProvider: testProduct.platformVersionProvider
-                        )
-                        let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
-                            package: package,
-                            target: entryPointResolvedTarget,
-                            toolsVersion: toolsVersion,
-                            buildParameters: buildParameters,
-                            testTargetRole: .entryPoint(isSynthesized: false),
-                            disableSandbox: disableSandbox,
-                            fileSystem: fileSystem,
-                            observabilityScope: observabilityScope
-                        )
-
-                        result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
-                    } else {
-                        // Ignore test entry point and synthesize one, declaring a dependency on the test discovery targets created above.
-                        let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(
-                            swiftTargetDependencies: swiftTargetDependencies,
-                            resolvedTargetDependencies: resolvedTargetDependencies
-                        )
-                        result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
-                    }
-                } else {
-                    // Use the test entry point as-is, without performing test discovery.
+                    // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
+                    let entryPointTarget = SwiftTarget(
+                        name: entryPointResolvedTarget.underlying.name,
+                        dependencies: entryPointResolvedTarget.underlying.dependencies + swiftTargetDependencies,
+                        packageAccess: entryPointResolvedTarget.packageAccess,
+                        testEntryPointSources: entryPointResolvedTarget.underlying.sources
+                    )
+                    let entryPointResolvedTarget = ResolvedTarget(
+                        packageIdentity: testProduct.packageIdentity,
+                        underlying: entryPointTarget,
+                        dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
+                        defaultLocalization: testProduct.defaultLocalization,
+                        supportedPlatforms: testProduct.supportedPlatforms,
+                        platformVersionProvider: testProduct.platformVersionProvider
+                    )
                     let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                         package: package,
                         target: entryPointResolvedTarget,
@@ -204,7 +181,15 @@ extension BuildPlan {
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
-                    result.append((testProduct, nil, entryPointTargetBuildDescription))
+
+                    result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
+                } else {
+                    // Ignore test entry point and synthesize one, declaring a dependency on the test discovery targets created above.
+                    let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(
+                        swiftTargetDependencies: swiftTargetDependencies,
+                        resolvedTargetDependencies: resolvedTargetDependencies
+                    )
+                    result.append((testProduct, discoveryTargets?.buildDescription, entryPointTargetBuildDescription))
                 }
             } else {
                 // Synthesize a test entry point target, declaring a dependency on the test discovery targets.
