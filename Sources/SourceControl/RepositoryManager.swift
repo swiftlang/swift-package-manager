@@ -331,7 +331,7 @@ public class RepositoryManager: Cancellable {
         }
         
         // We are expecting handle.repository.url to always be a resolved absolute path.
-        let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
+        let shouldCacheLocalPackages = ProcessEnv.block["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
         if let cachePath, !(handle.repository.isLocal && !shouldCacheLocalPackages) {
             let cachedRepositoryPath = try cachePath.appending(handle.repository.storagePath())

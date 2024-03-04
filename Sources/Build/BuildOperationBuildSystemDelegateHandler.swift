@@ -13,7 +13,9 @@
 import Basics
 import Dispatch
 import Foundation
+
 import LLBuildManifest
+
 import PackageModel
 
 import SPMBuildCore
@@ -166,7 +168,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 import XCTest
 
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
-                public func __allDiscoveredTests() -> [XCTestCaseEntry] {
+                package func __allDiscoveredTests() -> [XCTestCaseEntry] {
                     \#(testsKeyword) tests = [XCTestCaseEntry]()
 
                     \#(testsByModule.keys.map { "tests += __\($0)__allTests()" }.joined(separator: "\n    "))
@@ -202,7 +204,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 extension TestEntryPointTool {
-    public static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
+    package static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
         "runner-\(library).swift"
     }
 }
@@ -321,10 +323,10 @@ private final class InProcessTool: Tool {
 }
 
 /// Contains the description of the build that is needed during the execution.
-public struct BuildDescription: Codable {
-    public typealias CommandName = String
-    public typealias TargetName = String
-    public typealias CommandLineFlag = String
+package struct BuildDescription: Codable {
+    package typealias CommandName = String
+    package typealias TargetName = String
+    package typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
     let swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool]
@@ -358,12 +360,12 @@ public struct BuildDescription: Codable {
     let generatedSourceTargetSet: Set<TargetName>
 
     /// The built test products.
-    public let builtTestProducts: [BuiltTestProduct]
+    package let builtTestProducts: [BuiltTestProduct]
 
     /// Distilled information about any plugins defined in the package.
     let pluginDescriptions: [PluginDescription]
 
-    public init(
+    package init(
         plan: BuildPlan,
         swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
         swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
@@ -420,13 +422,13 @@ public struct BuildDescription: Codable {
         self.pluginDescriptions = pluginDescriptions
     }
 
-    public func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
+    package func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
         try fileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
-    public static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
+    package static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
         let contents: Data = try fileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
         return try decoder.decode(BuildDescription.self, from: contents)
@@ -434,14 +436,14 @@ public struct BuildDescription: Codable {
 }
 
 /// A provider of advice about build errors.
-public protocol BuildErrorAdviceProvider {
+package protocol BuildErrorAdviceProvider {
     /// Invoked after a command fails and an error message is detected in the output. Should return a string containing
     /// advice or additional information, if any, based on the build plan.
     func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String?
 }
 
 /// The context available during build execution.
-public final class BuildExecutionContext {
+package final class BuildExecutionContext {
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters
 
@@ -464,7 +466,7 @@ public final class BuildExecutionContext {
 
     let observabilityScope: ObservabilityScope
 
-    public init(
+    package init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
@@ -590,7 +592,7 @@ final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
     }
 }
 
-public protocol PackageStructureDelegate {
+package protocol PackageStructureDelegate {
     func packageStructureChanged() -> Bool
 }
 
@@ -601,7 +603,7 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         var hash = Data()
         hash += try! encoder.encode(self.context.productsBuildParameters)
         hash += try! encoder.encode(self.context.toolsBuildParameters)
-        hash += try! encoder.encode(ProcessEnv.vars)
+        hash += try! encoder.encode(ProcessEnv.block)
         return [UInt8](hash)
     }
 

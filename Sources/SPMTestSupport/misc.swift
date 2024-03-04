@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
 import struct Foundation.URL
 #if os(macOS)
 import class Foundation.Bundle
@@ -28,10 +29,11 @@ import func XCTest.XCTFail
 import struct TSCBasic.ByteString
 import struct TSCBasic.ProcessResult
 
-import enum TSCUtility.Git
+@_exported
+import func TSCTestSupport.systemQuietly
 
-@_exported import func TSCTestSupport.systemQuietly
-@_exported import enum TSCTestSupport.StringPattern
+@_exported
+import enum TSCTestSupport.StringPattern
 
 /// Test helper utility for executing a block with a temporary directory.
 package func testWithTemporaryDirectory(

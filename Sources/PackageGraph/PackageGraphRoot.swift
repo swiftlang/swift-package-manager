@@ -11,9 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageModel
 
-import enum TSCUtility.Git
+import PackageModel
 
 /// Represents the input to the package graph root.
 public struct PackageGraphRootInput {

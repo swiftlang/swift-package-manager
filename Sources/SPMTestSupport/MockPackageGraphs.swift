@@ -39,7 +39,7 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadPackageGraph(
+    let graph = try loadModulesGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(
@@ -134,7 +134,7 @@ package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackag
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadPackageGraph(
+    let graph = try loadModulesGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(
@@ -164,7 +164,7 @@ package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws ->
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadPackageGraph(
+    let graph = try loadModulesGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(

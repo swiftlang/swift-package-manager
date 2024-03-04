@@ -15,6 +15,7 @@ import Foundation
 
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 import struct TSCUtility.Version
 
@@ -446,29 +447,19 @@ public struct SwiftSDK: Equatable {
         return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd).parentDirectory
     }
 
-    /// The Swift SDK describing the host platform.
-    @available(*, deprecated, renamed: "hostSwiftSDK")
-    public static func hostDestination(
-        _ binDir: AbsolutePath? = nil,
-        originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String] = ProcessEnv.vars
-    ) throws -> SwiftSDK {
-        try self.hostSwiftSDK(binDir, originalWorkingDirectory: originalWorkingDirectory, environment: environment)
-    }
-
     /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String: String] = ProcessEnv.vars,
+        environment: ProcessEnvironmentBlock = ProcessEnv.block,
         observabilityScope: ObservabilityScope? = nil
     ) throws -> SwiftSDK {
         let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
-        if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
+        if ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"] != nil {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
         }
-        let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
+        let customBinDir = (ProcessEnv.block["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap { try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? SwiftSDK.hostBinDir(
             fileSystem: localFileSystem,
@@ -478,13 +469,13 @@ public struct SwiftSDK: Equatable {
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = ProcessEnv.vars["SDKROOT"] {
+        if let value = ProcessEnv.block["SDKROOT"] {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environment: environment
+                environmentBlock: environment
             ).spm_chomp()
             guard !sdkPathStr.isEmpty else {
                 throw SwiftSDKError.invalidInstallation("default SDK not found")
@@ -541,7 +532,7 @@ public struct SwiftSDK: Equatable {
         }
         let platformPath = try TSCBasic.Process.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
-            environment: environment
+            environmentBlock: environment
         ).spm_chomp()
 
         guard !platformPath.isEmpty else {

@@ -26,12 +26,12 @@ public protocol ImportScanner {
     func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String]
 }
 
-public struct SwiftcImportScanner: ImportScanner {
+package struct SwiftcImportScanner: ImportScanner {
     private let swiftCompilerEnvironment: EnvironmentVariables
     private let swiftCompilerFlags: [String]
     private let swiftCompilerPath: AbsolutePath
 
-    public init(
+    package init(
         swiftCompilerEnvironment: EnvironmentVariables,
         swiftCompilerFlags: [String],
         swiftCompilerPath: AbsolutePath
@@ -46,7 +46,7 @@ public struct SwiftcImportScanner: ImportScanner {
                    filePathToScan.pathString,
                    "-scan-dependencies", "-Xfrontend", "-import-prescan"] + self.swiftCompilerFlags
 
-        let result = try await TSCBasic.Process.popen(arguments: cmd, environment: self.swiftCompilerEnvironment)
+        let result = try await TSCBasic.Process.popen(arguments: cmd, environmentBlock: self.swiftCompilerEnvironment)
 
         let stdout = try result.utf8Output()
         return try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports

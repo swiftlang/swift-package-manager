@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+
 import SourceControl
 
 import class TSCBasic.Process
-
-import enum TSCUtility.Git
 
 /// Extensions useful for unit testing purposes.
 /// Note: These are not thread safe.

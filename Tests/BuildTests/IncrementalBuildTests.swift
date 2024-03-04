@@ -15,6 +15,7 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 import class TSCBasic.Process
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
 /// point, and because of the time they take, they need to be kept minimal.
@@ -154,13 +155,13 @@ final class IncrementalBuildTests: XCTestCase {
         try fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
-            let environment = [
+            let environment: ProcessEnvironmentBlock = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
                 "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString
             ]
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environment: environment
+                environmentBlock: environment
             ).spm_chomp()
 
             let newSdkPathStr = "/tmp/../\(sdkPathStr)"

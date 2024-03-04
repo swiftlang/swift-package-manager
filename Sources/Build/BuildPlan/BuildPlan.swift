@@ -91,11 +91,11 @@ extension [String] {
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
+    package var moduleCache: AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
-            if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
+            if let path = ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
             return buildPath.appending("ModuleCache")
@@ -128,7 +128,7 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
+    package func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
 
         // Compute the triple string for Darwin platform using the platform version.
@@ -164,11 +164,11 @@ extension BuildParameters {
 
 /// A build plan for a package graph.
 public class BuildPlan: SPMBuildCore.BuildPlan {
-    public enum Error: Swift.Error, CustomStringConvertible, Equatable {
+    package enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
         case noBuildableTarget
 
-        public var description: String {
+        package var description: String {
             switch self {
             case .noBuildableTarget:
                 return """
@@ -196,20 +196,20 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The package graph.
-    public let graph: ModulesGraph
+    package let graph: ModulesGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
+    package let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
 
     /// The product build description map.
-    public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
+    package let productMap: [ResolvedProduct.ID: ProductBuildDescription]
 
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
-    public let pluginDescriptions: [PluginDescription]
+    package let pluginDescriptions: [PluginDescription]
 
     /// The build targets.
-    public var targets: AnySequence<TargetBuildDescription> {
+    package var targets: AnySequence<TargetBuildDescription> {
         AnySequence(self.targetMap.values)
     }
 
@@ -219,11 +219,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
-    public let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
+    package let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+    package let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
     package private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 
@@ -246,7 +246,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     let observabilityScope: ObservabilityScope
 
     @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
-    public convenience init(
+    package convenience init(
         buildParameters: BuildParameters,
         graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
@@ -268,7 +268,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Create a build plan with a package graph and explicitly distinct build parameters for products and tools.
-    public init(
+    package init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         graph: ModulesGraph,

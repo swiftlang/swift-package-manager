@@ -12,7 +12,7 @@
 
 import SPMBuildCore
 
-public func generateTestObservationCode(buildParameters: BuildParameters) -> String {
+package func generateTestObservationCode(buildParameters: BuildParameters) -> String {
     guard buildParameters.triple.supportsTestSummary else {
         return ""
     }
@@ -22,8 +22,8 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
         import Foundation
         import XCTest
 
-        public final class SwiftPMXCTestObserver: NSObject {
-            public override init() {
+        package final class SwiftPMXCTestObserver: NSObject {
+            package override init() {
                 super.init()
                 XCTestObservationCenter.shared.addTestObserver(self)
             }
@@ -54,68 +54,68 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
                 }
             }
 
-            public func testBundleWillStart(_ testBundle: Bundle) {
+            package func testBundleWillStart(_ testBundle: Bundle) {
                 let record = TestBundleEventRecord(bundle: .init(testBundle), event: .start)
                 write(record: TestEventRecord(bundleEvent: record))
             }
 
-            public func testSuiteWillStart(_ testSuite: XCTestSuite) {
+            package func testSuiteWillStart(_ testSuite: XCTestSuite) {
                 let record = TestSuiteEventRecord(suite: .init(testSuite), event: .start)
                 write(record: TestEventRecord(suiteEvent: record))
             }
 
-            public func testCaseWillStart(_ testCase: XCTestCase) {
+            package func testCaseWillStart(_ testCase: XCTestCase) {
                 let record = TestCaseEventRecord(testCase: .init(testCase), event: .start)
                 write(record: TestEventRecord(caseEvent: record))
             }
 
             #if canImport(Darwin)
-            public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
+            package func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
                 let record = TestCaseFailureRecord(testCase: .init(testCase), issue: .init(issue), failureKind: .unexpected)
                 write(record: TestEventRecord(caseFailure: record))
             }
 
-            public func testCase(_ testCase: XCTestCase, didRecord expectedFailure: XCTExpectedFailure) {
+            package func testCase(_ testCase: XCTestCase, didRecord expectedFailure: XCTExpectedFailure) {
                 let record = TestCaseFailureRecord(testCase: .init(testCase), issue: .init(expectedFailure.issue), failureKind: .expected(failureReason: expectedFailure.failureReason))
                 write(record: TestEventRecord(caseFailure: record))
             }
             #else
-            public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+            package func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
                 let issue = TestIssue(description: description, inFile: filePath, atLine: lineNumber)
                 let record = TestCaseFailureRecord(testCase: .init(testCase), issue: issue, failureKind: .unexpected)
                 write(record: TestEventRecord(caseFailure: record))
             }
             #endif
 
-            public func testCaseDidFinish(_ testCase: XCTestCase) {
+            package func testCaseDidFinish(_ testCase: XCTestCase) {
                 let record = TestCaseEventRecord(testCase: .init(testCase), event: .finish)
                 write(record: TestEventRecord(caseEvent: record))
             }
 
             #if canImport(Darwin)
-            public func testSuite(_ testSuite: XCTestSuite, didRecord issue: XCTIssue) {
+            package func testSuite(_ testSuite: XCTestSuite, didRecord issue: XCTIssue) {
                 let record = TestSuiteFailureRecord(suite: .init(testSuite), issue: .init(issue), failureKind: .unexpected)
                 write(record: TestEventRecord(suiteFailure: record))
             }
 
-            public func testSuite(_ testSuite: XCTestSuite, didRecord expectedFailure: XCTExpectedFailure) {
+            package func testSuite(_ testSuite: XCTestSuite, didRecord expectedFailure: XCTExpectedFailure) {
                 let record = TestSuiteFailureRecord(suite: .init(testSuite), issue: .init(expectedFailure.issue), failureKind: .expected(failureReason: expectedFailure.failureReason))
                 write(record: TestEventRecord(suiteFailure: record))
             }
             #else
-            public func testSuite(_ testSuite: XCTestSuite, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+            package func testSuite(_ testSuite: XCTestSuite, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
                 let issue = TestIssue(description: description, inFile: filePath, atLine: lineNumber)
                 let record = TestSuiteFailureRecord(suite: .init(testSuite), issue: issue, failureKind: .unexpected)
                 write(record: TestEventRecord(suiteFailure: record))
             }
             #endif
 
-            public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
+            package func testSuiteDidFinish(_ testSuite: XCTestSuite) {
                 let record = TestSuiteEventRecord(suite: .init(testSuite), event: .finish)
                 write(record: TestEventRecord(suiteEvent: record))
             }
 
-            public func testBundleDidFinish(_ testBundle: Bundle) {
+            package func testBundleDidFinish(_ testBundle: Bundle) {
                 let record = TestBundleEventRecord(bundle: .init(testBundle), event: .finish)
                 write(record: TestEventRecord(bundleEvent: record))
             }
@@ -138,7 +138,7 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
 
         import Foundation
 
-        public final class FileLock {
+        package final class FileLock {
           #if os(Windows)
             private var handle: HANDLE?
           #else
@@ -147,11 +147,11 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
 
             private let lockFile: URL
 
-            public init(at lockFile: URL) {
+            package init(at lockFile: URL) {
                 self.lockFile = lockFile
             }
 
-            public func lock() throws {
+            package func lock() throws {
               #if os(Windows)
                 if handle == nil {
                     let h: HANDLE = lockFile.path.withCString(encodedAs: UTF16.self, {
@@ -198,7 +198,7 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
               #endif
             }
 
-            public func unlock() {
+            package func unlock() {
               #if os(Windows)
                 var overlapped = OVERLAPPED()
                 overlapped.Offset = 0
@@ -225,13 +225,13 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
               #endif
             }
 
-            public func withLock<T>(_ body: () throws -> T) throws -> T {
+            package func withLock<T>(_ body: () throws -> T) throws -> T {
                 try lock()
                 defer { unlock() }
                 return try body()
             }
 
-            public func withLock<T>(_ body: () async throws -> T) async throws -> T {
+            package func withLock<T>(_ body: () async throws -> T) async throws -> T {
                 try lock()
                 defer { unlock() }
                 return try await body()

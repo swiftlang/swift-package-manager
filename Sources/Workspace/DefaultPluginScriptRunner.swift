@@ -209,7 +209,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         // Honor any module cache override that's set in the environment.
-        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+        let moduleCachePath = ProcessEnv.block["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"]
         if let moduleCachePath {
             commandLine += ["-module-cache-path", moduleCachePath]
         }
@@ -252,7 +252,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         do {
             // Include the full compiler arguments and environment, and the contents of the source files.
             var stringToHash = commandLine.description
-            for (key, value) in toolchain.swiftCompilerEnvironment.sorted(by: { $0.key < $1.key }) {
+            for (key, value) in toolchain.swiftCompilerEnvironment.sorted(by: { $0.key.value < $1.key.value }) {
                 stringToHash.append("\(key)=\(value)\n")
             }
             for sourceFile in sourceFiles {
@@ -352,7 +352,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        TSCBasic.Process.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
+        TSCBasic.Process.popen(arguments: commandLine, environmentBlock: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in

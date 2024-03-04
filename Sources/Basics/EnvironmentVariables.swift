@@ -11,19 +11,22 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.ProcessInfo
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
+import enum TSCBasic.ProcessEnv
 
-public typealias EnvironmentVariables = [String: String]
+public typealias EnvironmentVariables = ProcessEnvironmentBlock
 
-extension EnvironmentVariables {
+extension ProcessEnvironmentBlock {
     public static func empty() -> EnvironmentVariables {
         [:]
     }
 
     public static func process() -> EnvironmentVariables {
-        ProcessInfo.processInfo.environment
+        ProcessEnv.block
     }
 
-    public mutating func prependPath(_ key: String, value: String) {
+    public mutating func prependPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
             values.append(existing)
@@ -31,7 +34,7 @@ extension EnvironmentVariables {
         self.setPath(key, values)
     }
 
-    public mutating func appendPath(_ key: String, value: String) {
+    public mutating func appendPath(_ key: ProcessEnvironmentKey, value: String) {
         var values = value.isEmpty ? [] : [value]
         if let existing = self[key], !existing.isEmpty {
             values.insert(existing, at: 0)
@@ -39,7 +42,7 @@ extension EnvironmentVariables {
         self.setPath(key, values)
     }
 
-    private mutating func setPath(_ key: String, _ values: [String]) {
+    private mutating func setPath(_ key: ProcessEnvironmentKey, _ values: [String]) {
         #if os(Windows)
         let delimiter = ";"
         #else
@@ -49,22 +52,17 @@ extension EnvironmentVariables {
     }
 
     /// `PATH` variable in the process's environment (`Path` under Windows).
-    public var path: String? {
-        #if os(Windows)
-        let pathArg = "Path"
-        #else
-        let pathArg = "PATH"
-        #endif
-        return self[pathArg]
+    package var path: String? {
+        ProcessEnv.path
     }
 }
 
 // filter env variable that should not be included in a cache as they change
 // often and should not be considered in business logic
 // rdar://107029374
-extension EnvironmentVariables {
+extension ProcessEnvironmentBlock {
     // internal for testing
-    static let nonCachableKeys: Set<String> = [
+    static let nonCachableKeys: Set<ProcessEnvironmentKey> = [
         "TERM",
         "TERM_PROGRAM",
         "TERM_PROGRAM_VERSION",
@@ -82,7 +80,7 @@ extension EnvironmentVariables {
         "SSH_AUTH_SOCK",
     ]
 
-    public var cachable: EnvironmentVariables {
+    package var cachable: EnvironmentVariables {
         return self.filter { !Self.nonCachableKeys.contains($0.key) }
     }
 }

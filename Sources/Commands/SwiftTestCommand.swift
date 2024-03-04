@@ -750,7 +750,7 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    private let testEnv: [String: String]
+    private let testEnv: EnvironmentVariables
 
     /// ObservabilityScope  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -784,7 +784,7 @@ final class TestRunner {
         additionalArguments: [String],
         cancellator: Cancellator,
         toolchain: UserToolchain,
-        testEnv: [String: String],
+        testEnv: EnvironmentVariables,
         observabilityScope: ObservabilityScope,
         library: BuildParameters.Testing.Library
     ) {
@@ -842,7 +842,11 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = TSCBasic.Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let process = TSCBasic.Process(
+                arguments: try args(forTestAt: path),
+                environmentBlock: self.testEnv,
+                outputRedirection: outputRedirection
+            )
             guard let terminationKey = self.cancellator.register(process) else {
                 return false // terminating
             }
@@ -933,7 +937,7 @@ final class ParallelTestRunner {
 
         // command's result output goes on stdout
         // ie "swift test" should output to stdout
-        if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+        if EnvironmentVariables.process()["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
@@ -1292,7 +1296,7 @@ extension TestCommandOptions {
 
     /// Returns the test case specifier if overridden in the env.
     private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
-        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
+        guard let override = EnvironmentVariables.process()["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }
 

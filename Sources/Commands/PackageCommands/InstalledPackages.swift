@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
+import typealias Basics.EnvironmentVariables
 import CoreCommands
 
 import Foundation
@@ -37,7 +37,7 @@ extension SwiftPackageCommand {
         func run(_ tool: SwiftCommandState) throws {
             let swiftpmBinDir = try tool.fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
 
-            let env = ProcessInfo.processInfo.environment
+            let env = EnvironmentVariables.process()
 
             if let path = env.path, !path.contains(swiftpmBinDir.pathString), !globalOptions.logging.quiet {
                 tool.observabilityScope.emit(
