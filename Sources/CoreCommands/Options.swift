@@ -466,7 +466,6 @@ package struct BuildOptions: ParsableArguments {
 
     /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if
     /// present).
-    /// This implies `--enable-test-discovery`
     @Option(
         name: .customLong("experimental-test-entry-point-path"),
         help: .hidden

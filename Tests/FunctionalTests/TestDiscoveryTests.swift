@@ -95,7 +95,7 @@ class TestDiscoveryTests: XCTestCase {
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let manifestPath = fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName)
             try localFileSystem.writeFileContents(manifestPath, string: "fatalError(\"should not be called\")")
-            let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
             // in "swift test" build output goes to stderr
             XCTAssertMatch(stderr, .contains("Build complete!"))
             // in "swift test" test output goes to stdout

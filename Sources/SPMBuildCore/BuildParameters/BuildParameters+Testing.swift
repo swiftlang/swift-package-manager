@@ -28,9 +28,6 @@ extension BuildParameters {
         /// `--experimental-test-entry-point-path <file>` option, that file is used, otherwise if an `XCTMain.swift`
         /// (formerly `LinuxMain.swift`) file is located in the package, it is used.
         ///
-        /// - Parameter explicitlyEnabledDiscovery: Whether test discovery generation was forced by passing
-        ///   `--enable-test-discovery`, overriding any custom test entry point file specified via other CLI options or located in
-        ///   the package.
         /// - Parameter explicitlySpecifiedPath: The path to the test entry point file, if one was specified explicitly via
         ///   `--experimental-test-entry-point-path <file>`.
         case entryPointExecutable(explicitlySpecifiedPath: AbsolutePath?)
@@ -63,7 +60,6 @@ extension BuildParameters {
 
         public enum CodingKeys: CodingKey {
             case _case
-            case explicitlyEnabledDiscovery
             case explicitlySpecifiedPath
         }
 
@@ -74,7 +70,6 @@ extension BuildParameters {
                 try container.encode(DiscriminatorKeys.loadableBundle, forKey: ._case)
             case .entryPointExecutable(let explicitlySpecifiedPath):
                 try container.encode(DiscriminatorKeys.entryPointExecutable, forKey: ._case)
-                try container.encode(false, forKey: .explicitlyEnabledDiscovery)
                 try container.encode(explicitlySpecifiedPath, forKey: .explicitlySpecifiedPath)
             }
         }
