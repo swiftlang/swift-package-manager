@@ -371,16 +371,6 @@ package final class SwiftCommandState {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
-        // --enable-test-discovery should never be called on darwin based platforms
-        #if canImport(Darwin)
-        if options.build.enableTestDiscovery {
-            observabilityScope
-                .emit(
-                    warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms"
-                )
-        }
-        #endif
-
         if options.caching.shouldDisableManifestCaching {
             observabilityScope
                 .emit(
@@ -777,7 +767,6 @@ package final class SwiftCommandState {
             testingParameters: .init(
                 configuration: options.build.configuration,
                 targetTriple: triple,
-                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: options.build.testEntryPointPath
             )
         )

@@ -217,17 +217,12 @@ extension SwiftCommandState {
 
         var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?
-        if case let .entryPointExecutable(
-            explicitlyEnabledDiscoveryValue,
-            explicitlySpecifiedPathValue
-        ) = parameters.testingParameters.testProductStyle {
-            explicitlyEnabledDiscovery = explicitlyEnabledDiscoveryValue
+        if case let .entryPointExecutable(explicitlySpecifiedPathValue) = parameters.testingParameters.testProductStyle {
             explicitlySpecifiedPath = explicitlySpecifiedPathValue
         }
         parameters.testingParameters = .init(
             configuration: parameters.configuration,
             targetTriple: parameters.triple,
-            forceTestDiscovery: explicitlyEnabledDiscovery,
             testEntryPointPath: explicitlySpecifiedPath,
             library: library
         )

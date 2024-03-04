@@ -33,10 +33,7 @@ extension BuildParameters {
         ///   the package.
         /// - Parameter explicitlySpecifiedPath: The path to the test entry point file, if one was specified explicitly via
         ///   `--experimental-test-entry-point-path <file>`.
-        case entryPointExecutable(
-            explicitlyEnabledDiscovery: Bool,
-            explicitlySpecifiedPath: AbsolutePath?
-        )
+        case entryPointExecutable(explicitlySpecifiedPath: AbsolutePath?)
 
         /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
         /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
@@ -54,7 +51,7 @@ extension BuildParameters {
             switch self {
             case .loadableBundle:
                 return nil
-            case .entryPointExecutable(explicitlyEnabledDiscovery: _, explicitlySpecifiedPath: let entryPointPath):
+            case .entryPointExecutable(explicitlySpecifiedPath: let entryPointPath):
                 return entryPointPath
             }
         }
@@ -75,9 +72,9 @@ extension BuildParameters {
             switch self {
             case .loadableBundle:
                 try container.encode(DiscriminatorKeys.loadableBundle, forKey: ._case)
-            case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath):
+            case .entryPointExecutable(let explicitlySpecifiedPath):
                 try container.encode(DiscriminatorKeys.entryPointExecutable, forKey: ._case)
-                try container.encode(explicitlyEnabledDiscovery, forKey: .explicitlyEnabledDiscovery)
+                try container.encode(false, forKey: .explicitlyEnabledDiscovery)
                 try container.encode(explicitlySpecifiedPath, forKey: .explicitlySpecifiedPath)
             }
         }
@@ -122,7 +119,6 @@ extension BuildParameters {
             enableCodeCoverage: Bool = false,
             enableTestability: Bool? = nil,
             experimentalTestOutput: Bool = false,
-            forceTestDiscovery: Bool = false,
             testEntryPointPath: AbsolutePath? = nil,
             library: Library = .xctest
         ) {
@@ -137,7 +133,6 @@ extension BuildParameters {
             // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
             self.enableTestability =  enableTestability ?? (.debug == configuration)
             self.testProductStyle = (targetTriple.isDarwin() && library == .xctest) ? .loadableBundle : .entryPointExecutable(
-                explicitlyEnabledDiscovery: forceTestDiscovery,
                 explicitlySpecifiedPath: testEntryPointPath
             )
             self.library = library
