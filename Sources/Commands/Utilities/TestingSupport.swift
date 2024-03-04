@@ -215,7 +215,6 @@ extension SwiftCommandState {
     ) throws -> BuildParameters {
         var parameters = try self.productsBuildParameters
 
-        var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?
         if case let .entryPointExecutable(explicitlySpecifiedPathValue) = parameters.testingParameters.testProductStyle {
             explicitlySpecifiedPath = explicitlySpecifiedPathValue
