@@ -225,7 +225,6 @@ package func XCTAsyncUnwrap<T>(
     return result
 }
 
-
 package struct CommandExecutionError: Error {
     package let result: ProcessResult
     package let stdout: String

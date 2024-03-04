@@ -89,7 +89,7 @@ extension ManifestLoader {
         dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) async throws -> Manifest{
+    ) async throws -> Manifest {
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {
@@ -121,8 +121,7 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 }
@@ -136,7 +135,7 @@ extension ManifestLoader {
         dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) async throws -> Manifest{
+    ) async throws -> Manifest {
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {

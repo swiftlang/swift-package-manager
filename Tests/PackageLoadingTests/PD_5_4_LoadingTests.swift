@@ -16,7 +16,7 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
+final class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v5_4
     }
