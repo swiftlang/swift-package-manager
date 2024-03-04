@@ -246,7 +246,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     let observabilityScope: ObservabilityScope
 
     @available(*, deprecated, renamed: "init(productsBuildParameters:toolsBuildParameters:graph:)")
-    package convenience init(
+    public convenience init(
         buildParameters: BuildParameters,
         graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
@@ -268,7 +268,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Create a build plan with a package graph and explicitly distinct build parameters for products and tools.
-    package init(
+    public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         graph: ModulesGraph,
