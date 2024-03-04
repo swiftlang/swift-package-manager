@@ -95,7 +95,7 @@ extension BuildParameters {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
-            if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
+            if let path = ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
             return buildPath.appending("ModuleCache")
@@ -158,7 +158,7 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
+        BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
     }
 }
 
@@ -288,7 +288,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
-        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] = [:]
+        var productMap = [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)]()
         // Create product description for each product we have in the package graph that is eligible.
         for product in graph.allProducts where product.shouldCreateProductDescription {
             let buildParameters: BuildParameters
@@ -446,7 +446,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(item.entryPointTargetBuildDescription)
+                targetMap[item.entryPointTargetBuildDescription.target.id] = 
+                    .swift(item .entryPointTargetBuildDescription)
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                     targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
@@ -552,9 +553,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in graph.reachableTargets {
+        for target in self.graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
-                arguments.append(contentsOf: try self.pkgConfig(for: systemLib).cFlags)
+                try arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
             }
@@ -589,7 +590,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in graph.reachableTargets {
+        for target in self.graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments += try self.pkgConfig(for: systemLib).cFlags
             }
@@ -645,7 +646,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 extension Basics.Diagnostic {
     static var swiftBackDeployError: Self {
         .warning(
-            "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
+            """
+            Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by \
+            default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an \
+            optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at \
+            https://developer.apple.com/download/more/
+            """
         )
     }
 
@@ -728,7 +734,7 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        return self.targets.filter({ !($0.underlying is BinaryTarget) }).isEmpty
+        self.targets.filter { !($0.underlying is BinaryTarget) }.isEmpty
     }
 
     private var isPlugin: Bool {

@@ -37,7 +37,7 @@ extension SwiftPackageCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // Look for swift-format binary.
             // FIXME: This should be moved to user toolchain.
-            let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.vars["SWIFT_FORMAT"])
+            let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.block["SWIFT_FORMAT"])
             guard let swiftFormat = swiftFormatInEnv ?? Process.findExecutable("swift-format").flatMap(AbsolutePath.init) else {
                 swiftCommandState.observabilityScope.emit(error: "Could not find swift-format in PATH or SWIFT_FORMAT")
                 throw TSCUtility.Diagnostics.fatalError

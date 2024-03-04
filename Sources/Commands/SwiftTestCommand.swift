@@ -933,7 +933,7 @@ final class ParallelTestRunner {
 
         // command's result output goes on stdout
         // ie "swift test" should output to stdout
-        if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+        if ProcessEnv.block["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             self.progressAnimation = ProgressAnimation.percent(
                 stream: TSCBasic.stdoutStream,
                 verbose: false,
@@ -1292,7 +1292,7 @@ extension TestCommandOptions {
 
     /// Returns the test case specifier if overridden in the env.
     private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
-        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
+        guard let override = ProcessEnv.block["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }
 
