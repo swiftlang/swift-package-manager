@@ -209,7 +209,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         // Honor any module cache override that's set in the environment.
-        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+        let moduleCachePath = ProcessEnv.block["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"]
         if let moduleCachePath {
             commandLine += ["-module-cache-path", moduleCachePath]
         }

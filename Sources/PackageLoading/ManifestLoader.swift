@@ -857,7 +857,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
-        let moduleCachePath = try (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ try AbsolutePath(validating: $0) }
+        let moduleCachePath = try (
+            ProcessEnv.block["SWIFTPM_MODULECACHE_OVERRIDE"] ??
+            ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"]).flatMap { try AbsolutePath(validating: $0) }
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
@@ -955,7 +957,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     evaluationResult.compilerCommandLine = cmd
 
                     // Compile the manifest.
-                    TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
+                    TSCBasic.Process.popen(
+                        arguments: cmd,
+                        environment: self.toolchain.swiftCompilerEnvironment,
+                        queue: callbackQueue
+                    ) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
@@ -1054,7 +1060,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         #endif
 
                         let cleanupAfterRunning = cleanupIfError.delay()
-                        TSCBasic.Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
+                        TSCBasic.Process.popen(
+                            arguments: cmd,
+                            environment: environment,
+                            queue: callbackQueue
+                        ) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                             defer { cleanupAfterRunning.perform() }

@@ -89,7 +89,7 @@ extension Workspace {
         public var localMirrorsConfigurationFile: AbsolutePath {
             get throws {
                 // backwards compatibility
-                if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                if let customPath = ProcessEnv.block["SWIFTPM_MIRROR_CONFIG"] {
                     return try AbsolutePath(validating: customPath)
                 }
                 return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
