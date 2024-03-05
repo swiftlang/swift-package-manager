@@ -288,7 +288,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
-        var productMap = [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)]()
+        var productMap: [ResolvedProduct.ID: (product: ResolvedProduct, buildDescription: ProductBuildDescription)] = [:]
         // Create product description for each product we have in the package graph that is eligible.
         for product in graph.allProducts where product.shouldCreateProductDescription {
             let buildParameters: BuildParameters
@@ -447,7 +447,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
                 targetMap[item.entryPointTargetBuildDescription.target.id] = 
-                    .swift(item .entryPointTargetBuildDescription)
+                    .swift(item.entryPointTargetBuildDescription)
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                     targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
