@@ -464,8 +464,13 @@ package struct BuildOptions: ParsableArguments {
         #endif
     }
 
+    /// Whether to enable test discovery on platforms without Objective-C runtime.
+    @Flag(help: .hidden)
+    package var enableTestDiscovery: Bool = false
+
     /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if
     /// present).
+    /// This implies `--enable-test-discovery`
     @Option(
         name: .customLong("experimental-test-entry-point-path"),
         help: .hidden

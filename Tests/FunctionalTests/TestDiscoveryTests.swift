@@ -88,6 +88,21 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
+    func testEntryPointOverrideIgnored() throws {
+        #if os(macOS)
+        try XCTSkipIf(true)
+        #endif
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            let manifestPath = fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName)
+            try localFileSystem.writeFileContents(manifestPath, string: "fatalError(\"should not be called\")")
+            let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
+            XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
+        }
+    }
+
     func testTestExtensions() throws {
         #if os(macOS)
         try XCTSkipIf(true)
