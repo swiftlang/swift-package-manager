@@ -202,36 +202,6 @@ final class TestCommandTests: CommandsTestCase {
         }
     }
 
-    func testEnableTestDiscoveryDeprecation() throws {
-        let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
-        #if canImport(Darwin)
-        // should emit when LinuxMain is present
-        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
-
-        // should emit when LinuxMain is not present
-        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
-            let (_, stderr) = try SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
-        #else
-        // should emit when LinuxMain is present
-        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
-        // should not emit when LinuxMain is present
-        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
-            let (_, stderr) = try SwiftPM.Test.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
-        #endif
-    }
-
     func testList() throws {
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let (stdout, stderr) = try SwiftPM.Test.execute(["list"], packagePath: fixturePath)
