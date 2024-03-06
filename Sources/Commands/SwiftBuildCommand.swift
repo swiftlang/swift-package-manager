@@ -154,6 +154,11 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
                 buildParameters.testingParameters = .init(
                     configuration: buildParameters.configuration,
                     targetTriple: buildParameters.triple,
+                    enableCodeCoverage: buildParameters.testingParameters.enableCodeCoverage,
+                    enableTestability: buildParameters.testingParameters.enableTestability,
+                    experimentalTestOutput: buildParameters.testingParameters.experimentalTestOutput,
+                    forceTestDiscovery: globalOptions.build.enableTestDiscovery,
+                    testEntryPointPath: globalOptions.build.testEntryPointPath,
                     library: library
                 )
                 try build(swiftCommandState, subset: subset, buildParameters: buildParameters)

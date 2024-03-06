@@ -42,10 +42,14 @@ final class BuildCommandTests: CommandsTestCase {
         try SwiftPM.Build.execute(args, packagePath: packagePath, env: environment)
     }
 
-    func build(_ args: [String], packagePath: AbsolutePath? = nil, isRelease: Bool = false) throws -> BuildResult {
+    func build(_ args: [String], packagePath: AbsolutePath? = nil, isRelease: Bool = false, cleanAfterward: Bool = true) throws -> BuildResult {
         let buildConfigurationArguments = isRelease ? ["-c", "release"] : []
         let (stdout, stderr) = try execute(args + buildConfigurationArguments, packagePath: packagePath)
-        defer { try! SwiftPM.Package.execute(["clean"], packagePath: packagePath) }
+        defer {
+            if cleanAfterward {
+                try! SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+            }
+        }
         let (binPathOutput, _) = try execute(
             ["--show-bin-path"] + buildConfigurationArguments,
             packagePath: packagePath
@@ -644,4 +648,20 @@ final class BuildCommandTests: CommandsTestCase {
             XCTAssertNoMatch(buildResult.stdout, .contains("codesign --force --sign - --entitlements"))
         }
     }
+
+#if !canImport(Darwin)
+    func testIgnoresLinuxMain() throws {
+        try fixture(name: "Miscellaneous/TestDiscovery/IgnoresLinuxMain") { fixturePath in
+            let buildResult = try self.build(["-v", "--build-tests", "--enable-test-discovery"], packagePath: fixturePath, cleanAfterward: false)
+            let testBinaryPath = buildResult.binPath.appending("IgnoresLinuxMainPackageTests.xctest")
+
+            let processTerminated = expectation(description: "Process terminated")
+            _ = try Process.run(testBinaryPath.asURL, arguments: [] ) { process in
+               XCTAssertEqual(process.terminationStatus, EXIT_SUCCESS)
+               processTerminated.fulfill()
+            }
+            wait(for: [processTerminated], timeout: .infinity)
+        }
+    }
+#endif
 }
