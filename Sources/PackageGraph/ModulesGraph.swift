@@ -213,8 +213,7 @@ public struct ModulesGraph {
         self.allProducts = allProducts
     }
 
-    @_spi(SwiftPMInternal)
-    public mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
+    package mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
         self.reachableTargets = IdentifiableSet(self.reachableTargets.map {
             var target = $0
             target.buildTriple = buildTriple

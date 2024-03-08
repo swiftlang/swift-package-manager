@@ -239,7 +239,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
-            sanitizers: swiftTool.options.build.sanitizers
+            sanitizers: swiftCommandState.options.build.sanitizers
         )
 
         // Iterate over the tests and run those that match the filter.

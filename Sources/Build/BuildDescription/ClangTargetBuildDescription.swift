@@ -19,9 +19,6 @@ import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
-
 import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.

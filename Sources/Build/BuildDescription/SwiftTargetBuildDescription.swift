@@ -111,7 +111,8 @@ package final class SwiftTargetBuildDescription {
     }
 
     var modulesPath: AbsolutePath {
-        return self.defaultBuildParameters.buildPath.appending(component: "Modules\(self.target.buildTriple.suffix)")
+        let suffix = self.defaultBuildParameters.suffix(triple: self.target.buildTriple)
+        return self.defaultBuildParameters.buildPath.appending(component: "Modules\(suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -644,7 +645,7 @@ package final class SwiftTargetBuildDescription {
 
         args += self.package.packageNameArgument(
             target: self.target,
-            isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
+            isPackageNameSupported: self.defaultBuildParameters.driverParameters.isPackageAccessModifierSupported
         )
         args += try self.macroArguments()
         
@@ -673,7 +674,7 @@ package final class SwiftTargetBuildDescription {
         result.append(
             contentsOf: self.package.packageNameArgument(
                 target: self.target,
-                isPackageNameSupported: self.buildParameters.driverParameters.isPackageAccessModifierSupported
+                isPackageNameSupported: self.defaultBuildParameters.driverParameters.isPackageAccessModifierSupported
             )
         )
         if !scanInvocation {

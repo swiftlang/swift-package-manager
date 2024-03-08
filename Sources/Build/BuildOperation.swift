@@ -11,19 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
-import Build
-
 import LLBuildManifest
-
-@_spi(SwiftPMInternal)
 import PackageGraph
-
 import PackageLoading
 import PackageModel
-
 import SPMBuildCore
-
 import SPMLLBuild
 import Foundation
 
@@ -529,7 +521,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                config: self.productsBuildParameters.configuration.dirname,
+                buildParameters: self.productsBuildParameters,
                 observabilityScope: self.observabilityScope
             ) {
                 return result
@@ -910,9 +902,11 @@ extension BuildSubset {
     }
 
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: ModulesGraph, config: String, observabilityScope: ObservabilityScope)
-        -> String?
-    {
+    func llbuildTargetName(
+        for graph: ModulesGraph,
+        buildParameters: BuildParameters,
+        observabilityScope: ObservabilityScope
+    ) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -933,14 +927,14 @@ extension BuildSubset {
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
             return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
+                try product.getLLBuildTargetName(buildParameters: buildParameters)
             }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return target.getLLBuildTargetName(config: config)
+            return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 }

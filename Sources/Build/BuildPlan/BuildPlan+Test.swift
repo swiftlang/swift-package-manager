@@ -28,7 +28,7 @@ extension BuildPlan {
     static func makeDerivedTestTargets(
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
-        _ graph: PackageGraph,
+        _ graph: ModulesGraph,
         shouldDisableSandbox: Bool,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope

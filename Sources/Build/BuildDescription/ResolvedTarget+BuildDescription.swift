@@ -13,11 +13,11 @@
 import struct Basics.AbsolutePath
 import struct PackageGraph.ResolvedTarget
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 extension ResolvedTarget {
     func tempsPath(_ buildParameters: BuildParameters) -> AbsolutePath {
-        buildParameters.buildPath.appending(component: self.c99name + "\(self.buildTriple.suffix).build")
+        let suffix = buildParameters.suffix(triple: self.buildTriple)
+        return buildParameters.buildPath.appending(component: self.c99name + "\(suffix).build")
     }
 }

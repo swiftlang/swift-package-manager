@@ -73,7 +73,7 @@ package let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVer
 package let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-public func mockBuildParameters(
+package func mockBuildParameters(
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),

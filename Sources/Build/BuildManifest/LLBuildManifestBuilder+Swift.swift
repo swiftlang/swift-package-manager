@@ -378,7 +378,7 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(config: target.defaultBuildParameters.buildConfig)
+        let cmdName = target.target.getCommandName(buildParameters: target.defaultBuildParameters)
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
@@ -491,7 +491,7 @@ extension LLBuildManifestBuilder {
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.defaultBuildParameters.buildConfig)))
+            try inputs.append(.virtual(macro.getLLBuildTargetName(buildParameters: target.defaultBuildParameters)))
         }
 
         return inputs + additionalInputs
@@ -500,7 +500,7 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.defaultBuildParameters.buildConfig)
+        let targetName = target.target.getLLBuildTargetName(buildParameters: target.defaultBuildParameters)
         let targetOutput: Node = .virtual(targetName)
 
         self.manifest.addNode(targetOutput, toTarget: targetName)

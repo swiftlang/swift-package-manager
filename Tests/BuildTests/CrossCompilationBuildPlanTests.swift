@@ -40,7 +40,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         var (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: "/Pkg")
 
         let triple = try Triple("wasm32-unknown-none-wasm")
-        var parameters = mockBuildParameters(targetTriple: triple)
+        var parameters = mockBuildParameters(triple: triple)
         parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
         var result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
@@ -103,7 +103,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: pkgPath)
 
         var parameters = mockBuildParameters(
-            config: .release, targetTriple: .wasi, linkerDeadStrip: true
+            config: .release, triple: .wasi, linkerDeadStrip: true
         )
         parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
         let result = try BuildPlanResult(plan: BuildPlan(
@@ -135,7 +135,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         let (graph, fs, observabilityScope) = try trivialPackageGraph(pkgRootPath: pkgPath)
 
-        var parameters = mockBuildParameters(targetTriple: .wasi)
+        var parameters = mockBuildParameters(triple: .wasi)
         parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
@@ -208,5 +208,66 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         let testPathExtension = try testBuildDescription.binaryPath.extension
         XCTAssertEqual(testPathExtension, "wasm")
+    }
+
+    func testMacros() throws {
+        let (graph, fs, scope) = try macrosPackageGraph()
+
+        let productsTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+        let plan = try BuildPlan(
+            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: productsTriple),
+            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+        let result = try BuildPlanResult(plan: plan)
+        result.checkProductsCount(3)
+        result.checkTargetsCount(10)
+
+        XCTAssertTrue(try result.allTargets(named: "SwiftSyntax").contains { $0.target.buildTriple == .tools })
+        try result.check(triple: toolsTriple, for: "MMIOMacros")
+        try result.check(triple: productsTriple, for: "MMIO")
+        try result.check(triple: productsTriple, for: "Core")
+        try result.check(triple: productsTriple, for: "HAL")
+
+        let macroProducts = result.allProducts(named: "MMIOMacros")
+        XCTAssertEqual(macroProducts.count, 1)
+        let macroProduct = try XCTUnwrap(macroProducts.first)
+        XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
+
+        // FIXME: check for *toolsTriple*
+        let mmioTarget = try XCTUnwrap(plan.targets.first { try $0.swiftTarget().target.name == "MMIO" }?.swiftTarget())
+        let compileArguments = try mmioTarget.emitCommandLine()
+        XCTAssertMatch(
+            compileArguments,
+            [
+                "-I", .equal(mmioTarget.moduleOutputPath.parentDirectory.pathString),
+                .anySequence,
+                "-Xfrontend", "-load-plugin-executable",
+                "-Xfrontend", .contains(toolsTriple.tripleString)
+            ]
+        )
+    }
+}
+
+
+extension BuildPlanResult {
+    func allTargets(named name: String) throws -> [SwiftTargetBuildDescription] {
+        try self.targetMap
+            .filter { $0.0.targetName == name }
+            .map { try $1.swiftTarget() }
+    }
+
+    func allProducts(named name: String) -> [ProductBuildDescription] {
+        self.productMap
+            .filter { $0.0.productName == name }
+            .map { $1 }
+    }
+
+    func check(triple: Triple, for target: String, file: StaticString = #file, line: UInt = #line) throws {
+        let target = try self.target(for: target).swiftTarget()
+        XCTAssertMatch(try target.emitCommandLine(), [.contains(triple.tripleString)], file: file, line: line)
     }
 }

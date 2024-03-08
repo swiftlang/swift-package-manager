@@ -19,7 +19,6 @@ import SPMBuildCore
 
 import Dispatch
 
-@_spi(SwiftPMInternal)
 import PackageGraph
 
 import PackageModel
@@ -325,7 +324,7 @@ struct PluginCommand: SwiftCommand {
         var buildToolsGraph = packageGraph
         try buildToolsGraph.updateBuildTripleRecursively(.tools)
 
-        let buildParameters = try swiftTool.toolsBuildParameters
+        let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
@@ -339,7 +338,7 @@ struct PluginCommand: SwiftCommand {
 
         let accessibleTools = try plugin.processAccessibleTools(
             packageGraph: buildToolsGraph,
-            fileSystem: swiftTool.fileSystem,
+            fileSystem: swiftCommandState.fileSystem,
             environment: buildParameters.buildEnvironment,
             for: try pluginScriptRunner.hostTriple
         ) { name, _ in
