@@ -70,7 +70,8 @@ public struct ResolvedProduct {
     public init(
         packageIdentity: PackageIdentity,
         product: Product,
-        targets: IdentifiableSet<ResolvedTarget>
+        targets: IdentifiableSet<ResolvedTarget>,
+        isExperimentalMacrosCrossCompilationEnabled: Bool
     ) {
         assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
@@ -101,12 +102,17 @@ public struct ResolvedProduct {
                 dependencies: targets.map { .target($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
                 supportedPlatforms: platforms,
-                platformVersionProvider: platformVersionProvider
+                platformVersionProvider: platformVersionProvider,
+                isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled
             )
         }
         
-        self.buildTriple = product.buildTriple
-        self.updateBuildTriplesOfDependencies()
+        if isExperimentalMacrosCrossCompilationEnabled {
+            self.buildTriple = product.buildTriple
+            self.updateBuildTriplesOfDependencies()
+        } else {
+            self.buildTriple = .destination
+        }
     }
 
     private mutating func updateBuildTriplesOfDependencies() {

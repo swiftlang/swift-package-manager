@@ -211,7 +211,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
     }
 
     func testMacros() throws {
-        let (graph, fs, scope) = try macrosPackageGraph()
+        let (graph, fs, scope) = try macrosPackageGraph(isExperimentalMacrosCrossCompilationEnabled: true)
 
         let productsTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS

@@ -34,7 +34,7 @@ class PluginInvocationTests: XCTestCase {
             "/Foo/Sources/Foo/SomeFile.abc"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -75,7 +75,7 @@ class PluginInvocationTests: XCTestCase {
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
             // "FooTool" duplicated as it's present for both build tools and end products triples.
-            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool")
+            graph.check(targets: "Foo", "FooPlugin", "FooTool")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
@@ -299,6 +299,7 @@ class PluginInvocationTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -680,6 +681,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertThrowsError(try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )) { error in
                 var diagnosed = false
@@ -760,6 +762,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertThrowsError(try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope)) { error in
                 var diagnosed = false
                 if let realError = error as? PackageGraphError,
@@ -870,6 +873,7 @@ class PluginInvocationTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1054,6 +1058,7 @@ class PluginInvocationTests: XCTestCase {
             let graph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             let dict = try await workspace.loadPluginImports(packageGraph: graph)
@@ -1203,6 +1208,7 @@ class PluginInvocationTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)

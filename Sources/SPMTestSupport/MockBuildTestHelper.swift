@@ -86,7 +86,8 @@ package func mockBuildParameters(
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
-    omitFramePointers: Bool? = nil
+    omitFramePointers: Bool? = nil,
+    isExperimentalMacrosCrossCompilationEnabled: Bool = false
 ) -> BuildParameters {
     try! BuildParameters(
         dataPath: buildPath ?? AbsolutePath("/path/to/build").appending(triple.tripleString),
@@ -97,6 +98,7 @@ package func mockBuildParameters(
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
+        isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled,
         debuggingParameters: .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: config == .debug,

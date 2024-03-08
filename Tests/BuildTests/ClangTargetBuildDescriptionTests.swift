@@ -43,7 +43,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
             underlying: try makeClangTarget(),
             dependencies: [],
             supportedPlatforms: [],
-            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)
+            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault),
+            isExperimentalMacrosCrossCompilationEnabled: false
         )
     }
 

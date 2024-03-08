@@ -64,46 +64,53 @@ public struct ResolvedPackage {
         targets: [ResolvedTarget],
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
-        platformVersionProvider: PlatformVersionProvider
+        platformVersionProvider: PlatformVersionProvider,
+        isExperimentalMacrosCrossCompilationEnabled: Bool
     ) {
         self.underlying = underlying
 
         var processedTargets = OrderedDictionary<ResolvedTarget.ID, ResolvedTarget>(
             uniqueKeysWithValues: targets.map { ($0.id, $0) }
         )
-        var processedProducts = [ResolvedProduct]()
-        // Make sure that direct macro dependencies of test products are also built for the target triple.
-        // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
-        // and SwiftSyntax to be built for the target triple: https://github.com/apple/swift-package-manager/pull/7349
-        for var product in products {
-            if product.type == .test {
-                var targets = IdentifiableSet<ResolvedTarget>()
-                for var target in product.targets {
-                    var dependencies = [ResolvedTarget.Dependency]()
-                    for dependency in target.dependencies {
-                        switch dependency {
-                        case .target(var target, let conditions) where target.type == .macro:
-                            target.buildTriple = .destination
-                            dependencies.append(.target(target, conditions: conditions))
-                            processedTargets[target.id] = target
-                        case .product(var product, let conditions) where product.type == .macro:
-                            product.buildTriple = .destination
-                            dependencies.append(.product(product, conditions: conditions))
-                        default:
-                            dependencies.append(dependency)
+        
+        if isExperimentalMacrosCrossCompilationEnabled {
+            var processedProducts = [ResolvedProduct]()
+            // Make sure that direct macro dependencies of test products are also built for the target triple.
+            // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
+            // and SwiftSyntax to be built for the target triple: https://github.com/apple/swift-package-manager/pull/7349
+            for var product in products {
+                if product.type == .test {
+                    var targets = IdentifiableSet<ResolvedTarget>()
+                    for var target in product.targets {
+                        var dependencies = [ResolvedTarget.Dependency]()
+                        for dependency in target.dependencies {
+                            switch dependency {
+                            case .target(var target, let conditions) where target.type == .macro:
+                                target.buildTriple = .destination
+                                dependencies.append(.target(target, conditions: conditions))
+                                processedTargets[target.id] = target
+                            case .product(var product, let conditions) where product.type == .macro:
+                                product.buildTriple = .destination
+                                dependencies.append(.product(product, conditions: conditions))
+                            default:
+                                dependencies.append(dependency)
+                            }
                         }
+                        target.dependencies = dependencies
+                        targets.insert(target)
                     }
-                    target.dependencies = dependencies
-                    targets.insert(target)
+                    product.targets = targets
                 }
-                product.targets = targets
+
+                processedProducts.append(product)
             }
 
-            processedProducts.append(product)
+            self.products = processedProducts
+            self.targets = Array(processedTargets.values)
+        } else {
+            self.products = products
+            self.targets = targets
         }
-
-        self.products = processedProducts
-        self.targets = Array(processedTargets.values)
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms

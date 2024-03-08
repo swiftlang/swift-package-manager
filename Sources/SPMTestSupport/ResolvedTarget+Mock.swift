@@ -35,7 +35,8 @@ extension ResolvedTarget {
             dependencies: deps.map { .target($0, conditions: conditions) },
             defaultLocalization: nil,
             supportedPlatforms: [],
-            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)
+            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault),
+            isExperimentalMacrosCrossCompilationEnabled: false
         )
     }
 }

@@ -95,6 +95,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 externalManifests: externalManifests,
                 binaryArtifacts: [:],
                 availableLibraries: [], // assume no provided libraries for testing.
+                isExperimentalMacrosCrossCompilationEnabled: false,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )

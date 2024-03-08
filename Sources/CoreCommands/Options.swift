@@ -446,6 +446,10 @@ package struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-explicit-module-build"))
     package var useExplicitModuleBuild: Bool = false
 
+    /// Whether to use the explicit module build flow (with the integrated driver)
+    @Flag(name: .customLong("experimental-macros-cross-compilation"), help: .hidden)
+    package var isExperimentalMacrosCrossCompilationEnabled: Bool = false
+
     /// The build system to use.
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native

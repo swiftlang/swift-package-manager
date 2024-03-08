@@ -91,7 +91,9 @@ extension BuildPlan {
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
                     defaultLocalization: testProduct.defaultLocalization,
                     supportedPlatforms: testProduct.supportedPlatforms,
-                    platformVersionProvider: testProduct.platformVersionProvider
+                    platformVersionProvider: testProduct.platformVersionProvider,
+                    isExperimentalMacrosCrossCompilationEnabled:
+                        destinationBuildParameters.isExperimentalMacrosCrossCompilationEnabled
                 )
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
@@ -132,7 +134,9 @@ extension BuildPlan {
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
                     defaultLocalization: testProduct.defaultLocalization,
                     supportedPlatforms: testProduct.supportedPlatforms,
-                    platformVersionProvider: testProduct.platformVersionProvider
+                    platformVersionProvider: testProduct.platformVersionProvider,
+                    isExperimentalMacrosCrossCompilationEnabled:
+                        destinationBuildParameters.isExperimentalMacrosCrossCompilationEnabled
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
@@ -178,7 +182,9 @@ extension BuildPlan {
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
                             defaultLocalization: testProduct.defaultLocalization,
                             supportedPlatforms: testProduct.supportedPlatforms,
-                            platformVersionProvider: testProduct.platformVersionProvider
+                            platformVersionProvider: testProduct.platformVersionProvider,
+                            isExperimentalMacrosCrossCompilationEnabled: 
+                                destinationBuildParameters.isExperimentalMacrosCrossCompilationEnabled
                         )
                         let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,

@@ -357,6 +357,7 @@ package func loadModulesGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+    isExperimentalMacrosCrossCompilationEnabled: Bool = false,
     observabilityScope: ObservabilityScope
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
@@ -388,6 +389,7 @@ package func loadModulesGraph(
         createREPLProduct: createREPLProduct,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
         availableLibraries: [],
+        isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled,
         fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )

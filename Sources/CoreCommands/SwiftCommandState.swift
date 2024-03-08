@@ -608,6 +608,8 @@ package final class SwiftCommandState {
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
                 availableLibraries: self.getHostToolchain().providedLibraries,
+                isExperimentalMacrosCrossCompilationEnabled:
+                    self.productsBuildParameters.isExperimentalMacrosCrossCompilationEnabled,
                 observabilityScope: self.observabilityScope
             )
 
@@ -743,6 +745,7 @@ package final class SwiftCommandState {
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
+            isExperimentalMacrosCrossCompilationEnabled: self.options.build.isExperimentalMacrosCrossCompilationEnabled,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,

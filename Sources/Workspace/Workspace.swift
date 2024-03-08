@@ -879,6 +879,7 @@ extension Workspace {
         testEntryPointPath: AbsolutePath? = nil,
         availableLibraries: [LibraryMetadata],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
+        isExperimentalMacrosCrossCompilationEnabled: Bool,
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
         let start = DispatchTime.now()
@@ -925,6 +926,7 @@ extension Workspace {
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             availableLibraries: self.providedLibraries,
+            isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope
         )
@@ -947,6 +949,7 @@ extension Workspace {
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
             availableLibraries: self.providedLibraries,
+            isExperimentalMacrosCrossCompilationEnabled: false,
             observabilityScope: observabilityScope
         )
     }
