@@ -465,10 +465,10 @@ public struct SwiftSDK: Equatable {
     ) throws -> SwiftSDK {
         let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
-        if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
+        if ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"] != nil {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
         }
-        let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
+        let customBinDir = (ProcessEnv.block["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap { try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? SwiftSDK.hostBinDir(
             fileSystem: localFileSystem,
@@ -478,7 +478,7 @@ public struct SwiftSDK: Equatable {
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = ProcessEnv.vars["SDKROOT"] {
+        if let value = ProcessEnv.block["SDKROOT"] {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
@@ -599,8 +599,7 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Computes the target Swift SDK for the given options.
-    @_spi(SwiftPMInternal)
-    public static func deriveTargetSwiftSDK(
+    package static func deriveTargetSwiftSDK(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
       customCompileDestination: AbsolutePath? = nil,

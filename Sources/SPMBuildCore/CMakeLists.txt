@@ -23,6 +23,7 @@ add_library(SPMBuildCore
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
   PrebuildCommandResult.swift
+  ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
   XCFrameworkMetadata.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

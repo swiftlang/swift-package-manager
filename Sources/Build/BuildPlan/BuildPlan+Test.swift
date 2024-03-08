@@ -15,7 +15,7 @@ import struct Basics.InternalError
 import struct Basics.AbsolutePath
 import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedTarget
 import struct PackageModel.Sources

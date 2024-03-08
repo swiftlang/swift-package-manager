@@ -33,7 +33,7 @@ public enum BuildSubset {
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
-public protocol BuildSystem: Cancellable {
+package protocol BuildSystem: Cancellable {
 
     /// The delegate used by the build system.
     var delegate: BuildSystemDelegate? { get }
@@ -42,7 +42,7 @@ public protocol BuildSystem: Cancellable {
     var builtTestProducts: [BuiltTestProduct] { get }
 
     /// Returns the package graph used by the build system.
-    func getPackageGraph() throws -> PackageGraph
+    func getPackageGraph() throws -> ModulesGraph
 
     /// Builds a subset of the package graph.
     /// - Parameters:
@@ -114,20 +114,20 @@ extension BuildPlan {
     }
 }
 
-public protocol BuildSystemFactory {
+package protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) throws -> any BuildSystem
 }
 
-public struct BuildSystemProvider {
+package struct BuildSystemProvider {
     // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
     public enum Kind: String, CaseIterable {
         case native
@@ -146,7 +146,7 @@ public struct BuildSystemProvider {
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
@@ -171,12 +171,12 @@ private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }
 
-public enum BuildSystemUtilities {
+package enum BuildSystemUtilities {
     /// Returns the build path from the environment, if present.
     public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
         // Don't rely on build path from env for SwiftPM's own tests.
-        guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-        guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
+        guard ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+        guard let env = ProcessEnv.block["SWIFTPM_BUILD_DIR"] else { return nil }
         return try AbsolutePath(validating: env, relativeTo: workingDir)
     }
 }

@@ -8,8 +8,8 @@
 
 add_library(CoreCommands
   BuildSystemSupport.swift
-  SwiftTool.swift
-  SwiftToolObservabilityHandler.swift
+  SwiftCommandState.swift
+  SwiftCommandObservabilityHandler.swift
   Options.swift)
 target_link_libraries(CoreCommands PUBLIC
   ArgumentParser

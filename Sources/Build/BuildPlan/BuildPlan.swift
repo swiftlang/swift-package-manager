@@ -91,11 +91,11 @@ extension [String] {
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
+    package var moduleCache: AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
-            if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
+            if let path = ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
             return buildPath.appending("ModuleCache")
@@ -127,7 +127,8 @@ extension BuildParameters {
         return []
     }
 
-    public func tripleArgs(for target: ResolvedTarget) throws -> [String] {
+    /// Computes the target triple arguments for a given resolved target.
+    package func tripleArgs(for target: ResolvedTarget) throws -> [String] {
         // confusingly enough this is the triple argument, not the target argument
         var args = ["-target"]
 
@@ -164,11 +165,11 @@ extension BuildParameters {
 
 /// A build plan for a package graph.
 public class BuildPlan: SPMBuildCore.BuildPlan {
-    public enum Error: Swift.Error, CustomStringConvertible, Equatable {
+    package enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
         case noBuildableTarget
 
-        public var description: String {
+        package var description: String {
             switch self {
             case .noBuildableTarget:
                 return """
@@ -186,20 +187,20 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public let toolsBuildParameters: BuildParameters
 
     /// The package graph.
-    public let graph: PackageGraph
+    package let graph: ModulesGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
+    package let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
 
     /// The product build description map.
-    public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
+    package let productMap: [ResolvedProduct.ID: ProductBuildDescription]
 
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
-    public let pluginDescriptions: [PluginDescription]
+    package let pluginDescriptions: [PluginDescription]
 
     /// The build targets.
-    public var targets: AnySequence<TargetBuildDescription> {
+    package var targets: AnySequence<TargetBuildDescription> {
         AnySequence(self.targetMap.values)
     }
 
@@ -209,14 +210,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
-    public let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
+    package let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+    package let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
-    @_spi(SwiftPMInternal)
-    public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
+    package private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
@@ -239,7 +239,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:)")
     public convenience init(
         buildParameters: BuildParameters,
-        graph: PackageGraph,
+        graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
@@ -262,7 +262,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
-        graph: PackageGraph,
+        graph: ModulesGraph,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -280,7 +280,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public init(
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
-        graph: PackageGraph,
+        graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
@@ -659,7 +659,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 extension Basics.Diagnostic {
     static var swiftBackDeployError: Self {
         .warning(
-            "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
+            """
+            Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by \
+            default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an \
+            optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at \
+            https://developer.apple.com/download/more/
+            """
         )
     }
 

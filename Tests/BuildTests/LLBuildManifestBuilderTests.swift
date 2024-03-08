@@ -16,7 +16,9 @@ import LLBuildManifest
 import PackageGraph
 import PackageModel
 import struct SPMBuildCore.BuildParameters
+
 import SPMTestSupport
+
 import class TSCBasic.InMemoryFileSystem
 import XCTest
 
@@ -29,7 +31,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct BuildSystemCommand: Hashable {
+package struct BuildSystemCommand: Hashable {
     public let name: String
     public let description: String
     public let verboseDescription: String?

@@ -43,7 +43,7 @@ public enum Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     case buildCommand(
         displayName: String?,
         executable: URL,
@@ -76,7 +76,7 @@ public enum Command {
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     case prebuildCommand(
         displayName: String?,
         executable: URL,
@@ -114,7 +114,7 @@ public extension Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     static func buildCommand(
         displayName: String?,
         executable: Path,
@@ -204,7 +204,7 @@ public extension Command {
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     static func prebuildCommand(
         displayName: String?,
         executable: Path,

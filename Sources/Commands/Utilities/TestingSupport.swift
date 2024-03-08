@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
 import CoreCommands
+
 import PackageModel
 import SPMBuildCore
 import Workspace
@@ -31,7 +33,7 @@ enum TestingSupport {
     /// Note: It is a fatalError if we are not able to locate the tool.
     ///
     /// - Returns: Path to XCTestHelper tool.
-    static func xctestHelperPath(swiftTool: SwiftTool) throws -> AbsolutePath {
+    static func xctestHelperPath(swiftCommandState: SwiftCommandState) throws -> AbsolutePath {
         var triedPaths = [AbsolutePath]()
 
         func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
@@ -39,7 +41,7 @@ enum TestingSupport {
             let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(
                 components: "libexec", "swift", "pm", "swiftpm-xctest-helper"
             )
-            if swiftTool.fileSystem.isFile(maybePath) {
+            if swiftCommandState.fileSystem.isFile(maybePath) {
                 return maybePath
             } else {
                 triedPaths.append(maybePath)
@@ -48,10 +50,7 @@ enum TestingSupport {
         }
 
         if let firstCLIArgument = CommandLine.arguments.first {
-            let runningSwiftBuildPath = try AbsolutePath(
-                validating: firstCLIArgument,
-                relativeTo: swiftTool.originalWorkingDirectory
-            )
+            let runningSwiftBuildPath = try AbsolutePath(validating: firstCLIArgument, relativeTo: swiftCommandState.originalWorkingDirectory)
             if let xctestHelperPath = findXCTestHelper(swiftBuildPath: runningSwiftBuildPath) {
                 return xctestHelperPath
             }
@@ -72,7 +71,7 @@ enum TestingSupport {
 
     static func getTestSuites(
         in testProducts: [BuiltTestProduct],
-        swiftTool: SwiftTool,
+        swiftCommandState: SwiftCommandState,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
@@ -83,7 +82,7 @@ enum TestingSupport {
                 $0.bundlePath,
                 try Self.getTestSuites(
                     fromTestAt: $0.bundlePath,
-                    swiftTool: swiftTool,
+                    swiftCommandState: swiftCommandState,
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
@@ -105,7 +104,7 @@ enum TestingSupport {
     /// - Returns: Array of TestSuite
     static func getTestSuites(
         fromTestAt path: AbsolutePath,
-        swiftTool: SwiftTool,
+        swiftCommandState: SwiftCommandState,
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
@@ -115,10 +114,10 @@ enum TestingSupport {
         var args = [String]()
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
             let env = try Self.constructTestEnvironment(
-                toolchain: try swiftTool.getTargetToolchain(),
-                destinationBuildParameters: swiftTool.buildParametersForTest(
+                toolchain: try swiftCommandState.getTargetToolchain(),
+                destinationBuildParameters: swiftCommandState.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
@@ -129,12 +128,12 @@ enum TestingSupport {
 
             try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
-            return try swiftTool.fileSystem.readFileContents(AbsolutePath(tempFile.path))
+            return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
         #else
         let env = try Self.constructTestEnvironment(
-            toolchain: try swiftTool.getTargetToolchain(),
-            destinationBuildParameters: swiftTool.buildParametersForTest(
+            toolchain: try swiftCommandState.getTargetToolchain(),
+            destinationBuildParameters: swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
@@ -211,7 +210,7 @@ enum TestingSupport {
     }
 }
 
-extension SwiftTool {
+extension SwiftCommandState {
     func buildParametersForTest(
         enableCodeCoverage: Bool,
         enableTestability: Bool? = nil,

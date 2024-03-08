@@ -61,20 +61,20 @@ extension Optional: Colorful where Wrapped: Colorful {
 }
 
 @resultBuilder
-public struct ColorBuilder {
-    public static func buildOptional(_ component: [Colorful]?) -> [Colorful] {
+package struct ColorBuilder {
+    package static func buildOptional(_ component: [Colorful]?) -> [Colorful] {
         return component ?? []
     }
 
-    public static func buildBlock(_ components: Colorful...) -> [Colorful] {
+    package static func buildBlock(_ components: Colorful...) -> [Colorful] {
         return components
     }
 
-    public static func buildEither(first component: [Colorful]) -> [Colorful] {
+    package static func buildEither(first component: [Colorful]) -> [Colorful] {
         return component
     }
 
-    public static func buildEither(second component: [Colorful]) -> [Colorful] {
+    package static func buildEither(second component: [Colorful]) -> [Colorful] {
         return component
     }
 }
@@ -130,75 +130,75 @@ enum Color4: String, Color {
     }
 }
 
-public func colorized(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func colorized(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.reset, builder)
 }
 
-public func plain(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func plain(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.reset, builder)
 }
 
-public func black(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func black(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.black, builder)
 }
 
-public func brightBlack(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightBlack(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightBlack, builder)
 }
 
-public func red(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func red(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.red, builder)
 }
 
-public func brightRed(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightRed(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightRed, builder)
 }
 
-public func green(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func green(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.green, builder)
 }
 
-public func brightGreen(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightGreen(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightGreen, builder)
 }
 
-public func yellow(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func yellow(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.yellow, builder)
 }
 
-public func brightYellow(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightYellow(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightYellow, builder)
 }
 
-public func blue(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func blue(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.blue, builder)
 }
 
-public func brightBlue(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightBlue(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightBlue, builder)
 }
 
-public func magenta(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func magenta(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.magenta, builder)
 }
 
-public func brightMagenta(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightMagenta(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightMagenta, builder)
 }
 
-public func cyan(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func cyan(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.cyan, builder)
 }
 
-public func brightCyan(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightCyan(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightCyan, builder)
 }
 
-public func white(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func white(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.white, builder)
 }
 
-public func brightWhite(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
+package func brightWhite(@ColorBuilder builder: () -> [Colorful]) -> Colorful {
     return Colorized(.brightWhite, builder)
 }
 

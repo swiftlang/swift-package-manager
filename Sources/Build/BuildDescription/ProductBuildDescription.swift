@@ -12,32 +12,34 @@
 
 import Basics
 import PackageGraph
+
 import PackageModel
+
 import OrderedCollections
 import SPMBuildCore
 
 import struct TSCBasic.SortedArray
 
 /// The build description for a product.
-public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
+package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
     /// The reference to the product.
-    public let package: ResolvedPackage
+    package let package: ResolvedPackage
 
     /// The reference to the product.
-    public let product: ResolvedProduct
+    package let product: ResolvedProduct
 
     /// The tools version of the package that declared the product.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    public let toolsVersion: ToolsVersion
+    package let toolsVersion: ToolsVersion
 
     /// The build parameters.
-    public let buildParameters: BuildParameters
+    package let buildParameters: BuildParameters
 
     /// All object files to link into this product.
     ///
     // Computed during build planning.
-    public internal(set) var objects = SortedArray<AbsolutePath>()
+    package internal(set) var objects = SortedArray<AbsolutePath>()
 
     /// The dynamic libraries this product needs to link with.
     // Computed during build planning.
@@ -119,15 +121,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 return ["-Xlinker", "-dead_strip"]
             } else if triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
-            } else if triple.arch == .wasm32 {
-                // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
-                // during GC, and it removes Swift metadata sections like swift5_protocols
-                // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
-                // to LLVM and wasm-ld
-                // This workaround is required for not only WASI but also all WebAssembly triples
-                // using wasm-ld (e.g. wasm32-unknown-unknown). So this branch is conditioned by
-                // arch == .wasm32
-                return []
             } else {
                 return ["-Xlinker", "--gc-sections"]
             }
@@ -135,7 +128,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     /// The arguments to the librarian to create a static library.
-    public func archiveArguments() throws -> [String] {
+    package func archiveArguments() throws -> [String] {
         let librarian = self.buildParameters.toolchain.librarianPath.pathString
         let triple = self.buildParameters.triple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
@@ -148,7 +141,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 
     /// The arguments to link and create this product.
-    public func linkArguments() throws -> [String] {
+    package func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompilerPath.pathString]
         args += self.buildParameters.sanitizers.linkSwiftFlags()
         args += self.additionalFlags
@@ -198,7 +191,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when using objectiveC, executable when using test entry point.
+            // Test products are bundle when using Objective-C, executable when using test entry point.
             switch self.buildParameters.testingParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
@@ -271,8 +264,21 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
-        // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+            // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
+            // duplicates with `OrderedSet`.
+            var experimentalFeatures = OrderedSet<String>()
+            for target in self.product.targets {
+                let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
+                for case let .enableExperimentalFeature(feature) in swiftSettings.map(\.kind)  {
+                    experimentalFeatures.append(feature)
+                }
+            }
+            for feature in experimentalFeatures {
+                args += ["-enable-experimental-feature", feature]
+            }
+
+            // Embed the swift stdlib library path inside tests and executables on Darwin.
             let useStdlibRpath: Bool
             switch self.product.type {
             case .library(let type):
@@ -297,11 +303,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                     args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
                 }
             }
-        }
-
-        // Don't link runtime compatibility patch libraries if there are no
-        // Swift sources in the target.
-        if !containsSwiftTargets {
+        } else {
+            // Don't link runtime compatibility patch libraries if there are no
+            // Swift sources in the target.
             args += ["-runtime-compatibility-version", "none"]
         }
 
@@ -386,7 +390,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 }
 
 extension SortedArray where Element == AbsolutePath {
-    public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
+    package static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
         lhs.insert(contentsOf: rhs)
     }
 }

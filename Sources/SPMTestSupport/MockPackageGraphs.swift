@@ -10,20 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import protocol TSCBasic.FileSystem
 import class TSCBasic.InMemoryFileSystem
 
-public func macrosPackageGraph() throws -> (
-    graph: PackageGraph,
-    fileSystem: FileSystem,
+package typealias MockPackageGraph = (
+    graph: ModulesGraph,
+    fileSystem: any FileSystem,
     observabilityScope: ObservabilityScope
-) {
+)
+
+package func macrosPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
@@ -116,6 +119,78 @@ public func macrosPackageGraph() throws -> (
         observabilityScope: observability.topScope
     )
 
+    XCTAssertNoDiagnostics(observability.diagnostics)
+
+    return (graph, fs, observability.topScope)
+}
+
+package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(
+        emptyFiles:
+        "/Pkg/Sources/app/main.swift",
+        "/Pkg/Sources/lib/lib.c",
+        "/Pkg/Sources/lib/include/lib.h",
+        "/Pkg/Tests/test/TestCase.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadPackageGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "Pkg",
+                path: "/Pkg",
+                targets: [
+                    TargetDescription(name: "app", dependencies: ["lib"]),
+                    TargetDescription(name: "lib", dependencies: []),
+                    TargetDescription(name: "test", dependencies: ["lib"], type: .test),
+                ]
+            ),
+        ],
+        observabilityScope: observability.topScope
+    )
+    XCTAssertNoDiagnostics(observability.diagnostics)
+
+    return (graph, fs, observability.topScope)
+}
+
+package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(
+        emptyFiles:
+        "/Pkg/Sources/app/main.swift",
+        "/Pkg/Sources/lib/lib.cpp",
+        "/Pkg/Sources/lib/include/lib.h",
+        "/Pkg/Tests/test/TestCase.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadPackageGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "Pkg",
+                path: "/Pkg",
+                targets: [
+                    TargetDescription(
+                        name: "app",
+                        dependencies: ["lib"],
+                        settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
+                    ),
+                    TargetDescription(
+                        name: "lib",
+                        dependencies: [],
+                        settings: [.init(tool: .swift, kind: .interoperabilityMode(.Cxx))]
+                    ),
+                    TargetDescription(
+                        name: "test",
+                        dependencies: ["lib"],
+                        type: .test
+                    ),
+                ]
+            ),
+        ],
+        observabilityScope: observability.topScope
+    )
     XCTAssertNoDiagnostics(observability.diagnostics)
 
     return (graph, fs, observability.topScope)
