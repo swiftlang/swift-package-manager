@@ -264,17 +264,18 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 @main
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
                 struct Runner {
+                    #if os(WASI)
+                    /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
+                    static func main() async {
+                        \#(testObservabilitySetup)
+                        await XCTMain(__allDiscoveredTests()) as Never
+                    }
+                    #else
                     static func main() {
                         \#(testObservabilitySetup)
-                        #if os(WASI)
-                        // FIXME: On WASI, XCTest uses `Task` based waiting not to block the whole process, so
-                        // the `XCTMain` call can return the control and the process will exit by `exit(0)` later.
-                        // This is a workaround until we have WASI threads or swift-testing, which does not block threads.
-                        XCTMain(__allDiscoveredTests())
-                        #else
                         XCTMain(__allDiscoveredTests()) as Never
-                        #endif
                     }
+                    #endif
                 }
                 """#
             )
