@@ -278,6 +278,10 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
                 args += ["-enable-experimental-feature", feature]
             }
 
+            if self.package.manifest.allowNonResilientAccessInPackage {
+                args += ["-enable-experimental-feature", "AllowNonResilientAccessInPackage"]
+            }
+
             // Embed the swift stdlib library path inside tests and executables on Darwin.
             let useStdlibRpath: Bool
             switch self.product.type {

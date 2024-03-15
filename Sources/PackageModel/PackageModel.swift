@@ -137,6 +137,9 @@ extension Manifest {
     public var usePackageNameFlag: Bool {
         return self.toolsVersion >= .v5_9
     }
+    public var allowNonResilientAccessInPackage: Bool {
+        return self.toolsVersion > .v5_10
+    }
 }
 
 extension ObservabilityMetadata {
