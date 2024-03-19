@@ -9,7 +9,6 @@ let package = Package(
             name: "DoNotFilterLinkerDiagnostics",
             linkerSettings: [
                 .unsafeFlags(["-Lfoobar"]),
-                // should produce: ld: warning: ignoring duplicate libraries: '-lz'
             ]
         ),
     ]
