@@ -779,7 +779,8 @@ package final class SwiftTargetBuildDescription {
 
         content += "}\n"
 
-        try self.fileSystem.writeFileContents(path, string: content)
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
         return path
     }
 
