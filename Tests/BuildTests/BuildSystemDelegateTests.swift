@@ -25,7 +25,7 @@ final class BuildSystemDelegateTests: XCTestCase {
             try XCTSkipIf(true, "test is only supported on macOS")
             #endif
             let (fullLog, _) = try executeSwiftBuild(fixturePath)
-            XCTAssertTrue(fullLog.contains("ld: warning: ignoring duplicate libraries: '-lz'"), "log didn't contain expected linker diagnostics")
+            XCTAssertTrue(fullLog.contains("ld: warning: search path 'foobar' not found"), "log didn't contain expected linker diagnostics")
         }
     }
 
