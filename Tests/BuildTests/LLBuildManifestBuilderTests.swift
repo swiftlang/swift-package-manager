@@ -199,20 +199,13 @@ final class LLBuildManifestBuilderTests: XCTestCase {
     
     /// Verifies that two targets with the same name but different triples don't share same build manifest keys.
     func testToolsBuildTriple() throws {
-        let (graph, fs, scope) = try macrosPackageGraph(isExperimentalMacrosCrossCompilationEnabled: true)
+        let (graph, fs, scope) = try macrosPackageGraph()
         let productsTriple = Triple.x86_64MacOS
         let toolsTriple = Triple.arm64Linux
 
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(
-                shouldLinkStaticSwiftStdlib: true,
-                triple: productsTriple,
-                isExperimentalMacrosCrossCompilationEnabled: true
-            ),
-            toolsBuildParameters: mockBuildParameters(
-                triple: toolsTriple,
-                isExperimentalMacrosCrossCompilationEnabled: true
-            ),
+            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: productsTriple),
+            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope

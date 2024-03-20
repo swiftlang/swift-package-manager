@@ -50,30 +50,6 @@ final class PluginsBuildPlanTests: XCTestCase {
             XCTAssertMatch(stderr, .contains("Build of product 'plugintool' complete!"))
             XCTAssertTrue(
                 localFileSystem.exists(
-                    fixturePath.appending(RelativePath(".build/\(hostTriple)/debug/plugintool"))
-                )
-            )
-            XCTAssertTrue(
-                localFileSystem.exists(
-                    fixturePath.appending(RelativePath(".build/\(hostTriple)/debug/placeholder"))
-                )
-            )
-        }
-
-        // By default, plugin dependencies are built for the host platform
-        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try executeSwiftPackage(
-                fixturePath,
-                extraArgs: [
-                    "-v",
-                    "--experimental-macros-cross-compilation",
-                    "build-plugin-dependency"
-                ]
-            )
-            XCTAssertMatch(stdout, .contains("Hello from dependencies-stub"))
-            XCTAssertMatch(stderr, .contains("Build of product 'plugintool' complete!"))
-            XCTAssertTrue(
-                localFileSystem.exists(
                     fixturePath.appending(RelativePath(".build/\(hostTriple)/debug/plugintool-tool"))
                 )
             )
@@ -86,39 +62,7 @@ final class PluginsBuildPlanTests: XCTestCase {
 
         // When cross compiling the final product, plugin dependencies should still be built for the host
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try executeSwiftPackage(
-                fixturePath,
-                extraArgs: [
-                    "--triple", targetTriple,
-                    "-v",
-                    "build-plugin-dependency"
-                ]
-            )
-            XCTAssertMatch(stdout, .contains("Hello from dependencies-stub"))
-            XCTAssertMatch(stderr, .contains("Build of product 'plugintool' complete!"))
-            XCTAssertTrue(
-                localFileSystem.exists(
-                    fixturePath.appending(RelativePath(".build/\(hostTriple)/debug/plugintool"))
-                )
-            )
-            XCTAssertTrue(
-                localFileSystem.exists(
-                    fixturePath.appending(RelativePath(".build/\(targetTriple)/debug/placeholder"))
-                )
-            )
-        }
-
-        // When cross compiling the final product, plugin dependencies should still be built for the host
-        try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try executeSwiftPackage(
-                fixturePath,
-                extraArgs: [
-                    "--triple", targetTriple,
-                    "-v",
-                    "--experimental-macros-cross-compilation",
-                    "build-plugin-dependency"
-                ]
-            )
+            let (stdout, stderr) = try executeSwiftPackage(fixturePath, extraArgs: ["--triple", targetTriple, "-v", "build-plugin-dependency"])
             XCTAssertMatch(stdout, .contains("Hello from dependencies-stub"))
             XCTAssertMatch(stderr, .contains("Build of product 'plugintool' complete!"))
             XCTAssertTrue(

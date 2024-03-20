@@ -291,7 +291,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 triple: self.hostToolchain.targetTriple,
                 flags: buildFlags,
                 architectures: architectures,
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
@@ -392,7 +391,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 },
                 binaryArtifacts: [:],
                 availableLibraries: [], // assume no provided libraries during bootstrap
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )

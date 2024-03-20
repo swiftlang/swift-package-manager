@@ -469,7 +469,6 @@ package final class MockWorkspace {
                 forceResolvedVersions: forceResolvedVersions,
                 availableLibraries: [], // assume no provided libraries for testing.
                 expectedSigningEntities: expectedSigningEntities,
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             try result(graph, observability.diagnostics)
@@ -508,7 +507,6 @@ package final class MockWorkspace {
                 rootInput: rootInput,
                 forceResolvedVersions: forceResolvedVersions,
                 availableLibraries: [], // assume no provided libraries for testing.
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
         }

@@ -157,8 +157,7 @@ public struct ResolvedTarget {
         dependencies: [ResolvedTarget.Dependency],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
-        platformVersionProvider: PlatformVersionProvider,
-        isExperimentalMacrosCrossCompilationEnabled: Bool
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.packageIdentity = packageIdentity
         self.underlying = underlying
@@ -167,10 +166,7 @@ public struct ResolvedTarget {
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
         self.buildTriple = underlying.buildTriple
-
-        if isExperimentalMacrosCrossCompilationEnabled {
-            self.updateBuildTriplesOfDependencies()
-        }
+        self.updateBuildTriplesOfDependencies()
     }
 
     private mutating func updateBuildTriplesOfDependencies() {

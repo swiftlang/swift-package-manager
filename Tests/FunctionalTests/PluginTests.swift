@@ -445,7 +445,6 @@ class PluginTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -633,7 +632,6 @@ class PluginTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -732,7 +730,6 @@ class PluginTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1049,7 +1046,6 @@ class PluginTests: XCTestCase {
             let packageGraph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
-                isExperimentalMacrosCrossCompilationEnabled: false,
                 observabilityScope: observability.topScope
             )
             XCTAssert(packageGraph.packages.count == 4, "\(packageGraph.packages)")

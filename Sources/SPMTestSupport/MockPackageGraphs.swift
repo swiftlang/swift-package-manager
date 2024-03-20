@@ -26,7 +26,7 @@ package typealias MockPackageGraph = (
     observabilityScope: ObservabilityScope
 )
 
-package func macrosPackageGraph(isExperimentalMacrosCrossCompilationEnabled: Bool) throws -> MockPackageGraph {
+package func macrosPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
@@ -39,7 +39,7 @@ package func macrosPackageGraph(isExperimentalMacrosCrossCompilationEnabled: Boo
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadModulesGraph(
+    let graph = try loadPackageGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(
@@ -116,7 +116,6 @@ package func macrosPackageGraph(isExperimentalMacrosCrossCompilationEnabled: Boo
                 ]
             ),
         ],
-        isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled,
         observabilityScope: observability.topScope
     )
 
@@ -135,7 +134,7 @@ package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackag
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadModulesGraph(
+    let graph = try loadPackageGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(
@@ -165,7 +164,7 @@ package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws ->
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadModulesGraph(
+    let graph = try loadPackageGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(

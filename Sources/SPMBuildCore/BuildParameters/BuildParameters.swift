@@ -97,8 +97,6 @@ public struct BuildParameters: Encodable {
         }
     }
 
-    package var isExperimentalMacrosCrossCompilationEnabled: Bool
-
     /// Whether the Xcode build system is used.
     public var isXcodeBuildSystemEnabled: Bool
 
@@ -131,7 +129,6 @@ public struct BuildParameters: Encodable {
         shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         indexStoreMode: IndexStoreMode = .auto,
-        isExperimentalMacrosCrossCompilationEnabled: Bool,
         isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
         debuggingParameters: Debugging? = nil,
@@ -186,7 +183,6 @@ public struct BuildParameters: Encodable {
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.sanitizers = sanitizers
         self.indexStoreMode = indexStoreMode
-        self.isExperimentalMacrosCrossCompilationEnabled = isExperimentalMacrosCrossCompilationEnabled
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
         self.driverParameters = driverParameters
@@ -338,10 +334,6 @@ extension BuildParameters {
     /// Suffix appended to build manifest nodes to distinguish nodes created for tools from nodes created for
     /// end products, i.e. nodes for host vs target triples.
     package func suffix(triple: BuildTriple) -> String {
-        if self.isExperimentalMacrosCrossCompilationEnabled && triple == .tools {
-            "-tool"
-        } else {
-            ""
-        }
+        if triple == .tools { "-tool" } else { "" }
     }
 }

@@ -33,7 +33,6 @@ extension ModulesGraph {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         availableLibraries: [LibraryMetadata],
-        isExperimentalMacrosCrossCompilationEnabled: Bool,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
@@ -147,13 +146,9 @@ extension ModulesGraph {
 
         let platformVersionProvider: PlatformVersionProvider
         if let customXCTestMinimumDeploymentTargets {
-            platformVersionProvider = .init(
-                implementation: .customXCTestMinimumDeploymentTargets(customXCTestMinimumDeploymentTargets)
-            )
+            platformVersionProvider = .init(implementation: .customXCTestMinimumDeploymentTargets(customXCTestMinimumDeploymentTargets))
         } else {
-            platformVersionProvider = .init(
-                implementation: .minimumDeploymentTargetDefault
-            )
+            platformVersionProvider = .init(implementation: .minimumDeploymentTargetDefault)
         }
 
         // Resolve dependencies and create resolved packages.
@@ -166,7 +161,6 @@ extension ModulesGraph {
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             availableLibraries: availableLibraries,
-            isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -257,13 +251,12 @@ private func createResolvedPackages(
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     availableLibraries: [LibraryMetadata],
-    isExperimentalMacrosCrossCompilationEnabled: Bool,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
+    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap{ node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
@@ -275,8 +268,7 @@ private func createResolvedPackages(
             productFilter: node.productFilter,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
-            platformVersionProvider: platformVersionProvider,
-            isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled
+            platformVersionProvider: platformVersionProvider
         )
     }
 
@@ -394,8 +386,7 @@ private func createResolvedPackages(
                 packageIdentity: package.identity,
                 target: $0,
                 observabilityScope: packageObservabilityScope,
-                platformVersionProvider: platformVersionProvider,
-                isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled
+                platformVersionProvider: platformVersionProvider
             )
         }
         packageBuilder.targets = targetBuilders
@@ -426,7 +417,7 @@ private func createResolvedPackages(
                     throw InternalError("unknown target \($0)")
                 }
                 return target
-            }, isExperimentalMacrosCrossCompilationEnabled: isExperimentalMacrosCrossCompilationEnabled)
+            })
         }
 
         // add registry metadata if available
@@ -879,26 +870,17 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
     /// The target builders in the product.
     let targets: [ResolvedTargetBuilder]
 
-    let isExperimentalMacrosCrossCompilationEnabled: Bool
-
-    init(
-        product: Product,
-        packageBuilder: ResolvedPackageBuilder,
-        targets: [ResolvedTargetBuilder],
-        isExperimentalMacrosCrossCompilationEnabled: Bool
-    ) {
+    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedTargetBuilder]) {
         self.product = product
         self.packageBuilder = packageBuilder
         self.targets = targets
-        self.isExperimentalMacrosCrossCompilationEnabled = isExperimentalMacrosCrossCompilationEnabled
     }
 
     override func constructImpl() throws -> ResolvedProduct {
         return ResolvedProduct(
             packageIdentity: packageBuilder.package.identity,
             product: product,
-            targets: IdentifiableSet(try targets.map { try $0.construct() }),
-            isExperimentalMacrosCrossCompilationEnabled: self.isExperimentalMacrosCrossCompilationEnabled
+            targets: IdentifiableSet(try targets.map { try $0.construct() })
         )
     }
 }
@@ -932,20 +914,17 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
 
     let observabilityScope: ObservabilityScope
     let platformVersionProvider: PlatformVersionProvider
-    let isExperimentalMacrosCrossCompilationEnabled: Bool
 
     init(
         packageIdentity: PackageIdentity,
         target: Target,
         observabilityScope: ObservabilityScope,
-        platformVersionProvider: PlatformVersionProvider,
-        isExperimentalMacrosCrossCompilationEnabled: Bool
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.packageIdentity = packageIdentity
         self.target = target
         self.observabilityScope = observabilityScope
         self.platformVersionProvider = platformVersionProvider
-        self.isExperimentalMacrosCrossCompilationEnabled = isExperimentalMacrosCrossCompilationEnabled
     }
 
     override func constructImpl() throws -> ResolvedTarget {
@@ -978,8 +957,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             dependencies: dependencies,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
-            platformVersionProvider: self.platformVersionProvider,
-            isExperimentalMacrosCrossCompilationEnabled: self.isExperimentalMacrosCrossCompilationEnabled
+            platformVersionProvider: self.platformVersionProvider
         )
     }
 }
@@ -1043,22 +1021,19 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var registryMetadata: RegistryReleaseMetadata?
 
     let platformVersionProvider: PlatformVersionProvider
-    let isExperimentalMacrosCrossCompilationEnabled: Bool
 
     init(
         _ package: Package,
         productFilter: ProductFilter,
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
-        platformVersionProvider: PlatformVersionProvider,
-        isExperimentalMacrosCrossCompilationEnabled: Bool
+        platformVersionProvider: PlatformVersionProvider
     ) {
         self.package = package
         self.productFilter = productFilter
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
         self.allowedToOverride = allowedToOverride
         self.platformVersionProvider = platformVersionProvider
-        self.isExperimentalMacrosCrossCompilationEnabled = isExperimentalMacrosCrossCompilationEnabled
     }
 
     override func constructImpl() throws -> ResolvedPackage {
@@ -1070,8 +1045,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             targets: try self.targets.map{ try $0.construct() },
             products: try self.products.map{ try $0.construct() },
             registryMetadata: self.registryMetadata,
-            platformVersionProvider: self.platformVersionProvider,
-            isExperimentalMacrosCrossCompilationEnabled: self.isExperimentalMacrosCrossCompilationEnabled
+            platformVersionProvider: self.platformVersionProvider
         )
     }
 }
