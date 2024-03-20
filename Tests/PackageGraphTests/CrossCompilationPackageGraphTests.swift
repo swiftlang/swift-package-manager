@@ -58,4 +58,48 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             }
         }
     }
+
+    func testMacrosTests() throws {
+        let graph = try macrosTestsPackageGraph().graph
+        PackageGraphTester(graph) { result in
+            result.check(packages: "swift-mmio", "swift-syntax")
+            // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
+            result.check(
+                targets: "MMIO",
+                "MMIOMacros",
+                "MMIOMacros",
+                "SwiftSyntax",
+                "SwiftSyntax",
+                "SwiftSyntaxMacrosTestSupport"
+            )
+            result.check(testModules: "MMIOMacrosTests")
+            result.checkTarget("MMIO") { result in
+                result.check(buildTriple: .destination)
+                result.check(dependencies: "MMIOMacros")
+            }
+            result.checkTargets("MMIOMacros") { results in
+                XCTAssertEqual(results.count, 2)
+            }
+            result.checkTarget("MMIOMacrosTests") { result in
+                result.check(buildTriple: .destination)
+                result.checkDependency("MMIOMacros") { result in
+                    result.checkTarget { result in
+                        result.check(buildTriple: .tools)
+                        result.checkDependency("SwiftSyntax") { result in
+                            result.checkProduct { result in
+                                result.check(buildTriple: .tools)
+                            }
+                        }
+                    }
+                }
+            }
+
+            result.checkTargets("SwiftSyntax") { results in
+                XCTAssertEqual(results.count, 2)
+
+                XCTAssertEqual(results.filter({ $0.target.buildTriple == .tools }).count, 1)
+                XCTAssertEqual(results.filter({ $0.target.buildTriple == .destination }).count, 1)
+            }
+        }
+    }
 }
