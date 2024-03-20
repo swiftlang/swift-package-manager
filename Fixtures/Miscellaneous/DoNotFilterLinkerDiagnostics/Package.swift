@@ -8,9 +8,7 @@ let package = Package(
         .executableTarget(
             name: "DoNotFilterLinkerDiagnostics",
             linkerSettings: [
-                .linkedLibrary("z"),
-                .unsafeFlags(["-lz"]),
-                // should produce: ld: warning: ignoring duplicate libraries: '-lz'
+                .unsafeFlags(["-Lfoobar"]),
             ]
         ),
     ]

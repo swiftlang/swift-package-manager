@@ -182,6 +182,12 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
 
         var isLinkingStaticStdlib = false
         let triple = self.buildParameters.triple
+
+        // radar://112671586 supress unnecessary warnings
+        if triple.isMacOSX {
+            args += ["-Xlinker", "-no_warn_duplicate_libraries"]
+        }
+
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached

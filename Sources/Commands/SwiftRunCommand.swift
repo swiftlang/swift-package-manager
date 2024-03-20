@@ -297,9 +297,15 @@ package struct SwiftRunCommand: AsyncSwiftCommand {
         var sig_set_all = sigset_t()
         sigfillset(&sig_set_all)
         sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
+
+        #if os(Android)
+        let number_fds = Int32(sysconf(_SC_OPEN_MAX))
+        #else
+        let number_fds = getdtablesize()
+        #endif
         
         // 2. close all file descriptors.
-        for i in 3..<getdtablesize() {
+        for i in 3..<number_fds {
             close(i)
         }
         #endif
