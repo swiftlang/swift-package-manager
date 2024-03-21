@@ -45,7 +45,7 @@ public enum Sandbox {
     /// - Parameters:
     ///   - command: The command line to sandbox (including executable as first argument)
     ///   - fileSystem: The file system instance to use.
-    ///   - strictness: The basic strictness level of the standbox.
+    ///   - strictness: The basic strictness level of the sandbox.
     ///   - writableDirectories: Paths under which writing should be allowed, even if they would otherwise be read-only based on the strictness or paths in `readOnlyDirectories`.
     ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by the rules implied by the strictness level.
     public static func apply(
