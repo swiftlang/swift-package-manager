@@ -34,7 +34,7 @@ class PluginInvocationTests: XCTestCase {
             "/Foo/Sources/Foo/SomeFile.abc"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -83,8 +83,10 @@ class PluginInvocationTests: XCTestCase {
                 target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
-            graph.checkTarget("FooTool") { target in
-                target.check(type: .executable)
+            graph.checkTargets("FooTool") { targets in
+                for target in targets {
+                    target.check(type: .executable)
+                }
             }
         }
 

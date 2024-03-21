@@ -179,6 +179,10 @@ package final class ResolvedTargetResult {
         XCTAssertEqual(Set(dependencies), Set(target.dependencies.map({ $0.name })), file: file, line: line)
     }
 
+    package func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(Set(dependencies), Set(target.dependencies.map({ $0.name })), file: file, line: line)
+    }
+
     package func checkDependency(
         _ name: String,
         file: StaticString = #file,

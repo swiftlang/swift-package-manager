@@ -19,6 +19,28 @@ import PackageGraph
 import XCTest
 
 final class CrossCompilationPackageGraphTests: XCTestCase {
+    func testTrivialPackage() throws {
+        let graph = try trivialPackageGraph(pkgRootPath: "/Pkg").graph
+        PackageGraphTester(graph) { result in
+            result.check(packages: "Pkg")
+            // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
+            result.check(targets: "app", "lib")
+            result.check(testModules: "test")
+            result.checkTarget("app") { result in
+                result.check(buildTriple: .destination)
+                result.check(dependencies: "lib")
+            }
+            result.checkTarget("lib") { result in
+                result.check(buildTriple: .destination)
+                result.check(dependencies: [])
+            }
+            result.checkTarget("test") { result in
+                result.check(buildTriple: .destination)
+                result.check(dependencies: "lib")
+            }
+        }
+    }
+
     func testMacros() throws {
         let graph = try macrosPackageGraph().graph
         PackageGraphTester(graph) { result in
