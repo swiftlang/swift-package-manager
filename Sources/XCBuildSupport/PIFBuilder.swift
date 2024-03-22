@@ -685,6 +685,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-lc++")
         }
 
+        // radar://112671586 supress unnecessary warnings
+        impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-Wl,-no_warn_duplicate_libraries")
+
         addSources(target.sources, to: pifTarget)
 
         // Handle the target's dependencies (but don't link against them).
