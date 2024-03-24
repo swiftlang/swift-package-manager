@@ -429,7 +429,7 @@ private func createResolvedPackages(
     try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
     // The set of all target names.
-    var allTargetNames = Set<String>()
+    let allTargetNames = packageBuilders.reduce([]) { $0 + $1.targets }.map(\.target.name)
 
     // Track if multiple targets are found with the same name.
     var foundDuplicateTarget = false
@@ -494,7 +494,8 @@ private func createResolvedPackages(
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
             // Record if we see a duplicate target.
-            foundDuplicateTarget = foundDuplicateTarget || !allTargetNames.insert(targetBuilder.target.name).inserted
+            let isDuplicateTarget = 1 < allTargetNames.filter { $0 == targetBuilder.target.name }.count
+            foundDuplicateTarget = foundDuplicateTarget || isDuplicateTarget
 
             // Directly add all the system module dependencies.
             targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
@@ -568,7 +569,7 @@ private func createResolvedPackages(
     // If a target with similar name was encountered before, we emit a diagnostic.
     if foundDuplicateTarget {
         var duplicateTargets = [String: [Package]]()
-        for targetName in allTargetNames.sorted() {
+        for targetName in Set(allTargetNames).sorted() {
             let packages = packageBuilders
                 .filter({ $0.targets.contains(where: { $0.target.name == targetName }) })
                 .map{ $0.package }
