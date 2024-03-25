@@ -109,14 +109,12 @@ public struct ResolvedProduct {
         self.updateBuildTriplesOfDependencies()
     }
 
-    private mutating func updateBuildTriplesOfDependencies() {
-        if case .tools = self.buildTriple {
-            self.targets = IdentifiableSet(self.targets.map {
-                var target = $0
-                target.buildTriple = .tools
-                return target
-            })
-        }
+    mutating func updateBuildTriplesOfDependencies() {
+        self.targets = IdentifiableSet(self.targets.map {
+            var target = $0
+            target.buildTriple = self.buildTriple
+            return target
+        })
     }
 
     /// True if this product contains Swift targets.

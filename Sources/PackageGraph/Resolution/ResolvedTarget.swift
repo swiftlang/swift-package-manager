@@ -169,16 +169,16 @@ public struct ResolvedTarget {
         self.updateBuildTriplesOfDependencies()
     }
 
-    private mutating func updateBuildTriplesOfDependencies() {
-        if case .tools = self.buildTriple {
+    mutating func updateBuildTriplesOfDependencies(forceUpdate: Bool = false) {
+        if forceUpdate || self.buildTriple == .tools {
             for (i, dependency) in dependencies.enumerated() {
                 let updatedDependency: Dependency
                 switch dependency {
                 case .target(var target, let conditions):
-                    target.buildTriple = .tools
+                    target.buildTriple = self.buildTriple
                     updatedDependency = .target(target, conditions: conditions)
                 case .product(var product, let conditions):
-                    product.buildTriple = .tools
+                    product.buildTriple = self.buildTriple
                     updatedDependency = .product(product, conditions: conditions)
                 }
 

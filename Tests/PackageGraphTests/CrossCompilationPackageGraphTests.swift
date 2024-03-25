@@ -43,10 +43,17 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
 
     func testMacros() throws {
         let graph = try macrosPackageGraph().graph
-        PackageGraphTester(graph) { result in
+        try PackageGraphTester(graph) { result in
             result.check(packages: "swift-firmware", "swift-mmio", "swift-syntax")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
-            result.check(targets: "Core", "HAL", "MMIO", "MMIOMacros", "SwiftSyntax", "SwiftSyntax")
+            result.check(
+                targets: "Core",
+                "HAL",
+                "MMIO",
+                "MMIOMacros",
+                "SwiftSyntax",
+                "SwiftSyntax"
+            )
             result.check(testModules: "CoreTests", "HALTests")
             result.checkTarget("Core") { result in
                 result.check(buildTriple: .destination)
@@ -60,7 +67,8 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.check(buildTriple: .destination)
                 result.check(dependencies: "MMIOMacros")
             }
-            result.checkTarget("MMIOMacros") { result in
+            try result.checkTargets("MMIOMacros") { results in
+                let result = try XCTUnwrap(results.first(where: { $0.target.buildTriple == .tools }))
                 result.check(buildTriple: .tools)
                 result.checkDependency("SwiftSyntax") { result in
                     result.checkProduct { result in
@@ -106,10 +114,10 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.check(buildTriple: .destination)
                 result.checkDependency("MMIOMacros") { result in
                     result.checkTarget { result in
-                        result.check(buildTriple: .tools)
+                        result.check(buildTriple: .destination)
                         result.checkDependency("SwiftSyntax") { result in
                             result.checkProduct { result in
-                                result.check(buildTriple: .tools)
+                                result.check(buildTriple: .destination)
                             }
                         }
                     }

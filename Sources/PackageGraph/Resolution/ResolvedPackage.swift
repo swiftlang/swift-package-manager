@@ -77,26 +77,33 @@ public struct ResolvedPackage {
         // and SwiftSyntax to be built for the target triple: https://github.com/apple/swift-package-manager/pull/7349
         for var product in products {
             if product.type == .test {
-                var targets = IdentifiableSet<ResolvedTarget>()
+                var productTargets = IdentifiableSet<ResolvedTarget>()
                 for var target in product.targets {
-                    var dependencies = [ResolvedTarget.Dependency]()
+                    var targetDependencies = [ResolvedTarget.Dependency]()
                     for dependency in target.dependencies {
                         switch dependency {
                         case .target(var target, let conditions) where target.type == .macro:
                             target.buildTriple = .destination
-                            dependencies.append(.target(target, conditions: conditions))
-                            processedTargets[target.id] = target
+                            target.updateBuildTriplesOfDependencies(forceUpdate: true)
+                            targetDependencies.append(.target(target, conditions: conditions))
+
+                            if target.packageIdentity == underlying.identity {
+                                processedTargets[target.id] = target
+                            }
                         case .product(var product, let conditions) where product.type == .macro:
                             product.buildTriple = .destination
-                            dependencies.append(.product(product, conditions: conditions))
+                            targetDependencies.append(.product(product, conditions: conditions))
                         default:
-                            dependencies.append(dependency)
+                            targetDependencies.append(dependency)
                         }
                     }
-                    target.dependencies = dependencies
-                    targets.insert(target)
+                    target.dependencies = targetDependencies
+                    if target.packageIdentity == underlying.identity {
+                        processedTargets[target.id] = target
+                    }
+                    productTargets.insert(target)
                 }
-                product.targets = targets
+                product.targets = productTargets
             }
 
             processedProducts.append(product)

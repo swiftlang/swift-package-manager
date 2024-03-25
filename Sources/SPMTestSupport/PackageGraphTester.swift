@@ -17,8 +17,8 @@ import struct Basics.IdentifiableSet
 import PackageModel
 import PackageGraph
 
-package func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) -> Void) {
-    result(PackageGraphResult(graph))
+package func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) throws -> Void) rethrows {
+    try result(PackageGraphResult(graph))
 }
 
 package final class PackageGraphResult {
@@ -107,9 +107,9 @@ package final class PackageGraphResult {
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
-        body: ([ResolvedTargetResult]) -> Void
-    ) {
-        body(graph.allTargets.filter { $0.name == name }.map(ResolvedTargetResult.init))
+        body: ([ResolvedTargetResult]) throws -> Void
+    ) rethrows {
+        try body(graph.allTargets.filter { $0.name == name }.map(ResolvedTargetResult.init))
     }
 
     package func checkProduct(
