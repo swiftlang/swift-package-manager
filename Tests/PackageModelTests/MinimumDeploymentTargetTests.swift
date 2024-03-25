@@ -22,7 +22,7 @@ class MinimumDeploymentTargetTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let result = ProcessResult(arguments: [],
-                                   environment: [:],
+                                   environmentBlock: [:],
                                    exitStatus: .terminated(code: 0),
                                    output: "".asResult,
                                    stderrOutput: "xcodebuild: error: SDK \"macosx\" cannot be located.".asResult)
@@ -36,7 +36,7 @@ class MinimumDeploymentTargetTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let result = ProcessResult(arguments: [],
-                                   environment: [:],
+                                   environmentBlock: [:],
                                    exitStatus: .terminated(code: 0),
                                    output: "some string".asResult,
                                    stderrOutput: "".asResult)
@@ -50,7 +50,7 @@ class MinimumDeploymentTargetTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let result = ProcessResult(arguments: [],
-                                   environment: [:],
+                                   environmentBlock: [:],
                                    exitStatus: .terminated(code: 0),
                                    output: .failure(DummyError()),
                                    stderrOutput: "".asResult)
