@@ -428,7 +428,7 @@ private func createResolvedPackages(
     )
     try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
-    // The set of all target names.
+    // The array of all target names.
     let allTargetNames = packageBuilders.reduce([]) { $0 + $1.targets }.map(\.target.name)
 
     // Track if multiple targets are found with the same name.
