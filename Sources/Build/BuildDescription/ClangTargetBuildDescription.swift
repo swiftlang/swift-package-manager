@@ -311,6 +311,18 @@ public final class ClangTargetBuildDescription {
             args += ["-I", includeSearchPath.pathString]
         }
 
+        // FIXME: Remove this once it becomes possible to express this dependency in a package manifest.
+        //
+        // On Linux/Android swift-corelibs-foundation depends on dispatch library which is
+        // currently shipped with the Swift toolchain.
+        if (triple.isLinux() || triple.isAndroid()) && self.package.id == .plain("swift-corelibs-foundation") {
+            let swiftCompilerPath = self.buildParameters.toolchain.swiftCompilerPath
+            let toolchainResourcesPath = swiftCompilerPath.parentDirectory
+                                                          .parentDirectory
+                                                          .appending(components: ["lib", "swift"])
+            args += ["-I", toolchainResourcesPath.pathString]
+        }
+
         // suppress warnings if the package is remote
         if self.package.isRemote {
             args += ["-w"]
