@@ -323,6 +323,15 @@ package final class ClangTargetBuildDescription {
             args += ["-I", toolchainResourcesPath.pathString]
         }
 
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-w"]
+            // `-w` (suppress warnings) and `-Werror` (warnings as errors) flags are mutually exclusive
+            if let index = args.firstIndex(of: "-Werror") {
+                args.remove(at: index)
+            }
+        }
+
         return args
     }
 
