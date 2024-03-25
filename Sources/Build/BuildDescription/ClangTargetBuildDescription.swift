@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageGraph
 import PackageLoading
 import PackageModel
 import struct PackageGraph.ModulesGraph
@@ -23,6 +24,9 @@ import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
 package final class ClangTargetBuildDescription {
+    /// The package this target belongs to.
+    package let package: ResolvedPackage
+
     /// The target described by this target.
     package let target: ResolvedTarget
 
@@ -109,6 +113,7 @@ package final class ClangTargetBuildDescription {
 
     /// Create a new target description with target and build parameters.
     init(
+        package: ResolvedPackage,
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
@@ -122,6 +127,7 @@ package final class ClangTargetBuildDescription {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.package = package
         self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target

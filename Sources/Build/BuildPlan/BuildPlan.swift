@@ -394,8 +394,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     )
                 )
             case is ClangTarget:
+                guard let package = graph.package(for: target) else {
+                    throw InternalError("package not found for \(target)")
+                }
+
                 targetMap[target.id] = try .clang(
                     ClangTargetBuildDescription(
+                        package: package,
                         target: target,
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,

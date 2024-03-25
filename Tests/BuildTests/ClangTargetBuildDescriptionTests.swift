@@ -49,8 +49,33 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
 
     private func makeTargetBuildDescription() throws -> ClangTargetBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "dummy",
+            toolsVersion: .v5,
+            targets: [try TargetDescription(name: "dummy")]
+        )
+
+        let target = try makeResolvedTarget()
+
+        let package = Package(identity: .plain("dummy"),
+                              manifest: manifest,
+                              path: .root,
+                              targets: [target.underlying],
+                              products: [],
+                              targetSearchPath: .root,
+                              testTargetSearchPath: .root)
+
         return try ClangTargetBuildDescription(
-            target: try makeResolvedTarget(),
+            package: .init(underlying: package,
+                           defaultLocalization: nil,
+                           supportedPlatforms: [],
+                           dependencies: [],
+                           targets: [target],
+                           products: [],
+                           registryMetadata: nil,
+                           platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
+            target: target,
             toolsVersion: .current,
             buildParameters: mockBuildParameters(
                 toolchain: try UserToolchain.default,
