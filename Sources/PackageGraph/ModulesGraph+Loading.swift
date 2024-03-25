@@ -525,13 +525,22 @@ private func createResolvedPackages(
                         } else {
                             // Find a product name from the available product dependencies that is most similar to the required product name.
                             let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
+                            var packageContainingBestMatchedProduct: String?
+                            if let bestMatchedProductName, productRef.name == bestMatchedProductName {
+                                let dependentPackages = packageBuilder.dependencies.map(\.package)
+                                for p in dependentPackages where p.targets.contains(where: { $0.name == bestMatchedProductName }) {
+                                    packageContainingBestMatchedProduct = p.identity.description
+                                    break
+                                }
+                            }
                             let error = PackageGraphError.productDependencyNotFound(
                                 package: package.identity.description,
                                 targetName: targetBuilder.target.name,
                                 dependencyProductName: productRef.name,
                                 dependencyPackageName: productRef.package,
                                 dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                                similarProductName: bestMatchedProductName
+                                similarProductName: bestMatchedProductName, 
+                                packageContainingSimilarProduct: packageContainingBestMatchedProduct
                             )
                             packageObservabilityScope.emit(error)
                         }
