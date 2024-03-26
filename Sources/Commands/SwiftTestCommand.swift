@@ -40,7 +40,8 @@ private enum TestError: Swift.Error {
     case testProductNotFound(productName: String)
     case productIsNotTest(productName: String)
     case multipleTestProducts([String])
-    case xctestNotAvailable(reason: String? = nil)
+    case xctestNotAvailable(reason: String)
+    case xcodeNotInstalled
 }
 
 extension TestError: CustomStringConvertible {
@@ -58,11 +59,9 @@ extension TestError: CustomStringConvertible {
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
         case let .xctestNotAvailable(reason):
-            if let reason {
-                return "XCTest not available: \(reason)"
-            } else {
-                return "XCTest not available"
-            }
+            return "XCTest not available: \(reason)"
+        case .xcodeNotInstalled:
+            return "XCTest not available; download and install Xcode to use XCTest on this platform"
         }
     }
 }
@@ -208,9 +207,13 @@ package struct SwiftTestCommand: AsyncSwiftCommand {
         // validate XCTest available on darwin based systems
         let toolchain = try swiftCommandState.getTargetToolchain()
         if case let .unsupported(reason) = try swiftCommandState.getHostToolchain().swiftSDK.xctestSupport {
-            throw TestError.xctestNotAvailable(reason: reason)
+            if let reason {
+                throw TestError.xctestNotAvailable(reason: reason)
+            } else {
+                throw TestError.xcodeNotInstalled
+            }
         } else if toolchain.targetTriple.isDarwin() && toolchain.xctestPath == nil {
-            throw TestError.xctestNotAvailable()
+            throw TestError.xcodeNotInstalled
         }
 
         let buildParameters = try swiftCommandState.buildParametersForTest(options: self.options, library: .xctest)
@@ -819,7 +822,7 @@ final class TestRunner {
         #if os(macOS)
         if library == .xctest {
             guard let xctestPath = self.toolchain.xctestPath else {
-                throw TestError.xctestNotAvailable()
+                throw TestError.xcodeNotInstalled
             }
             args = [xctestPath.pathString]
             args += additionalArguments
