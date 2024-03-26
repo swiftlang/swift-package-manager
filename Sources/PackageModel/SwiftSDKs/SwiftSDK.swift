@@ -156,7 +156,7 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Whether or not the receiver supports testing using XCTest.
-    public enum XCTestSupport: Sendable, Equatable {
+    package enum XCTestSupport: Sendable, Equatable {
         /// XCTest is supported.
         case supported
 
@@ -169,7 +169,7 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Whether or not the receiver supports using XCTest.
-    public let xctestSupport: XCTestSupport
+    package let xctestSupport: XCTestSupport
 
     /// Root directory path of the SDK used to compile for the target triple.
     @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
@@ -465,7 +465,7 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Creates a Swift SDK with the specified properties.
-    public init(
+    package init(
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
