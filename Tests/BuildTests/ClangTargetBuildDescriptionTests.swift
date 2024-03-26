@@ -25,15 +25,11 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
     }
 
     func testSwiftCorelibsFoundationIncludeWorkaround() throws {
-        let macosParameters = mockBuildParameters(
-            toolchain: try UserToolchain.default,
-            targetTriple: .macOS)
-        let linuxParameters = mockBuildParameters(
-            toolchain: try UserToolchain.default,
-            targetTriple: .arm64Linux)
-        let androidParameters = mockBuildParameters(
-            toolchain: try UserToolchain.default,
-            targetTriple: .arm64Android)
+        let toolchain = MockToolchain(swiftResourcesPath: AbsolutePath("/fake/path/lib/swift"))
+
+        let macosParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .macOS)
+        let linuxParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Linux)
+        let androidParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Android)
 
         let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
                                                             buildParameters: macosParameters)
@@ -41,6 +37,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
 
         let linuxDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
                                                               buildParameters: linuxParameters)
+        print(try linuxDescription.basicArguments())
         XCTAssertTrue(try linuxDescription.basicArguments().contains("\(linuxParameters.toolchain.swiftResourcesPath!)"))
 
         let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
