@@ -30,6 +30,30 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
+    func testSwiftCorelibsFoundationIncludeWorkaround() throws {
+        let macosParameters = mockBuildParameters(
+            toolchain: try UserToolchain.default,
+            targetTriple: .macOS)
+        let linuxParameters = mockBuildParameters(
+            toolchain: try UserToolchain.default,
+            targetTriple: .arm64Linux)
+        let androidParameters = mockBuildParameters(
+            toolchain: try UserToolchain.default,
+            targetTriple: .arm64Android)
+
+        let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+                                                            buildParameters: macosParameters)
+        XCTAssertFalse(try macDescription.basicArguments().contains("\(macosParameters.toolchain.swiftResourcesPath!)"))
+
+        let linuxDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+                                                              buildParameters: linuxParameters)
+        XCTAssertTrue(try linuxDescription.basicArguments().contains("\(linuxParameters.toolchain.swiftResourcesPath!)"))
+
+        let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+                                                                buildParameters: androidParameters)
+        XCTAssertTrue(try androidDescription.basicArguments().contains("\(androidParameters.toolchain.swiftResourcesPath!)"))
+    }
+
     private func makeClangTarget() throws -> ClangTarget {
         try ClangTarget(
             name: "dummy",
