@@ -22,6 +22,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
     func testClangIndexStorePath() throws {
         let targetDescription = try makeTargetBuildDescription("test")
         XCTAssertTrue(try targetDescription.basicArguments().contains("-index-store-path"))
+        XCTAssertFalse(try targetDescription.basicArguments().contains("-w"))
     }
 
     func testSwiftCorelibsFoundationIncludeWorkaround() throws {
@@ -43,6 +44,11 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
                                                                 buildParameters: androidParameters)
         XCTAssertTrue(try androidDescription.basicArguments().contains("\(androidParameters.toolchain.swiftResourcesPath!)"))
+    }
+
+    func testWarningSuppressionForRemotePackages() throws {
+        let targetDescription = try makeTargetBuildDescription("test-warning-supression", usesSourceControl: true)
+        XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
     private func makeClangTarget() throws -> ClangTarget {
@@ -70,14 +76,20 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
     }
 
     private func makeTargetBuildDescription(_ packageName: String,
-                                            buildParameters: BuildParameters? = nil) throws -> ClangTargetBuildDescription {
+                                            buildParameters: BuildParameters? = nil,
+                                            usesSourceControl: Bool = false) throws -> ClangTargetBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
-        let manifest = Manifest.createRootManifest(
-            displayName: "dummy",
-            toolsVersion: .v5,
-            targets: [try TargetDescription(name: "dummy")]
-        )
+        let manifest: Manifest
+        if usesSourceControl {
+            manifest = Manifest.createLocalSourceControlManifest(
+                displayName: packageName, path: AbsolutePath("/\(packageName)"))
+        } else {
+            manifest = Manifest.createRootManifest(
+                displayName: packageName,
+                toolsVersion: .v5,
+                targets: [try TargetDescription(name: "dummy")])
+        }
 
         let target = try makeResolvedTarget()
 
