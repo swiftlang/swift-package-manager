@@ -14,13 +14,20 @@ import Basics
 @testable import Build
 import PackageGraph
 import PackageModel
+import SPMBuildCore
 import SPMTestSupport
 import XCTest
 
 final class ClangTargetBuildDescriptionTests: XCTestCase {
     func testClangIndexStorePath() throws {
-        let targetDescription = try makeTargetBuildDescription()
+        let targetDescription = try makeTargetBuildDescription("test")
         XCTAssertTrue(try targetDescription.basicArguments().contains("-index-store-path"))
+        XCTAssertFalse(try targetDescription.basicArguments().contains("-w"))
+    }
+
+    func testWarningSuppressionForRemotePackages() throws {
+        let targetDescription = try makeTargetBuildDescription("test-warning-supression", usesSourceControl: true)
+        XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
     private func makeClangTarget() throws -> ClangTarget {
@@ -47,18 +54,25 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeTargetBuildDescription() throws -> ClangTargetBuildDescription {
+    private func makeTargetBuildDescription(_ packageName: String,
+                                            buildParameters: BuildParameters? = nil,
+                                            usesSourceControl: Bool = false) throws -> ClangTargetBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
-        let manifest = Manifest.createRootManifest(
-            displayName: "dummy",
-            toolsVersion: .v5,
-            targets: [try TargetDescription(name: "dummy")]
-        )
+        let manifest: Manifest
+        if usesSourceControl {
+            manifest = Manifest.createLocalSourceControlManifest(
+                displayName: packageName, path: AbsolutePath("/\(packageName)"))
+        } else {
+            manifest = Manifest.createRootManifest(
+                displayName: packageName,
+                toolsVersion: .v5,
+                targets: [try TargetDescription(name: "dummy")])
+        }
 
         let target = try makeResolvedTarget()
 
-        let package = Package(identity: .plain("dummy"),
+        let package = Package(identity: .plain(packageName),
                               manifest: manifest,
                               path: .root,
                               targets: [target.underlying],
@@ -77,7 +91,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
             target: target,
             toolsVersion: .current,
-            buildParameters: mockBuildParameters(
+            buildParameters: buildParameters ?? mockBuildParameters(
                 toolchain: try UserToolchain.default,
                 indexStoreMode: .on
             ),
