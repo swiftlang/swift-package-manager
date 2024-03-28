@@ -5590,6 +5590,48 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testUnsafeFlagsInFoundation() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Test",
+                    targets: [
+                        MockTarget(name: "Test",
+                                   dependencies: [
+                                        .product(name: "Foundation",
+                                                 package: "swift-corelibs-foundation")
+                                   ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "swift-corelibs-foundation", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "swift-corelibs-foundation",
+                    targets: [
+                        MockTarget(name: "Foundation", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foundation", targets: ["Foundation"])
+                    ],
+                    versions: ["1.0.0", nil]
+                )
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Test"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testEditDependencyHadOverridableConstraints() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
