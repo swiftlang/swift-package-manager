@@ -33,6 +33,15 @@ public struct SwiftSDKBundle {
     public var name: String { path.basename }
 }
 
+extension SwiftSDKBundle.Variant {
+    /// Whether the given host triple is supported by this SDK variant
+    internal func isSupporting(hostTriple: Triple) -> Bool {
+        return supportedTriples.contains(where: { variantTriple in
+            hostTriple.isRuntimeCompatible(with: variantTriple)
+        })
+    }
+}
+
 extension [SwiftSDKBundle] {
     /// Select a Swift SDK with a given artifact ID from a `self` array of available Swift SDKs.
     /// - Parameters:
@@ -48,7 +57,7 @@ extension [SwiftSDKBundle] {
                 }
 
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
+                    guard variant.isSupporting(hostTriple: hostTriple) else {
                         continue
                     }
 
@@ -77,11 +86,7 @@ extension [SwiftSDKBundle] {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(where: { variantTriple in
-                        hostTriple.isRuntimeCompatible(with: variantTriple)
-                    }) else {
-                        continue
-                    }
+                    guard variant.isSupporting(hostTriple: hostTriple) else { continue }
 
                     for swiftSDK in variant.swiftSDKs {
                         if artifactID == selector {
