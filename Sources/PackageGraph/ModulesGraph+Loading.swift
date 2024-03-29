@@ -500,10 +500,6 @@ private func createResolvedPackages(
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
-            // Record if we see a duplicate target.
-            let isDuplicateTarget = 1 < allTargetNames.filter { $0 == targetBuilder.target.name }.count
-            foundDuplicateTarget = foundDuplicateTarget || isDuplicateTarget
-
             // Directly add all the system module dependencies.
             targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
 
