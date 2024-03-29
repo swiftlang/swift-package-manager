@@ -536,6 +536,15 @@ final class DestinationTests: XCTestCase {
                             swiftSDKs: [parsedDestinationForOlderHost]
                         ),
                     ],
+                    "id5": [
+                        .init(
+                            metadata: .init(
+                                path: "id5",
+                                supportedTriples: nil
+                            ),
+                            swiftSDKs: [parsedDestinationV2GNU]
+                        ),
+                    ],
                 ]
             ),
         ]
@@ -586,6 +595,24 @@ final class DestinationTests: XCTestCase {
                 observabilityScope: system.topScope
             ),
             parsedDestinationForOlderHost
+        )
+
+        // nil supportedTriples should match with any hostTriple
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                id: "id5",
+                hostTriple: hostTriple,
+                targetTriple: linuxGNUTargetTriple
+            ),
+            parsedDestinationV2GNU
+        )
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                matching: "id5",
+                hostTriple: hostTriple,
+                observabilityScope: system.topScope
+            ),
+            parsedDestinationV2GNU
         )
     }
 }

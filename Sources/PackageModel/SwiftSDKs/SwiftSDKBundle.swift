@@ -36,6 +36,10 @@ public struct SwiftSDKBundle {
 extension SwiftSDKBundle.Variant {
     /// Whether the given host triple is supported by this SDK variant
     internal func isSupporting(hostTriple: Triple) -> Bool {
+        guard let supportedTriples = metadata.supportedTriples else {
+            // No supportedTriples means the SDK can be universally usable
+            return true
+        }
         return supportedTriples.contains(where: { variantTriple in
             hostTriple.isRuntimeCompatible(with: variantTriple)
         })
