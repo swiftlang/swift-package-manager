@@ -560,13 +560,13 @@ public final class UserToolchain: Toolchain {
         if let customInstalledSwiftPMConfiguration {
             self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
         } else {
-            let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "config.json"])
-            if localFileSystem.exists(path) {
-                self.installedSwiftPMConfiguration = try JSONDecoder.makeWithDefaults().decode(path: path, fileSystem: localFileSystem, as: InstalledSwiftPMConfiguration.self)
-            } else {
-                // We *could* eventually make this an error, but not for a few releases.
-                self.installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
-            }
+            let path = swiftCompilerPath.parentDirectory.parentDirectory.appending(components: [
+                "share", "pm", "config.json",
+            ])
+            self.installedSwiftPMConfiguration = try Self.loadJSONResource(
+                config: path,
+                type: InstalledSwiftPMConfiguration.self,
+                default: InstalledSwiftPMConfiguration.default)
         }
 
         if let customProvidedLibraries {
@@ -913,5 +913,30 @@ public final class UserToolchain: Toolchain {
 
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
+    }
+
+    private let _swiftPluginServerPath = ThreadSafeBox<AbsolutePath?>()
+
+    public var swiftPluginServerPath: AbsolutePath? {
+        get throws {
+            try _swiftPluginServerPath.memoize {
+                return try Self.derivePluginServerPath(triple: self.targetTriple)
+            }
+        }
+    }
+
+    private static func loadJSONResource<T: Decodable>(
+        config: AbsolutePath, type: T.Type, `default`: T
+    )
+        throws -> T
+    {
+        if localFileSystem.exists(config) {
+            return try JSONDecoder.makeWithDefaults().decode(
+                path: config,
+                fileSystem: localFileSystem,
+                as: type)
+        }
+
+        return `default`
     }
 }
