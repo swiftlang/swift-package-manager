@@ -69,7 +69,10 @@ extension BinaryTarget {
             // Filter supported triples with versionLessTriple and pass into
             // ExecutableInfo; empty if non matching triples found.
             try entry.value.variants.map {
-                let filteredSupportedTriples = try $0.supportedTriples
+                guard let supportedTriples = $0.supportedTriples else {
+                    throw StringError("No \"supportedTriples\" found in the artifact metadata for \(entry.key) in \(self.artifactPath)")
+                }
+                let filteredSupportedTriples = try supportedTriples
                     .filter { try $0.withoutVersion() == versionLessTriple }
                 return ExecutableInfo(
                     name: entry.key,
