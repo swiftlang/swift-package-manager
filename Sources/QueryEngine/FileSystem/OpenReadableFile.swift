@@ -13,7 +13,7 @@
 import protocol Crypto.HashFunction
 import struct SystemPackage.FileDescriptor
 
-public struct OpenReadableFile {
+public struct OpenReadableFile: Sendable {
     let readChunkSize: Int
 
     enum FileHandle {

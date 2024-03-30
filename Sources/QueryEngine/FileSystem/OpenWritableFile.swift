@@ -13,8 +13,8 @@
 import struct SystemPackage.FileDescriptor
 import struct SystemPackage.FilePath
 
-public struct OpenWritableFile {
-    enum FileHandle {
+public struct OpenWritableFile: Sendable {
+    enum FileHandle: Sendable {
         case local(FileDescriptor)
         case virtual(VirtualFileSystem.Storage, FilePath)
     }

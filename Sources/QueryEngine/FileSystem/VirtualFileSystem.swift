@@ -32,14 +32,20 @@ actor VirtualFileSystem: AsyncFileSystem {
         self.readChunkSize = readChunkSize
     }
 
-    func withOpenReadableFile<T>(_ path: FilePath, _ body: (OpenReadableFile) async throws -> T) async throws -> T {
+    func withOpenReadableFile<T: Sendable>(
+        _ path: FilePath,
+        _ body: (OpenReadableFile) async throws -> T
+    ) async throws -> T {
         guard let bytes = storage.content[path] else {
             throw FileSystemError.fileDoesNotExist(path)
         }
         return try await body(.init(readChunkSize: self.readChunkSize, fileHandle: .virtual(bytes)))
     }
 
-    func withOpenWritableFile<T>(_ path: FilePath, _ body: (OpenWritableFile) async throws -> T) async throws -> T {
+    func withOpenWritableFile<T: Sendable>(
+        _ path: FilePath,
+        _ body: (OpenWritableFile) async throws -> T
+    ) async throws -> T {
         try await body(.init(fileHandle: .virtual(self.storage, path)))
     }
 }

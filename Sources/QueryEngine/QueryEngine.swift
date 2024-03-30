@@ -12,8 +12,9 @@
 
 import Basics
 import Crypto
+@preconcurrency import SystemPackage
 
-public func withQueryEngine(
+package func withQueryEngine(
     _ fileSystem: any AsyncFileSystem,
     _ observabilityScope: ObservabilityScope,
     cacheLocation: SQLite.Location,
@@ -34,13 +35,13 @@ public func withQueryEngine(
 
 /// Cacheable computations engine. Currently the engine makes an assumption that computations produce same results for
 /// the same query values and write results to a single file path.
-public actor QueryEngine {
+package actor QueryEngine {
     private(set) var cacheHits = 0
     private(set) var cacheMisses = 0
 
-    public let fileSystem: any AsyncFileSystem
-    public let httpClient = HTTPClient()
-    public let observabilityScope: ObservabilityScope
+    package let fileSystem: any AsyncFileSystem
+    package let httpClient = HTTPClient()
+    package let observabilityScope: ObservabilityScope
     private let resultsCache: SQLiteBackedCache<FileCacheRecord>
     private var isShutDown = false
 
@@ -60,7 +61,7 @@ public actor QueryEngine {
         self.resultsCache = SQLiteBackedCache(tableName: "cache_table", location: cacheLocation)
     }
 
-    public func shutDown() async throws {
+    package func shutDown() async throws {
         precondition(!self.isShutDown, "`QueryEngine/shutDown` should be called only once")
         try self.resultsCache.close()
 
@@ -78,18 +79,19 @@ public actor QueryEngine {
     /// Executes a given query if no cached result of it is available. Otherwise fetches the result from engine's cache.
     /// - Parameter query: A query value to execute.
     /// - Returns: A file path to query's result recorded in a file.
-    public subscript(_ query: some Query) -> FileCacheRecord {
+    package subscript(_ query: some Query) -> FileCacheRecord {
         get async throws {
-            var hashFunction = SHA512()
-            query.hash(with: &hashFunction)
-            let key = hashFunction.finalize()
+            let hashEncoder = HashEncoder<SHA512>()
+            try query.encode(to: hashEncoder)
+            let key = hashEncoder.finalize()
 
             if let fileRecord = try resultsCache.get(blobKey: key) {
-                hashFunction = SHA512()
-                try await self.fileSystem.withOpenReadableFile(fileRecord.path) {
+
+                let fileHash = try await self.fileSystem.withOpenReadableFile(fileRecord.path) {
+                    var hashFunction = SHA512()
                     try await $0.hash(with: &hashFunction)
+                    return hashFunction.finalize().description
                 }
-                let fileHash = hashFunction.finalize().description
 
                 if fileHash == fileRecord.hash {
                     self.cacheHits += 1
@@ -99,13 +101,13 @@ public actor QueryEngine {
 
             self.cacheMisses += 1
             let resultPath = try await query.run(engine: self)
-            hashFunction = SHA512()
 
-            try await self.fileSystem.withOpenReadableFile(resultPath) {
+            let resultHash = try await self.fileSystem.withOpenReadableFile(resultPath) {
+                var hashFunction = SHA512()
                 try await $0.hash(with: &hashFunction)
+                return hashFunction.finalize().description
             }
-            let resultHash = hashFunction.finalize()
-            let result = FileCacheRecord(path: resultPath, hash: resultHash.description)
+            let result = FileCacheRecord(path: resultPath, hash: resultHash)
 
             // FIXME: update `SQLiteBackedCache` to store `resultHash` directly instead of relying on string conversions
             try self.resultsCache.put(blobKey: key, value: result)

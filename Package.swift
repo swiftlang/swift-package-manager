@@ -473,6 +473,9 @@ let package = Package(
             dependencies: [
                 "Basics",
                 .product(name: "Crypto", package: "swift-crypto"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency=complete"),
             ]
         ),
 
@@ -671,6 +674,10 @@ let package = Package(
         .testTarget(
             name: "PackageSigningTests",
             dependencies: ["SPMTestSupport", "PackageSigning"]
+        ),
+        .testTarget(
+            name: "QueryEngineTests",
+            dependencies: ["QueryEngine", "SPMTestSupport"]
         ),
         .testTarget(
             name: "SourceControlTests",
