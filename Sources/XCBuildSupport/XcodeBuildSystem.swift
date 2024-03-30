@@ -10,14 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
@@ -28,7 +26,7 @@ import func TSCBasic.memoize
 
 import enum TSCUtility.Diagnostics
 
-public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
+package final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> ModulesGraph
     private let logLevel: Basics.Diagnostic.Severity
@@ -92,7 +90,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
 
-        if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
+        if let xcbuildTool = ProcessEnv.block["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
             let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()

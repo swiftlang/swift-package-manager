@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
 import CoreCommands
+
 import PackageModel
 import SPMBuildCore
 import Workspace
@@ -176,11 +178,12 @@ enum TestingSupport {
         #endif
         return env
         #else
-        // Add the sdk platform path if we have it. If this is not present, we might always end up failing.
-        let sdkPlatformFrameworksPath = try SwiftSDK.sdkPlatformFrameworkPaths()
-        // appending since we prefer the user setting (if set) to the one we inject
-        env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-        env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+        // Add the sdk platform path if we have it.
+        if let sdkPlatformFrameworksPath = try? SwiftSDK.sdkPlatformFrameworkPaths() {
+            // appending since we prefer the user setting (if set) to the one we inject
+            env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
+            env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
+        }
 
         // Fast path when no sanitizers are enabled.
         if sanitizers.isEmpty {

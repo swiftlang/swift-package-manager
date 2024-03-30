@@ -1,4 +1,4 @@
-// swift-tools-version:5.8
+// swift-tools-version:5.9
 
 //===----------------------------------------------------------------------===//
 //
@@ -176,7 +176,8 @@ let package = Package(
                 "Build",
                 "SPMBuildCore",
             ],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [.enableExperimentalFeature("AccessLevelOnImport")]
         ),
 
         // MARK: SwiftPM specific support libraries

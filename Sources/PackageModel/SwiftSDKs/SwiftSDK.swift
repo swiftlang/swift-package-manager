@@ -147,7 +147,29 @@ public struct SwiftSDK: Equatable {
     public var architectures: [String]? = nil
 
     /// Whether or not the receiver supports testing.
-    public let supportsTesting: Bool
+    @available(*, deprecated, message: "Use `xctestSupport` instead")
+    public var supportsTesting: Bool {
+        if case .supported = xctestSupport {
+            return true
+        }
+        return false
+    }
+
+    /// Whether or not the receiver supports testing using XCTest.
+    package enum XCTestSupport: Sendable, Equatable {
+        /// XCTest is supported.
+        case supported
+
+        /// XCTest is not supported.
+        ///
+        /// - Parameters:
+        ///     - reason: A string explaining why XCTest is not supported. If
+        ///         `nil`, no additional information is available.
+        case unsupported(reason: String?)
+    }
+
+    /// Whether or not the receiver supports using XCTest.
+    package let xctestSupport: XCTestSupport
 
     /// Root directory path of the SDK used to compile for the target triple.
     @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
@@ -418,18 +440,43 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Creates a Swift SDK with the specified properties.
+    @available(*, deprecated, message: "use `init(hostTriple:targetTriple:toolset:pathsConfiguration:xctestSupport:)` instead")
     public init(
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
         pathsConfiguration: PathsConfiguration,
-        supportsTesting: Bool = true
+        supportsTesting: Bool
+    ) {
+        let xctestSupport: XCTestSupport
+        if supportsTesting {
+            xctestSupport = .supported
+        } else {
+            xctestSupport = .unsupported(reason: nil)
+        }
+
+        self.init(
+            hostTriple: hostTriple,
+            targetTriple: targetTriple,
+            toolset: toolset,
+            pathsConfiguration: pathsConfiguration,
+            xctestSupport: xctestSupport
+        )
+    }
+
+    /// Creates a Swift SDK with the specified properties.
+    package init(
+        hostTriple: Triple? = nil,
+        targetTriple: Triple? = nil,
+        toolset: Toolset,
+        pathsConfiguration: PathsConfiguration,
+        xctestSupport: XCTestSupport = .supported
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
         self.toolset = toolset
         self.pathsConfiguration = pathsConfiguration
-        self.supportsTesting = supportsTesting
+        self.xctestSupport = xctestSupport
     }
 
     /// Returns the bin directory for the host.
@@ -465,10 +512,10 @@ public struct SwiftSDK: Equatable {
     ) throws -> SwiftSDK {
         let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
-        if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
+        if ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"] != nil {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
         }
-        let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
+        let customBinDir = (ProcessEnv.block["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.block["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap { try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? SwiftSDK.hostBinDir(
             fileSystem: localFileSystem,
@@ -478,7 +525,7 @@ public struct SwiftSDK: Equatable {
         let sdkPath: AbsolutePath?
         #if os(macOS)
         // Get the SDK.
-        if let value = ProcessEnv.vars["SDKROOT"] {
+        if let value = ProcessEnv.block["SDKROOT"] {
             sdkPath = try AbsolutePath(validating: value)
         } else {
             // No value in env, so search for it.
@@ -496,7 +543,7 @@ public struct SwiftSDK: Equatable {
         #endif
 
         // Compute common arguments for clang and swift.
-        let supportsTesting: Bool
+        let xctestSupport: XCTestSupport
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
@@ -506,13 +553,12 @@ public struct SwiftSDK: Equatable {
             extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
             extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
             extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
-            supportsTesting = true
+            xctestSupport = .supported
         } catch {
-            supportsTesting = false
-            observabilityScope?.emit(warning: "could not determine XCTest paths: \(error)")
+            xctestSupport = .unsupported(reason: String(describing: error))
         }
         #else
-        supportsTesting = true
+        xctestSupport = .supported
         #endif
 
         #if !os(Windows)
@@ -528,7 +574,7 @@ public struct SwiftSDK: Equatable {
                 rootPaths: [binDir]
             ),
             pathsConfiguration: .init(sdkRootPath: sdkPath),
-            supportsTesting: supportsTesting
+            xctestSupport: xctestSupport
         )
     }
 
@@ -599,8 +645,7 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Computes the target Swift SDK for the given options.
-    @_spi(SwiftPMInternal)
-    public static func deriveTargetSwiftSDK(
+    package static func deriveTargetSwiftSDK(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
       customCompileDestination: AbsolutePath? = nil,

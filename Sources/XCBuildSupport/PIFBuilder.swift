@@ -16,7 +16,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort
@@ -685,6 +684,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if target.underlying.isCxx {
             impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-lc++")
         }
+
+        // radar://112671586 supress unnecessary warnings
+        impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-Wl,-no_warn_duplicate_libraries")
 
         addSources(target.sources, to: pifTarget)
 

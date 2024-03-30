@@ -235,7 +235,7 @@ let package = Package(
 /// - Parameters:
 ///     - name: The name of the library product.
 ///     - type: The optional type of the library that is used to determine how to link to the library.
-///         Leave this parameter unspecified to let to let the Swift Package Manager choose between static or dynamic linking (recommended).
+///         Leave this parameter unspecified to let the Swift Package Manager choose between static or dynamic linking (recommended).
 ///         If you do not support both linkage types, use `.static` or `.dynamic` for this parameter. 
 ///     - targets: The targets that are bundled into a library product.
 static func library(name: String, type: Product.Library.LibraryType? = nil, targets: [String]) -> Product

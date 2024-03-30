@@ -11,9 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+
 import CoreCommands
+
 import Foundation
 import PackageModel
+
+import SPMBuildCore
+
 import TSCBasic
 
 extension SwiftPackageCommand {

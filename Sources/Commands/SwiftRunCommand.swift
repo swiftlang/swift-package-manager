@@ -12,10 +12,14 @@
 
 import ArgumentParser
 import Basics
+
 import CoreCommands
+
 import Foundation
 import PackageGraph
 import PackageModel
+
+import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
@@ -90,8 +94,8 @@ struct RunCommandOptions: ParsableArguments {
 }
 
 /// swift-run command namespace
-public struct SwiftRunCommand: AsyncSwiftCommand {
-    public static var configuration = CommandConfiguration(
+package struct SwiftRunCommand: AsyncSwiftCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "run",
         _superCommandName: "swift",
         abstract: "Build and run an executable product",
@@ -100,16 +104,16 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    public var globalOptions: GlobalOptions
+    package var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: RunCommandOptions
 
-    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+    package var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init(wantsREPLProduct: options.mode == .repl)
     }
 
-    public func run(_ swiftCommandState: SwiftCommandState) async throws {
+    package func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftCommandState.observabilityScope.emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"])
@@ -293,9 +297,15 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         var sig_set_all = sigset_t()
         sigfillset(&sig_set_all)
         sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
+
+        #if os(Android)
+        let number_fds = Int32(sysconf(_SC_OPEN_MAX))
+        #else
+        let number_fds = getdtablesize()
+        #endif
         
         // 2. close all file descriptors.
-        for i in 3..<getdtablesize() {
+        for i in 3..<number_fds {
             close(i)
         }
         #endif
@@ -303,7 +313,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         try TSCBasic.exec(path: path, args: args)
     }
 
-    public init() {}
+    package init() {}
 }
 
 private extension Basics.Diagnostic {

@@ -14,8 +14,11 @@ import Dispatch
 import Foundation
 
 import SPMBuildCore
+
 import Basics
+
 import CoreCommands
+
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -180,7 +183,7 @@ struct APIDigesterBaselineDumper {
 }
 
 /// A wrapper for the swift-api-digester tool.
-public struct SwiftAPIDigester {
+package struct SwiftAPIDigester {
     /// The file system to use
     let fileSystem: FileSystem
 
@@ -193,7 +196,7 @@ public struct SwiftAPIDigester {
     }
 
     /// Emit an API baseline file for the specified module at the specified location.
-    public func emitAPIBaseline(
+    package func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan
@@ -223,7 +226,7 @@ public struct SwiftAPIDigester {
     }
 
     /// Compare the current package API to a provided baseline file.
-    public func compareAPIToBaseline(
+    package func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan,
@@ -268,12 +271,12 @@ public struct SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
-    public enum Error: Swift.Error, CustomStringConvertible {
+    package enum Error: Swift.Error, CustomStringConvertible {
         case failedToGenerateBaseline(module: String)
         case failedToValidateBaseline(module: String)
         case noSymbolsInBaseline(module: String, toolOutput: String)
 
-        public var description: String {
+        package var description: String {
             switch self {
             case .failedToGenerateBaseline(let module):
                 return "failed to generate baseline for \(module)"
@@ -288,7 +291,7 @@ extension SwiftAPIDigester {
 
 extension SwiftAPIDigester {
     /// The result of comparing a module's API to a provided baseline.
-    public struct ComparisonResult {
+    package struct ComparisonResult {
         /// The name of the module being diffed.
         var moduleName: String
         /// Breaking changes made to the API since the baseline was generated.

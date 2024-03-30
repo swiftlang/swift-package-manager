@@ -17,17 +17,17 @@ import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
-@_spi(SwiftPMInternal)
+
 import PackageModel
+
 import SPMBuildCore
+
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
-@_spi(SwiftPMInternal)
 import DriverSupport
 #else
-@_spi(SwiftPMInternal)
 import DriverSupport
 #endif
 
@@ -55,12 +55,12 @@ import TSCUtility // cannot be scoped because of `String.spm_mangleToC99Extended
 
 typealias Diagnostic = Basics.Diagnostic
 
-public struct ToolWorkspaceConfiguration {
+package struct ToolWorkspaceConfiguration {
     let shouldInstallSignalHandlers: Bool
     let wantsMultipleTestProducts: Bool
     let wantsREPLProduct: Bool
 
-    public init(
+    package init(
         shouldInstallSignalHandlers: Bool = true,
         wantsMultipleTestProducts: Bool = false,
         wantsREPLProduct: Bool = false
@@ -71,16 +71,16 @@ public struct ToolWorkspaceConfiguration {
     }
 }
 
-public typealias WorkspaceDelegateProvider = (
+package typealias WorkspaceDelegateProvider = (
     _ observabilityScope: ObservabilityScope,
     _ outputHandler: @escaping (String, Bool) -> Void,
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
-public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
+package typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 
-public protocol _SwiftCommand {
+package protocol _SwiftCommand {
     var globalOptions: GlobalOptions { get }
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
@@ -89,19 +89,19 @@ public protocol _SwiftCommand {
 }
 
 extension _SwiftCommand {
-    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+    package var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init()
     }
 }
 
-public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
+package protocol SwiftCommand: ParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) throws
 }
 
 extension SwiftCommand {
-    public static var _errorLabel: String { "error" }
+    package static var _errorLabel: String { "error" }
 
-    public func run() throws {
+    package func run() throws {
         let swiftCommandState = try SwiftCommandState(
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
@@ -134,15 +134,15 @@ extension SwiftCommand {
     }
 }
 
-public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
+package protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
 }
 
 extension AsyncSwiftCommand {
-    public static var _errorLabel: String { "error" }
+    package static var _errorLabel: String { "error" }
 
     // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
-    public func run() async throws {
+    package func run() async throws {
         let swiftCommandState = try SwiftCommandState(
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
@@ -175,23 +175,23 @@ extension AsyncSwiftCommand {
     }
 }
 
-public final class SwiftCommandState {
+package final class SwiftCommandState {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler
     static var cancellator: Cancellator?
     #endif
 
     /// The original working directory.
-    public let originalWorkingDirectory: AbsolutePath
+    package let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    public let options: GlobalOptions
+    package let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
     private let packageRoot: AbsolutePath?
 
     /// Helper function to get package root or throw error if it is not found.
-    public func getPackageRoot() throws -> AbsolutePath {
+    package func getPackageRoot() throws -> AbsolutePath {
         guard let packageRoot = packageRoot else {
             throw StringError("Could not find \(Manifest.filename) in this directory or any of its parent directories.")
         }
@@ -199,7 +199,7 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
+    package func getWorkspaceRoot() throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
@@ -213,25 +213,25 @@ public final class SwiftCommandState {
     }
 
     /// Scratch space (.build) directory.
-    public let scratchDirectory: AbsolutePath
+    package let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
-    public let sharedSecurityDirectory: AbsolutePath
+    package let sharedSecurityDirectory: AbsolutePath
 
     /// Path to the shared cache directory
-    public let sharedCacheDirectory: AbsolutePath
+    package let sharedCacheDirectory: AbsolutePath
 
     /// Path to the shared configuration directory
-    public let sharedConfigurationDirectory: AbsolutePath
+    package let sharedConfigurationDirectory: AbsolutePath
 
     /// Path to the cross-compilation Swift SDKs directory.
-    public let sharedSwiftSDKsDirectory: AbsolutePath
+    package let sharedSwiftSDKsDirectory: AbsolutePath
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
-    public let cancellator: Cancellator
+    package let cancellator: Cancellator
 
     /// The execution status of the tool.
-    public var executionStatus: ExecutionStatus = .success
+    package var executionStatus: ExecutionStatus = .success
 
     /// Holds the currently active workspace.
     ///
@@ -244,16 +244,16 @@ public final class SwiftCommandState {
     private let observabilityHandler: SwiftCommandObservabilityHandler
 
     /// The observability scope to emit diagnostics event on
-    public let observabilityScope: ObservabilityScope
+    package let observabilityScope: ObservabilityScope
 
     /// The min severity at which to log diagnostics
-    public let logLevel: Basics.Diagnostic.Severity
+    package let logLevel: Basics.Diagnostic.Severity
 
     // should use sandbox on external subcommands
-    public var shouldDisableSandbox: Bool
+    package var shouldDisableSandbox: Bool
 
     /// The file system in use
-    public let fileSystem: FileSystem
+    package let fileSystem: FileSystem
 
     /// Provider which can create a `WorkspaceDelegate` if needed.
     private let workspaceDelegateProvider: WorkspaceDelegateProvider
@@ -268,7 +268,7 @@ public final class SwiftCommandState {
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
-    public convenience init(
+    package convenience init(
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(),
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
@@ -402,7 +402,7 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
+    package func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
@@ -463,7 +463,7 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    package func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
         let rootManifests = try temp_await {
@@ -530,7 +530,7 @@ public final class SwiftCommandState {
         }
     }
 
-    public func getAuthorizationProvider() throws -> AuthorizationProvider? {
+    package func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if !options.security.netrc {
             authorization.netrc = .disabled
@@ -550,7 +550,7 @@ public final class SwiftCommandState {
         )
     }
 
-    public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
+    package func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
@@ -570,7 +570,7 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve() throws {
+    package func resolve() throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
@@ -594,7 +594,7 @@ public final class SwiftCommandState {
     ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
     /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
-    public func loadPackageGraph(
+    package func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
     ) throws -> ModulesGraph {
@@ -622,7 +622,7 @@ public final class SwiftCommandState {
         }
     }
 
-    public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
+    package func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
         let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending("cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
@@ -639,11 +639,11 @@ public final class SwiftCommandState {
     }
 
     /// Returns the user toolchain to compile the actual product.
-    public func getTargetToolchain() throws -> UserToolchain {
+    package func getTargetToolchain() throws -> UserToolchain {
         try _targetToolchain.get()
     }
 
-    public func getHostToolchain() throws -> UserToolchain {
+    package func getHostToolchain() throws -> UserToolchain {
         try _hostToolchain.get()
     }
 
@@ -651,7 +651,7 @@ public final class SwiftCommandState {
         try _manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest() throws -> Bool {
+    package func canUseCachedBuildManifest() throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -680,7 +680,7 @@ public final class SwiftCommandState {
     // "customOutputStream" is designed to support build output redirection
     // but it is only expected to be used when invoking builds from "swift build" command.
     // in all other cases, the build output should go to the default which is stderr
-    public func createBuildSystem(
+    package func createBuildSystem(
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
@@ -784,7 +784,7 @@ public final class SwiftCommandState {
     }
 
     /// Return the build parameters for the host toolchain.
-    public var toolsBuildParameters: BuildParameters {
+    package var toolsBuildParameters: BuildParameters {
         get throws {
             try _toolsBuildParameters.get()
         }
@@ -796,7 +796,7 @@ public final class SwiftCommandState {
         })
     }()
 
-    public var productsBuildParameters: BuildParameters {
+    package var productsBuildParameters: BuildParameters {
         get throws {
             try _productsBuildParameters.get()
         }
@@ -904,7 +904,7 @@ public final class SwiftCommandState {
     }()
 
     /// An enum indicating the execution status of run commands.
-    public enum ExecutionStatus {
+    package enum ExecutionStatus {
         case success
         case failure
     }
@@ -1033,7 +1033,7 @@ extension Basics.Diagnostic {
 
 // MARK: - Support for loading external workspaces
 
-public protocol WorkspaceLoader {
+package protocol WorkspaceLoader {
     func load(workspace: AbsolutePath) throws -> [AbsolutePath]
 }
 
@@ -1042,7 +1042,7 @@ public protocol WorkspaceLoader {
 extension SwiftCommandState {
     // FIXME: deprecate these one we are further along refactoring the call sites that use it
     /// The stream to print standard output on.
-    public var outputStream: OutputByteStream {
+    package var outputStream: OutputByteStream {
         self.observabilityHandler.outputStream
     }
 }
@@ -1132,7 +1132,7 @@ extension BuildOptions.DebugInfoFormat {
 }
 
 extension Basics.Diagnostic {
-    public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+    package static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }

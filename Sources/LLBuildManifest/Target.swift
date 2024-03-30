@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct Target {
+package struct Target {
     /// The name of the target.
-    public var name: String
+    package var name: String
 
     /// The list of nodes that should be computed to build this target.
-    public var nodes: [Node]
+    package var nodes: [Node]
 
-    public init(name: String, nodes: [Node]) {
+    package init(name: String, nodes: [Node]) {
         self.name = name
         self.nodes = nodes
     }

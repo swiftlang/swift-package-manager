@@ -12,8 +12,11 @@
 
 import ArgumentParser
 import Basics
+
 import Commands
+
 import CoreCommands
+
 import Foundation
 import PackageCollections
 import PackageModel
@@ -54,8 +57,8 @@ struct JSONOptions: ParsableArguments {
     var json: Bool = false
 }
 
-public struct PackageCollectionsCommand: AsyncParsableCommand {
-    public static var configuration = CommandConfiguration(
+package struct PackageCollectionsCommand: AsyncParsableCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "package-collection",
         _superCommandName: "swift",
         abstract: "Interact with package collections",
@@ -72,7 +75,7 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
-    public init() {}
+    package init() {}
 
     // MARK: Collections
 

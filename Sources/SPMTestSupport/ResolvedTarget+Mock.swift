@@ -14,7 +14,7 @@ import PackageGraph
 import PackageModel
 
 extension ResolvedTarget {
-    public static func mock(
+    package static func mock(
         packageIdentity: PackageIdentity,
         name: String,
         deps: ResolvedTarget...,

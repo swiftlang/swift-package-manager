@@ -15,14 +15,14 @@ import Foundation
 
 import class TSCBasic.Process
 
-public protocol AuxiliaryFileType {
+package protocol AuxiliaryFileType {
     static var name: String { get }
 
     static func getFileContents(inputs: [Node]) throws -> String
 }
 
-public enum WriteAuxiliary {
-    public static let fileTypes: [AuxiliaryFileType.Type] = [
+package enum WriteAuxiliary {
+    package static let fileTypes: [AuxiliaryFileType.Type] = [
         EntitlementPlist.self,
         LinkFileList.self,
         SourcesFileList.self,
@@ -30,14 +30,14 @@ public enum WriteAuxiliary {
         XCTestInfoPlist.self
     ]
 
-    public struct EntitlementPlist: AuxiliaryFileType {
-        public static let name = "entitlement-plist"
+    package struct EntitlementPlist: AuxiliaryFileType {
+        package static let name = "entitlement-plist"
 
-        public static func computeInputs(entitlement: String) -> [Node] {
+        package static func computeInputs(entitlement: String) -> [Node] {
             [.virtual(Self.name), .virtual(entitlement)]
         }
 
-        public static func getFileContents(inputs: [Node]) throws -> String {
+        package static func getFileContents(inputs: [Node]) throws -> String {
             guard let entitlementName = inputs.last?.extractedVirtualNodeName else {
                 throw Error.undefinedEntitlementName
             }
@@ -54,15 +54,15 @@ public enum WriteAuxiliary {
         }
     }
 
-    public struct LinkFileList: AuxiliaryFileType {
-        public static let name = "link-file-list"
+    package struct LinkFileList: AuxiliaryFileType {
+        package static let name = "link-file-list"
 
         // FIXME: We should extend the `InProcessTool` support to allow us to specify these in a typed way, but today we have to flatten all the inputs into a generic `Node` array (rdar://109844243).
-        public static func computeInputs(objects: [AbsolutePath]) -> [Node] {
+        package static func computeInputs(objects: [AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + objects.map { Node.file($0) }
         }
 
-        public static func getFileContents(inputs: [Node]) throws -> String {
+        package static func getFileContents(inputs: [Node]) throws -> String {
             let objects = inputs.compactMap {
                 if $0.kind == .file {
                     return $0.name
@@ -84,14 +84,14 @@ public enum WriteAuxiliary {
         }
     }
 
-    public struct SourcesFileList: AuxiliaryFileType {
-        public static let name = "sources-file-list"
+    package struct SourcesFileList: AuxiliaryFileType {
+        package static let name = "sources-file-list"
 
-        public static func computeInputs(sources: [AbsolutePath]) -> [Node] {
+        package static func computeInputs(sources: [AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + sources.map { Node.file($0) }
         }
 
-        public static func getFileContents(inputs: [Node]) throws -> String {
+        package static func getFileContents(inputs: [Node]) throws -> String {
             let sources = inputs.compactMap {
                 if $0.kind == .file {
                     return $0.name
@@ -110,14 +110,14 @@ public enum WriteAuxiliary {
         }
     }
 
-    public struct SwiftGetVersion: AuxiliaryFileType {
-        public static let name = "swift-get-version"
+    package struct SwiftGetVersion: AuxiliaryFileType {
+        package static let name = "swift-get-version"
 
-        public static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
+        package static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
             return [.virtual(Self.name), .file(swiftCompilerPath)]
         }
 
-        public static func getFileContents(inputs: [Node]) throws -> String {
+        package static func getFileContents(inputs: [Node]) throws -> String {
             guard let swiftCompilerPathString = inputs.first(where: { $0.kind == .file })?.name else {
                 throw Error.unknownSwiftCompilerPath
             }
@@ -130,14 +130,14 @@ public enum WriteAuxiliary {
         }
     }
 
-    public struct XCTestInfoPlist: AuxiliaryFileType {
-        public static let name = "xctest-info-plist"
+    package struct XCTestInfoPlist: AuxiliaryFileType {
+        package static let name = "xctest-info-plist"
 
-        public static func computeInputs(principalClass: String) -> [Node] {
+        package static func computeInputs(principalClass: String) -> [Node] {
             return [.virtual(Self.name), .virtual(principalClass)]
         }
 
-        public static func getFileContents(inputs: [Node]) throws -> String {
+        package static func getFileContents(inputs: [Node]) throws -> String {
             guard let principalClass = inputs.last?.extractedVirtualNodeName else {
                 throw Error.undefinedPrincipalClass
             }
@@ -161,23 +161,23 @@ public enum WriteAuxiliary {
     }
 }
 
-public struct LLBuildManifest {
-    public typealias TargetName = String
-    public typealias CmdName = String
+package struct LLBuildManifest {
+    package typealias TargetName = String
+    package typealias CmdName = String
 
     /// The targets in the manifest.
-    public private(set) var targets: [TargetName: Target] = [:]
+    package private(set) var targets: [TargetName: Target] = [:]
 
     /// The commands in the manifest.
-    public private(set) var commands: [CmdName: Command] = [:]
+    package private(set) var commands: [CmdName: Command] = [:]
 
     /// The default target to build.
-    public var defaultTarget: String = ""
+    package var defaultTarget: String = ""
 
-    public init() {
+    package init() {
     }
 
-    public func getCmdToolMap<T: ToolProtocol>(kind: T.Type) -> [CmdName: T] {
+    package func getCmdToolMap<T: ToolProtocol>(kind: T.Type) -> [CmdName: T] {
         var result = [CmdName: T]()
         for (cmdName, cmd) in commands {
             if let tool = cmd.tool as? T {
@@ -187,16 +187,16 @@ public struct LLBuildManifest {
         return result
     }
 
-    public mutating func createTarget(_ name: TargetName) {
+    package mutating func createTarget(_ name: TargetName) {
         guard !targets.keys.contains(name) else { return }
         targets[name] = Target(name: name, nodes: [])
     }
 
-    public mutating func addNode(_ node: Node, toTarget target: TargetName) {
+    package mutating func addNode(_ node: Node, toTarget target: TargetName) {
         targets[target, default: Target(name: target, nodes: [])].nodes.append(node)
     }
 
-    public mutating func addPhonyCmd(
+    package mutating func addPhonyCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
@@ -206,7 +206,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addTestDiscoveryCmd(
+    package mutating func addTestDiscoveryCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
@@ -216,7 +216,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addTestEntryPointCmd(
+    package mutating func addTestEntryPointCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
@@ -226,7 +226,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addCopyCmd(
+    package mutating func addCopyCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
@@ -236,14 +236,14 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: AbsolutePath) {
+    package mutating func addEntitlementPlistCommand(entitlement: String, outputPath: AbsolutePath) {
         let inputs = WriteAuxiliary.EntitlementPlist.computeInputs(entitlement: entitlement)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addWriteLinkFileListCommand(
+    package mutating func addWriteLinkFileListCommand(
         objects: [AbsolutePath],
         linkFileListPath: AbsolutePath
     ) {
@@ -253,7 +253,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addWriteSourcesFileListCommand(
+    package mutating func addWriteSourcesFileListCommand(
         sources: [AbsolutePath],
         sourcesFileListPath: AbsolutePath
     ) {
@@ -263,7 +263,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addSwiftGetVersionCommand(
+    package mutating func addSwiftGetVersionCommand(
         swiftCompilerPath: AbsolutePath,
         swiftVersionFilePath: AbsolutePath
     ) {
@@ -273,14 +273,14 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
+    package mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
         let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addPkgStructureCmd(
+    package mutating func addPkgStructureCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
@@ -290,7 +290,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addShellCmd(
+    package mutating func addShellCmd(
         name: String,
         description: String,
         inputs: [Node],
@@ -313,7 +313,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addSwiftFrontendCmd(
+    package mutating func addSwiftFrontendCmd(
         name: String,
         moduleName: String,
         packageName: String,
@@ -333,7 +333,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addClangCmd(
+    package mutating func addClangCmd(
         name: String,
         description: String,
         inputs: [Node],
@@ -352,7 +352,7 @@ public struct LLBuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addSwiftCmd(
+    package mutating func addSwiftCmd(
         name: String,
         inputs: [Node],
         outputs: [Node],

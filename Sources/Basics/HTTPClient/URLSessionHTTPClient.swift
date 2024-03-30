@@ -87,7 +87,60 @@ final class URLSessionHTTPClient {
     }
 }
 
-private class DataTaskManager: NSObject, URLSessionDataDelegate {
+/// A weak wrapper around `DataTaskManager` that conforms to `URLSessionDataDelegate`.
+///
+/// This ensures that we don't get a retain cycle between `DataTaskManager.session` -> `URLSession.delegate` -> `DataTaskManager`.
+///
+/// The `DataTaskManager` is being kept alive by a reference from all `DataTask`s that it manages. Once all the
+/// `DataTasks` have finished and are deallocated, `DataTaskManager` will get deinitialized, which invalidates the
+/// session, which then lets go of `WeakDataTaskManager`.
+private class WeakDataTaskManager: NSObject, URLSessionDataDelegate {
+    private weak var dataTaskManager: DataTaskManager?
+
+    init(_ dataTaskManager: DataTaskManager? = nil) {
+        self.dataTaskManager = dataTaskManager
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        dataTaskManager?.urlSession(
+            session,
+            dataTask: dataTask,
+            didReceive: response,
+            completionHandler: completionHandler
+        )
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        dataTaskManager?.urlSession(session, dataTask: dataTask, didReceive: data)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        dataTaskManager?.urlSession(session, task: task, didCompleteWithError: error)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        dataTaskManager?.urlSession(
+            session,
+            task: task,
+            willPerformHTTPRedirection: response,
+            newRequest: request,
+            completionHandler: completionHandler
+        )
+    }
+}
+
+private class DataTaskManager {
     private var tasks = ThreadSafeKeyValueStore<Int, DataTask>()
     private let delegateQueue: OperationQueue
     private var session: URLSession!
@@ -96,8 +149,11 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         self.delegateQueue = OperationQueue()
         self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
         self.delegateQueue.maxConcurrentOperationCount = 1
-        super.init()
-        self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: self.delegateQueue)
+        self.session = URLSession(configuration: configuration, delegate: WeakDataTaskManager(self), delegateQueue: self.delegateQueue)
+    }
+
+    deinit {
+        session.finishTasksAndInvalidate()
     }
 
     func makeTask(
@@ -110,6 +166,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         self.tasks[task.taskIdentifier] = DataTask(
             task: task,
             progressHandler: progress,
+            dataTaskManager: self,
             completionHandler: completion,
             authorizationProvider: authorizationProvider
         )
@@ -192,6 +249,11 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
     class DataTask {
         let task: URLSessionDataTask
         let completionHandler: LegacyHTTPClient.CompletionHandler
+        /// A strong reference to keep the `DataTaskManager` alive so it can handle the callbacks from the
+        /// `URLSession`.
+        ///
+        /// See comment on `WeakDataTaskManager`.
+        let dataTaskManager: DataTaskManager
         let progressHandler: LegacyHTTPClient.ProgressHandler?
         let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
@@ -202,18 +264,61 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         init(
             task: URLSessionDataTask,
             progressHandler: LegacyHTTPClient.ProgressHandler?,
+            dataTaskManager: DataTaskManager,
             completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
             authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
         ) {
             self.task = task
             self.progressHandler = progressHandler
+            self.dataTaskManager = dataTaskManager
             self.completionHandler = completionHandler
             self.authorizationProvider = authorizationProvider
         }
     }
 }
 
-private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
+/// This uses the same pattern as `WeakDataTaskManager`. See comment on that type.
+private class WeakDownloadTaskManager: NSObject, URLSessionDownloadDelegate {
+    private weak var downloadTaskManager: DownloadTaskManager?
+
+    init(_ downloadTaskManager: DownloadTaskManager? = nil) {
+      self.downloadTaskManager = downloadTaskManager
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        downloadTaskManager?.urlSession(
+            session,
+            downloadTask: downloadTask,
+            didWriteData: bytesWritten,
+            totalBytesWritten: totalBytesWritten,
+            totalBytesExpectedToWrite: totalBytesExpectedToWrite
+        )
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
+        downloadTaskManager?.urlSession(session, downloadTask: downloadTask, didFinishDownloadingTo: location)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task downloadTask: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        downloadTaskManager?.urlSession(session, task: downloadTask, didCompleteWithError: error)
+    }
+}
+
+private class DownloadTaskManager {
     private var tasks = ThreadSafeKeyValueStore<Int, DownloadTask>()
     private let delegateQueue: OperationQueue
     private var session: URLSession!
@@ -222,8 +327,11 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         self.delegateQueue = OperationQueue()
         self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client-download-delegate"
         self.delegateQueue.maxConcurrentOperationCount = 1
-        super.init()
-        self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: self.delegateQueue)
+        self.session = URLSession(configuration: configuration, delegate: WeakDownloadTaskManager(self), delegateQueue: self.delegateQueue)
+    }
+
+    deinit {
+        session.finishTasksAndInvalidate()
     }
 
     func makeTask(
@@ -238,6 +346,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             task: task,
             fileSystem: fileSystem,
             destination: destination,
+            downloadTaskManager: self,
             progressHandler: progress,
             completionHandler: completion
         )
@@ -314,8 +423,13 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let task: URLSessionDownloadTask
         let fileSystem: FileSystem
         let destination: AbsolutePath
-        let completionHandler: LegacyHTTPClient.CompletionHandler
+        /// A strong reference to keep the `DownloadTaskManager` alive so it can handle the callbacks from the
+        /// `URLSession`.
+        ///
+        /// See comment on `WeakDownloadTaskManager`.
+        private let downloadTaskManager: DownloadTaskManager
         let progressHandler: LegacyHTTPClient.ProgressHandler?
+        let completionHandler: LegacyHTTPClient.CompletionHandler
 
         var moveFileError: Error?
 
@@ -323,12 +437,14 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             task: URLSessionDownloadTask,
             fileSystem: FileSystem,
             destination: AbsolutePath,
+            downloadTaskManager: DownloadTaskManager,
             progressHandler: LegacyHTTPClient.ProgressHandler?,
             completionHandler: @escaping LegacyHTTPClient.CompletionHandler
         ) {
             self.task = task
             self.fileSystem = fileSystem
             self.destination = destination
+            self.downloadTaskManager = downloadTaskManager
             self.progressHandler = progressHandler
             self.completionHandler = completionHandler
         }

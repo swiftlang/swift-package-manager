@@ -12,7 +12,11 @@
 
 import ArgumentParser
 import Basics
+
 import CoreCommands
+
+import SPMBuildCore
+
 import Dispatch
 import PackageGraph
 import PackageModel

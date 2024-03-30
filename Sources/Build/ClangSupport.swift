@@ -14,7 +14,7 @@ import Basics
 import Foundation
 import PackageModel
 
-public enum ClangSupport {
+package enum ClangSupport {
     private struct Feature: Decodable {
         let name: String
         let value: [String]?
@@ -26,7 +26,7 @@ public enum ClangSupport {
 
     private static var cachedFeatures = ThreadSafeBox<Features>()
 
-    public static func supportsFeature(name: String, toolchain: PackageModel.Toolchain) throws -> Bool {
+    package static func supportsFeature(name: String, toolchain: PackageModel.Toolchain) throws -> Bool {
         let features = try cachedFeatures.memoize {
             let clangPath = try toolchain.getClangCompiler()
             let featuresPath = clangPath.parentDirectory.parentDirectory.appending(components: ["share", "clang", "features.json"])

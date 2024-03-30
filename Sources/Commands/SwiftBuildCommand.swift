@@ -12,14 +12,15 @@
 
 import ArgumentParser
 import Basics
-import Build
-import CoreCommands
-import PackageGraph
-import SPMBuildCore
 
-#if !DISABLE_XCBUILD_SUPPORT
+import Build
+
+import CoreCommands
+
+import PackageGraph
+
+import SPMBuildCore
 import XCBuildSupport
-#endif
 
 import class TSCBasic.Process
 import var TSCBasic.stdoutStream
@@ -91,12 +92,27 @@ struct BuildCommandOptions: ParsableArguments {
 
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    public var shouldLinkStaticSwiftStdlib: Bool = false
+    package var shouldLinkStaticSwiftStdlib: Bool = false
+
+    /// Which testing libraries to use (and any related options.)
+    @OptionGroup()
+    var testLibraryOptions: TestLibraryOptions
+
+    func validate() throws {
+        // If --build-tests was not specified, it does not make sense to enable
+        // or disable either testing library.
+        if !buildTests {
+            if testLibraryOptions.explicitlyEnableXCTestSupport != nil
+                || testLibraryOptions.explicitlyEnableSwiftTestingLibrarySupport != nil {
+                throw StringError("pass --build-tests to build test targets")
+            }
+        }
+    }
 }
 
 /// swift-build command namespace
-public struct SwiftBuildCommand: AsyncSwiftCommand {
-    public static var configuration = CommandConfiguration(
+package struct SwiftBuildCommand: AsyncSwiftCommand {
+    package static var configuration = CommandConfiguration(
         commandName: "build",
         _superCommandName: "swift",
         abstract: "Build sources into binary products",
@@ -105,12 +121,12 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    public var globalOptions: GlobalOptions
+    package var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: BuildCommandOptions
 
-    public func run(_ swiftCommandState: SwiftCommandState) async throws {
+    package func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldPrintBinPath {
             return try print(swiftCommandState.productsBuildParameters.buildPath.description)
         }
@@ -132,9 +148,31 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
+        if case .allIncludingTests = subset {
+            var buildParameters = try swiftCommandState.productsBuildParameters
+            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+                buildParameters.testingParameters = .init(
+                    configuration: buildParameters.configuration,
+                    targetTriple: buildParameters.triple,
+                    enableCodeCoverage: buildParameters.testingParameters.enableCodeCoverage,
+                    enableTestability: buildParameters.testingParameters.enableTestability,
+                    experimentalTestOutput: buildParameters.testingParameters.experimentalTestOutput,
+                    forceTestDiscovery: globalOptions.build.enableTestDiscovery,
+                    testEntryPointPath: globalOptions.build.testEntryPointPath,
+                    library: library
+                )
+                try build(swiftCommandState, subset: subset, buildParameters: buildParameters)
+            }
+        } else {
+            try build(swiftCommandState, subset: subset)
+        }
+    }
+
+    private func build(_ swiftCommandState: SwiftCommandState, subset: BuildSubset, buildParameters: BuildParameters? = nil) throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+            productsBuildParameters: buildParameters,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
             outputStream: TSCBasic.stdoutStream
@@ -146,10 +184,10 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         }
     }
 
-    public init() {}
+    package init() {}
 }
 
-public extension _SwiftCommand {
+package extension _SwiftCommand {
     func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider {
         swiftCommandState.defaultBuildSystemProvider
     }

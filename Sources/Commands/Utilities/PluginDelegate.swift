@@ -11,9 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
 import CoreCommands
+
 import Foundation
 import PackageModel
+
 import SPMBuildCore
 
 import protocol TSCBasic.OutputByteStream
@@ -75,7 +78,7 @@ final class PluginDelegate: PluginInvocationDelegate {
     class TeeOutputByteStream: OutputByteStream {
         var downstreams: [OutputByteStream]
 
-        public init(_ downstreams: [OutputByteStream]) {
+        package init(_ downstreams: [OutputByteStream]) {
             self.downstreams = downstreams
         }
 
@@ -83,7 +86,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             return 0 // should be related to the downstreams somehow
         }
 
-        public func write(_ byte: UInt8) {
+        package func write(_ byte: UInt8) {
             for downstream in downstreams {
                 downstream.write(byte)
             }
@@ -95,13 +98,13 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
 		}
 
-        public func flush() {
+        package func flush() {
             for downstream in downstreams {
                 downstream.flush()
             }
         }
 
-        public func addStream(_ stream: OutputByteStream) {
+        package func addStream(_ stream: OutputByteStream) {
             self.downstreams.append(stream)
         }
     }

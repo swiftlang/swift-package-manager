@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
 import Commands
+
 import SwiftSDKCommand
 import PackageCollectionsCommand
 import PackageRegistryCommand
@@ -33,8 +35,7 @@ struct SwiftPM {
         }
     }
 
-    @discardableResult
-    private static func main(execName: String?) async -> Bool {
+    private static func main(execName: String?) async {
         switch execName {
         case "swift-package":
             await SwiftPackageCommand.main()
@@ -43,7 +44,7 @@ struct SwiftPM {
         case "swift-experimental-sdk":
             await SwiftSDKCommand.main()
         case "swift-test":
-            SwiftTestCommand.main()
+            await SwiftTestCommand.main()
         case "swift-run":
             await SwiftRunCommand.main()
         case "swift-package-collection":
@@ -53,7 +54,5 @@ struct SwiftPM {
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }
-
-        return true
     }
 }

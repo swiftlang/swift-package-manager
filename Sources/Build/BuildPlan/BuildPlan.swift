@@ -91,11 +91,11 @@ extension [String] {
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
+    package var moduleCache: AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
-            if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
+            if let path = ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
             return buildPath.appending("ModuleCache")
@@ -128,7 +128,7 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
+    package func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
 
         // Compute the triple string for Darwin platform using the platform version.
@@ -158,17 +158,17 @@ extension BuildParameters {
 
     /// Returns the scoped view of build settings for a given target.
     func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
+        BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
     }
 }
 
 /// A build plan for a package graph.
 public class BuildPlan: SPMBuildCore.BuildPlan {
-    public enum Error: Swift.Error, CustomStringConvertible, Equatable {
+    package enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
         case noBuildableTarget
 
-        public var description: String {
+        package var description: String {
             switch self {
             case .noBuildableTarget:
                 return """
@@ -196,20 +196,20 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The package graph.
-    public let graph: ModulesGraph
+    package let graph: ModulesGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
+    package let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
 
     /// The product build description map.
-    public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
+    package let productMap: [ResolvedProduct.ID: ProductBuildDescription]
 
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
-    public let pluginDescriptions: [PluginDescription]
+    package let pluginDescriptions: [PluginDescription]
 
     /// The build targets.
-    public var targets: AnySequence<TargetBuildDescription> {
+    package var targets: AnySequence<TargetBuildDescription> {
         AnySequence(self.targetMap.values)
     }
 
@@ -219,14 +219,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
-    public let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
+    package let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+    package let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
-    @_spi(SwiftPMInternal)
-    public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
+    package private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
@@ -395,8 +394,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     )
                 )
             case is ClangTarget:
+                guard let package = graph.package(for: target) else {
+                    throw InternalError("package not found for \(target)")
+                }
+
                 targetMap[target.id] = try .clang(
                     ClangTargetBuildDescription(
+                        package: package,
                         target: target,
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
@@ -447,7 +451,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             for item in derivedTestTargets {
                 var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.entryPointTargetBuildDescription.target.id] = .swift(item.entryPointTargetBuildDescription)
+                targetMap[item.entryPointTargetBuildDescription.target.id] = 
+                    .swift(item.entryPointTargetBuildDescription)
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                     targetMap[discoveryTargetBuildDescription.target.id] = .swift(discoveryTargetBuildDescription)
@@ -553,9 +558,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in graph.reachableTargets {
+        for target in self.graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
-                arguments.append(contentsOf: try self.pkgConfig(for: systemLib).cFlags)
+                try arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
             }
@@ -590,7 +595,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in graph.reachableTargets {
+        for target in self.graph.reachableTargets {
             if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments += try self.pkgConfig(for: systemLib).cFlags
             }
@@ -646,7 +651,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 extension Basics.Diagnostic {
     static var swiftBackDeployError: Self {
         .warning(
-            "Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/"
+            """
+            Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by \
+            default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an \
+            optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at \
+            https://developer.apple.com/download/more/
+            """
         )
     }
 
@@ -729,7 +739,7 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        return self.targets.filter({ !($0.underlying is BinaryTarget) }).isEmpty
+        self.targets.filter { !($0.underlying is BinaryTarget) }.isEmpty
     }
 
     private var isPlugin: Bool {

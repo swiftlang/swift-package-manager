@@ -14,7 +14,6 @@ import Basics
 import Build
 import Commands
 
-@_spi(SwiftPMInternal)
 import DriverSupport
 
 import Foundation
@@ -43,7 +42,7 @@ final class APIDiffTests: CommandsTestCase {
         try skipIfApiDigesterUnsupported()
         // The following is added to separate out the integration point testing of the API
         // diff digester with SwiftPM from the functionality tests of the digester itself
-        guard ProcessEnv.vars["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
+        guard ProcessEnv.block["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
             throw XCTSkip("Env var SWIFTPM_TEST_API_DIFF_OUTPUT must be set to test the output")
         }
     }

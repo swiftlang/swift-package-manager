@@ -11,8 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import CoreCommands
-@testable import Commands
+
+@testable 
+import CoreCommands
+
+@testable 
+import Commands
+
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -630,7 +635,7 @@ final class PackageCommandTests: CommandsTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [manifestA, manifestB, manifestC, manifestD],
             observabilityScope: observability.topScope

@@ -19,7 +19,7 @@ import PackageModel
 final class PluginsBuildPlanTests: XCTestCase {
     func testBuildToolsDatabasePath() throws {
         try fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
-            let (stdout, stderr) = try executeSwiftBuild(fixturePath)
+            let (stdout, _) = try executeSwiftBuild(fixturePath)
             XCTAssertMatch(stdout, .contains("Build complete!"))
             XCTAssertTrue(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugins/tools/build.db"))))
         }
