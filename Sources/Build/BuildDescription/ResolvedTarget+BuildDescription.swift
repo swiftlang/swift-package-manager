@@ -18,6 +18,6 @@ import SPMBuildCore
 extension ResolvedTarget {
     func tempsPath(_ buildParameters: BuildParameters) -> AbsolutePath {
         let suffix = buildParameters.suffix(triple: self.buildTriple)
-        return buildParameters.buildPath.appending(component: self.c99name + "\(suffix).build")
+        return buildParameters.buildPath.appending(component: "\(self.c99name)\(suffix).build")
     }
 }
