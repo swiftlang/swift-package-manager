@@ -1855,13 +1855,13 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
     }
 
     func testAvailableLibraries() throws {
-        let ref: PackageReference = .remoteSourceControl(
+        let fooRef: PackageReference = .remoteSourceControl(
             identity: .plain("foo"),
             url: .init("https://example.com/org/foo")
         )
-        try builder.serve(ref, at: .version(.init(stringLiteral: "1.0.0")))
-        try builder.serve(ref, at: .version(.init(stringLiteral: "1.2.0")))
-        try builder.serve(ref, at: .version(.init(stringLiteral: "2.0.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.0.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.2.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "2.0.0")))
 
         let availableLibraries: [LibraryMetadata] = [
             .init(
@@ -1874,10 +1874,10 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
 
         let resolver = builder.create(availableLibraries: availableLibraries)
         let dependencies1 = builder.create(dependencies: [
-            ref: (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["foo"])),
+            fooRef: (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["foo"]))
         ])
         let dependencies2 = builder.create(dependencies: [
-            ref: (.versionSet(.range("1.1.0"..<"2.0.0")), .specific(["foo"])),
+            fooRef: (.versionSet(.range("1.1.0"..<"2.0.0")), .specific(["foo"]))
         ])
 
         let result = resolver.solve(constraints: dependencies1)
@@ -1887,6 +1887,104 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         let result2 = resolver.solve(constraints: dependencies2)
         AssertResult(result2, [
             ("foo", .version(.init(stringLiteral: "1.2.0"))),
+        ])
+    }
+
+    func testAvailableLibrariesArePreferred() throws {
+        let fooRef: PackageReference = .remoteSourceControl(
+            identity: .plain("foo"),
+            url: .init("https://example.com/org/foo")
+        )
+
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.0.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.1.0")), with: [
+            "foo": [
+                "left":  (.versionSet(.range(.upToNextMajor(from: "1.0.0"))), .everything),
+                "right": (.versionSet(.range(.upToNextMajor(from: "1.0.0"))), .everything)
+            ]
+        ])
+
+        try builder.serve("left", at: "1.0.0", with: [
+            "left": ["shared": (.versionSet(.range(.upToNextMajor(from: "1.0.0"))), .everything)]
+        ])
+
+        try builder.serve("right", at: "1.0.0", with: [
+            "right": ["shared": (.versionSet(.range("0.0.0"..<"2.0.0")), .everything)]
+        ])
+
+        try builder.serve("shared", at: "1.0.0", with: [
+            "shared": ["target": (.versionSet(.range(.upToNextMajor(from: "1.0.0"))), .everything)]
+        ])
+        try builder.serve("shared", at: "2.0.0")
+
+        try builder.serve("target", at: "1.0.0")
+        try builder.serve("target", at: "2.0.0")
+
+        let availableLibraries: [LibraryMetadata] = [
+            .init(
+                identities: [.sourceControl(url: "https://example.com/org/foo")],
+                version: "1.1.0",
+                productName: nil,
+                schemaVersion: 1
+            )
+        ]
+
+        let resolver = builder.create(availableLibraries: availableLibraries)
+        let dependencies = builder.create(dependencies: [
+            fooRef: (.versionSet(.range(.upToNextMajor(from: "1.0.0"))), .everything),
+            "target": (.versionSet(.range(.upToNextMajor(from: "2.0.0"))), .everything)
+        ])
+
+        // This behavior requires an explanation - "foo" is elided because 1.1.0 is prebuilt.
+        // It matches "root" requirements but without prebuilt library the solver would pick
+        // "1.0.0" because "foo" 1.1.0 dependency version requirements are incompatible with
+        // "target" 2.0.0.
+
+        let result = resolver.solve(constraints: dependencies)
+        AssertResult(result, [
+            ("target", .version(.init(stringLiteral: "2.0.0"))),
+        ])
+    }
+
+    func testAvailableLibrariesWithFallback() throws {
+        let fooRef: PackageReference = .remoteSourceControl(
+            identity: .plain("foo"),
+            url: .init("https://example.com/org/foo")
+        )
+
+        let barRef: PackageReference = .init(stringLiteral: "bar")
+
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.0.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.1.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.2.0")))
+        try builder.serve(fooRef, at: .version(.init(stringLiteral: "2.0.0")))
+
+        try builder.serve("bar", at: "1.0.0", with: [
+            "bar": [fooRef: (.versionSet(.range(.upToNextMinor(from: "1.1.0"))), .everything)]
+        ])
+        try builder.serve("bar", at: "2.0.0", with: [
+            "bar": [fooRef: (.versionSet(.range(.upToNextMinor(from: "2.0.0"))), .everything)]
+        ])
+
+        let availableLibraries: [LibraryMetadata] = [
+            .init(
+                identities: [.sourceControl(url: "https://example.com/org/foo")],
+                version: "1.0.0",
+                productName: nil,
+                schemaVersion: 1
+            )
+        ]
+
+        let resolver = builder.create(availableLibraries: availableLibraries)
+        let dependencies = builder.create(dependencies: [
+            fooRef: (.versionSet(.range(.upToNextMajor(from: "1.0.0"))), .everything),
+            barRef: (.versionSet(.range("1.0.0"..<"3.0.0")), .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+        AssertResult(result, [
+            ("foo", .version(.init(stringLiteral: "1.1.0"))),
+            ("bar", .version(.init(stringLiteral: "1.0.0")))
         ])
     }
 }
@@ -3199,7 +3297,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at versions: [Version],
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>> = [:]
     ) throws {
         try self.serve(package, at: versions.map{ .version($0) }, toolsVersion: toolsVersion, with: dependencies)
     }
@@ -3208,7 +3306,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: Version,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>> = [:]
     ) throws {
         try self.serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
@@ -3217,7 +3315,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at versions: [BoundVersion],
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>> = [:]
     ) throws {
         let packageReference = try reference(for: package)
         try self.serve(
@@ -3232,7 +3330,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: BoundVersion,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>> = [:]
     ) throws {
         let packageReference = try reference(for: package)
         try self.serve(
@@ -3247,7 +3345,7 @@ class DependencyGraphBuilder {
         _ packageReference: PackageReference,
         at versions: [BoundVersion],
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>> = [:]
     ) throws {
         for version in versions {
             try serve(packageReference, at: version, toolsVersion: toolsVersion, with: dependencies)
@@ -3258,7 +3356,7 @@ class DependencyGraphBuilder {
         _ packageReference: PackageReference,
         at version: BoundVersion,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>> = [:]
     ) throws {
         let container = self.containers[packageReference.identity.description] ?? MockContainer(package: packageReference)
 
@@ -3272,8 +3370,8 @@ class DependencyGraphBuilder {
             container.dependencies[version.description] = [:]
         }
         for (product, filteredDependencies) in dependencies {
-            let packageDependencies: [MockContainer.Dependency] = try filteredDependencies.map {
-                (container: try reference(for: $0), requirement: $1.0, productFilter: $1.1)
+            let packageDependencies: [MockContainer.Dependency] = filteredDependencies.map {
+                (container: $0, requirement: $1.0, productFilter: $1.1)
             }
             container.dependencies[version.description, default: [:]][product, default: []] += packageDependencies
         }
