@@ -10,11 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Build
-@testable import PackageModel
+@testable
+import Build
+
+@testable
+import PackageModel
 
 import Basics
 import SPMTestSupport
+
+import SPMBuildCore
+
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream
@@ -22,16 +28,14 @@ import class TSCBasic.InMemoryFileSystem
 
 final class BuildOperationTests: XCTestCase {
     func testDetectUnexpressedDependencies() throws {
-        let buildParameters = mockBuildParameters(shouldDisableLocalRpath: false)
-
         let fs = InMemoryFileSystem(files: [
-            "\(buildParameters.dataPath)/debug/Lunch.build/Lunch.d" : "/Best.framework"
+            "/path/to/build/debug/Lunch.build/Lunch.d" : "/Best.framework"
         ])
 
         let observability = ObservabilitySystem.makeForTesting()
         let buildOp = BuildOperation(
-            productsBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+            productsBuildParameters: mockBuildParameters(shouldDisableLocalRpath: false),
+            toolsBuildParameters: mockBuildParameters(shouldDisableLocalRpath: false),
             cacheBuildManifest: false,
             packageGraphLoader: { fatalError() },
             additionalFileRules: [],

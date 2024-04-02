@@ -133,7 +133,7 @@ public struct ResolvedTarget {
     public let underlying: Target
 
     /// The dependencies of this target.
-    public private(set) var dependencies: [Dependency]
+    public let dependencies: [Dependency]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -144,11 +144,7 @@ public struct ResolvedTarget {
     private let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved target should be compiled for.
-    public internal (set) var buildTriple: BuildTriple {
-        didSet {
-            self.updateBuildTriplesOfDependencies()
-        }
-    }
+    public let buildTriple: BuildTriple
 
     /// Create a resolved target instance.
     public init(
@@ -165,26 +161,7 @@ public struct ResolvedTarget {
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
-        self.buildTriple = underlying.buildTriple
-        self.updateBuildTriplesOfDependencies()
-    }
-
-    private mutating func updateBuildTriplesOfDependencies() {
-        if case .tools = self.buildTriple {
-            for (i, dependency) in dependencies.enumerated() {
-                let updatedDependency: Dependency
-                switch dependency {
-                case .target(var target, let conditions):
-                    target.buildTriple = .tools
-                    updatedDependency = .target(target, conditions: conditions)
-                case .product(var product, let conditions):
-                    product.buildTriple = .tools
-                    updatedDependency = .product(product, conditions: conditions)
-                }
-
-                dependencies[i] = updatedDependency
-            }
-        }
+        self.buildTriple = .destination
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
@@ -198,7 +175,7 @@ public struct ResolvedTarget {
 
 extension ResolvedTarget: CustomStringConvertible {
     public var description: String {
-        return "<ResolvedTarget: \(self.name) | \(self.buildTriple)>"
+        return "<ResolvedTarget: \(name)>"
     }
 }
 
@@ -267,7 +244,7 @@ extension ResolvedTarget: Identifiable {
     public struct ID: Hashable {
         public let targetName: String
         let packageIdentity: PackageIdentity
-        public var buildTriple: BuildTriple
+        public let buildTriple: BuildTriple
     }
 
     public var id: ID {

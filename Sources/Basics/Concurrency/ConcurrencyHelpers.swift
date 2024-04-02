@@ -20,7 +20,7 @@ import func TSCBasic.tsc_await
 
 public enum Concurrency {
     public static var maxOperations: Int {
-        ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
+        ProcessEnv.block["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
             .activeProcessorCount
     }
 }

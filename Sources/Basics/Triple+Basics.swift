@@ -24,6 +24,10 @@ extension Triple {
 }
 
 extension Triple {
+    public var isWasm: Bool {
+        [.wasm32, .wasm64].contains(self.arch)
+    }
+
     public func isApple() -> Bool {
         vendor == .apple
     }
@@ -148,6 +152,10 @@ extension Triple {
     }
 
     public var executableExtension: String {
+        guard !self.isWasm else {
+            return ".wasm"
+        }
+
         guard let os = self.os else {
             return ""
         }
@@ -157,8 +165,6 @@ extension Triple {
             return ""
         case .linux, .openbsd:
             return ""
-        case .wasi:
-            return ".wasm"
         case .win32:
             return ".exe"
         case .noneOS:

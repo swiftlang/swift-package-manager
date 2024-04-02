@@ -52,9 +52,9 @@ public struct ArtifactsArchiveMetadata: Equatable {
 
     public struct Variant: Equatable {
         public let path: RelativePath
-        public let supportedTriples: [Triple]
+        public let supportedTriples: [Triple]?
 
-        public init(path: RelativePath, supportedTriples: [Triple]) {
+        public init(path: RelativePath, supportedTriples: [Triple]?) {
             self.path = path
             self.supportedTriples = supportedTriples
         }
@@ -121,7 +121,7 @@ extension ArtifactsArchiveMetadata.Variant: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.supportedTriples = try container.decode([String].self, forKey: .supportedTriples).map { try Triple($0) }
+        self.supportedTriples = try container.decodeIfPresent([String].self, forKey: .supportedTriples)?.map { try Triple($0) }
         self.path = try RelativePath(validating: container.decode(String.self, forKey: .path))
     }
 }

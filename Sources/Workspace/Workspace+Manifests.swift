@@ -141,9 +141,16 @@ extension Workspace {
                 let dependency = dependency.dependency
                 switch dependency.state {
                 case .sourceControlCheckout(let checkout):
-                    if checkout.isBranchOrRevisionBased {
-                        result.insert(dependency.packageRef)
+                    let packageRef = dependency.packageRef
+
+                    if checkout.isBranchOrRevisionBased
+                      // FIXME: Remove this once we have a general mechanism
+                      //        for passing "safe" flags.
+                      || packageRef.identity == .plain("swift-corelibs-foundation")
+                    {
+                      result.insert(packageRef)
                     }
+
                 case .registryDownload, .edited, .custom:
                     continue
                 case .fileSystem:

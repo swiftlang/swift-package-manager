@@ -21,24 +21,24 @@ import protocol Basics.FileSystem
 /// But because the package graph and build plan are not loaded for incremental
 /// builds, this information is included in the BuildDescription, and the plugin
 /// targets are compiled directly.
-public final class PluginDescription: Codable {
+package final class PluginDescription: Codable {
     /// The identity of the package in which the plugin is defined.
-    public let package: PackageIdentity
+    package let package: PackageIdentity
 
     /// The name of the plugin target in that package (this is also the name of
     /// the plugin).
-    public let targetName: String
+    package let targetName: String
 
     /// The names of any plugin products in that package that vend the plugin
     /// to other packages.
-    public let productNames: [String]
+    package let productNames: [String]
 
     /// The tools version of the package that declared the target. This affects
     /// the API that is available in the PackagePlugin module.
-    public let toolsVersion: ToolsVersion
+    package let toolsVersion: ToolsVersion
 
     /// Swift source files that comprise the plugin.
-    public let sources: Sources
+    package let sources: Sources
 
     /// Initialize a new plugin target description. The target is expected to be
     /// a `PluginTarget`.

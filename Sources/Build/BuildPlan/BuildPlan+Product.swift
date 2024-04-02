@@ -17,7 +17,9 @@ import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedTarget
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
+
 import class PackageModel.Target
+
 import class PackageModel.SwiftTarget
 import class PackageModel.SystemLibraryTarget
 import struct SPMBuildCore.BuildParameters
@@ -28,7 +30,10 @@ extension BuildPlan {
     /// Plan a product.
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product, buildParameters: buildProduct.buildParameters)
+        let dependencies = try computeDependencies(
+            of: buildProduct.product,
+            buildParameters: buildProduct.buildParameters
+        )
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -50,19 +55,24 @@ extension BuildPlan {
             }
         }
 
-        // Link C++ if needed.
-        // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlying, target.isCXX {
-                let triple = buildProduct.buildParameters.triple
-                if triple.isDarwin() {
-                    buildProduct.additionalFlags += ["-lc++"]
-                } else if triple.isWindows() {
-                    // Don't link any C++ library.
-                } else {
-                    buildProduct.additionalFlags += ["-lstdc++"]
+        // Don't link libc++ or libstd++ when building for Embedded Swift.
+        // Users can still link it manually for embedded platforms when needed,
+        // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
+        if !buildProduct.product.targets.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+            // Link C++ if needed.
+            // Note: This will come from build settings in future.
+            for target in dependencies.staticTargets {
+                if case let target as ClangTarget = target.underlying, target.isCXX {
+                    let triple = buildProduct.buildParameters.triple
+                    if triple.isDarwin() {
+                        buildProduct.additionalFlags += ["-lc++"]
+                    } else if triple.isWindows() {
+                        // Don't link any C++ library.
+                    } else {
+                        buildProduct.additionalFlags += ["-lstdc++"]
+                    }
+                    break
                 }
-                break
             }
         }
 
@@ -70,7 +80,7 @@ extension BuildPlan {
             switch target.underlying {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = self.targetMap[target.id] else {
+                guard case .swift(let description) = targetMap[target.id] else {
                     throw InternalError("unknown target \(target)")
                 }
 
@@ -220,11 +230,9 @@ extension BuildPlan {
                     if product.targets.contains(id: target.id) {
                         staticTargets.append(target)
                     }
-                // Library targets should always be included for the same build triple.
+                // Library targets should always be included.
                 case .library:
-                    if target.buildTriple == product.buildTriple {
-                        staticTargets.append(target)
-                    }
+                    staticTargets.append(target)
                 // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(target)

@@ -14,20 +14,20 @@ import Basics
 import Foundation
 import PackageModel
 
-public struct MockPackage {
-    public let name: String
-    public let platforms: [PlatformDescription]
-    public let location: Location
-    public let targets: [MockTarget]
-    public let products: [MockProduct]
-    public let dependencies: [MockDependency]
-    public let versions: [String?]
+package struct MockPackage {
+    package let name: String
+    package let platforms: [PlatformDescription]
+    package let location: Location
+    package let targets: [MockTarget]
+    package let products: [MockProduct]
+    package let dependencies: [MockDependency]
+    package let versions: [String?]
     /// Provides revision identifier for the given version. A random identifier might be assigned if this is nil.
-    public let revisionProvider: ((String) -> String)?
+    package let revisionProvider: ((String) -> String)?
     // FIXME: This should be per-version.
-    public let toolsVersion: ToolsVersion?
+    package let toolsVersion: ToolsVersion?
 
-    public init(
+    package init(
         name: String,
         platforms: [PlatformDescription] = [],
         path: String? = nil,
@@ -50,7 +50,7 @@ public struct MockPackage {
         self.toolsVersion = toolsVersion
     }
 
-    public init(
+    package init(
         name: String,
         platforms: [PlatformDescription] = [],
         url: String,
@@ -72,7 +72,7 @@ public struct MockPackage {
         self.toolsVersion = toolsVersion
     }
 
-    public init(
+    package init(
         name: String,
         platforms: [PlatformDescription] = [],
         identity: String,
@@ -100,7 +100,7 @@ public struct MockPackage {
         self.toolsVersion = toolsVersion
     }
 
-    public static func genericPackage(named name: String) throws -> MockPackage {
+    package static func genericPackage(named name: String) throws -> MockPackage {
         return MockPackage(
             name: name,
             targets: [
@@ -113,7 +113,7 @@ public struct MockPackage {
         )
     }
 
-    public enum Location {
+    package enum Location {
         case fileSystem(path: RelativePath)
         case sourceControl(url: SourceControlURL)
         case registry(identity: PackageIdentity, alternativeURLs: [URL]?, metadata: RegistryReleaseMetadata?)

@@ -42,43 +42,22 @@ class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+            productsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            toolsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let description = BuildDescription(buildPlan: plan)
 
-        try description.checkArguments(
-            for: "exe",
-            graph: graph,
-            partialArguments: [
-                "/fake/path/to/swiftc",
-                "-module-name", "exe",
-                "-emit-dependencies",
-                "-emit-module",
-                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule"
-            ]
-        )
-        try description.checkArguments(
-            for: "lib",
-            graph: graph,
-            partialArguments: [
-                "/fake/path/to/swiftc",
-                "-module-name", "lib",
-                "-emit-dependencies",
-                "-emit-module",
-                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/Modules/lib.swiftmodule"
-            ]
-        )
+        try description.checkArguments(for: "exe", graph: graph, partialArguments: ["-module-name", "exe", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/exe.build/exe.swiftmodule"])
+        try description.checkArguments(for: "lib", graph: graph, partialArguments: ["-module-name", "lib", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/Modules/lib.swiftmodule"])
     }
 }
 
 extension SourceKitLSPAPI.BuildDescription {
-    @discardableResult func checkArguments(for targetName: String, graph: PackageGraph, partialArguments: [String]) throws -> Bool {
+    @discardableResult func checkArguments(for targetName: String, graph: ModulesGraph, partialArguments: [String]) throws -> Bool {
         let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target))
 

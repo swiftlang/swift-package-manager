@@ -26,7 +26,7 @@ import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
-public struct SymbolGraphExtract {
+package struct SymbolGraphExtract {
     let fileSystem: FileSystem
     let tool: AbsolutePath
     let observabilityScope: ObservabilityScope
@@ -39,13 +39,13 @@ public struct SymbolGraphExtract {
     var outputFormat = OutputFormat.json(pretty: false)
 
     /// Access control levels.
-    public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
+    package enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
         // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit 03f55d7bb4204ca54841218eb7cc175ae798e3bd)
         case `private`, `fileprivate`, `internal`, `public`, `open`
     }
 
     /// Output format of the generated symbol graph.
-    public enum OutputFormat {
+    package enum OutputFormat {
         /// JSON format, optionally "pretty-printed" be more human-readable.
         case json(pretty: Bool)
     }
@@ -53,7 +53,7 @@ public struct SymbolGraphExtract {
     /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`.
     /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
     /// how much console output to ask the tool to emit.
-    public func extractSymbolGraph(
+    package func extractSymbolGraph(
         target: ResolvedTarget,
         buildPlan: BuildPlan,
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
@@ -66,7 +66,7 @@ public struct SymbolGraphExtract {
         // Construct arguments for extracting symbols for a single target.
         var commandLine = [self.tool.pathString]
         commandLine += ["-module-name", target.c99name]
-        commandLine += try buildParameters.tripleArgs(for: target)
+        commandLine += try buildParameters.targetTripleArgs(for: target)
         commandLine += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
         commandLine += ["-module-cache-path", try buildParameters.moduleCache.pathString]
         if verboseOutput {

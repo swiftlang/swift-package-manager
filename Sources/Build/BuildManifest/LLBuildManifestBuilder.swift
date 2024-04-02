@@ -14,8 +14,6 @@ import Basics
 import LLBuildManifest
 import PackageGraph
 import PackageModel
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -29,7 +27,7 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
-public class LLBuildManifestBuilder {
+package class LLBuildManifestBuilder {
     enum Error: Swift.Error {
         case ldPathDriverOptionUnavailable(option: String)
 
@@ -41,11 +39,11 @@ public class LLBuildManifestBuilder {
         }
     }
 
-    public enum TargetKind {
+    package enum TargetKind {
         case main
         case test
 
-        public var targetName: String {
+        package var targetName: String {
             switch self {
             case .main: return "main"
             case .test: return "test"
@@ -54,24 +52,24 @@ public class LLBuildManifestBuilder {
     }
 
     /// The build plan to work on.
-    public let plan: BuildPlan
+    package let plan: BuildPlan
 
     /// Whether to sandbox commands from build tool plugins.
-    public let disableSandboxForPluginCommands: Bool
+    package let disableSandboxForPluginCommands: Bool
 
     /// File system reference.
     let fileSystem: any FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
-    public let observabilityScope: ObservabilityScope
+    package let observabilityScope: ObservabilityScope
 
-    public internal(set) var manifest: LLBuildManifest = .init()
+    package internal(set) var manifest: LLBuildManifest = .init()
 
     /// Mapping from Swift compiler path to Swift get version files.
     var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 
     /// Create a new builder with a build plan.
-    public init(
+    package init(
         _ plan: BuildPlan,
         disableSandboxForPluginCommands: Bool = false,
         fileSystem: any FileSystem,
@@ -87,7 +85,7 @@ public class LLBuildManifestBuilder {
 
     /// Generate build manifest at the given path.
     @discardableResult
-    public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
+    package func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
 
         self.manifest.createTarget(TargetKind.main.targetName)
@@ -222,12 +220,12 @@ extension LLBuildManifestBuilder {
                 }
                 let additionalOutputs: [Node]
                 if command.outputFiles.isEmpty {
-                    if target.toolsVersion >= .v5_11 {
+                    if target.toolsVersion >= .v6_0 {
                         additionalOutputs = [.virtual("\(target.target.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
                         phonyOutputs += additionalOutputs
                     } else {
                         additionalOutputs = []
-                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 5.11 (or higher) which would run such a build tool command even without declared outputs.")
+                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 6.0 (or higher) which would run such a build tool command even without declared outputs.")
                     }
                     pluginNumber += 1
                 } else {
@@ -319,31 +317,31 @@ extension TargetBuildDescription {
 }
 
 extension ResolvedTarget {
-    public func getCommandName(config: String) -> String {
+    package func getCommandName(config: String) -> String {
         "C." + self.getLLBuildTargetName(config: config)
     }
 
-    public func getLLBuildTargetName(config: String) -> String {
-        "\(self.name)-\(config)\(self.buildTriple.suffix).module"
+    package func getLLBuildTargetName(config: String) -> String {
+        "\(name)-\(config).module"
     }
 
-    public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(self.name)-\(config).module-resources"
+    package func getLLBuildResourcesCmdName(config: String) -> String {
+        "\(name)-\(config).module-resources"
     }
 }
 
 extension ResolvedProduct {
-    public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config)\(self.buildTriple.suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(config)\(self.buildTriple.suffix).dylib"
+    package func getLLBuildTargetName(config: String) throws -> String {
+        let potentialExecutableTargetName = "\(name)-\(config).exe"
+        let potentialLibraryTargetName = "\(name)-\(config).dylib"
 
         switch type {
         case .library(.dynamic):
             return potentialLibraryTargetName
         case .test:
-            return "\(name)-\(config)\(self.buildTriple.suffix).test"
+            return "\(name)-\(config).test"
         case .library(.static):
-            return "\(name)-\(config)\(self.buildTriple.suffix).a"
+            return "\(name)-\(config).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
@@ -359,8 +357,8 @@ extension ResolvedProduct {
         }
     }
 
-    public func getCommandName(config: String) throws -> String {
-        try "C.\(self.getLLBuildTargetName(config: config))\(self.buildTriple.suffix)"
+    package func getCommandName(config: String) throws -> String {
+        try "C." + self.getLLBuildTargetName(config: config)
     }
 }
 

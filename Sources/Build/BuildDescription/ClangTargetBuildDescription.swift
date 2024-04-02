@@ -11,31 +11,32 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageGraph
 import PackageLoading
 import PackageModel
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedTarget
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
-
 import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
-public final class ClangTargetBuildDescription {
+package final class ClangTargetBuildDescription {
+    /// The package this target belongs to.
+    package let package: ResolvedPackage
+
     /// The target described by this target.
-    public let target: ResolvedTarget
+    package let target: ResolvedTarget
 
     /// The underlying clang target.
-    public let clangTarget: ClangTarget
+    package let clangTarget: ClangTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    public let toolsVersion: ToolsVersion
+    package let toolsVersion: ToolsVersion
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -46,13 +47,13 @@ public final class ClangTargetBuildDescription {
     }
 
     /// The list of all resource files in the target, including the derived ones.
-    public var resources: [Resource] {
+    package var resources: [Resource] {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        guard !self.resources.isEmpty else {
+        guard !resources.isEmpty else {
             return .none
         }
 
@@ -64,7 +65,7 @@ public final class ClangTargetBuildDescription {
     }
 
     /// The modulemap file for this target, if any.
-    public private(set) var moduleMap: AbsolutePath?
+    package private(set) var moduleMap: AbsolutePath?
 
     /// Path to the temporary directory for this target.
     var tempsPath: AbsolutePath
@@ -81,13 +82,13 @@ public final class ClangTargetBuildDescription {
     private var pluginDerivedResources: [Resource]
 
     /// Path to the resource accessor header file, if generated.
-    public private(set) var resourceAccessorHeaderFile: AbsolutePath?
+    package private(set) var resourceAccessorHeaderFile: AbsolutePath?
 
     /// Path to the resource Info.plist file, if generated.
-    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+    package private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
     /// The objects in this target.
-    public var objects: [AbsolutePath] {
+    package var objects: [AbsolutePath] {
         get throws {
             try compilePaths().map(\.object)
         }
@@ -103,15 +104,16 @@ public final class ClangTargetBuildDescription {
     private let fileSystem: FileSystem
 
     /// If this target is a test target.
-    public var isTestTarget: Bool {
+    package var isTestTarget: Bool {
         target.type == .test
     }
 
     /// The results of applying any build tool plugins to this target.
-    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    package let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// Create a new target description with target and build parameters.
     init(
+        package: ResolvedPackage,
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
@@ -125,19 +127,20 @@ public final class ClangTargetBuildDescription {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.package = package
         self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
-        self.tempsPath = target.tempsPath(buildParameters)
+        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
 
         // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.
         if toolsVersion >= .v5_9 {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
-            (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
+            (self.pluginDerivedSources, self.pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                 target: target,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -184,8 +187,8 @@ public final class ClangTargetBuildDescription {
         }
     }
 
-    /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
-    public func compilePaths()
+    /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
+    package func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
         let sources = [
@@ -209,7 +212,7 @@ public final class ClangTargetBuildDescription {
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock
     /// avoidance with clients. Callers should always specify what they want based either the user's indication or on a
     /// default value (possibly based on the filename suffix).
-    public func basicArguments(
+    package func basicArguments(
         isCXX isCXXOverride: Bool? = .none,
         isC: Bool = false
     ) throws -> [String] {
@@ -222,7 +225,7 @@ public final class ClangTargetBuildDescription {
         if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try self.buildParameters.tripleArgs(for: target)
+        args += try buildParameters.targetTripleArgs(for: target)
 
         args += optimizationArguments
         args += activeCompilationConditions
@@ -308,10 +311,31 @@ public final class ClangTargetBuildDescription {
             args += ["-I", includeSearchPath.pathString]
         }
 
+        // FIXME: Remove this once it becomes possible to express this dependency in a package manifest.
+        //
+        // On Linux/Android swift-corelibs-foundation depends on dispatch library which is
+        // currently shipped with the Swift toolchain.
+        if (triple.isLinux() || triple.isAndroid()) && self.package.id == .plain("swift-corelibs-foundation") {
+            let swiftCompilerPath = self.buildParameters.toolchain.swiftCompilerPath
+            let toolchainResourcesPath = swiftCompilerPath.parentDirectory
+                                                          .parentDirectory
+                                                          .appending(components: ["lib", "swift"])
+            args += ["-I", toolchainResourcesPath.pathString]
+        }
+
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-w"]
+            // `-w` (suppress warnings) and `-Werror` (warnings as errors) flags are mutually exclusive
+            if let index = args.firstIndex(of: "-Werror") {
+                args.remove(at: index)
+            }
+        }
+
         return args
     }
 
-    public func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
+    package func emitCommandLine(for filePath: AbsolutePath) throws -> [String] {
         let standards = [
             (clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
             (clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),

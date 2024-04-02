@@ -1,4 +1,4 @@
-// swift-tools-version: 5.11
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -8,9 +8,7 @@ let package = Package(
         .executableTarget(
             name: "DoNotFilterLinkerDiagnostics",
             linkerSettings: [
-                .linkedLibrary("z"),
-                .unsafeFlags(["-lz"]),
-                // should produce: ld: warning: ignoring duplicate libraries: '-lz'
+                .unsafeFlags(["-Lfoobar"]),
             ]
         ),
     ]

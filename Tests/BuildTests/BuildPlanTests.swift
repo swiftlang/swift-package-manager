@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,10 @@
 
 @testable import Basics
 @testable import Build
+
+@testable
 import DriverSupport
+
 @testable import PackageGraph
 import PackageLoading
 @testable import PackageModel
@@ -39,7 +42,7 @@ extension Build.BuildPlan {
     /// testing purposes only.
     convenience init(
         buildParameters: BuildParameters,
-        graph: PackageGraph,
+        graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
@@ -47,7 +50,7 @@ extension Build.BuildPlan {
         observabilityScope: ObservabilityScope
     ) throws {
         try self.init(
-            destinationBuildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -76,7 +79,7 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
         let fooPkg: AbsolutePath = "/fooPkg"
         let barPkg: AbsolutePath = "/barPkg"
-        XCTAssertThrowsError(try loadPackageGraph(
+        XCTAssertThrowsError(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -134,7 +137,7 @@ final class BuildPlanTests: XCTestCase {
             "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -207,7 +210,7 @@ final class BuildPlanTests: XCTestCase {
             "/yPkg/Sources/YUtils/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -331,7 +334,7 @@ final class BuildPlanTests: XCTestCase {
             "/bazPkg/Sources/BazLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -421,7 +424,7 @@ final class BuildPlanTests: XCTestCase {
             "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -498,7 +501,7 @@ final class BuildPlanTests: XCTestCase {
         let fooPkg: AbsolutePath = "/fooPkg"
         let barPkg: AbsolutePath = "/barPkg"
 
-        XCTAssertThrowsError(try loadPackageGraph(
+        XCTAssertThrowsError(try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -556,7 +559,7 @@ final class BuildPlanTests: XCTestCase {
             "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -645,6 +648,37 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    #if os(macOS)
+    func testPackageNameFlagXCBuild() throws {
+        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
+            flags: ["package-name"],
+            toolchain: UserToolchain.default,
+            fileSystem: localFileSystem
+        )
+        try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(
+                fixturePath.appending("appPkg"),
+                extraArgs: ["--build-system", "xcode", "-vv"]
+            )
+            XCTAssertMatch(stdout, .contains("-module-name Foo"))
+            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
+            XCTAssertMatch(stdout, .contains("-module-name Bar"))
+            XCTAssertMatch(stdout, .contains("-module-name Baz"))
+            XCTAssertMatch(stdout, .contains("-module-name App"))
+            XCTAssertMatch(stdout, .contains("-module-name exe"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
+                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
+                // the flag is not supported if tools-version < 5.9
+                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(stdout, .contains("-package-name"))
+            }
+            XCTAssertMatch(stdout, .contains("Build succeeded"))
+        }
+    }
+    #endif
+
     func testTargetsWithPackageAccess() throws {
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
@@ -702,7 +736,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -773,6 +807,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -866,7 +901,7 @@ final class BuildPlanTests: XCTestCase {
 
             // Plan package build with explicit module build
             let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadPackageGraph(
+            let graph = try loadModulesGraph(
                 fileSystem: fs,
                 manifests: [
                     Manifest.createRootManifest(
@@ -888,7 +923,7 @@ final class BuildPlanTests: XCTestCase {
                         buildPath: buildDirPath,
                         config: .release,
                         toolchain: UserToolchain.default,
-                        triple: UserToolchain.default.targetTriple,
+                        targetTriple: UserToolchain.default.targetTriple,
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
@@ -934,7 +969,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1081,7 +1116,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -1118,11 +1153,11 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        XCTAssertEqual(Set(result.productMap.keys.map(\.productName)), ["APackageTests"])
+        XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
         #if os(macOS)
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.targetName)), ["ATarget", "BTarget", "ATargetTests"])
+        XCTAssertEqual(Set(result.targetMap.keys), ["ATarget", "BTarget", "ATargetTests"])
         #else
-        XCTAssertEqual(Set(result.targetMap.keys.map(\.targetName)), [
+        XCTAssertEqual(Set(result.targetMap.keys), [
             "APackageTests",
             "APackageDiscoveredTests",
             "ATarget",
@@ -1139,7 +1174,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1186,6 +1221,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-dead_strip",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -1229,7 +1265,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1276,6 +1312,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1324,7 +1361,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1435,6 +1472,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1469,13 +1507,7 @@ final class BuildPlanTests: XCTestCase {
         ])
         #endif
 
-        let buildProduct = try XCTUnwrap(
-            result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "Pkg",
-                buildTriple: .destination
-            )]
-        )
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
         XCTAssertEqual(Array(buildProduct.objects), [
             buildPath.appending(components: "exe.build", "main.c.o"),
             buildPath.appending(components: "extlib.build", "extlib.c.o"),
@@ -1495,7 +1527,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1587,7 +1619,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1631,6 +1663,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -1702,7 +1735,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1718,9 +1751,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1786,12 +1818,13 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
             "-g",
         ])
         #elseif os(Windows)
@@ -1830,7 +1863,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1847,9 +1880,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1859,8 +1891,8 @@ final class BuildPlanTests: XCTestCase {
 
         let lib = try result.target(for: "lib").clangTarget()
         XCTAssertEqual(try lib.objects, [
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/lib.build/lib.S.o"),
-            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/lib.build/lib.c.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.S.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.c.o"),
         ])
     }
 
@@ -1879,7 +1911,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1947,7 +1979,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2035,6 +2067,7 @@ final class BuildPlanTests: XCTestCase {
                 buildPath.appending(components: "PkgPackageTests.xctest", "Contents", "MacOS", "PkgPackageTests")
                     .pathString,
                 "-module-name", "PkgPackageTests",
+                "-Xlinker", "-no_warn_duplicate_libraries",
                 "-Xlinker", "-bundle",
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
                 "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
@@ -2080,7 +2113,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2133,6 +2166,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-dead_strip",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -2326,7 +2360,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2437,7 +2471,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2497,6 +2531,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -2541,7 +2576,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2575,7 +2610,7 @@ final class BuildPlanTests: XCTestCase {
 
         // Verify that `-lstdc++` is passed instead of `-lc++` when cross-compiling to Linux.
         result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .arm64Linux),
+            buildParameters: mockBuildParameters(targetTriple: .arm64Linux),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2595,7 +2630,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadPackageGraph(
+        let g = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -2644,6 +2679,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", buildPath.appending(components: "Foo").pathString,
             "-module-name", "Foo",
             "-lBar-Baz",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
@@ -2659,6 +2695,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "libBar-Baz.dylib").pathString,
             "-module-name", "Bar_Baz",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-library",
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -2738,7 +2775,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2811,6 +2848,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.dylib").pathString,
             "-module-name", "lib",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-library",
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -2861,7 +2899,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -2950,6 +2988,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "liblib.dylib").pathString,
             "-module-name", "lib",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-library",
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
@@ -2964,6 +3003,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
@@ -3035,7 +3075,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3125,7 +3165,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3243,7 +3283,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3273,7 +3313,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3320,7 +3360,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3364,7 +3404,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3381,7 +3421,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .windows),
+            buildParameters: mockBuildParameters(targetTriple: .windows),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3439,111 +3479,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(executablePathExtension, "exe")
     }
 
-    func testWASITarget() throws {
-        let Pkg: AbsolutePath = "/Pkg"
-
-        let fs = InMemoryFileSystem(
-            emptyFiles:
-            Pkg.appending(components: "Sources", "app", "main.swift").pathString,
-            Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
-            Pkg.appending(components: "Sources", "lib", "include", "lib.h").pathString,
-            Pkg.appending(components: "Tests", "test", "TestCase.swift").pathString
-        )
-
-        let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "Pkg",
-                    path: .init(validating: Pkg.pathString),
-                    targets: [
-                        TargetDescription(name: "app", dependencies: ["lib"]),
-                        TargetDescription(name: "lib", dependencies: []),
-                        TargetDescription(name: "test", dependencies: ["lib"], type: .test),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )
-        XCTAssertNoDiagnostics(observability.diagnostics)
-
-        var parameters = mockBuildParameters(triple: .wasi)
-        parameters.linkingParameters.shouldLinkStaticSwiftStdlib = true
-        let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: parameters,
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
-        result.checkProductsCount(2)
-        result
-            .checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and
-        // test entry point
-
-        let buildPath = result.plan.productsBuildPath
-
-        let lib = try result.target(for: "lib").clangTarget()
-        let args = [
-            "-target", "wasm32-unknown-wasi",
-            "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1",
-            "-fblocks",
-            "-I", Pkg.appending(components: "Sources", "lib", "include").pathString,
-            "-g",
-        ]
-        XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
-        XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.c.o")])
-        XCTAssertEqual(lib.moduleMap, buildPath.appending(components: "lib.build", "module.modulemap"))
-
-        let exe = try result.target(for: "app").swiftTarget().compileArguments()
-        XCTAssertMatch(
-            exe,
-            [
-                "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing",
-                .equal(self.j), "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
-                "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
-                "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
-                "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
-                "-g", .anySequence,
-            ]
-        )
-
-        let appBuildDescription = try result.buildProduct(for: "app")
-        XCTAssertEqual(
-            try appBuildDescription.linkArguments(),
-            [
-                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
-                "-L", buildPath.pathString,
-                "-o", buildPath.appending(components: "app.wasm").pathString,
-                "-module-name", "app", "-static-stdlib", "-emit-executable",
-                "@\(buildPath.appending(components: "app.product", "Objects.LinkFileList"))",
-                "-target", "wasm32-unknown-wasi",
-                "-g",
-            ]
-        )
-
-        let executablePathExtension = try appBuildDescription.binaryPath.extension
-        XCTAssertEqual(executablePathExtension, "wasm")
-
-        let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
-        XCTAssertEqual(
-            try testBuildDescription.linkArguments(),
-            [
-                result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
-                "-L", buildPath.pathString,
-                "-o", buildPath.appending(components: "PkgPackageTests.wasm").pathString,
-                "-module-name", "PkgPackageTests",
-                "-emit-executable",
-                "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
-                "-target", "wasm32-unknown-wasi",
-                "-g",
-            ]
-        )
-
-        let testPathExtension = try testBuildDescription.binaryPath.extension
-        XCTAssertEqual(testPathExtension, "wasm")
-    }
-
     func testEntrypointRenaming() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -3551,7 +3486,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3570,7 +3505,7 @@ final class BuildPlanTests: XCTestCase {
             try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(
                     canRenameEntrypointFunctionName: true,
-                    triple: triple
+                    targetTriple: triple
                 ),
                 graph: graph,
                 fileSystem: fs,
@@ -3603,7 +3538,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -3656,7 +3591,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3728,7 +3663,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3767,7 +3702,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .init("arm64-apple-ios")),
+            buildParameters: mockBuildParameters(targetTriple: .init("arm64-apple-ios")),
             graph: graph,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -3800,7 +3735,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3844,7 +3779,7 @@ final class BuildPlanTests: XCTestCase {
         // constraints above are valid.
         XCTAssertNoThrow(
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(triple: .arm64iOS),
+                buildParameters: mockBuildParameters(targetTriple: .arm64iOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3854,7 +3789,7 @@ final class BuildPlanTests: XCTestCase {
         // For completeness, the invalid target should still throw an error.
         XCTAssertThrows(Diagnostics.fatalError) {
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(triple: .x86_64MacOS),
+                buildParameters: mockBuildParameters(targetTriple: .x86_64MacOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3879,7 +3814,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -3917,7 +3852,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertThrows(Diagnostics.fatalError) {
             _ = try BuildPlan(
-                buildParameters: mockBuildParameters(triple: .x86_64MacOS),
+                buildParameters: mockBuildParameters(targetTriple: .x86_64MacOS),
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -4062,7 +3997,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [aManifest, bManifest],
             observabilityScope: observability.topScope
@@ -4071,7 +4006,7 @@ final class BuildPlanTests: XCTestCase {
 
         func createResult(for dest: Basics.Triple) throws -> BuildPlanResult {
             try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(triple: dest),
+                buildParameters: mockBuildParameters(targetTriple: dest),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4128,13 +4063,16 @@ final class BuildPlanTests: XCTestCase {
 
             let testDiscovery = try result.target(for: "APackageDiscoveredTests").swiftTarget().compileArguments()
             XCTAssertMatch(testDiscovery, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17"])
+
+            let testEntryPoint = try result.target(for: "APackageTests").swiftTarget().compileArguments()
+            XCTAssertMatch(testEntryPoint, [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++17"])
         }
 
         // omit frame pointers explicitly set to true
         do {
             let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(
-                    triple: .x86_64Linux,
+                    targetTriple: .x86_64Linux,
                     omitFramePointers: true
                 ),
                 graph: graph,
@@ -4190,7 +4128,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(
-                    triple: .x86_64Linux,
+                    targetTriple: .x86_64Linux,
                     omitFramePointers: false
                 ),
                 graph: graph,
@@ -4328,7 +4266,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [aManifest],
             observabilityScope: observability.topScope
@@ -4367,7 +4305,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -4501,7 +4439,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -4551,7 +4489,7 @@ final class BuildPlanTests: XCTestCase {
                 swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
                 linkerFlags: [cliFlag(tool: .linker)]
             ),
-            triple: targetTriple
+            targetTriple: targetTriple
         )
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,
@@ -4668,7 +4606,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -4736,7 +4674,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -4820,7 +4758,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -4836,9 +4774,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4854,7 +4791,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4864,7 +4801,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/\(buildParameters.triple)/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4874,12 +4811,12 @@ final class BuildPlanTests: XCTestCase {
         #if os(macOS)
         XCTAssertMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
+            [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence]
         )
         #else
         XCTAssertNoMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
+            [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence]
         )
         #endif
 
@@ -4909,7 +4846,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -4937,9 +4874,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -4956,7 +4892,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4967,7 +4903,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -4979,7 +4915,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -4988,7 +4924,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5020,7 +4956,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5048,9 +4984,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters()
         let plan = try BuildPlan(
-            buildParameters: buildParameters,
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5071,7 +5006,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -5082,7 +5017,7 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(buildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "/path/to/build/debug/Foo.build/Foo-Swift.h",
                 .anySequence,
             ]
         )
@@ -5094,7 +5029,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5103,7 +5038,7 @@ final class BuildPlanTests: XCTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(buildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap",
                 .anySequence,
             ]
         )
@@ -5136,7 +5071,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5153,7 +5088,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: .x86_64Linux),
+            buildParameters: mockBuildParameters(targetTriple: .x86_64Linux),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5219,7 +5154,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5362,7 +5297,7 @@ final class BuildPlanTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5430,7 +5365,7 @@ final class BuildPlanTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5457,7 +5392,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(triple: .wasi),
+            buildParameters: mockBuildParameters(targetTriple: .wasi),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5498,7 +5433,7 @@ final class BuildPlanTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5572,7 +5507,7 @@ final class BuildPlanTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5590,7 +5525,7 @@ final class BuildPlanTests: XCTestCase {
         let supportingTriples: [Basics.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
             let result = try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: triple),
+                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, targetTriple: triple),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -5684,7 +5619,7 @@ final class BuildPlanTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5715,7 +5650,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: targetTriple),
+            buildParameters: mockBuildParameters(targetTriple: targetTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5819,7 +5754,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5844,7 +5779,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(triple: targetTriple),
+            buildParameters: mockBuildParameters(targetTriple: targetTriple),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -5907,7 +5842,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let buildPath = AbsolutePath("/Pkg/.build")
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -5963,7 +5898,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -6017,7 +5952,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -6074,7 +6009,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift", "/ExtPkg/Sources/ExtLib/best.swift")
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -6117,13 +6052,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        switch try XCTUnwrap(
-            result.targetMap[.init(
-                targetName: "ExtLib",
-                packageIdentity: "ExtPkg",
-                buildTriple: .destination
-            )]
-        ) {
+        switch try XCTUnwrap(result.targetMap["ExtLib"]) {
         case .swift(let swiftTarget):
             if #available(macOS 13, *) { // `.contains` is only available in macOS 13 or newer
                 XCTAssertTrue(try swiftTarget.compileArguments().contains(["-user-module-version", "1.0.0"]))
@@ -6141,7 +6070,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -6175,6 +6104,7 @@ final class BuildPlanTests: XCTestCase {
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
+            "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
@@ -6222,7 +6152,7 @@ final class BuildPlanTests: XCTestCase {
             "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -6280,13 +6210,7 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
-        let buildProduct = try XCTUnwrap(
-            result.productMap[.init(
-                productName: "exe",
-                packageIdentity: "thisPkg",
-                buildTriple: .destination
-            )]
-        )
+        let buildProduct = try XCTUnwrap(result.productMap["exe"])
         let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
         XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
     }
