@@ -45,7 +45,7 @@ private extension AsyncFileSystem {
   }
 }
 
-struct Const: Query {
+private struct Const: Query {
   let x: Int
 
   func run(engine: QueryEngine) async throws -> FilePath {
@@ -55,7 +55,7 @@ struct Const: Query {
   }
 }
 
-struct MultiplyByTwo: Query {
+private struct MultiplyByTwo: Query {
   let x: Int
 
   func run(engine: QueryEngine) async throws -> FilePath {
@@ -68,7 +68,7 @@ struct MultiplyByTwo: Query {
   }
 }
 
-struct AddThirty: Query {
+private struct AddThirty: Query {
   let x: Int
 
   func run(engine: QueryEngine) async throws -> FilePath {
@@ -81,7 +81,7 @@ struct AddThirty: Query {
   }
 }
 
-struct Expression: Query {
+private struct Expression: Query {
   let x: Int
   let y: Int
 
