@@ -160,20 +160,7 @@ public struct PubGrubDependencyResolver {
         }
 
         do {
-            // Strip packages that have prebuilt libraries only if they match library version.
-            //
-            // FIXME: This is built on assumption that libraries are part of the SDK and are
-            //        always available in include/library paths, but what happens if they are
-            //        part of a toolchain instead? Builder needs an indicator that certain path
-            //        has to be included when building packages that depend on prebuilt libraries.
-            let bindings = try self.solve(root: root, constraints: constraints).bindings.filter {
-                if case let .version(version) = $0.boundVersion {
-                    if let library = $0.package.matchingPrebuiltLibrary(in: self.availableLibraries) {
-                        return .init(stringLiteral: library.version) != version
-                    }
-                }
-                return true
-            }
+            let bindings = try self.solve(root: root, constraints: constraints).bindings
             return .success(bindings)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
@@ -238,6 +225,8 @@ public struct PubGrubDependencyResolver {
                 continue
             }
 
+            let package = assignment.term.node.package
+
             let boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .exact(let version):
@@ -246,10 +235,22 @@ public struct PubGrubDependencyResolver {
                 throw InternalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
+            // Strip packages that have prebuilt libraries only if they match library version.
+            //
+            // FIXME: This is built on assumption that libraries are part of the SDK and are
+            //        always available in include/library paths, but what happens if they are
+            //        part of a toolchain instead? Builder needs an indicator that certain path
+            //        has to be included when building packages that depend on prebuilt libraries.
+            if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
+               boundVersion == .version(.init(stringLiteral: library.version))
+            {
+                continue
+            }
+
             let products = assignment.term.node.productFilter
 
             // TODO: replace with async/await when available
-            let container = try temp_await { provider.getContainer(for: assignment.term.node.package, completion: $0) }
+            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
             let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
