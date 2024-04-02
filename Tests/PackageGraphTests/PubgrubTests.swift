@@ -1863,11 +1863,6 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         try builder.serve(ref, at: .version(.init(stringLiteral: "1.2.0")))
         try builder.serve(ref, at: .version(.init(stringLiteral: "2.0.0")))
 
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "foo": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["foo"])),
-        ])
-
         let availableLibraries: [LibraryMetadata] = [
             .init(
                 identities: [.sourceControl(url: "https://example.com/org/foo")],
@@ -1877,19 +1872,19 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             )
         ]
 
-        let result = resolver.solve(
-            constraints: dependencies,
-            availableLibraries: availableLibraries,
-            preferPrebuiltLibraries: true
-        )
+        let resolver = builder.create(availableLibraries: availableLibraries)
+        let dependencies1 = builder.create(dependencies: [
+            ref: (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["foo"])),
+        ])
+        let dependencies2 = builder.create(dependencies: [
+            ref: (.versionSet(.range("1.1.0"..<"2.0.0")), .specific(["foo"])),
+        ])
+
+        let result = resolver.solve(constraints: dependencies1)
         // Available libraries are filtered from the resolver results, so this is expected to be empty.
         AssertResult(result, [])
 
-        let result2 = resolver.solve(
-            constraints: dependencies,
-            availableLibraries: availableLibraries,
-            preferPrebuiltLibraries: false
-        )
+        let result2 = resolver.solve(constraints: dependencies2)
         AssertResult(result2, [
             ("foo", .version(.init(stringLiteral: "1.2.0"))),
         ])
@@ -3299,13 +3294,22 @@ class DependencyGraphBuilder {
     }
 
 
-    func create(pins: PinsStore.Pins = [:], delegate: DependencyResolverDelegate? = .none) -> PubGrubDependencyResolver {
+    func create(pins: PinsStore.Pins = [:],
+                availableLibraries: [LibraryMetadata] = [],
+                delegate: DependencyResolverDelegate? = .none
+    ) -> PubGrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: Array(self.containers.values))
-        return PubGrubDependencyResolver(provider :provider, pins: pins, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
+        return PubGrubDependencyResolver(
+            provider: provider,
+            pins: pins,
+            availableLibraries: availableLibraries,
+            observabilityScope: ObservabilitySystem.NOOP,
+            delegate: delegate
+        )
     }
 }
 

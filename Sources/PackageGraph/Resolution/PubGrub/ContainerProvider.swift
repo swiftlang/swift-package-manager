@@ -65,23 +65,11 @@ final class ContainerProvider {
     /// Get the container for the given identifier, loading it if necessary.
     func getContainer(
         for package: PackageReference,
-        availableLibraries: [LibraryMetadata],
         completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void
     ) {
         // Return the cached container, if available.
         if let container = self.containersCache[comparingLocation: package] {
             return completion(.success(container))
-        }
-
-        if let metadata = package.matchingPrebuiltLibrary(in: availableLibraries) {
-            do {
-                let prebuiltPackageContainer = try PrebuiltPackageContainer(metadata: metadata)
-                let pubGrubContainer = PubGrubPackageContainer(underlying: prebuiltPackageContainer, pins: self.pins)
-                self.containersCache[package] = pubGrubContainer
-                return completion(.success(pubGrubContainer))
-            } catch {
-                return completion(.failure(error))
-            }
         }
 
         if let prefetchSync = self.prefetches[package] {
@@ -93,7 +81,7 @@ final class ContainerProvider {
                 } else {
                     // if prefetch failed, remove from list of prefetches and try again
                     self.prefetches[package] = nil
-                    return self.getContainer(for: package, availableLibraries: availableLibraries, completion: completion)
+                    return self.getContainer(for: package, completion: completion)
                 }
             }
         } else {
