@@ -172,3 +172,15 @@ public enum SwiftVersion {
     /// The value is passed as-is to the Swift compiler's `-swift-version` flag.
     case version(String)
 }
+
+extension SwiftVersion: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .v3: "3"
+        case .v4: "4"
+        case .v4_2: "4.2"
+        case .v5: "5"
+        case .version(let version): version
+        }
+    }
+}
