@@ -165,12 +165,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         XCTAssertMatch(
             exe,
             [
-                "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing",
+                "-enable-batch-mode", "-Onone", "-enable-testing",
                 "-j3", "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
                 "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
                 "-Xcc", "-I", "-Xcc", "\(pkgPath.appending(components: "Sources", "lib", "include"))",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
-                "-g", .anySequence,
+                "-swift-version", "4", "-g", .anySequence,
             ]
         )
 

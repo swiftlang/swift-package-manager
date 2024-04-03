@@ -387,6 +387,23 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
           name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
     }
+
+    /// Defines a `-swift-version` to pass  to the
+    /// corresponding build tool.
+    ///
+    /// - Since: First available in PackageDescription 6.0.
+    ///
+    /// - Parameters:
+    ///   - version: The Swift language version to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.0)
+    public static func swiftLanguageVersion(
+      _ version: SwiftVersion,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "swiftLanguageVersion", value: [.init(describing: version)], condition: condition)
+    }
 }
 
 /// A linker build setting.
