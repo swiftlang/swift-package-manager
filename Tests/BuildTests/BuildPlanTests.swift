@@ -769,7 +769,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             exe,
             [
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -778,6 +777,7 @@ final class BuildPlanTests: XCTestCase {
                 "-DDEBUG",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -787,7 +787,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             lib,
             [
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -796,6 +795,7 @@ final class BuildPlanTests: XCTestCase {
                 "-DDEBUG",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -1205,12 +1205,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             exe,
             [
-                "-swift-version", "4",
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
             ]
         )
@@ -1296,12 +1296,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             exe,
             [
-                "-swift-version", "4",
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
             ]
         )
@@ -1795,7 +1795,6 @@ final class BuildPlanTests: XCTestCase {
             exe,
             [
                 .anySequence,
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -1807,6 +1806,7 @@ final class BuildPlanTests: XCTestCase {
                 "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -2017,7 +2017,6 @@ final class BuildPlanTests: XCTestCase {
             foo,
             [
                 .anySequence,
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -2026,6 +2025,7 @@ final class BuildPlanTests: XCTestCase {
                 "-DDEBUG",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -2036,7 +2036,6 @@ final class BuildPlanTests: XCTestCase {
             fooTests,
             [
                 .anySequence,
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -2045,6 +2044,7 @@ final class BuildPlanTests: XCTestCase {
                 "-DDEBUG",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -2149,12 +2149,12 @@ final class BuildPlanTests: XCTestCase {
             exe,
             [
                 .anySequence,
-                "-swift-version", "4",
                 "-O",
                 .equal(self.j),
                 "-DSWIFT_PACKAGE",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -2510,7 +2510,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             try result.target(for: "exe").swiftTarget().compileArguments(),
             [
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -2520,6 +2519,7 @@ final class BuildPlanTests: XCTestCase {
                 "-Xcc", "-fmodule-map-file=\(Clibgit.appending(components: "module.modulemap"))",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -2810,7 +2810,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             exe,
             [
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -2819,6 +2818,7 @@ final class BuildPlanTests: XCTestCase {
                 "-DDEBUG",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -2828,7 +2828,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(
             lib,
             [
-                "-swift-version", "4",
                 "-enable-batch-mode",
                 "-Onone",
                 "-enable-testing",
@@ -2837,6 +2836,7 @@ final class BuildPlanTests: XCTestCase {
                 "-DDEBUG",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
                 .anySequence,
+                "-swift-version", "4",
                 "-g",
                 .anySequence,
             ]
@@ -3447,7 +3447,6 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, [
-            "-swift-version", "4",
             "-enable-batch-mode",
             "-Onone",
             "-enable-testing",
@@ -3457,6 +3456,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xcc", "-I", "-Xcc", "\(Pkg.appending(components: "Sources", "lib", "include"))",
             "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))",
             .anySequence,
+            "-swift-version", "4",
             "-g",
             "-use-ld=lld",
             "-Xcc", "-gdwarf",
@@ -3954,6 +3954,16 @@ final class BuildPlanTests: XCTestCase {
                             kind: .interoperabilityMode(.Cxx),
                             condition: .init(platformNames: ["macos"])
                         ),
+                        .init(
+                            tool: .swift,
+                            kind: .swiftLanguageVersion(.v4),
+                            condition: .init(platformNames: ["macos"])
+                        ),
+                        .init(
+                            tool: .swift,
+                            kind: .swiftLanguageVersion(.v5),
+                            condition: .init(platformNames: ["linux"])
+                        ),
                         .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
                         .init(
                             tool: .linker,
@@ -3984,6 +3994,8 @@ final class BuildPlanTests: XCTestCase {
                     name: "t1",
                     settings: [
                         .init(tool: .swift, kind: .define("DEP")),
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5), condition: .init(platformNames: ["macos"])),
                         .init(tool: .linker, kind: .linkedLibrary("libz")),
                     ]
                 ),
@@ -4018,6 +4030,7 @@ final class BuildPlanTests: XCTestCase {
 
             let dep = try result.target(for: "t1").swiftTarget().compileArguments()
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .anySequence])
+            XCTAssertMatch(dep, [.anySequence, "-swift-version", "4", .anySequence])
 
             let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
             XCTAssertMatch(
@@ -4048,6 +4061,7 @@ final class BuildPlanTests: XCTestCase {
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
+                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4056,7 +4070,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
@@ -4113,6 +4127,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4121,7 +4136,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
         }
 
         // omit frame pointers explicitly set to false
@@ -4169,6 +4184,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
+                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4177,7 +4193,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
         }
 
         do {
@@ -4212,6 +4228,7 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
+                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4226,6 +4243,7 @@ final class BuildPlanTests: XCTestCase {
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
+                    "-swift-version", "4",
                     "-g",
                     "-Xcc", "-g",
                     .end,
