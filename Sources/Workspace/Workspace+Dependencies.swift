@@ -1053,7 +1053,9 @@ extension Workspace {
                         completion: $0
                     )
                 }) as? SourceControlPackageContainer else {
-                    throw InternalError("invalid container for \(binding.package) expected a SourceControlPackageContainer")
+                    throw InternalError(
+                        "invalid container for \(binding.package) expected a SourceControlPackageContainer"
+                    )
                 }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
