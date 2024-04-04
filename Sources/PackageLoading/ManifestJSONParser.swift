@@ -150,6 +150,7 @@ enum ManifestJSONParser {
             case .v4: languageVersionString = "4"
             case .v4_2: languageVersionString = "4.2"
             case .v5: languageVersionString = "5"
+            case .v6: languageVersionString = "6"
             case .version(let version): languageVersionString = version
             }
             guard let languageVersion = SwiftLanguageVersion(string: languageVersionString) else {

@@ -601,7 +601,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                     name: "v5",
                     type: .executable,
                     settings: [
-                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5))
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v6))
                     ]
                 ),
                 try TargetDescription(
