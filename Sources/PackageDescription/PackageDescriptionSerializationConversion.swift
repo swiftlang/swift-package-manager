@@ -112,6 +112,7 @@ extension Serialization.SwiftVersion {
         case .v4: self = .v4
         case .v4_2: self = .v4_2
         case .v5: self = .v5
+        case .v6: self = .v6
         case .version(let version): self = .version(version)
         }
     }
