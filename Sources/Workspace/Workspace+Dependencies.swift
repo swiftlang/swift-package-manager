@@ -121,12 +121,15 @@ extension Workspace {
         }
 
         // Resolve the dependencies.
-        let resolver = try self.createResolver(pins: pins, observabilityScope: observabilityScope)
+        let resolver = try self.createResolver(
+            pins: pins,
+            availableLibraries: availableLibraries,
+            observabilityScope: observabilityScope
+        )
         self.activeResolver = resolver
 
         let updateResults = self.resolveDependencies(
             resolver: resolver,
-            availableLibraries: availableLibraries,
             constraints: updateConstraints,
             observabilityScope: observabilityScope
         )
@@ -591,12 +594,15 @@ extension Workspace {
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
-        let resolver = try self.createResolver(pins: pinsStore.pins, observabilityScope: observabilityScope)
+        let resolver = try self.createResolver(
+            pins: pinsStore.pins,
+            availableLibraries: availableLibraries,
+            observabilityScope: observabilityScope
+        )
         self.activeResolver = resolver
 
         let result = self.resolveDependencies(
             resolver: resolver,
-            availableLibraries: availableLibraries,
             constraints: computedConstraints,
             observabilityScope: observabilityScope
         )
@@ -842,19 +848,15 @@ extension Workspace {
 
         let precomputationProvider = ResolverPrecomputationProvider(
             root: root,
-            dependencyManifests: dependencyManifests,
-            availableLibraries: availableLibraries
+            dependencyManifests: dependencyManifests
         )
         let resolver = PubGrubDependencyResolver(
             provider: precomputationProvider,
             pins: pinsStore.pins,
+            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
-        let result = resolver.solve(
-            constraints: computedConstraints,
-            availableLibraries: availableLibraries,
-            preferPrebuiltLibraries: true
-        )
+        let result = resolver.solve(constraints: computedConstraints)
 
         guard !observabilityScope.errorsReported else {
             return .required(reason: .errorsPreviouslyReported)
@@ -1051,7 +1053,9 @@ extension Workspace {
                         completion: $0
                     )
                 }) as? SourceControlPackageContainer else {
-                    throw InternalError("invalid container for \(binding.package) expected a SourceControlPackageContainer")
+                    throw InternalError(
+                        "invalid container for \(binding.package) expected a SourceControlPackageContainer"
+                    )
                 }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
@@ -1122,6 +1126,7 @@ extension Workspace {
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
         pins: PinsStore.Pins,
+        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
@@ -1138,6 +1143,7 @@ extension Workspace {
         return PubGrubDependencyResolver(
             provider: packageContainerProvider,
             pins: pins,
+            availableLibraries: availableLibraries,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
             prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,
@@ -1148,24 +1154,12 @@ extension Workspace {
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
         resolver: PubGrubDependencyResolver,
-        availableLibraries: [LibraryMetadata],
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        var result = resolver.solve(
-            constraints: constraints,
-            availableLibraries: availableLibraries,
-            preferPrebuiltLibraries: true
-        )
-        // If the initial resolution failed due to prebuilt libraries, we try to resolve again without prebuilt libraries.
-        if case let Result.failure(error as PubGrubDependencyResolver.PubgrubError) = result, case .potentiallyUnresovableDueToPrebuiltLibrary = error {
-            result = resolver.solve(
-                constraints: constraints,
-                availableLibraries: availableLibraries,
-                preferPrebuiltLibraries: false
-            )
-        }
+        let result = resolver.solve(constraints: constraints)
+
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.
