@@ -99,6 +99,7 @@ enum Serialization {
         case v4
         case v4_2
         case v5
+        case v6
         case version(String)
     }
 
