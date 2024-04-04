@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageGraph
 import PackageLoading
 import PackageModel
 import struct PackageGraph.ModulesGraph
@@ -23,6 +24,9 @@ import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
 package final class ClangTargetBuildDescription {
+    /// The package this target belongs to.
+    package let package: ResolvedPackage
+
     /// The target described by this target.
     package let target: ResolvedTarget
 
@@ -109,6 +113,7 @@ package final class ClangTargetBuildDescription {
 
     /// Create a new target description with target and build parameters.
     init(
+        package: ResolvedPackage,
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
@@ -122,6 +127,7 @@ package final class ClangTargetBuildDescription {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.package = package
         self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target
@@ -303,6 +309,27 @@ package final class ClangTargetBuildDescription {
         // Pass default include paths from the toolchain.
         for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
             args += ["-I", includeSearchPath.pathString]
+        }
+
+        // FIXME: Remove this once it becomes possible to express this dependency in a package manifest.
+        //
+        // On Linux/Android swift-corelibs-foundation depends on dispatch library which is
+        // currently shipped with the Swift toolchain.
+        if (triple.isLinux() || triple.isAndroid()) && self.package.id == .plain("swift-corelibs-foundation") {
+            let swiftCompilerPath = self.buildParameters.toolchain.swiftCompilerPath
+            let toolchainResourcesPath = swiftCompilerPath.parentDirectory
+                                                          .parentDirectory
+                                                          .appending(components: ["lib", "swift"])
+            args += ["-I", toolchainResourcesPath.pathString]
+        }
+
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-w"]
+            // `-w` (suppress warnings) and `-Werror` (warnings as errors) flags are mutually exclusive
+            if let index = args.firstIndex(of: "-Werror") {
+                args.remove(at: index)
+            }
         }
 
         return args

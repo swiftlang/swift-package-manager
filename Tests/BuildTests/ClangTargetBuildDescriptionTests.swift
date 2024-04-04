@@ -14,13 +14,41 @@ import Basics
 @testable import Build
 import PackageGraph
 import PackageModel
+import SPMBuildCore
 import SPMTestSupport
 import XCTest
 
 final class ClangTargetBuildDescriptionTests: XCTestCase {
     func testClangIndexStorePath() throws {
-        let targetDescription = try makeTargetBuildDescription()
+        let targetDescription = try makeTargetBuildDescription("test")
         XCTAssertTrue(try targetDescription.basicArguments().contains("-index-store-path"))
+        XCTAssertFalse(try targetDescription.basicArguments().contains("-w"))
+    }
+
+    func testSwiftCorelibsFoundationIncludeWorkaround() throws {
+        let toolchain = MockToolchain(swiftResourcesPath: AbsolutePath("/fake/path/lib/swift"))
+
+        let macosParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .macOS)
+        let linuxParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Linux)
+        let androidParameters = mockBuildParameters(toolchain: toolchain, targetTriple: .arm64Android)
+
+        let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+                                                            buildParameters: macosParameters)
+        XCTAssertFalse(try macDescription.basicArguments().contains("\(macosParameters.toolchain.swiftResourcesPath!)"))
+
+        let linuxDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+                                                              buildParameters: linuxParameters)
+        print(try linuxDescription.basicArguments())
+        XCTAssertTrue(try linuxDescription.basicArguments().contains("\(linuxParameters.toolchain.swiftResourcesPath!)"))
+
+        let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+                                                                buildParameters: androidParameters)
+        XCTAssertTrue(try androidDescription.basicArguments().contains("\(androidParameters.toolchain.swiftResourcesPath!)"))
+    }
+
+    func testWarningSuppressionForRemotePackages() throws {
+        let targetDescription = try makeTargetBuildDescription("test-warning-supression", usesSourceControl: true)
+        XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
     private func makeClangTarget() throws -> ClangTarget {
@@ -47,12 +75,44 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeTargetBuildDescription() throws -> ClangTargetBuildDescription {
+    private func makeTargetBuildDescription(_ packageName: String,
+                                            buildParameters: BuildParameters? = nil,
+                                            usesSourceControl: Bool = false) throws -> ClangTargetBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
+
+        let manifest: Manifest
+        if usesSourceControl {
+            manifest = Manifest.createLocalSourceControlManifest(
+                displayName: packageName, path: AbsolutePath("/\(packageName)"))
+        } else {
+            manifest = Manifest.createRootManifest(
+                displayName: packageName,
+                toolsVersion: .v5,
+                targets: [try TargetDescription(name: "dummy")])
+        }
+
+        let target = try makeResolvedTarget()
+
+        let package = Package(identity: .plain(packageName),
+                              manifest: manifest,
+                              path: .root,
+                              targets: [target.underlying],
+                              products: [],
+                              targetSearchPath: .root,
+                              testTargetSearchPath: .root)
+
         return try ClangTargetBuildDescription(
-            target: try makeResolvedTarget(),
+            package: .init(underlying: package,
+                           defaultLocalization: nil,
+                           supportedPlatforms: [],
+                           dependencies: [],
+                           targets: [target],
+                           products: [],
+                           registryMetadata: nil,
+                           platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
+            target: target,
             toolsVersion: .current,
-            buildParameters: mockBuildParameters(
+            buildParameters: buildParameters ?? mockBuildParameters(
                 toolchain: try UserToolchain.default,
                 indexStoreMode: .on
             ),

@@ -32,7 +32,7 @@ package struct MockToolchain: PackageModel.Toolchain {
     package let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     package let includeSearchPaths = [AbsolutePath]()
     package let librarySearchPaths = [AbsolutePath]()
-    package let swiftResourcesPath: AbsolutePath? = nil
+    package let swiftResourcesPath: AbsolutePath?
     package let swiftStaticResourcesPath: AbsolutePath? = nil
     package let isSwiftDevelopmentToolchain = false
     package let sdkRootPath: AbsolutePath? = nil
@@ -53,7 +53,9 @@ package struct MockToolchain: PackageModel.Toolchain {
         #endif
     }
 
-    package init() {}
+    package init(swiftResourcesPath: AbsolutePath? = nil) {
+        self.swiftResourcesPath = swiftResourcesPath
+    }
 }
 
 extension Basics.Triple {
