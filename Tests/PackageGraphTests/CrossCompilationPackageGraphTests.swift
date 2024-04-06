@@ -98,8 +98,14 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 targets: "MMIO",
                 "MMIOMacros",
                 "MMIOMacros",
+                "SwiftCompilerPlugin",
+                "SwiftCompilerPlugin",
+                "SwiftCompilerPluginMessageHandling",
+                "SwiftCompilerPluginMessageHandling",
                 "SwiftSyntax",
                 "SwiftSyntax",
+                "SwiftSyntaxMacros",
+                "SwiftSyntaxMacros",
                 "SwiftSyntaxMacrosTestSupport"
             )
             result.check(testModules: "MMIOMacrosTests")
@@ -115,7 +121,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.checkDependency("MMIOMacros") { result in
                     result.checkTarget { result in
                         result.check(buildTriple: .destination)
-                        result.checkDependency("SwiftSyntax") { result in
+                        result.checkDependency("SwiftSyntaxMacros") { result in
                             result.checkProduct { result in
                                 result.check(buildTriple: .destination)
                             }

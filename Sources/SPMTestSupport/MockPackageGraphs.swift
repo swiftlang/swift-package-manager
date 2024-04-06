@@ -131,6 +131,9 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
         "/swift-syntax/Sources/SwiftSyntax/source.swift",
         "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/source.swift",
+        "/swift-syntax/Sources/SwiftSyntaxMacros/source.swift",
+        "/swift-syntax/Sources/SwiftCompilerPlugin/source.swift",
+        "/swift-syntax/Sources/SwiftCompilerPluginMessageHandling/source.swift",
         "/swift-syntax/Tests/SwiftSyntaxTests/source.swift"
     )
 
@@ -161,7 +164,10 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                     ),
                     TargetDescription(
                         name: "MMIOMacros",
-                        dependencies: [.product(name: "SwiftSyntax", package: "swift-syntax")],
+                        dependencies: [
+                            .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                            .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                        ],
                         type: .macro
                     ),
                     TargetDescription(
@@ -179,6 +185,11 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                 path: "/swift-syntax",
                 products: [
                     ProductDescription(
+                        name: "SwiftSyntaxMacros",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntax"]
+                    ),
+                    ProductDescription(
                         name: "SwiftSyntax",
                         type: .library(.automatic),
                         targets: ["SwiftSyntax"]
@@ -187,15 +198,50 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "SwiftSyntaxMacrosTestSupport",
                         type: .library(.automatic),
                         targets: ["SwiftSyntaxMacrosTestSupport"]
-                    )
+                    ),
+                    ProductDescription(
+                        name: "SwiftCompilerPlugin",
+                        type: .library(.automatic),
+                        targets: ["SwiftCompilerPlugin"]
+                    ),
+                    ProductDescription(
+                        name: "SwiftCompilerPluginMessageHandling",
+                        type: .library(.automatic),
+                        targets: ["SwiftCompilerPluginMessageHandling"]
+                    ),
                 ],
                 targets: [
-                    TargetDescription(name: "SwiftSyntax", dependencies: []),
+                    TargetDescription(
+                        name: "SwiftSyntax",
+                        dependencies: []
+                    ),
+                    TargetDescription(
+                        name: "SwiftSyntaxMacros",
+                        dependencies: [.target(name: "SwiftSyntax")]
+                    ),
+                    TargetDescription(
+                        name: "SwiftCompilerPlugin",
+                        dependencies: [
+                            .target(name: "SwiftCompilerPluginMessageHandling"),
+                            .target(name: "SwiftSyntaxMacros"),
+                        ]
+                    ),
+                    TargetDescription(
+                        name: "SwiftCompilerPluginMessageHandling",
+                        dependencies: [
+                            .target(name: "SwiftSyntax"),
+                            .target(name: "SwiftSyntaxMacros"),
+                        ]
+                    ),
                     TargetDescription(
                         name: "SwiftSyntaxMacrosTestSupport",
                         dependencies: [.target(name: "SwiftSyntax")]
                     ),
-                    TargetDescription(name: "SwiftSyntaxTests", dependencies: ["SwiftSyntax"], type: .test),
+                    TargetDescription(
+                        name: "SwiftSyntaxTests",
+                        dependencies: ["SwiftSyntax"],
+                        type: .test
+                    ),
                 ]
             ),
         ],
