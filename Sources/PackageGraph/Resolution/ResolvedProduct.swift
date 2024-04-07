@@ -168,7 +168,7 @@ public struct ResolvedProduct {
 
 extension ResolvedProduct: CustomStringConvertible {
     public var description: String {
-        "<ResolvedProduct: \(self.name)>"
+        "<ResolvedProduct: \(self.name), \(self.type), \(self.buildTriple)>"
     }
 }
 
