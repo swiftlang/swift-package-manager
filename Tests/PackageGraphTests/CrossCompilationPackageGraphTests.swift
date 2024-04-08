@@ -126,6 +126,19 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                                 result.check(buildTriple: .destination)
                             }
                         }
+                        result.checkDependency("SwiftCompilerPlugin") { result in
+                            result.checkProduct { result in
+                                result.check(buildTriple: .destination)
+                                result.checkTarget("SwiftCompilerPlugin") { result in
+                                    result.check(buildTriple: .destination)
+                                    result.checkDependency("SwiftCompilerPluginMessageHandling") { result in
+                                        result.checkTarget { result in
+                                            result.check(buildTriple: .destination)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
