@@ -39,7 +39,7 @@ public struct InstalledSwiftPMConfiguration: Codable {
                 major: 600,
                 minor: 0,
                 patch: 0,
-                prereleaseIdentifier: "prerelease-2024-04-02"
+                prereleaseIdentifier: "latest"
             )
         )
     }
