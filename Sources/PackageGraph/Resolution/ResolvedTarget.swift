@@ -144,7 +144,7 @@ public struct ResolvedTarget {
     private let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved target should be compiled for.
-    public internal (set) var buildTriple: BuildTriple {
+    public package(set) var buildTriple: BuildTriple {
         didSet {
             self.updateBuildTriplesOfDependencies()
         }

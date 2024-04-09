@@ -24,6 +24,7 @@ import func SPMTestSupport.loadPackageGraph
 
 import func SPMTestSupport.embeddedCxxInteropPackageGraph
 import func SPMTestSupport.macrosPackageGraph
+import func SPMTestSupport.macrosTestsPackageGraph
 import func SPMTestSupport.mockBuildParameters
 import func SPMTestSupport.trivialPackageGraph
 
@@ -258,6 +259,52 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             ]
         )
     }
+
+    func testMacrosTests() throws {
+        let (graph, fs, scope) = try macrosTestsPackageGraph()
+
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+        let plan = try BuildPlan(
+            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: destinationTriple),
+            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+        let result = try BuildPlanResult(plan: plan)
+        result.checkProductsCount(2)
+        result.checkTargetsCount(15)
+
+        XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
+            .map { try $0.swiftTarget() }
+            .contains { $0.target.buildTriple == .tools })
+
+        try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
+        try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
+        try result.check(buildTriple: .destination, triple: destinationTriple, for: "MMIO")
+        try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacrosTests")
+
+        let macroProducts = result.allProducts(named: "MMIOMacros")
+        XCTAssertEqual(macroProducts.count, 1)
+        let macroProduct = try XCTUnwrap(macroProducts.first)
+        XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
+
+        let mmioTargets = try result.allTargets(named: "MMIO").map { try $0.swiftTarget() }
+        XCTAssertEqual(mmioTargets.count, 1)
+        let mmioTarget = try XCTUnwrap(mmioTargets.first)
+        let compileArguments = try mmioTarget.emitCommandLine()
+        XCTAssertMatch(
+            compileArguments,
+            [
+                "-I", .equal(mmioTarget.moduleOutputPath.parentDirectory.pathString),
+                .anySequence,
+                "-Xfrontend", "-load-plugin-executable",
+                // Verify that macros are located in the tools triple directory.
+                "-Xfrontend", .contains(toolsTriple.tripleString)
+            ]
+        )
+    }
 }
 
 extension BuildPlanResult {
@@ -280,10 +327,13 @@ extension BuildPlanResult {
         file: StaticString = #file,
         line: UInt = #line
     ) throws {
+        let targets = self.targetMap.filter {
+            $0.key.targetName == target && $0.key.buildTriple == buildTriple
+        }
+        XCTAssertEqual(targets.count, 1, file: file, line: line)
+
         let target = try XCTUnwrap(
-            self.targetMap.first {
-                $0.key.targetName == target && $0.key.buildTriple == buildTriple
-            }?.value,
+            targets.first?.value,
             file: file,
             line: line
         ).swiftTarget()

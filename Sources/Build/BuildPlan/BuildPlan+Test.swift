@@ -85,7 +85,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
-                let discoveryResolvedTarget = ResolvedTarget(
+                var discoveryResolvedTarget = ResolvedTarget(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
@@ -93,11 +93,20 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
+
+                discoveryResolvedTarget.buildTriple = testProduct.buildTriple
+                let discoveryTargetBuildParameters: BuildParameters
+                switch discoveryResolvedTarget.buildTriple {
+                case .tools:
+                    discoveryTargetBuildParameters = toolsBuildParameters
+                case .destination:
+                    discoveryTargetBuildParameters = destinationBuildParameters
+                }
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
                     target: discoveryResolvedTarget,
                     toolsVersion: toolsVersion,
-                    destinationBuildParameters: destinationBuildParameters,
+                    destinationBuildParameters: discoveryTargetBuildParameters,
                     toolsBuildParameters: toolsBuildParameters,
                     testTargetRole: .discovery,
                     shouldDisableSandbox: shouldDisableSandbox,
