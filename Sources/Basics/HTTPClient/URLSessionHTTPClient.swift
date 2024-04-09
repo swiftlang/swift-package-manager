@@ -19,7 +19,7 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-final class URLSessionHTTPClient {
+final class URLSessionHTTPClient: Sendable {
     private let dataTaskManager: DataTaskManager
     private let downloadTaskManager: DownloadTaskManager
 
@@ -42,7 +42,7 @@ final class URLSessionHTTPClient {
                     urlRequest: urlRequest,
                     authorizationProvider: request.options.authorizationProvider,
                     progress: progress,
-                    completion: continuation.resume(with:)
+                    completion: { continuation.resume(with: $0) }
                 )
             case .download(_, let destination):
                 task = self.downloadTaskManager.makeTask(
@@ -52,13 +52,14 @@ final class URLSessionHTTPClient {
                     fileSystem: localFileSystem,
                     destination: destination,
                     progress: progress,
-                    completion: continuation.resume(with:)
+                    completion: { continuation.resume(with: $0) }
                 )
             }
             task.resume()
         }
     }
 
+    @Sendable
     public func execute(
         _ request: LegacyHTTPClient.Request,
         progress: LegacyHTTPClient.ProgressHandler?,
@@ -140,8 +141,8 @@ private class WeakDataTaskManager: NSObject, URLSessionDataDelegate {
     }
 }
 
-private class DataTaskManager {
-    private var tasks = ThreadSafeKeyValueStore<Int, DataTask>()
+private final class DataTaskManager: @unchecked Sendable {
+    private let tasks = ThreadSafeKeyValueStore<Int, DataTask>()
     private let delegateQueue: OperationQueue
     private var session: URLSession!
 
@@ -179,11 +180,13 @@ private class DataTaskManager {
         didReceive response: URLResponse,
         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
     ) {
-        guard let task = self.tasks[dataTask.taskIdentifier] else {
+        guard var task = self.tasks[dataTask.taskIdentifier] else {
             return completionHandler(.cancel)
         }
         task.response = response as? HTTPURLResponse
         task.expectedContentLength = response.expectedContentLength
+        self.tasks[dataTask.taskIdentifier] = task
+
         do {
             try task.progressHandler?(0, response.expectedContentLength)
             completionHandler(.allow)
@@ -193,7 +196,7 @@ private class DataTaskManager {
     }
 
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        guard let task = self.tasks[dataTask.taskIdentifier] else {
+        guard var task = self.tasks[dataTask.taskIdentifier] else {
             return
         }
         if task.buffer != nil {
@@ -201,6 +204,7 @@ private class DataTaskManager {
         } else {
             task.buffer = data
         }
+        self.tasks[dataTask.taskIdentifier] = task
 
         do {
             // safe since created in the line above
@@ -246,7 +250,7 @@ private class DataTaskManager {
         completionHandler(request)
     }
 
-    class DataTask {
+    struct DataTask: Sendable {
         let task: URLSessionDataTask
         let completionHandler: LegacyHTTPClient.CompletionHandler
         /// A strong reference to keep the `DataTaskManager` alive so it can handle the callbacks from the
@@ -318,9 +322,11 @@ private class WeakDownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     }
 }
 
-private class DownloadTaskManager {
-    private var tasks = ThreadSafeKeyValueStore<Int, DownloadTask>()
+private final class DownloadTaskManager: @unchecked Sendable {
+    private let tasks = ThreadSafeKeyValueStore<Int, DownloadTask>()
     private let delegateQueue: OperationQueue
+
+    // FIXME: can't be `let` instead of `var`, as `URLSession` holds a reference to `self`.
     private var session: URLSession!
 
     init(configuration: URLSessionConfiguration) {
@@ -379,7 +385,7 @@ private class DownloadTaskManager {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard let task = self.tasks[downloadTask.taskIdentifier] else {
+        guard var task = self.tasks[downloadTask.taskIdentifier] else {
             return
         }
 
@@ -392,6 +398,7 @@ private class DownloadTaskManager {
             try task.fileSystem.move(from: path, to: task.destination)
         } catch {
             task.moveFileError = error
+            self.tasks[downloadTask.taskIdentifier] = task
         }
     }
 
@@ -419,7 +426,7 @@ private class DownloadTaskManager {
         }
     }
 
-    class DownloadTask {
+    struct DownloadTask: Sendable {
         let task: URLSessionDownloadTask
         let fileSystem: FileSystem
         let destination: AbsolutePath
