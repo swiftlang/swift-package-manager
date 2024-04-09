@@ -953,7 +953,7 @@ public final class PackageBuilder {
             {
                 self.observabilityScope
                     .emit(
-                        warning: "'\(potentialModule.name)' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version \(ToolsVersion.v5_4) executable targets should be declared as 'executableTarget()'"
+                        warning: "'\(potentialModule.name)' was identified as an executable target given the presence of a 'main' file. Starting with tools version \(ToolsVersion.v5_4) executable targets should be declared as 'executableTarget()'"
                     )
             }
         }

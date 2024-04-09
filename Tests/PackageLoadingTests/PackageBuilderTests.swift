@@ -499,7 +499,7 @@ final class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
-                diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
+                diagnostic: "'exec2' was identified as an executable target given the presence of a 'main' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
                 severity: .warning
             )
             package.checkModule("lib") { _ in }
