@@ -135,7 +135,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
-                let entryPointResolvedTarget = ResolvedTarget(
+                var entryPointResolvedTarget = ResolvedTarget(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
@@ -143,11 +143,20 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
+                entryPointResolvedTarget.buildTriple = testProduct.buildTriple
+                let entryPointBuildParameters: BuildParameters
+                switch entryPointResolvedTarget.buildTriple {
+                case .tools:
+                    entryPointBuildParameters = toolsBuildParameters
+                case .destination:
+                    entryPointBuildParameters = destinationBuildParameters
+                }
+
                 return try SwiftTargetBuildDescription(
                     package: package,
                     target: entryPointResolvedTarget,
                     toolsVersion: toolsVersion,
-                    destinationBuildParameters: destinationBuildParameters,
+                    destinationBuildParameters: entryPointBuildParameters,
                     toolsBuildParameters: toolsBuildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
                     shouldDisableSandbox: shouldDisableSandbox,

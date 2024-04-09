@@ -280,6 +280,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             .map { try $0.swiftTarget() }
             .contains { $0.target.buildTriple == .tools })
 
+        try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageTests")
         try result.check(buildTriple: .tools, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
         try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
         try result.check(buildTriple: .destination, triple: destinationTriple, for: "MMIO")
