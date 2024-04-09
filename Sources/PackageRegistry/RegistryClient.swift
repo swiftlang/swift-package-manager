@@ -1651,7 +1651,7 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response in
                     observabilityScope
                         .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                            debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
                         )
                     switch response.statusCode {
                     case 201:
