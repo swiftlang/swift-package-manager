@@ -50,7 +50,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         // There are two additional targets on non-Apple platforms, for test discovery and
         // test entry point
-        result.checkTargetsCount(6)
+        result.checkTargetsCount(5)
 
         let buildPath = result.plan.productsBuildPath
         var appBuildDescription = try result.buildProduct(for: "app")
@@ -78,7 +78,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         // There are two additional targets on non-Apple platforms, for test discovery and
         // test entry point
-        result.checkTargetsCount(6)
+        result.checkTargetsCount(5)
 
         appBuildDescription = try result.buildProduct(for: "app")
         XCTAssertEqual(
@@ -145,7 +145,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         // There are two additional targets on non-Apple platforms, for test discovery and
         // test entry point
-        result.checkTargetsCount(6)
+        result.checkTargetsCount(5)
 
         let buildPath = result.plan.productsBuildPath
 
@@ -228,7 +228,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(3)
-        result.checkTargetsCount(13)
+        result.checkTargetsCount(10)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swiftTarget() }
@@ -244,7 +244,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
 
         let mmioTargets = try result.allTargets(named: "MMIO").map { try $0.swiftTarget() }
-        XCTAssertEqual(mmioTargets.count, 2)
+        XCTAssertEqual(mmioTargets.count, 1)
         let mmioTarget = try XCTUnwrap(mmioTargets.first)
         let compileArguments = try mmioTarget.emitCommandLine()
         XCTAssertMatch(

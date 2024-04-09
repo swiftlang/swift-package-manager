@@ -153,19 +153,42 @@ public struct ResolvedTarget {
     /// Create a resolved target instance.
     public init(
         packageIdentity: PackageIdentity,
-        underlying: Target,
+        underlying target: Target,
         dependencies: [ResolvedTarget.Dependency],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.packageIdentity = packageIdentity
-        self.underlying = underlying
+        self.underlying = target
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
-        self.buildTriple = underlying.buildTriple
+
+        if target.type == .test {
+            // Make sure that test products are built for the tools triple if it has tools as direct dependencies.
+            // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
+            // and SwiftSyntax to be built for the same triple as the tests.
+            // See https://github.com/apple/swift-package-manager/pull/7349 for more context.
+            var inferredBuildTriple = BuildTriple.destination
+            loop: for dependency in dependencies {
+                switch dependency {
+                case .target(let targetDependency, _):
+                    if targetDependency.type == .macro {
+                        inferredBuildTriple = .tools
+                        break loop
+                    }
+                case .product(let productDependency, _):
+                    if productDependency.type == .macro {
+                        inferredBuildTriple = .tools
+                        break loop                    }
+                }
+            }
+            self.buildTriple = inferredBuildTriple
+        } else {
+            self.buildTriple = target.buildTriple
+        }
         self.updateBuildTriplesOfDependencies()
     }
 

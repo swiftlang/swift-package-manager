@@ -192,7 +192,7 @@ public struct ModulesGraph {
             if rootPackages.contains(id: package.id) {
                 allProducts.formUnion(package.products)
             } else {
-                // Don't include tests products from non-root packages so swift-test doesn't
+                // Don't include test products from non-root packages so swift-test doesn't
                 // try to run them.
                 allProducts.formUnion(package.products.filter { $0.type != .test })
             }
