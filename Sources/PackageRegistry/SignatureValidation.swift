@@ -91,7 +91,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         guard !self.skipSignatureValidation else {
             return completion(.success(.none))
@@ -138,7 +138,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         do {
             let versionMetadata = try self.versionMetadataProvider(package, version)
@@ -240,7 +240,7 @@ struct SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         Task {
             do {
@@ -353,7 +353,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         guard !self.skipSignatureValidation else {
             return completion(.success(.none))
@@ -402,7 +402,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         let manifestName = toolsVersion.map { "Package@swift-\($0).swift" } ?? Manifest.filename
 
@@ -506,7 +506,7 @@ struct SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         Task {
             do {
@@ -577,7 +577,7 @@ struct SignatureValidation {
         signatureFormat: SignatureFormat,
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem,
-        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
     ) {
         Task {
             do {

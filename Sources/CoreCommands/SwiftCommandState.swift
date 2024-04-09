@@ -463,7 +463,7 @@ package final class SwiftCommandState {
         return workspace
     }
 
-    package func getRootPackageInformation() throws -> (dependecies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    package func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
         let rootManifests = try temp_await {
