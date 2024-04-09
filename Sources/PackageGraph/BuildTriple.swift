@@ -26,7 +26,11 @@ public enum BuildTriple {
 
 extension Target {
     var buildTriple: BuildTriple {
-        if self.type == .macro || self.type == .plugin {
+        // Make sure that test products are also built for the tools triple.
+        // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
+        // and SwiftSyntax to be built for the same triple as the tests.
+        // See https://github.com/apple/swift-package-manager/pull/7349 for more context.
+        if self.type == .macro || self.type == .plugin || self.type == .test {
             .tools
         } else {
             .destination
@@ -36,7 +40,7 @@ extension Target {
 
 extension Product {
     var buildTriple: BuildTriple {
-        if self.type == .macro || self.type == .plugin {
+        if self.type == .macro || self.type == .plugin || self.type == .test {
             .tools
         } else {
             .destination

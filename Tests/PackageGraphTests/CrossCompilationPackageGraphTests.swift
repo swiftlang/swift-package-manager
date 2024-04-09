@@ -21,21 +21,21 @@ import XCTest
 final class CrossCompilationPackageGraphTests: XCTestCase {
     func testTrivialPackage() throws {
         let graph = try trivialPackageGraph(pkgRootPath: "/Pkg").graph
-        PackageGraphTester(graph) { result in
+        try PackageGraphTester(graph) { result in
             result.check(packages: "Pkg")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
-            result.check(targets: "app", "lib")
+            result.check(targets: "app", "lib", "lib")
             result.check(testModules: "test")
             result.checkTarget("app") { result in
                 result.check(buildTriple: .destination)
                 result.check(dependencies: "lib")
             }
-            result.checkTarget("lib") { result in
-                result.check(buildTriple: .destination)
+            try result.checkTargets("lib") { results in
+                let result = try XCTUnwrap(results.first { $0.target.buildTriple == .destination })
                 result.check(dependencies: [])
             }
             result.checkTarget("test") { result in
-                result.check(buildTriple: .destination)
+                result.check(buildTriple: .tools)
                 result.check(dependencies: "lib")
             }
         }
@@ -48,22 +48,27 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
             result.check(
                 targets: "Core",
+                "Core",
                 "HAL",
+                "HAL",
+                "MMIO",
                 "MMIO",
                 "MMIOMacros",
                 "SwiftSyntax",
                 "SwiftSyntax"
             )
             result.check(testModules: "CoreTests", "HALTests")
-            result.checkTarget("Core") { result in
-                result.check(buildTriple: .destination)
+            try result.checkTargets("Core") { results in
+                let result = try XCTUnwrap(results.first { $0.target.buildTriple == .destination })
                 result.check(dependencies: "HAL")
             }
-            result.checkTarget("HAL") { result in
+            try result.checkTargets("HAL") { results in
+                let result = try XCTUnwrap(results.first { $0.target.buildTriple == .destination })
                 result.check(buildTriple: .destination)
                 result.check(dependencies: "MMIO")
             }
-            result.checkTarget("MMIO") { result in
+            try result.checkTargets("MMIO") { results in
+                let result = try XCTUnwrap(results.first { $0.target.buildTriple == .destination })
                 result.check(buildTriple: .destination)
                 result.check(dependencies: "MMIOMacros")
             }
@@ -97,7 +102,6 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             result.check(
                 targets: "MMIO",
                 "MMIOMacros",
-                "MMIOMacros",
                 "SwiftCompilerPlugin",
                 "SwiftCompilerPlugin",
                 "SwiftCompilerPluginMessageHandling",
@@ -106,6 +110,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 "SwiftSyntax",
                 "SwiftSyntaxMacros",
                 "SwiftSyntaxMacros",
+                "SwiftSyntaxMacrosTestSupport",
                 "SwiftSyntaxMacrosTestSupport"
             )
             result.check(testModules: "MMIOMacrosTests")
@@ -114,26 +119,26 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.check(dependencies: "MMIOMacros")
             }
             result.checkTargets("MMIOMacros") { results in
-                XCTAssertEqual(results.count, 2)
+                XCTAssertEqual(results.count, 1)
             }
             result.checkTarget("MMIOMacrosTests") { result in
-                result.check(buildTriple: .destination)
+                result.check(buildTriple: .tools)
                 result.checkDependency("MMIOMacros") { result in
                     result.checkTarget { result in
-                        result.check(buildTriple: .destination)
+                        result.check(buildTriple: .tools)
                         result.checkDependency("SwiftSyntaxMacros") { result in
                             result.checkProduct { result in
-                                result.check(buildTriple: .destination)
+                                result.check(buildTriple: .tools)
                             }
                         }
                         result.checkDependency("SwiftCompilerPlugin") { result in
                             result.checkProduct { result in
-                                result.check(buildTriple: .destination)
+                                result.check(buildTriple: .tools)
                                 result.checkTarget("SwiftCompilerPlugin") { result in
-                                    result.check(buildTriple: .destination)
+                                    result.check(buildTriple: .tools)
                                     result.checkDependency("SwiftCompilerPluginMessageHandling") { result in
                                         result.checkTarget { result in
-                                            result.check(buildTriple: .destination)
+                                            result.check(buildTriple: .tools)
                                         }
                                     }
                                 }

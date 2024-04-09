@@ -14,6 +14,7 @@ import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Build.BuildPlan
 import class Build.ProductBuildDescription
+import enum Build.TargetBuildDescription
 import class Build.SwiftTargetBuildDescription
 import struct Basics.Triple
 import enum PackageGraph.BuildTriple
@@ -49,7 +50,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         // There are two additional targets on non-Apple platforms, for test discovery and
         // test entry point
-        result.checkTargetsCount(5)
+        result.checkTargetsCount(6)
 
         let buildPath = result.plan.productsBuildPath
         var appBuildDescription = try result.buildProduct(for: "app")
@@ -77,7 +78,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         // There are two additional targets on non-Apple platforms, for test discovery and
         // test entry point
-        result.checkTargetsCount(5)
+        result.checkTargetsCount(6)
 
         appBuildDescription = try result.buildProduct(for: "app")
         XCTAssertEqual(
@@ -144,11 +145,16 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(2)
         // There are two additional targets on non-Apple platforms, for test discovery and
         // test entry point
-        result.checkTargetsCount(5)
+        result.checkTargetsCount(6)
 
         let buildPath = result.plan.productsBuildPath
 
-        let lib = try result.target(for: "lib").clangTarget()
+        let lib = try XCTUnwrap(
+            result.allTargets(named: "lib")
+                .map { try $0.clangTarget() }
+                .first { $0.target.buildTriple == .destination }
+        )
+
         XCTAssertEqual(try lib.basicArguments(isCXX: false), [
             "-target", "wasm32-unknown-wasi",
             "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1",
@@ -222,9 +228,11 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(3)
-        result.checkTargetsCount(10)
+        result.checkTargetsCount(13)
 
-        XCTAssertTrue(try result.allTargets(named: "SwiftSyntax").contains { $0.target.buildTriple == .tools })
+        XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
+            .map { try $0.swiftTarget() }
+            .contains { $0.target.buildTriple == .tools })
         try result.check(buildTriple: .tools, triple: toolsTriple, for: "MMIOMacros")
         try result.check(buildTriple: .destination, triple: destinationTriple, for: "MMIO")
         try result.check(buildTriple: .destination, triple: destinationTriple, for: "Core")
@@ -235,8 +243,8 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let macroProduct = try XCTUnwrap(macroProducts.first)
         XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
 
-        let mmioTargets = try result.allTargets(named: "MMIO")
-        XCTAssertEqual(mmioTargets.count, 1)
+        let mmioTargets = try result.allTargets(named: "MMIO").map { try $0.swiftTarget() }
+        XCTAssertEqual(mmioTargets.count, 2)
         let mmioTarget = try XCTUnwrap(mmioTargets.first)
         let compileArguments = try mmioTarget.emitCommandLine()
         XCTAssertMatch(
@@ -253,16 +261,16 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 }
 
 extension BuildPlanResult {
-    func allTargets(named name: String) throws -> [SwiftTargetBuildDescription] {
-        try self.targetMap
+    func allTargets(named name: String) throws -> some Collection<TargetBuildDescription> {
+        self.targetMap
             .filter { $0.0.targetName == name }
-            .map { try $1.swiftTarget() }
+            .values
     }
 
-    func allProducts(named name: String) -> [ProductBuildDescription] {
+    func allProducts(named name: String) -> some Collection<ProductBuildDescription> {
         self.productMap
             .filter { $0.0.productName == name }
-            .map { $1 }
+            .values
     }
 
     func check(
