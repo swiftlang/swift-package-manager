@@ -1677,6 +1677,8 @@ extension PIF.PlatformFilter {
 
     /// VisionOS platform filters.
     public static let visionOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "xros"),
+        .init(platform: "xros", environment: "simulator"),
         .init(platform: "visionos"),
         .init(platform: "visionos", environment: "simulator")
     ]
