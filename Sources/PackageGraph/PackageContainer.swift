@@ -35,12 +35,12 @@ import struct TSCUtility.Version
 /// This is also designed in such a way to extend naturally to multiple packages
 /// being contained within a single repository, should we choose to support that
 /// later.
-public protocol PackageContainer {
+public protocol PackageContainer: Actor {
 
     /// The identifier for the package.
-    var package: PackageReference { get }
+    nonisolated var package: PackageReference { get }
 
-    var shouldInvalidatePinnedVersions: Bool { get }
+    nonisolated var shouldInvalidatePinnedVersions: Bool { get }
 
     /// Returns true if the tools version is compatible at the given version.
     func isToolsVersionCompatible(at version: Version) -> Bool

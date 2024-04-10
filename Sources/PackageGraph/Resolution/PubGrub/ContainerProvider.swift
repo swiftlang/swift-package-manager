@@ -62,7 +62,14 @@ final class ContainerProvider {
         return container
     }
 
+    func getContainer(for package: PackageReference) async throws -> PubGrubPackageContainer {
+        try await safe_async {
+            self.getContainer(for: package, completion: $0)
+        }
+    }
+
     /// Get the container for the given identifier, loading it if necessary.
+    @available(*, noasync, message: "Use the async alternative")
     func getContainer(
         for package: PackageReference,
         completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void

@@ -25,26 +25,27 @@ import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.
-internal final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
-    public typealias Constraint = PackageContainerConstraint
+actor SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
+
+    typealias Constraint = PackageContainerConstraint
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
-    public struct GetDependenciesError: Error, CustomStringConvertible {
+    struct GetDependenciesError: Error, CustomStringConvertible {
         /// The repository  that encountered the error.
-        public let repository: RepositorySpecifier
+        let repository: RepositorySpecifier
 
         /// The source control reference (version, branch, revision, etc) that was involved.
-        public let reference: String
+        let reference: String
 
         /// The actual error that occurred.
-        public let underlyingError: Error
+        let underlyingError: Error
 
         /// Optional suggestion for how to resolve the error.
-        public let suggestion: String?
+        let suggestion: String?
 
         /// Description shown for errors of this kind.
-        public var description: String {
+        var description: String {
             var desc = "\(underlyingError) in \(self.repository.location)"
             if let suggestion {
                 desc += " (\(suggestion))"
@@ -53,7 +54,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public let package: PackageReference
+    let package: PackageReference
     private let repositorySpecifier: RepositorySpecifier
     private let repository: Repository
     private let identityResolver: IdentityResolver
@@ -132,12 +133,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func versionsAscending() throws -> [Version] {
+    func versionsAscending() throws -> [Version] {
         [Version](try self.knownVersions().keys).sorted()
     }
 
     /// The available version list (in reverse order).
-    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
+    func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         let reversedVersions = try self.versionsDescending()
         return reversedVersions.lazy.filter {
             // If we have the result cached, return that.
@@ -152,7 +153,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getTag(for version: Version) -> String? {
+    func getTag(for version: Version) -> String? {
         return try? self.knownVersions()[version]
     }
 
@@ -226,17 +227,17 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     /// Returns revision for the given tag.
-    public func getRevision(forTag tag: String) throws -> Revision {
+    func getRevision(forTag tag: String) throws -> Revision {
         return try repository.resolveRevision(tag: tag)
     }
 
     /// Returns revision for the given identifier.
-    public func getRevision(forIdentifier identifier: String) throws -> Revision {
+    func getRevision(forIdentifier identifier: String) throws -> Revision {
         return try repository.resolveRevision(identifier: identifier)
     }
 
     /// Returns the tools version of the given version of the package.
-    public func toolsVersion(for version: Version) throws -> ToolsVersion {
+    func toolsVersion(for version: Version) throws -> ToolsVersion {
         try self.toolsVersionsCache.memoize(version) {
             guard let tag = try self.knownVersions()[version] else {
                 throw StringError("unknown tag \(version)")
@@ -248,7 +249,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
+    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
         do {
             return try self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
@@ -266,7 +267,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [Constraint] {
+    func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [Constraint] {
         do {
             return try self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
@@ -345,12 +346,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return (manifest, try manifest.dependencyConstraints(productFilter: productFilter))
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [Constraint] {
+    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [Constraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }
 
-    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
+    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         let revision: Revision
         var version: Version?
         switch boundVersion {
@@ -382,7 +383,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func isToolsVersionCompatible(at version: Version) -> Bool {
+    func isToolsVersionCompatible(at version: Version) -> Bool {
         return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
     }
 
@@ -422,11 +423,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public var isRemoteContainer: Bool? {
+    var isRemoteContainer: Bool? {
         return true
     }
 
-    public var description: String {
+    nonisolated var description: String {
         return "SourceControlPackageContainer(\(self.repositorySpecifier))"
     }
 }
