@@ -27,7 +27,7 @@ extension Workspace {
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Look up the dependency and check if we can edit it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageName))
@@ -64,17 +64,13 @@ extension Workspace {
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            // FIXME: this should not block
-            let manifest = try temp_await {
-                self.loadManifest(
-                    packageIdentity: dependency.packageRef.identity,
-                    packageKind: .fileSystem(destination),
-                    packagePath: destination,
-                    packageLocation: dependency.packageRef.locationString,
-                    observabilityScope: observabilityScope,
-                    completion: $0
-                )
-            }
+            let manifest = try await self.loadManifest(
+                packageIdentity: dependency.packageRef.identity,
+                packageKind: .fileSystem(destination),
+                packagePath: destination,
+                packageLocation: dependency.packageRef.locationString,
+                observabilityScope: observabilityScope
+            )
 
             guard manifest.displayName == packageName else {
                 return observabilityScope
@@ -172,7 +168,7 @@ extension Workspace {
         root: PackageGraphRootInput? = nil,
         availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
@@ -232,7 +228,7 @@ extension Workspace {
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root {
-            try self._resolve(
+            try await self._resolve(
                 root: root,
                 explicitProduct: .none,
                 availableLibraries: availableLibraries,

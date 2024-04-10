@@ -15,12 +15,21 @@ import struct Foundation.Date
 /// A `Sendable` storage that allows access from concurrently running tasks in
 /// an `async` closure. This type serves as a replacement for `ThreadSafeBox`
 /// implemented with Swift Concurrency primitives.
-public actor SendableBox<Value: Sendable> {
-    init(_ value: Value? = nil) {
+package actor SendableBox<Value: Sendable> {
+    package init(_ value: Value? = nil) {
         self.value = value
     }
 
-    var value: Value?
+    fileprivate var value: Value?
+
+    package func memoize(body: () async throws -> Value) async rethrows -> Value {
+        if let value {
+            return value
+        }
+        let value = try await body()
+        self.value = value
+        return value
+    }
 }
 
 extension SendableBox where Value == Int {

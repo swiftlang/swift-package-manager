@@ -38,7 +38,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     private let observabilityScope: ObservabilityScope
 
     /// cached version of the manifest
-    private let manifest = ThreadSafeBox<Manifest>()
+    private let manifest = SendableBox<Manifest>()
 
     public init(
         package: PackageReference,
@@ -66,8 +66,8 @@ public struct FileSystemPackageContainer: PackageContainer {
             metadata: package.diagnosticsMetadata)
     }
 
-    private func loadManifest() throws -> Manifest {
-        try manifest.memoize() {
+    private func loadManifest() async throws -> Manifest {
+        try await manifest.memoize() {
             let packagePath: AbsolutePath
             switch self.package.kind {
             case .root(let path), .fileSystem(let path):
@@ -77,35 +77,31 @@ public struct FileSystemPackageContainer: PackageContainer {
             }
 
             // Load the manifest.
-            // FIXME: this should not block
-            return try temp_await {
-                manifestLoader.load(
-                    packagePath: packagePath,
-                    packageIdentity: self.package.identity,
-                    packageKind: self.package.kind,
-                    packageLocation: self.package.locationString,
-                    packageVersion: nil,
-                    currentToolsVersion: self.currentToolsVersion,
-                    identityResolver: self.identityResolver,
-                    dependencyMapper: self.dependencyMapper,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
+            return try await manifestLoader.load(
+                packagePath: packagePath,
+                packageIdentity: self.package.identity,
+                packageKind: self.package.kind,
+                packageLocation: self.package.locationString,
+                packageVersion: nil,
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            )
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        let manifest = try self.loadManifest()
+    public func getUnversionedDependencies(productFilter: ProductFilter) async throws -> [PackageContainerConstraint] {
+        let manifest = try await self.loadManifest()
         return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
-    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
-        let manifest = try loadManifest()
+        let manifest = try await loadManifest()
         return package.withName(manifest.displayName)
     }
 

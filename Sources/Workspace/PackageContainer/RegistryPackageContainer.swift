@@ -171,41 +171,32 @@ public class RegistryPackageContainer: PackageContainer {
                         loadManifest()
                     } else {
                         // custom tools-version, we need to fetch the content from the server
-                        self.registryClient.getManifestContent(
+                        let manifestContent = try await self.registryClient.getManifestContent(
                             package: self.package.identity,
                             version: version,
                             customToolsVersion: preferredToolsVersion,
                             observabilityScope: self.observabilityScope,
                             callbackQueue: .sharedConcurrent
-                        ) { result in
-                            switch result {
-                            case .failure(let error):
-                                return completion(.failure(error))
-                            case .success(let manifestContent):
-                                do {
-                                    // find the fake manifest so we can replace it with the real manifest content
-                                    guard let placeholderManifestFileName = try fileSystem.getDirectoryContents(.root).first(where: { file in
-                                        if file == Manifest.basename + "@swift-\(preferredToolsVersion).swift" {
-                                            return true
-                                        } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
-                                            return true
-                                        } else {
-                                            return false
-                                        }
-                                    }) else {
-                                        throw StringError("failed locating placeholder manifest for \(preferredToolsVersion)")
-                                    }
-                                    // replace the fake manifest with the real manifest content
-                                    let manifestPath = AbsolutePath.root.appending(component: placeholderManifestFileName)
-                                    try fileSystem.removeFileTree(manifestPath)
-                                    try fileSystem.writeFileContents(manifestPath, string: manifestContent)
-                                    // finally, load the manifest
-                                    loadManifest()
-                                } catch {
-                                    return completion(.failure(error))
-                                }
+                        )
+
+                        // find the fake manifest so we can replace it with the real manifest content
+                        guard let placeholderManifestFileName = try fileSystem.getDirectoryContents(.root).first(where: { file in
+                            if file == Manifest.basename + "@swift-\(preferredToolsVersion).swift" {
+                                return true
+                            } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
+                                return true
+                            } else {
+                                return false
                             }
+                        }) else {
+                            throw StringError("failed locating placeholder manifest for \(preferredToolsVersion)")
                         }
+                        // replace the fake manifest with the real manifest content
+                        let manifestPath = AbsolutePath.root.appending(component: placeholderManifestFileName)
+                        try fileSystem.removeFileTree(manifestPath)
+                        try fileSystem.writeFileContents(manifestPath, string: manifestContent)
+                        // finally, load the manifest
+                        loadManifest()
                     }
                 } catch {
                     return completion(.failure(error))

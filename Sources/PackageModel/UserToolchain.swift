@@ -740,7 +740,7 @@ public final class UserToolchain: Toolchain {
     private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
         if triple.isDarwin() {
             let pluginServerPathFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
-            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: pluginServerPathFindArgs, environment: [:])
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: pluginServerPathFindArgs, environmentBlock: [:])
                 .spm_chomp() {
                 return try AbsolutePath(validating: path)
             }

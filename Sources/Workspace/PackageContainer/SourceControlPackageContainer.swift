@@ -393,33 +393,29 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
-        try self.manifestsCache.memoize(revision.identifier) {
+    private func loadManifest(at revision: Revision, version: Version?) async throws -> Manifest {
+        try await self.manifestsCache.memoize(revision.identifier) {
             let fileSystem = try self.repository.openFileView(revision: revision)
-            return try self.loadManifest(fileSystem: fileSystem, version: version, revision: revision.identifier)
+            return try await self.loadManifest(fileSystem: fileSystem, version: version, revision: revision.identifier)
         }
     }
 
-    private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) throws -> Manifest {
+    private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) async throws -> Manifest {
         // Load the manifest.
-        // FIXME: this should not block
-        return try temp_await {
-            self.manifestLoader.load(
-                packagePath: .root,
-                packageIdentity: self.package.identity,
-                packageKind: self.package.kind,
-                packageLocation: self.package.locationString,
-                packageVersion: (version: version, revision: revision),
-                currentToolsVersion: self.currentToolsVersion,
-                identityResolver: self.identityResolver,
-                dependencyMapper: self.dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: self.observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+        return try await self.manifestLoader.load(
+            packagePath: .root,
+            packageIdentity: self.package.identity,
+            packageKind: self.package.kind,
+            packageLocation: self.package.locationString,
+            packageVersion: (version: version, revision: revision),
+            currentToolsVersion: self.currentToolsVersion,
+            identityResolver: self.identityResolver,
+            dependencyMapper: self.dependencyMapper,
+            fileSystem: fileSystem,
+            observabilityScope: self.observabilityScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        )
     }
 
     public var isRemoteContainer: Bool? {

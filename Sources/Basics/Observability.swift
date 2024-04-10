@@ -261,6 +261,21 @@ extension DiagnosticsEmitterProtocol {
         }
     }
 
+    /// trap a throwing closure, emitting diagnostics on error and returning boolean representing success
+    @discardableResult
+    public func trap(_ closure: () async throws -> Void) async -> Bool {
+        do {
+            try await closure()
+            return true
+        } catch Diagnostics.fatalError {
+            // FIXME: (diagnostics) deprecate this with Diagnostics.fatalError
+            return false
+        } catch {
+            self.emit(error)
+            return false
+        }
+    }
+
     /// If `underlyingError` is not `nil`, its human-readable description is interpolated with `message`,
     /// otherwise `message` itself is returned.
     private func makeMessage(from message: String, underlyingError: Error?) -> String {

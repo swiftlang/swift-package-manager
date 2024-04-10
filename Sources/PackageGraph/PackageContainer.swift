@@ -88,14 +88,14 @@ public protocol PackageContainer {
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter) async throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
     /// This can be used by the containers to fill in the missing information that is obtained
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
-    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference
+    func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference
 }
 
 extension PackageContainer {
@@ -194,7 +194,8 @@ public extension PackageContainerProvider {
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 on: queue,
-                completion: $0)
+                completion: $0
+            )
         }
     }
 }

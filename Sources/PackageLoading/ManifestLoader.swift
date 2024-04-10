@@ -127,9 +127,8 @@ public protocol ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    )
+        callbackQueue: DispatchQueue
+    ) async throws -> Manifest
 
     /// Reset any internal cache held by the manifest loader.
     func resetCache(observabilityScope: ObservabilityScope)
@@ -202,70 +201,29 @@ extension ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        do {
-            // find the manifest path and parse it's tools-version
-            let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
-            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-            // validate the manifest tools-version against the toolchain tools-version
-            try manifestToolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity, packageVersion: packageVersion?.version?.description ?? packageVersion?.revision)
-
-            self.load(
-                manifestPath: manifestPath,
-                manifestToolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
-                completion: completion
-            )
-        } catch {
-            callbackQueue.async {
-                completion(.failure(error))
-            }
-        }
-    }    
-
-    public func load(
-        packagePath: AbsolutePath,
-        packageIdentity: PackageIdentity,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        packageVersion: (version: Version?, revision: String?)?,
-        currentToolsVersion: ToolsVersion,
-        identityResolver: IdentityResolver,
-        dependencyMapper: DependencyMapper,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue
     ) async throws -> Manifest {
-        try await withCheckedThrowingContinuation {
-            self.load(
-                packagePath: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion,
-                currentToolsVersion: currentToolsVersion,
-                identityResolver: identityResolver,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
-                completion: $0.resume(with:)
-            )
-        }
-    }
+        // find the manifest path and parse it's tools-version
+        let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
+        let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+        // validate the manifest tools-version against the toolchain tools-version
+        try manifestToolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity, packageVersion: packageVersion?.version?.description ?? packageVersion?.revision)
+
+        return try await self.load(
+            manifestPath: manifestPath,
+            manifestToolsVersion: manifestToolsVersion,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: packageVersion,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            delegateQueue: delegateQueue,
+            callbackQueue: callbackQueue
+        )
+    }    
 }
 
 // MARK: - ManifestLoader
