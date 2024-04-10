@@ -13,7 +13,7 @@
 import struct SystemPackage.FilePath
 
 actor VirtualFileSystem: AsyncFileSystem {
-    public static let defaultChunkSize = 512 * 1024
+    package static let defaultChunkSize = 512 * 1024
 
     let readChunkSize: Int
 

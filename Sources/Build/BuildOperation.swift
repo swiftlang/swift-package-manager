@@ -12,8 +12,6 @@
 
 import Basics
 
-import Build
-
 import LLBuildManifest
 import PackageGraph
 import PackageLoading

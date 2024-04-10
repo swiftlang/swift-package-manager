@@ -15,7 +15,7 @@ import protocol Crypto.HashFunction
 import struct SystemPackage.Errno
 import struct SystemPackage.FilePath
 
-public protocol AsyncFileSystem: Actor {
+package protocol AsyncFileSystem: Actor {
     func withOpenReadableFile<T>(
         _ path: FilePath,
         _ body: @Sendable (OpenReadableFile) async throws -> T

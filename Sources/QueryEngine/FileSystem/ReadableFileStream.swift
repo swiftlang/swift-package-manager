@@ -13,17 +13,17 @@
 import _Concurrency
 import SystemPackage
 
-public enum ReadableFileStream: AsyncSequence {
-    public typealias Element = [UInt8]
+package enum ReadableFileStream: AsyncSequence {
+    package typealias Element = [UInt8]
 
     case local(LocalReadableFileStream)
     case virtual(VirtualReadableFileStream)
 
-    public enum Iterator: AsyncIteratorProtocol {
+    package enum Iterator: AsyncIteratorProtocol {
         case local(LocalReadableFileStream.Iterator)
         case virtual(VirtualReadableFileStream.Iterator)
 
-        public func next() async throws -> [UInt8]? {
+        package func next() async throws -> [UInt8]? {
             switch self {
             case .local(let local):
                 try await local.next()
@@ -33,7 +33,7 @@ public enum ReadableFileStream: AsyncSequence {
         }
     }
 
-    public func makeAsyncIterator() -> Iterator {
+    package func makeAsyncIterator() -> Iterator {
         switch self {
         case .local(let local):
             .local(local.makeAsyncIterator())
@@ -43,13 +43,13 @@ public enum ReadableFileStream: AsyncSequence {
     }
 }
 
-public struct LocalReadableFileStream: AsyncSequence {
-    public typealias Element = [UInt8]
+package struct LocalReadableFileStream: AsyncSequence {
+    package typealias Element = [UInt8]
 
     let fileDescriptor: FileDescriptor
     let readChunkSize: Int
 
-    public final class Iterator: AsyncIteratorProtocol {
+    package final class Iterator: AsyncIteratorProtocol {
         init(_ fileDescriptor: FileDescriptor, readChunkSize: Int) {
             self.fileDescriptor = fileDescriptor
             self.readChunkSize = readChunkSize
@@ -58,7 +58,7 @@ public struct LocalReadableFileStream: AsyncSequence {
         private let fileDescriptor: FileDescriptor
         private let readChunkSize: Int
 
-        public func next() async throws -> [UInt8]? {
+        package func next() async throws -> [UInt8]? {
             var buffer = [UInt8](repeating: 0, count: readChunkSize)
 
             let bytesRead = try buffer.withUnsafeMutableBytes {
@@ -74,22 +74,22 @@ public struct LocalReadableFileStream: AsyncSequence {
         }
     }
 
-    public func makeAsyncIterator() -> Iterator {
+    package func makeAsyncIterator() -> Iterator {
         Iterator(self.fileDescriptor, readChunkSize: self.readChunkSize)
     }
 }
 
-public struct VirtualReadableFileStream: AsyncSequence {
-    public typealias Element = [UInt8]
+package struct VirtualReadableFileStream: AsyncSequence {
+    package typealias Element = [UInt8]
 
-    public final class Iterator: AsyncIteratorProtocol {
+    package final class Iterator: AsyncIteratorProtocol {
         init(bytes: [UInt8]? = nil) {
             self.bytes = bytes
         }
 
         var bytes: [UInt8]?
 
-        public func next() async throws -> [UInt8]? {
+        package func next() async throws -> [UInt8]? {
             defer { bytes = nil }
 
             return self.bytes
@@ -98,7 +98,7 @@ public struct VirtualReadableFileStream: AsyncSequence {
 
     let bytes: [UInt8]
 
-    public func makeAsyncIterator() -> Iterator {
+    package func makeAsyncIterator() -> Iterator {
         Iterator(bytes: self.bytes)
     }
 }

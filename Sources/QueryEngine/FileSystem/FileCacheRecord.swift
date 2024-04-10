@@ -13,9 +13,9 @@
 // FIXME: need a new swift-system tag to remove `@preconcurrency`
 @preconcurrency import struct SystemPackage.FilePath
 
-public struct FileCacheRecord: Sendable {
-    public let path: FilePath
-    public let hash: String
+package struct FileCacheRecord: Sendable {
+    package let path: FilePath
+    package let hash: String
 }
 
 extension FileCacheRecord: Codable {
@@ -25,13 +25,13 @@ extension FileCacheRecord: Codable {
     }
 
     // FIXME: `Codable` on `FilePath` is broken, thus all `Codable` types with `FilePath` properties need a custom impl.
-    public init(from decoder: any Decoder) throws {
+    package init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.path = try FilePath(container.decode(String.self, forKey: .path))
         self.hash = try container.decode(String.self, forKey: .hash)
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.path.string, forKey: .path)
         try container.encode(self.hash, forKey: .hash)
