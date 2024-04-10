@@ -1583,6 +1583,9 @@ extension [PackageCondition] {
             case .watchOS:
                 result += PIF.PlatformFilter.watchOSFilters
 
+            case .visionOS:
+                result += PIF.PlatformFilter.visionOSFilters
+
             case .linux:
                 result += PIF.PlatformFilter.linuxFilters
 
@@ -1600,9 +1603,6 @@ extension [PackageCondition] {
 
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
-
-            case .visionOS:
-                result += PIF.PlatformFilter.visionOSFilters
 
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
