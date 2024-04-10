@@ -16,6 +16,9 @@ package protocol Query: CacheKey, Sendable {
     func run(engine: QueryEngine) async throws -> FilePath
 }
 
+// SwiftPM has to be built with Swift 5.8 on CI and also needs to support CMake for bootstrapping on Windows.
+// This means we can't implement persistable hashing with macros (unavailable in Swift 5.8 and additional effort to
+// set up with CMake when Swift 5.9 is available for all CI jobs) and have to stick to `Encodable` for now.
 final class HashEncoder<Hash: HashFunction>: Encoder {
     enum Error: Swift.Error {
         case noCacheKeyConformance(Encodable.Type)
