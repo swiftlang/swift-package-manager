@@ -1601,6 +1601,9 @@ extension [PackageCondition] {
             case .openbsd:
                 result += PIF.PlatformFilter.openBSDFilters
 
+            case .visionOS:
+                result += PIF.PlatformFilter.visionOSFilters
+
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
                 break
@@ -1670,6 +1673,12 @@ extension PIF.PlatformFilter {
     /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
+    ]
+
+    /// VisionOS platform filters.
+    public static let visionOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "visionos"),
+        .init(platform: "visionos", environment: "simulator")
     ]
 }
 
