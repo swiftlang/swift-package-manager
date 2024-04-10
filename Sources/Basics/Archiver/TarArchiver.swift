@@ -47,7 +47,7 @@ public struct TarArchiver: Archiver {
     public func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         do {
             guard self.fileSystem.exists(archivePath) else {
@@ -84,7 +84,7 @@ public struct TarArchiver: Archiver {
     public func compress(
         directory: AbsolutePath,
         to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         do {
             guard self.fileSystem.isDirectory(directory) else {
@@ -115,7 +115,7 @@ public struct TarArchiver: Archiver {
         }
     }
 
-    public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func validate(path: AbsolutePath, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         do {
             guard self.fileSystem.exists(path) else {
                 throw FileSystemError(.noEntry, path.underlying)

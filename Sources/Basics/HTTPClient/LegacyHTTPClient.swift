@@ -25,7 +25,7 @@ public final class LegacyHTTPClient: Cancellable {
     public typealias Configuration = LegacyHTTPClientConfiguration
     public typealias Request = LegacyHTTPClientRequest
     public typealias Response = HTTPClientResponse
-    public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
+    public typealias Handler = (Request, ProgressHandler?, @escaping @Sendable (Result<Response, Error>) -> Void) -> Void
     public typealias ProgressHandler = @Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) throws -> Void
     public typealias CompletionHandler = @Sendable (Result<HTTPClientResponse, Error>) -> Void
 
