@@ -11,28 +11,28 @@
 //===----------------------------------------------------------------------===//
 
 /// A term represents a statement about a package that may be true or false.
-public struct Term: Equatable, Hashable {
-    public let node: DependencyResolutionNode
-    public let requirement: VersionSetSpecifier
-    public let isPositive: Bool
+package struct Term: Equatable, Hashable {
+    package let node: DependencyResolutionNode
+    package let requirement: VersionSetSpecifier
+    package let isPositive: Bool
 
-    public init(node: DependencyResolutionNode, requirement: VersionSetSpecifier, isPositive: Bool) {
+    package init(node: DependencyResolutionNode, requirement: VersionSetSpecifier, isPositive: Bool) {
         self.node = node
         self.requirement = requirement
         self.isPositive = isPositive
     }
 
-    public init(_ node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
+    package init(_ node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
         self.init(node: node, requirement: requirement, isPositive: true)
     }
 
     /// Create a new negative term.
-    public init(not node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
+    package init(not node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
         self.init(node: node, requirement: requirement, isPositive: false)
     }
 
     /// The same term with an inversed `isPositive` value.
-    public var inverse: Term {
+    package var inverse: Term {
         Term(
             node: self.node,
             requirement: self.requirement,
@@ -42,14 +42,14 @@ public struct Term: Equatable, Hashable {
 
     /// Check if this term satisfies another term, e.g. if `self` is true,
     /// `other` must also be true.
-    public func satisfies(_ other: Term) -> Bool {
+    package func satisfies(_ other: Term) -> Bool {
         // TODO: This probably makes more sense as isSatisfied(by:) instead.
         guard self.node == other.node else { return false }
         return self.relation(with: other) == .subset
     }
 
     /// Create an intersection with another term.
-    public func intersect(with other: Term) -> Term? {
+    package func intersect(with other: Term) -> Term? {
         guard self.node == other.node else { return nil }
         return self.intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
     }
@@ -59,7 +59,7 @@ public struct Term: Equatable, Hashable {
     /// and given term.
     ///
     /// - returns: `nil` if an intersection is not possible.
-    public func intersect(
+    package func intersect(
         withRequirement requirement: VersionSetSpecifier,
         andPolarity otherIsPositive: Bool
     ) -> Term? {
@@ -90,7 +90,7 @@ public struct Term: Equatable, Hashable {
         return Term(node: self.node, requirement: versionIntersection, isPositive: isPositive)
     }
 
-    public func difference(with other: Term) -> Term? {
+    package func difference(with other: Term) -> Term? {
         self.intersect(with: other.inverse)
     }
 
@@ -99,7 +99,7 @@ public struct Term: Equatable, Hashable {
     /// - There has to exist a positive derivation for it.
     /// - There has to be no decision for it.
     /// - The package version has to match all assignments.
-    public func isValidDecision(for solution: PartialSolution) -> Bool {
+    package func isValidDecision(for solution: PartialSolution) -> Bool {
         for assignment in solution.assignments where assignment.term.node == self.node {
             assert(!assignment.isDecision, "Expected assignment to be a derivation.")
             guard satisfies(assignment.term) else { return false }
@@ -108,7 +108,7 @@ public struct Term: Equatable, Hashable {
     }
 
     // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
-    public func relation(with other: Term) -> SetRelation {
+    package func relation(with other: Term) -> SetRelation {
         if self.node != other.node {
             assertionFailure("attempting to compute relation between different packages \(self) \(other)")
             return .error
@@ -154,7 +154,7 @@ public struct Term: Equatable, Hashable {
         }
     }
 
-    public enum SetRelation: Equatable {
+    package enum SetRelation: Equatable {
         /// The sets have nothing in common.
         case disjoint
         /// The sets have elements in common but first set is not a subset of second.
@@ -167,7 +167,7 @@ public struct Term: Equatable, Hashable {
 }
 
 extension Term: CustomStringConvertible {
-    public var description: String {
+    package var description: String {
         let pkg = "\(node)"
         let req = self.requirement.description
 

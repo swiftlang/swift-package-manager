@@ -61,7 +61,7 @@ public enum DependencyResolutionNode {
     case root(package: PackageReference)
 
     /// The package.
-    public var package: PackageReference {
+    package var package: PackageReference {
         switch self {
         case .empty(let package), .product(_, let package), .root(let package):
             return package
@@ -69,7 +69,7 @@ public enum DependencyResolutionNode {
     }
 
     /// The name of the specific product if the node is a product node, otherwise `nil`.
-    public var specificProduct: String? {
+    package var specificProduct: String? {
         switch self {
         case .empty, .root:
             return nil
@@ -79,7 +79,7 @@ public enum DependencyResolutionNode {
     }
 
     /// Assembles the product filter to use on the manifest for this node to determine its dependencies.
-    public var productFilter: ProductFilter {
+    package var productFilter: ProductFilter {
         switch self {
         case .empty:
             return .specific([])
@@ -93,7 +93,7 @@ public enum DependencyResolutionNode {
     /// Returns the dependency that a product has on its own package, if relevant.
     ///
     /// This is the constraint that requires all products from a package resolve to the same version.
-    internal func versionLock(version: Version) -> PackageContainerConstraint? {
+    func versionLock(version: Version) -> PackageContainerConstraint? {
         // Don’t create a version lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(

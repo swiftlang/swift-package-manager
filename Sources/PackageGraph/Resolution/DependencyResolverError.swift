@@ -12,13 +12,13 @@
 
 import Foundation
 
-public enum DependencyResolverError: Error, Equatable {
+package enum DependencyResolverError: Error, Equatable {
      /// A revision-based dependency contains a local package dependency.
     case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
 }
 
 extension DependencyResolverError: CustomStringConvertible {
-    public var description: String {
+    package var description: String {
         switch self {
         case .revisionDependencyContainsLocalPackage(let dependency, let localPackage):
             return "package '\(dependency)' is required using a revision-based requirement and it depends on local package '\(localPackage)', which is not supported"

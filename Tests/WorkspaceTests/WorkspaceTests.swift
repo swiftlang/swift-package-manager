@@ -1865,16 +1865,15 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Check that we can compute missing dependencies.
-        try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(
-                try! manifests.missingPackages.map(\.locationString).sorted(),
-                [
-                    sandbox.appending(components: "pkgs", "Bar").pathString,
-                    sandbox.appending(components: "pkgs", "Foo").pathString,
-                ]
-            )
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        var (manifests, diagnostics) = try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"])
+        XCTAssertEqual(
+            try! manifests.missingPackages.map(\.locationString).sorted(),
+            [
+                sandbox.appending(components: "pkgs", "Bar").pathString,
+                sandbox.appending(components: "pkgs", "Foo").pathString,
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
 
         // Load the graph with one root.
         try await workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
@@ -1885,13 +1884,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that we compute the correct missing dependencies.
-        try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(
-                try! manifests.missingPackages.map(\.locationString).sorted(),
-                [sandbox.appending(components: "pkgs", "Bar").pathString]
-            )
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        (manifests, diagnostics) = try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"])
+        XCTAssertEqual(
+            try! manifests.missingPackages.map(\.locationString).sorted(),
+            [sandbox.appending(components: "pkgs", "Bar").pathString]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
 
         // Load the graph with both roots.
         try await workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { graph, diagnostics in
@@ -1902,10 +1900,9 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that we compute the correct missing dependencies.
-        try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(try! manifests.missingPackages.map(\.locationString).sorted(), [])
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        (manifests, diagnostics) = try await workspace.loadDependencyManifests(roots: ["Root1", "Root2"])
+        XCTAssertEqual(try! manifests.missingPackages.map(\.locationString).sorted(), [])
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testDependencyManifestsOrder() async throws {
@@ -1967,14 +1964,13 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try await workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
-            // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(
-                manifests.allDependencyManifests.map(\.value.manifest.displayName),
-                ["Foo", "Baz", "Bam", "Bar"]
-            )
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        let (manifests, diagnostics) = try await workspace.loadDependencyManifests(roots: ["Root1"])
+        // Ensure that the order of the manifests is stable.
+        XCTAssertEqual(
+            manifests.allDependencyManifests.map(\.value.manifest.displayName),
+            ["Foo", "Baz", "Bam", "Bar"]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testBranchAndRevision() async throws {
@@ -2343,11 +2339,10 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertTrue(fs.exists(fooPath))
 
-        try await workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
-            let editedPackages = manifests.editedPackagesConstraints
-            XCTAssertEqual(editedPackages.map(\.package.locationString), [fooPath.pathString])
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        let (manifests, diagnostics) = try await workspace.loadDependencyManifests(roots: ["Root"])
+        let editedPackages = manifests.editedPackagesConstraints
+        XCTAssertEqual(editedPackages.map(\.package.locationString), [fooPath.pathString])
+        XCTAssertNoDiagnostics(diagnostics)
 
         // Try re-editing foo.
         await workspace.checkEdit(packageName: "Foo") { diagnostics in

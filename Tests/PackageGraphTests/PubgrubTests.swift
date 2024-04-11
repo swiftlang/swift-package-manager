@@ -621,7 +621,7 @@ final class PubgrubTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try solver.resolve(state: state, conflict: conflict)) { error in
-            XCTAssertTrue(error is PubGrubDependencyResolver.PubgrubError)
+            XCTAssertTrue(error is PubgrubError)
         }
     }
 
@@ -3809,7 +3809,7 @@ extension Result where Success == [DependencyResolverBinding] {
         switch self {
         case .failure(let error):
             switch error {
-            case let err as PubGrubDependencyResolver.PubgrubError:
+            case let err as PubgrubError:
                 guard case .unresolvable(let msg) = err else {
                     XCTFail("Unexpected result \(self)")
                     return nil

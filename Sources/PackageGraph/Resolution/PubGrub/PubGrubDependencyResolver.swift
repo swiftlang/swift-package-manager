@@ -21,9 +21,9 @@ import struct TSCUtility.Version
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
-public struct PubGrubDependencyResolver {
+package struct PubGrubDependencyResolver {
     /// The type of the constraints the resolver operates on.
-    public typealias Constraint = PackageContainerConstraint
+    package typealias Constraint = PackageContainerConstraint
 
     /// the mutable state that get computed
     final class State {
@@ -37,10 +37,10 @@ public struct PubGrubDependencyResolver {
 
         /// A collection of all known incompatibilities matched to the packages they
         /// refer to. This means an incompatibility can occur several times.
-        public private(set) var incompatibilities: [DependencyResolutionNode: [Incompatibility]] = [:]
+        package private(set) var incompatibilities: [DependencyResolutionNode: [Incompatibility]] = [:]
 
         /// The current best guess for a solution satisfying all requirements.
-        public private(set) var solution: PartialSolution
+        package private(set) var solution: PartialSolution
 
         private let lock = NSLock()
 
@@ -123,7 +123,7 @@ public struct PubGrubDependencyResolver {
     /// Resolver delegate
     private let delegate: DependencyResolverDelegate?
 
-    public init(
+    package init(
         provider: PackageContainerProvider,
         pins: PinsStore.Pins = [:],
         availableLibraries: [LibraryMetadata] = [],
@@ -147,7 +147,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint]) async throws -> [DependencyResolverBinding] {
+    package func solve(constraints: [Constraint]) async throws -> [DependencyResolverBinding] {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
@@ -798,36 +798,34 @@ enum LogLocation: String {
     case conflictResolution = "conflict resolution"
 }
 
-extension PubGrubDependencyResolver {
-    public enum PubgrubError: Swift.Error, CustomStringConvertible {
-        case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
-        case unresolvable(String)
+public enum PubgrubError: Swift.Error, CustomStringConvertible {
+    case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
+    case unresolvable(String)
 
-        public var description: String {
-            switch self {
-            case ._unresolvable(let rootCause, _):
-                return rootCause.description
-            case .unresolvable(let error):
-                return error
-            }
+    public var description: String {
+        switch self {
+        case ._unresolvable(let rootCause, _):
+            return rootCause.description
+        case .unresolvable(let error):
+            return error
         }
+    }
 
-        var rootCause: Incompatibility? {
-            switch self {
-            case ._unresolvable(let rootCause, _):
-                return rootCause
-            case .unresolvable:
-                return nil
-            }
+    var rootCause: Incompatibility? {
+        switch self {
+        case ._unresolvable(let rootCause, _):
+            return rootCause
+        case .unresolvable:
+            return nil
         }
+    }
 
-        var incompatibilities: [DependencyResolutionNode: [Incompatibility]]? {
-            switch self {
-            case ._unresolvable(_, let incompatibilities):
-                return incompatibilities
-            case .unresolvable:
-                return nil
-            }
+    var incompatibilities: [DependencyResolutionNode: [Incompatibility]]? {
+        switch self {
+        case ._unresolvable(_, let incompatibilities):
+            return incompatibilities
+        case .unresolvable:
+            return nil
         }
     }
 }
@@ -873,7 +871,7 @@ extension PackageRequirement {
 }
 
 extension PackageReference {
-    public func matchingPrebuiltLibrary(in availableLibraries: [LibraryMetadata]) -> LibraryMetadata? {
+    package func matchingPrebuiltLibrary(in availableLibraries: [LibraryMetadata]) -> LibraryMetadata? {
         switch self.kind {
         case .fileSystem, .localSourceControl, .root:
             return nil // can never match a prebuilt library

@@ -18,20 +18,20 @@ import PackageModel
 /// all be true at the same time. In dependency resolution, these are derived
 /// from version requirements and when running into unresolvable situations.
 public struct Incompatibility: Equatable, Hashable {
-    public let terms: OrderedCollections.OrderedSet<Term>
-    public let cause: Cause
+    package let terms: OrderedCollections.OrderedSet<Term>
+    package let cause: Cause
 
-    public init(terms: OrderedCollections.OrderedSet<Term>, cause: Cause) {
+    package init(terms: OrderedCollections.OrderedSet<Term>, cause: Cause) {
         self.terms = terms
         self.cause = cause
     }
 
-    public init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) throws {
+    package init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) throws {
         let termSet = OrderedCollections.OrderedSet(terms)
         try self.init(termSet, root: root, cause: cause)
     }
 
-    public init(_ terms: OrderedCollections.OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) throws {
+    package init(_ terms: OrderedCollections.OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) throws {
         if terms.isEmpty {
             self.init(terms: terms, cause: cause)
             return
@@ -63,7 +63,7 @@ extension Incompatibility: CustomStringConvertible {
     }
 }
 
-public extension Incompatibility {
+package extension Incompatibility {
     /// Every incompatibility has a cause to explain its presence in the
     /// derivation graph. Only the root incompatibility uses `.root`. All other
     /// incompatibilities are either obtained from dependency constraints,

@@ -762,9 +762,8 @@ package final class MockWorkspace {
 
     package func loadDependencyManifests(
         roots: [String] = [],
-        deps: [MockDependency] = [],
-        _ result: (Workspace.DependencyManifests,  [Basics.Diagnostic]) -> Void
-    ) async throws {
+        deps: [MockDependency] = []
+    ) async throws -> (Workspace.DependencyManifests, [Basics.Diagnostic]) {
         let observability = ObservabilitySystem.makeForTesting()
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let workspace = try self.getOrCreateWorkspace()
@@ -781,7 +780,7 @@ package final class MockWorkspace {
             availableLibraries: [], // assume no provided libraries for testing.
             observabilityScope: observability.topScope
         )
-        result(manifests, observability.diagnostics)
+        return (manifests, observability.diagnostics)
     }
 
     package func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {

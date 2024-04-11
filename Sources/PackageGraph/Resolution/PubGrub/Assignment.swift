@@ -18,11 +18,11 @@
 /// at or before it in the partial solution that caused it to be derived. This
 /// is later used during conflict resolution to figure out how far back to jump
 /// when a conflict is found.
-public struct Assignment: Equatable {
-    public let term: Term
-    public let decisionLevel: Int
-    public let cause: Incompatibility?
-    public let isDecision: Bool
+package struct Assignment: Equatable {
+    package let term: Term
+    package let decisionLevel: Int
+    package let cause: Incompatibility?
+    package let isDecision: Bool
 
     private init(
         term: Term,
@@ -37,7 +37,7 @@ public struct Assignment: Equatable {
     }
 
     /// An assignment made during decision making.
-    public static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
+    package static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
         assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection: \(term.requirement)")
 
         return self.init(
@@ -50,7 +50,7 @@ public struct Assignment: Equatable {
 
     /// An assignment derived from previously known incompatibilities during
     /// unit propagation.
-    public static func derivation(
+    package static func derivation(
         _ term: Term,
         cause: Incompatibility,
         decisionLevel: Int
@@ -65,7 +65,7 @@ public struct Assignment: Equatable {
 }
 
 extension Assignment: CustomStringConvertible {
-    public var description: String {
+    package var description: String {
         switch self.isDecision {
         case true:
             return "[Decision \(self.decisionLevel): \(self.term)]"
