@@ -593,7 +593,13 @@ extension Workspace {
             {
                 observabilityScope
                     .emit(
-                        error: "unable to override package '\(manifest.displayName)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'"
+                        error: """
+                            unable to override package '\(manifest.displayName)' because its identity '\(
+                                PackageIdentity(urlString: manifest.packageLocation)
+                            )' doesn't match override's identity (directory name) '\(
+                                PackageIdentity(urlString: override.packageLocation)
+                            )'
+                            """
                     )
             }
         }
