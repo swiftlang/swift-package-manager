@@ -286,6 +286,42 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"])
             XCTAssertEqual(parser.libs, ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3"])
         }
+
+        // sysroot should be not be double-prepended if it is used explicitly by the .pc file
+        // - pkgconf makes this check, but pkg-config does not
+        try loadPCFile("double_sysroot.pc", sysrootDir: "/sysroot") { parser in
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/sysroot/usr",
+                "datarootdir": "/sysroot/usr/share",
+                "pkgdatadir": "/sysroot/usr/share/pkgdata",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": "/sysroot"
+            ])
+        }
+
+        // pkgconfig strips a leading sysroot prefix if sysroot appears anywhere else in the
+        // expanded variable.   SwiftPM's implementation is faithful to pkgconfig, even
+        // thought it might seem more logical not to strip the prefix in this case.
+        try loadPCFile("not_double_sysroot.pc", sysrootDir: "/sysroot") { parser in
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/sysroot/usr",
+                "datarootdir": "/sysroot/usr/share",
+                "pkgdatadir": "/filler/sysroot/usr/share/pkgdata",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": "/sysroot"
+            ])
+        }
+
+        // pkgconfig does not strip sysroot if it is a relative path
+        try loadPCFile("double_sysroot.pc", sysrootDir: "sysroot") { parser in
+            XCTAssertEqual(parser.variables, [
+                "prefix": "sysroot/usr",
+                "datarootdir": "sysroot/usr/share",
+                "pkgdatadir": "sysroot/sysroot/usr/share/pkgdata",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": "sysroot"
+            ])
+        }
     }
 
     private func pcFilePath(_ inputName: String) -> AbsolutePath {

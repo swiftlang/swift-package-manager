@@ -177,6 +177,84 @@ internal struct PkgConfigParser {
         self.sysrootDir = sysrootDir
     }
 
+    // Compress repeated path separators to one.
+    private func compressPathSeparators(_ value: String) -> String {
+        let components = value.components(separatedBy: "/").filter { !$0.isEmpty }.joined(separator: "/")
+        if value.hasPrefix("/") {
+            return "/" + components
+        } else {
+            return components
+        }
+    }
+
+    // Trim duplicate sysroot prefixes, matching the approach of pkgconf
+    private func trimDuplicateSysroot(_ value: String) -> String {
+        // If sysroot has been applied more than once, remove the first instance.
+        // pkgconf makes this check after variable expansion to handle rare .pc
+        // files which expand ${pc_sysrootdir} directly:
+        //    https://github.com/pkgconf/pkgconf/issues/123
+        //
+        // For example:
+        //       /sysroot/sysroot/remainder -> /sysroot/remainder
+        //
+        // However, pkgconf's algorithm searches for an additional sysrootdir anywhere in
+        // the string after the initial prefix, rather than looking for two sysrootdir prefixes
+        // directly next to each other:
+        //
+        //     /sysroot/filler/sysroot/remainder -> /filler/sysroot/remainder
+        //
+        // It might seem more logical not to strip sysroot in this case, as it is not a double
+        // prefix, but for compatibility trimDuplicateSysroot is faithful to pkgconf's approach
+        // in the functions `pkgconf_tuple_parse` and `should_rewrite_sysroot`.
+
+        // Only trim if sysroot is defined with a meaningful value
+        guard let sysrootDir, sysrootDir != "/" else {
+           return value
+        }
+
+        // Only trim absolute paths starting with sysroot
+        guard value.hasPrefix("/"), value.hasPrefix(sysrootDir) else {
+            return value
+        }
+
+        // If sysroot appears multiple times, trim the prefix
+        // N.B. sysroot can appear anywhere in the remainder
+        // of the value, mirroring pkgconf's logic
+        let pathSuffix = value.dropFirst(sysrootDir.count)
+        if pathSuffix.contains(sysrootDir) {
+            return String(pathSuffix)
+        } else {
+            return value
+        }
+    }
+
+    // Apply sysroot to generated paths, matching the approach of pkgconf
+    private func applySysroot(_ value: String) -> String {
+        // The two main pkg-config implementations handle sysroot differently:
+        //
+        //     `pkg-config` (freedesktop.org) prepends sysroot after variable expansion, when in creates the compiler flag lists
+        //     `pkgconf` prepends sysroot to variables when they are defined, so sysroot is included when they are expanded
+        //
+        // pkg-config's method skips single character compiler flags, such as '-I' and '-L', and has special cases for longer options.
+        // It does not handle spaces between the flags and their values properly, and prepends sysroot multiple times in some cases,
+        // such as when the .pc file uses the sysroot_dir variable directly or has been rewritten to hard-code the sysroot prefix.
+        //
+        // pkgconf's method handles spaces correctly, although it also requires extra checks to ensure that sysroot is not applied
+        // more than once.
+        //
+        // In 2024 pkg-config is the more popular option according to Homebrew installation statistics, but the major Linux distributions
+        // have generally switched to pkgconf.
+        //
+        // We will use pkgconf's method here as it seems more robust than pkg-config's, and pkgconf's greater popularity on Linux
+        // means libraries developed there may depend on the specific way it handles .pc files.
+
+        if value.hasPrefix("/"), let sysrootDir, !value.hasPrefix(sysrootDir) {
+            return compressPathSeparators(trimDuplicateSysroot(sysrootDir + value))
+        } else {
+            return compressPathSeparators(trimDuplicateSysroot(value))
+        }
+    }
+
     public mutating func parse() throws {
         func removeComment(line: String) -> String {
             if let commentIndex = line.firstIndex(of: "#") {
@@ -207,7 +285,7 @@ internal struct PkgConfigParser {
                 // Found a variable.
                 let (name, maybeValue) = line.spm_split(around: "=")
                 let value = maybeValue?.spm_chuzzle() ?? ""
-                variables[name.spm_chuzzle() ?? ""] = try resolveVariables(value)
+                variables[name.spm_chuzzle() ?? ""] = try applySysroot(resolveVariables(value))
             } else {
                 // Unexpected thing in the pc file, abort.
                 throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile)")

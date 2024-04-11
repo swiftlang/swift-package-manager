@@ -1,0 +1,7 @@
+prefix=/usr
+datarootdir=${prefix}/share
+pkgdatadir=${pc_sysrootdir}/${datarootdir}/pkgdata
+
+Name: double_sysroot
+Description: Demonstrate double-prefixing of pc_sysrootdir (https://github.com/pkgconf/pkgconf/issues/123)
+Version: 1
