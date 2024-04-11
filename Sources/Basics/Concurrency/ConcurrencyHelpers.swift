@@ -81,3 +81,17 @@ public func safe_async<T>(_ body: @escaping (@escaping (Result<T, Never>) -> Voi
 // As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
 extension URL: @unchecked Sendable {}
 #endif
+
+extension Collection {
+    package func parallelMap<NewElement>(
+        transform: @escaping (Element) async throws -> NewElement
+    ) async rethrows -> [NewElement] {
+        try await withThrowingTaskGroup(of: NewElement.self) { group in
+            for element in self {
+                group.addTask { try await transform(element) }
+            }
+
+            return try await group.reduce(into: []) { $0.append($1) }
+        }
+    }
+}

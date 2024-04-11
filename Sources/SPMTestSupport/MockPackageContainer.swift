@@ -19,7 +19,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-package class MockPackageContainer: CustomPackageContainer {
+package actor MockPackageContainer: CustomPackageContainer {
     package typealias Constraint = PackageContainerConstraint
 
     package typealias Dependency = (container: PackageReference, requirement: PackageRequirement)

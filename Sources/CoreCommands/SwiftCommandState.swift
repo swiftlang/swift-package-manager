@@ -463,15 +463,23 @@ package final class SwiftCommandState {
         return workspace
     }
 
-    package func getRootPackageInformation() throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+    package func getRootPackageInformation() throws -> (
+        dependencies: [PackageIdentity: [PackageIdentity]],
+        targets: [PackageIdentity: [String]]
+    ) {
         let workspace = try self.getActiveWorkspace()
         let root = try self.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: self.observabilityScope,
-                completion: $0
-            )
+        let rootManifests = try temp_await { (completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> ()) in
+            Task {
+                do {
+                    try await completion(.success(workspace.loadRootManifests(
+                        packages: root.packages,
+                        observabilityScope: self.observabilityScope
+                    )))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
         }
 
         var identities = [PackageIdentity: [PackageIdentity]]()
@@ -570,11 +578,11 @@ package final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    package func resolve() throws {
+    package func resolve() async throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        try workspace.resolve(
+        try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
@@ -599,17 +607,25 @@ package final class SwiftCommandState {
         testEntryPointPath: AbsolutePath? = nil
     ) throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace()
-
             // Fetch and load the package graph.
-            let graph = try workspace.loadPackageGraph(
-                rootInput: getWorkspaceRoot(),
-                explicitProduct: explicitProduct,
-                forceResolvedVersions: options.resolver.forceResolvedVersions,
-                testEntryPointPath: testEntryPointPath,
-                availableLibraries: self.getHostToolchain().providedLibraries,
-                observabilityScope: self.observabilityScope
-            )
+            let graph = try temp_await { (completion: @escaping (Result<ModulesGraph, Error>) -> ()) in
+                Task {
+                    do {
+                        let workspace = try getActiveWorkspace()
+                        let graph = try await workspace.loadPackageGraph(
+                            rootInput: getWorkspaceRoot(),
+                            explicitProduct: explicitProduct,
+                            forceResolvedVersions: options.resolver.forceResolvedVersions,
+                            testEntryPointPath: testEntryPointPath,
+                            availableLibraries: self.getHostToolchain().providedLibraries,
+                            observabilityScope: self.observabilityScope
+                        )
+                        completion(.success(graph))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                }
+            }
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.

@@ -150,7 +150,7 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
         }
         if case .allIncludingTests = subset {
             var buildParameters = try swiftCommandState.productsBuildParameters
-            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+            for library in try await options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
                 buildParameters.testingParameters = .init(
                     configuration: buildParameters.configuration,
                     targetTriple: buildParameters.triple,

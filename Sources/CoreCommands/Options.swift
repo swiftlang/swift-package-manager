@@ -573,7 +573,7 @@ package struct TestLibraryOptions: ParsableArguments {
     /// Whether to enable support for swift-testing.
     package func enableSwiftTestingLibrarySupport(
         swiftCommandState: SwiftCommandState
-    ) throws -> Bool {
+    ) async throws -> Bool {
         // Honor the user's explicit command-line selection, if any.
         if let callerSuppliedValue = explicitlyEnableSwiftTestingLibrarySupport {
             return callerSuppliedValue
@@ -582,13 +582,10 @@ package struct TestLibraryOptions: ParsableArguments {
         // If the active package has a dependency on swift-testing, automatically enable support for it so that extra steps are not needed.
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
-        }
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
 
         // Is swift-testing among the dependencies of the package being built?
         // If so, enable support.
@@ -620,13 +617,13 @@ package struct TestLibraryOptions: ParsableArguments {
     /// Get the set of enabled testing libraries.
     package func enabledTestingLibraries(
         swiftCommandState: SwiftCommandState
-    ) throws -> Set<BuildParameters.Testing.Library> {
+    ) async throws -> Set<BuildParameters.Testing.Library> {
         var result = Set<BuildParameters.Testing.Library>()
 
         if enableXCTestSupport {
             result.insert(.xctest)
         }
-        if try enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
+        if try await enableSwiftTestingLibrarySupport(swiftCommandState: swiftCommandState) {
             result.insert(.swiftTesting)
         }
 

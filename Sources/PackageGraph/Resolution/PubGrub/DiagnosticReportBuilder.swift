@@ -233,8 +233,8 @@ struct DiagnosticReportBuilder {
             }
         }
 
-        let positive = try terms.filter(\.isPositive).map { try description(for: $0) }
-        let negative = try terms.filter { !$0.isPositive }.map { try description(for: $0) }
+        let positive = try await terms.filter(\.isPositive).parallelMap { try await description(for: $0) }
+        let negative = try await terms.filter { !$0.isPositive }.parallelMap { try await description(for: $0) }
         if !positive.isEmpty, !negative.isEmpty {
             if positive.count == 1 {
                 let positiveTerm = terms.first { $0.isPositive }!

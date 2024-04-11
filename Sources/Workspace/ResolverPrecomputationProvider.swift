@@ -92,13 +92,26 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     }
 }
 
-private struct LocalPackageContainer: PackageContainer {
+private actor LocalPackageContainer: PackageContainer {
     let package: PackageReference
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
     let dependency: Workspace.ManagedDependency?
     let currentToolsVersion: ToolsVersion
     let shouldInvalidatePinnedVersions = false
+
+    init(
+        package: PackageReference,
+        manifest: Manifest,
+        dependency: Workspace.ManagedDependency?,
+        currentToolsVersion: ToolsVersion
+    ) {
+        self.package = package
+        self.manifest = manifest
+        self.dependency = dependency
+        self.currentToolsVersion = currentToolsVersion
+    }
+
 
     func versionsAscending() throws -> [Version] {
         switch self.dependency?.state {

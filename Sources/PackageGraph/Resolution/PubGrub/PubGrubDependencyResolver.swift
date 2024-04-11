@@ -173,7 +173,7 @@ public struct PubGrubDependencyResolver {
                         incompatibilities: incompatibilities,
                         provider: self.provider
                     )
-                    let diagnostic = try builder.makeErrorReport(for: rootCause)
+                    let diagnostic = try await builder.makeErrorReport(for: rootCause)
                     throw PubgrubError.unresolvable(diagnostic)
                 } catch {
                     // failed to construct the report, will report the original error
@@ -694,24 +694,15 @@ public struct PubGrubDependencyResolver {
             return [:]
         }
 
-        let sync = DispatchGroup()
-        let results = ThreadSafeKeyValueStore<Term, Result<Int, Error>>()
-
-        for term in terms {
-            sync.enter()
-            self.provider.getContainer(for: term.node.package) { result in
-                defer { sync.leave() }
-                results[term] = result
-                    .flatMap { container in Result(catching: { try container.versionCount(term.requirement) }) }
+        return try await withThrowingTaskGroup(of: (Term, Int).self) { group in
+            for term in terms {
+                group.addTask {
+                    let container = try await self.provider.getContainer(for: term.node.package)
+                    return try await (term, container.versionCount(term.requirement))
+                }
             }
-        }
 
-        sync.notify(queue: .sharedConcurrent) {
-            do {
-                try completion(.success(results.mapValues { try $0.get() }))
-            } catch {
-                completion(.failure(error))
-            }
+            return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
         }
     }
 

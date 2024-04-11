@@ -59,7 +59,7 @@ extension Workspace {
         dryRun: Bool = false,
         availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
-    ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+    ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         let start = DispatchTime.now()
         self.delegate?.willUpdateDependencies()
         defer {
@@ -71,11 +71,10 @@ extension Workspace {
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(
+        let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
-            observabilityScope: observabilityScope,
-            completion: $0
-        ) }
+            observabilityScope: observabilityScope
+        )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
@@ -86,7 +85,7 @@ extension Workspace {
             dependencyMapper: self.dependencyMapper,
             observabilityScope: observabilityScope
         )
-        let currentManifests = try self.loadDependencyManifests(
+        let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
@@ -128,7 +127,7 @@ extension Workspace {
         )
         self.activeResolver = resolver
 
-        let updateResults = self.resolveDependencies(
+        let updateResults = await self.resolveDependencies(
             resolver: resolver,
             constraints: updateConstraints,
             observabilityScope: observabilityScope
@@ -142,8 +141,8 @@ extension Workspace {
         }
 
         if dryRun {
-            return observabilityScope.trap {
-                try self.computePackageStateChanges(
+            return await observabilityScope.trap {
+                try await self.computePackageStateChanges(
                     root: graphRoot,
                     resolvedDependencies: updateResults,
                     updateBranches: true,
@@ -153,7 +152,7 @@ extension Workspace {
         }
 
         // Update the checkouts based on new dependency resolution.
-        let packageStateChanges = self.updateDependenciesCheckouts(
+        let packageStateChanges = await self.updateDependenciesCheckouts(
             root: graphRoot,
             updateResults: updateResults,
             updateBranches: true,
@@ -164,7 +163,7 @@ extension Workspace {
         }
 
         // Load the updated manifests.
-        let updatedDependencyManifests = try self.loadDependencyManifests(
+        let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
@@ -203,7 +202,7 @@ extension Workspace {
         availableLibraries: [LibraryMetadata],
         resolvedFileStrategy: ResolvedFileStrategy,
         observabilityScope: ObservabilityScope
-    ) throws -> DependencyManifests {
+    ) async throws -> DependencyManifests {
         let start = DispatchTime.now()
         self.delegate?.willResolveDependencies()
         defer {
@@ -213,20 +212,20 @@ extension Workspace {
         switch resolvedFileStrategy {
         case .lockFile:
             observabilityScope.emit(info: "using '\(self.location.resolvedVersionsFile.basename)' file as lock file")
-            return try self._resolveBasedOnResolvedVersionsFile(
+            return try await self._resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
                 availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         case .update(let forceResolution):
-            return try resolveAndUpdateResolvedFile(forceResolution: forceResolution)
+            return try await resolveAndUpdateResolvedFile(forceResolution: forceResolution)
         case .bestEffort:
             guard !self.state.dependencies.hasEditedDependencies() else {
-                return try resolveAndUpdateResolvedFile(forceResolution: false)
+                return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
             guard self.fileSystem.exists(self.location.resolvedVersionsFile) else {
-                return try resolveAndUpdateResolvedFile(forceResolution: false)
+                return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
             guard let pinsStore = try? self.pinsStore.load(), let storedHash = pinsStore.originHash else {
@@ -234,7 +233,7 @@ extension Workspace {
                     .emit(
                         debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash is missing. resolving and updating accordingly"
                     )
-                return try resolveAndUpdateResolvedFile(forceResolution: false)
+                return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
             let currentHash = try self.computeResolvedFileOriginHash(root: root)
@@ -243,14 +242,14 @@ extension Workspace {
                     .emit(
                         debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash does do not match manifest dependencies. resolving and updating accordingly"
                     )
-                return try resolveAndUpdateResolvedFile(forceResolution: false)
+                return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
             observabilityScope
                 .emit(
                     debug: "'\(self.location.resolvedVersionsFile.basename)' origin hash matches manifest dependencies, attempting resolution based on this file"
                 )
-            let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
+            let (manifests, precomputationResult) = try await self.tryResolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
                 availableLibraries: availableLibraries,
@@ -268,13 +267,13 @@ extension Workspace {
                     .emit(
                         debug: "resolution based on '\(self.location.resolvedVersionsFile.basename)' could not be completed because \(reasonString). resolving and updating accordingly"
                     )
-                return try resolveAndUpdateResolvedFile(forceResolution: false)
+                return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
         }
 
-        func resolveAndUpdateResolvedFile(forceResolution: Bool) throws -> DependencyManifests {
+        func resolveAndUpdateResolvedFile(forceResolution: Bool) async throws -> DependencyManifests {
             observabilityScope.emit(debug: "resolving and updating '\(self.location.resolvedVersionsFile.basename)'")
-            return try self.resolveAndUpdateResolvedFile(
+            return try await self.resolveAndUpdateResolvedFile(
                 root: root,
                 explicitProduct: explicitProduct,
                 availableLibraries: availableLibraries,
@@ -306,8 +305,8 @@ extension Workspace {
         explicitProduct: String?,
         availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
-    ) throws -> DependencyManifests {
-        let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
+    ) async throws -> DependencyManifests {
+        let (manifests, precomputationResult) = try await self.tryResolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: explicitProduct,
             availableLibraries: availableLibraries,
@@ -345,16 +344,15 @@ extension Workspace {
         explicitProduct: String?,
         availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
-    ) throws -> (DependencyManifests, ResolutionPrecomputationResult) {
+    ) async throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
-        let rootManifests = try temp_await { self.loadRootManifests(
+        let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
-            observabilityScope: observabilityScope,
-            completion: $0
-        ) }
+            observabilityScope: observabilityScope
+        )
         let graphRoot = PackageGraphRoot(
             input: root,
             manifests: rootManifests,
@@ -367,7 +365,7 @@ extension Workspace {
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }),
               !observabilityScope.errorsReported
         else {
-            return try (
+            return try await (
                 self.loadDependencyManifests(
                     root: graphRoot,
                     availableLibraries: availableLibraries,
@@ -460,7 +458,7 @@ extension Workspace {
             }
         }
 
-        let currentManifests = try self.loadDependencyManifests(
+        let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             automaticallyAddManagedDependencies: true,
             availableLibraries: availableLibraries,
@@ -473,7 +471,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        let precomputationResult = try self.precomputeResolution(
+        let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
             pinsStore: pinsStore,
@@ -499,17 +497,16 @@ extension Workspace {
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
-    ) throws -> DependencyManifests {
+    ) async throws -> DependencyManifests {
         // Ensure the cache path exists and validate that edited dependencies.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(
+        let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
-            observabilityScope: observabilityScope,
-            completion: $0
-        ) }
+            observabilityScope: observabilityScope
+        )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
@@ -521,7 +518,7 @@ extension Workspace {
             dependencyMapper: self.dependencyMapper,
             observabilityScope: observabilityScope
         )
-        let currentManifests = try self.loadDependencyManifests(
+        let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
@@ -555,7 +552,7 @@ extension Workspace {
         } else if !constraints.isEmpty || forceResolution {
             delegate?.willResolveDependencies(reason: .forced)
         } else {
-            let result = try self.precomputeResolution(
+            let result = try await self.precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
@@ -601,7 +598,7 @@ extension Workspace {
         )
         self.activeResolver = resolver
 
-        let result = self.resolveDependencies(
+        let result = await self.resolveDependencies(
             resolver: resolver,
             constraints: computedConstraints,
             observabilityScope: observabilityScope
@@ -615,7 +612,7 @@ extension Workspace {
         }
 
         // Update the checkouts with dependency resolution result.
-        let packageStateChanges = self.updateDependenciesCheckouts(
+        let packageStateChanges = await self.updateDependenciesCheckouts(
             root: graphRoot,
             updateResults: result,
             observabilityScope: observabilityScope
@@ -625,7 +622,7 @@ extension Workspace {
         }
 
         // Update the pinsStore.
-        let updatedDependencyManifests = try self.loadDependencyManifests(
+        let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
@@ -670,10 +667,10 @@ extension Workspace {
         updateResults: [DependencyResolverBinding],
         updateBranches: Bool = false,
         observabilityScope: ObservabilityScope
-    ) -> [(PackageReference, PackageStateChange)] {
+    ) async -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
-        guard let packageStateChanges = observabilityScope.trap({
-            try self.computePackageStateChanges(
+        guard let packageStateChanges = await observabilityScope.trap({
+            try await self.computePackageStateChanges(
                 root: root,
                 resolvedDependencies: updateResults,
                 updateBranches: updateBranches,
@@ -700,20 +697,20 @@ extension Workspace {
 
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
-            observabilityScope.makeChildScope(
+            await observabilityScope.makeChildScope(
                 description: "updating or cloning new packages",
                 metadata: packageRef.diagnosticsMetadata
             ).trap {
                 switch state {
                 case .added(let state):
-                    _ = try self.updateDependency(
+                    _ = try await self.updateDependency(
                         package: packageRef,
                         requirement: state.requirement,
                         productFilter: state.products,
                         observabilityScope: observabilityScope
                     )
                 case .updated(let state):
-                    _ = try self.updateDependency(
+                    _ = try await self.updateDependency(
                         package: packageRef,
                         requirement: state.requirement,
                         productFilter: state.products,
@@ -738,7 +735,7 @@ extension Workspace {
         requirement: PackageStateChange.Requirement,
         productFilter: ProductFilter,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         switch requirement {
         case .version(let version):
             // FIXME: this should not block
@@ -756,13 +753,13 @@ extension Workspace {
                 // FIXME: We need to get the revision here, and we don't have a
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
-                guard let tag = container.getTag(for: version) else {
-                    throw try InternalError(
+                guard let tag = await container.getTag(for: version) else {
+                    throw try await InternalError(
                         "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
                     )
                 }
-                let revision = try container.getRevision(forTag: tag)
-                try container.checkIntegrity(version: version, revision: revision)
+                let revision = try await container.getRevision(forTag: tag)
+                try await container.checkIntegrity(version: version, revision: revision)
                 return try self.checkoutRepository(
                     package: package,
                     at: .version(version, revision: revision),
@@ -775,7 +772,7 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
             } else if let customContainer = container as? CustomPackageContainer {
-                let path = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
+                let path = try await customContainer.retrieve(at: version, observabilityScope: observabilityScope)
                 let dependency = try ManagedDependency(
                     packageRef: package,
                     state: .custom(version: version, path: path),
@@ -838,7 +835,7 @@ extension Workspace {
         constraints: [PackageContainerConstraint],
         availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
-    ) throws -> ResolutionPrecomputationResult {
+    ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
@@ -856,24 +853,23 @@ extension Workspace {
             availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
-        let result = resolver.solve(constraints: computedConstraints)
+        do {
+            _ = try await resolver.solve(constraints: computedConstraints)
 
-        guard !observabilityScope.errorsReported else {
-            return .required(reason: .errorsPreviouslyReported)
-        }
+            guard !observabilityScope.errorsReported else {
+                return .required(reason: .errorsPreviouslyReported)
+            }
 
-        switch result {
-        case .success:
             return .notRequired
-        case .failure(ResolverPrecomputationError.missingPackage(let package)):
+        } catch ResolverPrecomputationError.missingPackage(let package) {
             return .required(reason: .newPackages(packages: [package]))
-        case .failure(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
+        } catch ResolverPrecomputationError.differentRequirement(let package, let state, let requirement) {
             return .required(reason: .packageRequirementChange(
                 package: package,
                 state: state,
                 requirement: requirement
             ))
-        case .failure(let error):
+        } catch {
             return .required(reason: .other("\(error.interpolationDescription)"))
         }
     }
@@ -995,7 +991,7 @@ extension Workspace {
         resolvedDependencies: [DependencyResolverBinding],
         updateBranches: Bool,
         observabilityScope: ObservabilityScope
-    ) throws -> [(PackageReference, PackageStateChange)] {
+    ) async throws -> [(PackageReference, PackageStateChange)] {
         // Load pins store and managed dependencies.
         let pinsStore = try self.pinsStore.load()
         var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
@@ -1057,7 +1053,7 @@ extension Workspace {
                         "invalid container for \(binding.package) expected a SourceControlPackageContainer"
                     )
                 }
-                var revision = try container.getRevision(forIdentifier: identifier)
+                var revision = try await container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
 
                 // If we have a branch and we shouldn't be updating the
@@ -1156,17 +1152,15 @@ extension Workspace {
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
-    ) -> [DependencyResolverBinding] {
+    ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = resolver.solve(constraints: constraints)
+        do {
+            let result = try await resolver.solve(constraints: constraints)
 
-        os_signpost(.end, name: SignpostName.pubgrub)
+            os_signpost(.end, name: SignpostName.pubgrub)
 
-        // Take an action based on the result.
-        switch result {
-        case .success(let bindings):
-            return bindings
-        case .failure(let error):
+            return result
+        } catch {
             observabilityScope.emit(error)
             return []
         }

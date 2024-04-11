@@ -77,7 +77,7 @@ struct APIDigesterBaselineDumper {
         force: Bool,
         logLevel: Basics.Diagnostic.Severity,
         swiftCommandState: SwiftCommandState
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = productsBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
@@ -121,7 +121,7 @@ struct APIDigesterBaselineDumper {
             cancellator: swiftCommandState.cancellator
         )
 
-        let graph = try workspace.loadPackageGraph(
+        let graph = try await workspace.loadPackageGraph(
             rootPath: baselinePackageRoot,
             observabilityScope: self.observabilityScope
         )

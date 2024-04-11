@@ -3210,7 +3210,7 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssert(rootManifests.count == 1, "\(rootManifests)")
 
             // Load the package graph.
-            let _ = try workspace.loadPackageGraph(
+            let _ = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope

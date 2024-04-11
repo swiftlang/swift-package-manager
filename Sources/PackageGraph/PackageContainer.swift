@@ -107,7 +107,7 @@ extension PackageContainer {
         try self.versionsAscending().reversed()
     }
 
-    public var shouldInvalidatePinnedVersions: Bool {
+    public nonisolated var shouldInvalidatePinnedVersions: Bool {
         return true
     }
 }
