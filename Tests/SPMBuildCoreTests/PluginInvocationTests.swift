@@ -206,7 +206,7 @@ class PluginInvocationTests: XCTestCase {
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
-        let (evalTargetID, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
+        let (_, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
 
         XCTAssertEqual(evalResults.count, 1)
