@@ -359,7 +359,7 @@ let package = Package(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
             dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt", "CODEOWNERS"]
+            exclude: ["CMakeLists.txt"]
         ),
         .target(
             /** High level functionality */
@@ -473,6 +473,9 @@ let package = Package(
             dependencies: [
                 "Basics",
                 .product(name: "Crypto", package: "swift-crypto"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency=complete"),
             ]
         ),
 
@@ -533,7 +536,7 @@ let package = Package(
                 "Commands",
                 "SwiftSDKCommand",
                 "PackageCollectionsCommand",
-                "PackageRegistryCommand"
+                "PackageRegistryCommand",
             ],
             linkerSettings: swiftpmLinkSettings
         ),
@@ -671,6 +674,10 @@ let package = Package(
         .testTarget(
             name: "PackageSigningTests",
             dependencies: ["SPMTestSupport", "PackageSigning"]
+        ),
+        .testTarget(
+            name: "QueryEngineTests",
+            dependencies: ["QueryEngine", "SPMTestSupport"]
         ),
         .testTarget(
             name: "SourceControlTests",
