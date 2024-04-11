@@ -956,11 +956,11 @@ extension Workspace {
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope
     ) async throws -> [AbsolutePath: Manifest] {
-        try await withThrowingTaskGroup(of: (AbsolutePath, Manifest).self) { group in
+        try await withThrowingTaskGroup(of: (AbsolutePath, Manifest?).self) { group in
             for package in Set(packages) {
                 group.addTask {
                     // TODO: this does not use the identity resolver which is probably fine since its the root packages
-                    try await (package, self.loadManifest(
+                    (package, try? await self.loadManifest(
                         packageIdentity: PackageIdentity(path: package),
                         packageKind: .root(package),
                         packagePath: package,
