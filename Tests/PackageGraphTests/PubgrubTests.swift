@@ -3521,7 +3521,7 @@ private actor MockContainer: PackageContainer {
                 }
             }
         }
-        self.init(package: package, dependencies: dependencies)
+        self.init(package: package, dependencies: dependencies, manifestName: manifestName)
     }
 
     public init(
