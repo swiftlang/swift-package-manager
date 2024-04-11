@@ -27,6 +27,7 @@ add_library(Basics
   DispatchTimeInterval+Extensions.swift
   EnvironmentVariables.swift
   Errors.swift
+  GraphAlgorithms.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
   FileSystem/NativePathExtensions.swift
