@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+import _Concurrency
 import struct Basics.AbsolutePath
 import struct Basics.Diagnostic
 import struct Basics.InternalError
