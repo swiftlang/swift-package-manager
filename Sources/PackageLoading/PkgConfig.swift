@@ -47,6 +47,7 @@ public struct PkgConfig {
         name: String,
         additionalSearchPaths: [AbsolutePath]? = .none,
         brewPrefix: AbsolutePath? = .none,
+        sysrootDir: AbsolutePath? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -54,6 +55,7 @@ public struct PkgConfig {
             name: name,
             additionalSearchPaths: additionalSearchPaths ?? [],
             brewPrefix: brewPrefix,
+            sysrootDir: sysrootDir,
             loadingContext: LoadingContext(),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
@@ -64,6 +66,7 @@ public struct PkgConfig {
         name: String,
         additionalSearchPaths: [AbsolutePath],
         brewPrefix: AbsolutePath?,
+        sysrootDir: AbsolutePath?,
         loadingContext: LoadingContext,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -85,7 +88,7 @@ public struct PkgConfig {
             )
         }
 
-        var parser = try PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
+        var parser = try PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem, sysrootDir: ProcessEnv.block["PKG_CONFIG_SYSROOT_DIR"])
         try parser.parse()
 
         func getFlags(from dependencies: [String]) throws -> (cFlags: [String], libs: [String]) {
@@ -103,6 +106,7 @@ public struct PkgConfig {
                     name: dep,
                     additionalSearchPaths: additionalSearchPaths,
                     brewPrefix: brewPrefix,
+                    sysrootDir: sysrootDir,
                     loadingContext: loadingContext,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
@@ -162,13 +166,15 @@ internal struct PkgConfigParser {
     public private(set) var privateDependencies = [String]()
     public private(set) var cFlags = [String]()
     public private(set) var libs = [String]()
+    public private(set) var sysrootDir: String?
 
-    public init(pcFile: AbsolutePath, fileSystem: FileSystem) throws {
+    public init(pcFile: AbsolutePath, fileSystem: FileSystem, sysrootDir: String?) throws {
         guard fileSystem.isFile(pcFile) else {
             throw StringError("invalid pcfile \(pcFile)")
         }
         self.pcFile = pcFile
         self.fileSystem = fileSystem
+        self.sysrootDir = sysrootDir
     }
 
     public mutating func parse() throws {
@@ -183,7 +189,9 @@ internal struct PkgConfigParser {
         variables["pcfiledir"] = pcFile.parentDirectory.pathString
 
         // Add pc_sysrootdir variable. This is the path of the sysroot directory for pc files.
-        variables["pc_sysrootdir"] = ProcessEnv.block["PKG_CONFIG_SYSROOT_DIR"] ?? AbsolutePath.root.pathString
+        // pkgconf does not define pc_sysrootdir if the path of the .pc file is outside sysrootdir.
+        // SwiftPM does not currently make that check.
+        variables["pc_sysrootdir"] = sysrootDir ?? AbsolutePath.root.pathString
 
         let fileContents: String = try fileSystem.readFileContents(pcFile)
         for line in fileContents.components(separatedBy: "\n") {
