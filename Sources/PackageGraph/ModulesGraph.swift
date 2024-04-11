@@ -187,7 +187,8 @@ public struct ModulesGraph {
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
+    @_spi(SwiftPMInternal)
+    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
         var result = [ResolvedTarget.ID: [ResolvedTarget]]()
 
         let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
