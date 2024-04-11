@@ -745,6 +745,10 @@ extension Workspace {
 
         var manifestLoadingDiagnostics = [Diagnostic]()
 
+        defer {
+            manifestLoadingScope.emit(manifestLoadingDiagnostics)
+        }
+
         let start = DispatchTime.now()
         do {
             let manifest = try await self.manifestLoader.load(
@@ -769,11 +773,12 @@ extension Workspace {
                 fileSystem: self.fileSystem
             )
             let validationIssues = validator.validate()
+            var diagnostics: Diagnostics?
             if !validationIssues.isEmpty {
                 manifestLoadingDiagnostics.append(contentsOf: validationIssues)
 
                 // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                throw Diagnostics.fatalError
+                diagnostics = Diagnostics.fatalError
             }
             self.delegate?.didLoadManifest(
                 packageIdentity: packageIdentity,
@@ -786,7 +791,14 @@ extension Workspace {
                 duration: duration
             )
 
+            if let diagnostics {
+                throw diagnostics
+            }
+
             return manifest
+        } catch Diagnostics.fatalError {
+            // Rethrow `fatalError` without a delegate `didLoadManifest` call, as it already happened
+            throw Diagnostics.fatalError
         } catch {
             let duration = start.distance(to: .now())
             manifestLoadingDiagnostics.append(.error(error))
@@ -800,7 +812,6 @@ extension Workspace {
                 diagnostics: manifestLoadingDiagnostics,
                 duration: duration
             )
-            manifestLoadingScope.emit(manifestLoadingDiagnostics)
             throw error
         }
     }
