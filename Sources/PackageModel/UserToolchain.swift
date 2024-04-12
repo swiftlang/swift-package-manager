@@ -23,7 +23,16 @@ private let hostExecutableSuffix = ""
 
 // FIXME: This is messy and needs a redesign.
 public final class UserToolchain: Toolchain {
-    public typealias SwiftCompilers = (compile: AbsolutePath, manifest: AbsolutePath)
+    public struct SwiftCompilers {
+        @available(*, deprecated, renamed: "targetCompiler")
+        var compile: AbsolutePath { targetTripleCompiler }
+
+        @available(*, deprecated, renamed: "hostCompiler")
+        var manifest: AbsolutePath { hostTripleCompiler }
+
+        let hostTripleCompiler: AbsolutePath
+        let targetTripleCompiler: AbsolutePath
+    }
 
     /// The toolchain configuration.
     private let configuration: ToolchainConfiguration
@@ -262,7 +271,10 @@ public final class UserToolchain: Toolchain {
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
         // The compiler for manifest is either SWIFT_EXEC_MANIFEST or the bin dir compiler.
-        return (SWIFT_EXEC ?? resolvedBinDirCompiler, SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
+        return .init(
+            hostTripleCompiler: SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler,
+            targetTripleCompiler: SWIFT_EXEC ?? resolvedBinDirCompiler
+        )
     }
 
     /// Returns the path to clang compiler tool.
@@ -511,7 +523,7 @@ public final class UserToolchain: Toolchain {
             environment: environment,
             searchPaths: envSearchPaths
         )
-        self.swiftCompilerPath = swiftCompilers.compile
+        self.swiftCompilerPath = swiftCompilers.targetTripleCompiler
         self.architectures = swiftSDK.architectures
 
         #if canImport(Darwin)
