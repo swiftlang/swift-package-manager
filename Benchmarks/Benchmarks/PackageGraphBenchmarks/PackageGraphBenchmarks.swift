@@ -16,7 +16,7 @@ let benchmarks = {
         let system = ObservabilitySystem { _, _ in }
 
         for _ in benchmark.scaledIterations {
-            try workspace.loadPackageGraph(rootPath: path, observabilityScope: system.topScope)
+            try await workspace.loadPackageGraph(rootPath: path, observabilityScope: system.topScope)
         }
     }
 }
