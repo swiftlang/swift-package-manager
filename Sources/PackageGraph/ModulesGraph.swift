@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,13 +23,31 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool, similarProductName: String?, packageContainingSimilarProduct: String?)
+    case productDependencyNotFound(
+        package: String,
+        targetName: String,
+        dependencyProductName: String,
+        dependencyPackageName: String?,
+        dependencyProductInDecl: Bool,
+        similarProductName: String?,
+        packageContainingSimilarProduct: String?
+    )
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByIdentifier(package: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
+    case dependencyAlreadySatisfiedByIdentifier(
+        package: String,
+        dependencyLocation: String,
+        otherDependencyURL: String,
+        identity: PackageIdentity
+    )
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByName(package: String, dependencyLocation: String, otherDependencyURL: String, name: String)
+    case dependencyAlreadySatisfiedByName(
+        package: String,
+        dependencyLocation: String,
+        otherDependencyURL: String,
+        name: String
+    )
 
     /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
     case productDependencyMissingPackage(
@@ -38,15 +56,23 @@ enum PackageGraphError: Swift.Error {
         packageIdentifier: String
     )
     /// Dependency between a plugin and a dependent target/product of a given type is unsupported
-    case unsupportedPluginDependency(targetName: String, dependencyName: String, dependencyType: String, dependencyPackage: String?)
+    case unsupportedPluginDependency(
+        targetName: String,
+        dependencyName: String,
+        dependencyType: String,
+        dependencyPackage: String?
+    )
+
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [Package])
 
     /// Duplicate aliases for a target found in a product.
-    case multipleModuleAliases(target: String,
-                               product: String,
-                               package: String,
-                               aliases: [String])
+    case multipleModuleAliases(
+        target: String,
+        product: String,
+        package: String,
+        aliases: [String]
+    )
 }
 
 @available(*,
