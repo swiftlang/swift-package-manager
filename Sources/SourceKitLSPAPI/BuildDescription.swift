@@ -21,7 +21,7 @@ private import SPMBuildCore
 import class Build.BuildPlan
 import class Build.ClangTargetBuildDescription
 import class Build.SwiftTargetBuildDescription
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 
 public protocol BuildTarget {
     var sources: [URL] { get }
@@ -71,7 +71,7 @@ public struct BuildDescription {
     }
 
     // FIXME: should not use `ResolvedTarget` in the public interface
-    public func getBuildTarget(for target: ResolvedTarget) -> BuildTarget? {
+    public func getBuildTarget(for target: ResolvedModule) -> BuildTarget? {
         if let description = buildPlan.targetMap[target.id] {
             switch description {
             case .clang(let description):

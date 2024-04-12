@@ -21,7 +21,7 @@ import protocol TSCBasic.DiagnosticLocation
 public enum PluginAction {
     case createBuildToolCommands(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         pluginGeneratedSources: [AbsolutePath],
         pluginGeneratedResources: [AbsolutePath]
     )

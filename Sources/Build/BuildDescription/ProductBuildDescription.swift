@@ -49,7 +49,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
     var additionalFlags: [String] = []
 
     /// The list of targets that are going to be linked statically in this product.
-    var staticTargets: [ResolvedTarget] = []
+    var staticTargets: [ResolvedModule] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     var swiftASTs: SortedArray<AbsolutePath> = .init()

@@ -17,7 +17,7 @@ import struct Basics.TSCAbsolutePath
 import struct LLBuildManifest.Node
 import struct LLBuildManifest.LLBuildManifest
 import struct SPMBuildCore.BuildParameters
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import protocol TSCBasic.FileSystem
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
@@ -191,9 +191,9 @@ extension LLBuildManifestBuilder {
     package func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedTarget.Dependency] = try self.plan.targetMap.keys.compactMap {
+        let nodes: [ResolvedModule.Dependency] = try self.plan.targetMap.keys.compactMap {
             guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
-            return ResolvedTarget.Dependency.target(target, conditions: [])
+            return ResolvedModule.Dependency.target(target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -415,7 +415,7 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) throws {
+        func addStaticTargetInputs(_ target: ResolvedModule) throws {
             // Ignore C Modules.
             if target.underlying is SystemLibraryTarget { return }
             // Ignore Binary Modules.
