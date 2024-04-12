@@ -1710,6 +1710,9 @@ extension [PackageCondition] {
             case .watchOS:
                 result += PIF.PlatformFilter.watchOSFilters
 
+            case .visionOS:
+                result += PIF.PlatformFilter.visionOSFilters
+
             case .linux:
                 result += PIF.PlatformFilter.linuxFilters
 
@@ -1793,6 +1796,14 @@ extension PIF.PlatformFilter {
     /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
+    ]
+
+    /// VisionOS platform filters.
+    public static let visionOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "xros"),
+        .init(platform: "xros", environment: "simulator"),
+        .init(platform: "visionos"),
+        .init(platform: "visionos", environment: "simulator")
     ]
 }
 
