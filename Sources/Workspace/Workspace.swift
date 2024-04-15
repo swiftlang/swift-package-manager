@@ -924,7 +924,6 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
-            availableLibraries: self.providedLibraries,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope
         )
