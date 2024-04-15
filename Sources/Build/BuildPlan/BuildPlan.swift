@@ -103,7 +103,7 @@ extension BuildParameters {
     }
 
     /// Returns the compiler arguments for the index store, if enabled.
-    func indexStoreArguments(for target: ResolvedTarget) -> [String] {
+    func indexStoreArguments(for target: ResolvedModule) -> [String] {
         let addIndexStoreArguments: Bool
         switch indexStoreMode {
         case .on:
@@ -128,7 +128,7 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
+    public func targetTripleArgs(for target: ResolvedModule) throws -> [String] {
         var args = ["-target"]
 
         // Compute the triple string for Darwin platform using the platform version.
@@ -144,7 +144,7 @@ extension BuildParameters {
 
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target
     /// platform, or nil if the linker doesn't support it for the platform.
-    func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
+    func linkerFlagsForRenamingMainFunction(of target: ResolvedModule) -> [String]? {
         let args: [String]
         if self.triple.isApple() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
@@ -157,7 +157,7 @@ extension BuildParameters {
     }
 
     /// Returns the scoped view of build settings for a given target.
-    func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
+    func createScope(for target: ResolvedModule) -> BuildSettings.Scope {
         BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
     }
 }
@@ -186,7 +186,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public let toolsBuildParameters: BuildParameters
 
     /// Triple for which this target is compiled.
-    private func buildTriple(for target: ResolvedTarget) -> Basics.Triple {
+    private func buildTriple(for target: ResolvedModule) -> Basics.Triple {
         self.buildParameters(for: target).triple
     }
 
@@ -199,7 +199,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public let graph: ModulesGraph
 
     /// The target build description map.
-    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
+    public let targetMap: [ResolvedModule.ID: TargetBuildDescription]
 
     /// The product build description map.
     public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
@@ -219,14 +219,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
-    public let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
+    public let buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+    public let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
 
     @_spi(SwiftPMInternal)
-    public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
+    public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedModule]] = [:]
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
@@ -274,8 +274,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         toolsBuildParameters: BuildParameters,
         graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:],
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
@@ -316,7 +316,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             ))
         }
         let macroProductsByTarget = productMap.values.filter { $0.product.type == .macro }
-            .reduce(into: [ResolvedTarget.ID: ResolvedProduct]()) {
+            .reduce(into: [ResolvedModule.ID: ResolvedProduct]()) {
                 if let target = $1.product.targets.first {
                     $0[target.id] = $1.product
                 }
@@ -326,7 +326,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Plugin targets are noted, since they need to be compiled, but they do
         // not get directly incorporated into the build description that will be
         // given to LLBuild.
-        var targetMap = [ResolvedTarget.ID: TargetBuildDescription]()
+        var targetMap = [ResolvedModule.ID: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
         var shouldGenerateTestObservation = true
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
@@ -474,7 +474,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     static func validateDeploymentVersionOfProductDependency(
         product: ResolvedProduct,
-        forTarget target: ResolvedTarget,
+        forTarget target: ResolvedModule,
         buildEnvironment: BuildEnvironment,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -662,7 +662,7 @@ extension Basics.Diagnostic {
     }
 
     static func productRequiresHigherPlatformVersion(
-        target: ResolvedTarget,
+        target: ResolvedModule,
         targetPlatform: SupportedPlatform,
         product: String,
         productPlatform: SupportedPlatform
@@ -694,7 +694,7 @@ extension BuildParameters {
 /// Generate the resource bundle Info.plist.
 func generateResourceInfoPlist(
     fileSystem: FileSystem,
-    target: ResolvedTarget,
+    target: ResolvedModule,
     path: AbsolutePath
 ) throws -> Bool {
     guard let defaultLocalization = target.defaultLocalization else {
