@@ -28,7 +28,12 @@ public enum BuildSubset {
     case product(String)
 
     /// Represents a specific target.
-    case target(String)
+    case module(String)
+
+    @available(*, deprecated, renamed: "module")
+    static func target(_ name: String) -> Self {
+        .module(name)
+    }
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the

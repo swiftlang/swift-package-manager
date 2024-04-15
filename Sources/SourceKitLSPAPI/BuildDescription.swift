@@ -19,8 +19,8 @@ private import SPMBuildCore
 
 // FIXME: should import these module with `private` or `internal` access control
 import class Build.BuildPlan
-import class Build.ClangTargetBuildDescription
-import class Build.SwiftTargetBuildDescription
+import class Build.ClangModuleBuildDescription
+import class Build.SwiftModuleBuildDescription
 import struct PackageGraph.ResolvedModule
 
 public protocol BuildTarget {
@@ -29,7 +29,7 @@ public protocol BuildTarget {
     func compileArguments(for fileURL: URL) throws -> [String]
  }
 
-extension ClangTargetBuildDescription: BuildTarget {
+extension ClangModuleBuildDescription: BuildTarget {
     public var sources: [URL] {
         return (try? compilePaths().map { URL(fileURLWithPath: $0.source.pathString) }) ?? []
     }
@@ -43,9 +43,9 @@ extension ClangTargetBuildDescription: BuildTarget {
 }
 
 private struct WrappedSwiftTargetBuildDescription: BuildTarget {
-    private let description: SwiftTargetBuildDescription
+    private let description: SwiftModuleBuildDescription
 
-    init(description: SwiftTargetBuildDescription) {
+    init(description: SwiftModuleBuildDescription) {
         self.description = description
     }
 

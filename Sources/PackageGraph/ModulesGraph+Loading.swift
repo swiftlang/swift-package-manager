@@ -180,12 +180,12 @@ extension ModulesGraph {
 private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], observabilityScope: ObservabilityScope) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
-        let productDependencies = IdentifiableSet(package.targets.flatMap({ target in
+        let productDependencies = IdentifiableSet(package.modules.flatMap({ target in
             return target.dependencies.compactMap({ targetDependency in
                 switch targetDependency {
                 case .product(let product, _):
                     return product
-                case .target:
+                case .module:
                     return nil
                 }
             })
@@ -201,7 +201,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             // have no products.
             //
             // FIXME: Do/should we print a warning if a dependency has no products?
-            if dependency.products.isEmpty && dependency.targets.filter({ $0.type == .systemModule }).count == 1 {
+            if dependency.products.isEmpty && dependency.modules.filter({ $0.type == .systemModule }).count == 1 {
                 continue
             }
 
@@ -374,7 +374,7 @@ private func createResolvedPackages(
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map {
-            ResolvedTargetBuilder(
+            ResolvedModuleBuilder(
                 packageIdentity: package.identity,
                 target: $0,
                 observabilityScope: packageObservabilityScope,
@@ -393,7 +393,7 @@ private func createResolvedPackages(
                     guard let targetBuilder = targetMap[target] else {
                         throw InternalError("unknown target \(target.name)")
                     }
-                    return .target(targetBuilder, conditions: conditions)
+                    return .module(targetBuilder, conditions: conditions)
                 case .product:
                     return nil
                 }
@@ -501,7 +501,7 @@ private func createResolvedPackages(
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
             // Directly add all the system module dependencies.
-            targetBuilder.dependencies += implicitSystemTargetDeps.map { .target($0, conditions: []) }
+            targetBuilder.dependencies += implicitSystemTargetDeps.map { .module($0, conditions: []) }
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
@@ -873,30 +873,30 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
     let product: Product
 
     /// The target builders in the product.
-    let targets: [ResolvedTargetBuilder]
+    let modules: [ResolvedModuleBuilder]
 
-    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedTargetBuilder]) {
+    init(product: Product, packageBuilder: ResolvedPackageBuilder, targets: [ResolvedModuleBuilder]) {
         self.product = product
         self.packageBuilder = packageBuilder
-        self.targets = targets
+        self.modules = targets
     }
 
     override func constructImpl() throws -> ResolvedProduct {
         return ResolvedProduct(
             packageIdentity: packageBuilder.package.identity,
             product: product,
-            targets: IdentifiableSet(try targets.map { try $0.construct() })
+            modules: IdentifiableSet(try modules.map { try $0.construct() })
         )
     }
 }
 
-/// Builder for resolved target.
-private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedModule> {
+/// Builder for resolved module.
+private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     /// Enumeration to represent target dependencies.
     enum Dependency {
 
-        /// Dependency to another target, with conditions.
-        case target(_ target: ResolvedTargetBuilder, conditions: [PackageCondition])
+        /// Dependency to another module, with conditions.
+        case module(_ target: ResolvedModuleBuilder, conditions: [PackageCondition])
 
         /// Dependency to a product, with conditions.
         case product(_ product: ResolvedProductBuilder, conditions: [PackageCondition])
@@ -941,8 +941,8 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedModule> {
 
         let dependencies = try self.dependencies.map { dependency -> ResolvedModule.Dependency in
             switch dependency {
-            case .target(let targetBuilder, let conditions):
-                return .target(try targetBuilder.construct(), conditions: conditions)
+            case .module(let targetBuilder, let conditions):
+                return .module(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
                 try self.target.validateDependency(
                     product: productBuilder.product,
@@ -956,7 +956,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedModule> {
             }
         }
 
-        return ResolvedTarget(
+        return ResolvedModule(
             packageIdentity: self.packageIdentity,
             underlying: self.target,
             dependencies: dependencies,
@@ -1005,7 +1005,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     let allowedToOverride: Bool
 
     /// The targets in the package.
-    var targets: [ResolvedTargetBuilder] = []
+    var targets: [ResolvedModuleBuilder] = []
 
     /// The products in this package.
     var products: [ResolvedProductBuilder] = []

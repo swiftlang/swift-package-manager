@@ -730,7 +730,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
 
                 XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
-                XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
+                XCTAssertEqual(manifest.modules[0].name, "foo-\(random)")
             }
 
             try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total)

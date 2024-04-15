@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 
-/// A fully resolved package. Contains resolved targets, products and dependencies of the package.
+/// A fully resolved package. Contains resolved modules, products and dependencies of the package.
 public struct ResolvedPackage {
     // The identity of the package.
     public var identity: PackageIdentity {
@@ -33,8 +33,12 @@ public struct ResolvedPackage {
     /// The underlying package reference.
     public let underlying: Package
 
-    /// The targets contained in the package.
-    public let targets: [ResolvedModule]
+
+    /// The modules contained in the package.
+    public let modules: [ResolvedModule]
+
+    @available(*, deprecated, renamed: "modules")
+    public var targets: [ResolvedModule] { self.modules }
 
     /// The products produced by the package.
     public let products: [ResolvedProduct]
@@ -45,14 +49,15 @@ public struct ResolvedPackage {
     /// The default localization for resources.
     public let defaultLocalization: String?
 
-    /// The list of platforms that are supported by this target.
+    /// The list of platforms that are supported by this package.
     public let supportedPlatforms: [SupportedPlatform]
 
     /// If the given package's source is a registry release, this provides additional metadata and signature information.
     public let registryMetadata: RegistryReleaseMetadata?
 
     private let platformVersionProvider: PlatformVersionProvider
-
+    
+    @available(*, deprecated, message: "use overload with `modules` parameter name instead")
     public init(
         underlying: Package,
         defaultLocalization: String?,
@@ -63,8 +68,30 @@ public struct ResolvedPackage {
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
+        self.init(
+            underlying: underlying,
+            defaultLocalization: defaultLocalization,
+            supportedPlatforms: supportedPlatforms,
+            dependencies: dependencies,
+            modules: targets,
+            products: products,
+            registryMetadata: registryMetadata,
+            platformVersionProvider: platformVersionProvider
+        )
+    }
+
+    public init(
+        underlying: Package,
+        defaultLocalization: String?,
+        supportedPlatforms: [SupportedPlatform],
+        dependencies: [ResolvedPackage],
+        modules: [ResolvedModule],
+        products: [ResolvedProduct],
+        registryMetadata: RegistryReleaseMetadata?,
+        platformVersionProvider: PlatformVersionProvider
+    ) {
         self.underlying = underlying
-        self.targets = targets
+        self.modules = modules
         self.products = products
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization

@@ -22,20 +22,20 @@ import struct SPMBuildCore.PrebuildCommandResult
 
 import enum TSCBasic.ProcessEnv
 
-/// Target description for a Clang target i.e. C language family target.
-package final class ClangTargetBuildDescription {
-    /// The package this target belongs to.
+/// Module description for a Clang module i.e. C language family module.
+package final class ClangModuleBuildDescription {
+    /// The package this module belongs to.
     package let package: ResolvedPackage
 
-    /// The target described by this target.
-    package let target: ResolvedModule
+    /// The module built in this build description.
+    package let module: ResolvedModule
 
     /// The underlying clang target.
     package let clangTarget: ClangTarget
 
-    /// The tools version of the package that declared the target.  This can
+    /// The tools version of the package that declared the module.  This can
     /// can be used to conditionalize semantically significant changes in how
-    /// a target is built.
+    /// a module is built.
     package let toolsVersion: ToolsVersion
 
     /// The build parameters.
@@ -48,7 +48,7 @@ package final class ClangTargetBuildDescription {
 
     /// The list of all resource files in the target, including the derived ones.
     package var resources: [Resource] {
-        self.target.underlying.resources + self.pluginDerivedResources
+        self.module.underlying.resources + self.pluginDerivedResources
     }
 
     /// Path to the bundle generated for this module (if any).
@@ -57,7 +57,7 @@ package final class ClangTargetBuildDescription {
             return .none
         }
 
-        if let bundleName = target.underlying.potentialBundleName {
+        if let bundleName = module.underlying.potentialBundleName {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
@@ -67,10 +67,10 @@ package final class ClangTargetBuildDescription {
     /// The modulemap file for this target, if any.
     package private(set) var moduleMap: AbsolutePath?
 
-    /// Path to the temporary directory for this target.
+    /// Path to the temporary directory for this module.
     var tempsPath: AbsolutePath
 
-    /// The directory containing derived sources of this target.
+    /// The directory containing derived sources of this module.
     ///
     /// These are the source files generated during the build.
     private var derivedSources: Sources
@@ -87,7 +87,7 @@ package final class ClangTargetBuildDescription {
     /// Path to the resource Info.plist file, if generated.
     package private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
-    /// The objects in this target.
+    /// The objects in this module.
     package var objects: [AbsolutePath] {
         get throws {
             try compilePaths().map(\.object)
@@ -103,18 +103,18 @@ package final class ClangTargetBuildDescription {
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
 
-    /// If this target is a test target.
-    package var isTestTarget: Bool {
-        target.type == .test
+    /// If this module is a test module.
+    package var isTestModule: Bool {
+        module.type == .test
     }
 
-    /// The results of applying any build tool plugins to this target.
+    /// The results of applying any build tool plugins to this module.
     package let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
-    /// Create a new target description with target and build parameters.
+    /// Create a new target description with module and build parameters.
     init(
         package: ResolvedPackage,
-        target: ResolvedModule,
+        module: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
@@ -123,17 +123,17 @@ package final class ClangTargetBuildDescription {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
-        guard let clangTarget = target.underlying as? ClangTarget else {
-            throw InternalError("underlying target type mismatch \(target)")
+        guard let clangTarget = module.underlying as? ClangTarget else {
+            throw InternalError("underlying target type mismatch \(module)")
         }
 
         self.package = package
         self.clangTarget = clangTarget
         self.fileSystem = fileSystem
-        self.target = target
+        self.module = module
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.tempsPath = buildParameters.buildPath.appending(component: module.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
 
         // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.
@@ -141,7 +141,7 @@ package final class ClangTargetBuildDescription {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
             (self.pluginDerivedSources, self.pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
-                target: target,
+                target: module,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
                 buildParameters: buildParameters,
@@ -156,7 +156,7 @@ package final class ClangTargetBuildDescription {
         }
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
-        if target.type == .library {
+        if module.type == .library {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
@@ -181,7 +181,7 @@ package final class ClangTargetBuildDescription {
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending("Info.plist")
-            if try generateResourceInfoPlist(fileSystem: fileSystem, target: target, path: infoPlistPath) {
+            if try generateResourceInfoPlist(fileSystem: fileSystem, target: module, path: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
         }
@@ -192,7 +192,7 @@ package final class ClangTargetBuildDescription {
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
         let sources = [
-            target.sources.root: target.sources.relativePaths,
+            module.sources.root: module.sources.relativePaths,
             derivedSources.root: derivedSources.relativePaths,
             pluginDerivedSources.root: pluginDerivedSources.relativePaths
         ]
@@ -225,7 +225,7 @@ package final class ClangTargetBuildDescription {
         if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try buildParameters.targetTripleArgs(for: target)
+        args += try buildParameters.targetTripleArgs(for: module)
 
         args += optimizationArguments
         args += activeCompilationConditions
@@ -236,7 +236,7 @@ package final class ClangTargetBuildDescription {
             name: "index-unit-output-path",
             toolchain: self.buildParameters.toolchain
         ), supported {
-            args += self.buildParameters.indexStoreArguments(for: target)
+            args += self.buildParameters.indexStoreArguments(for: module)
         }
 
         // Enable Clang module flags, if appropriate.
@@ -249,7 +249,7 @@ package final class ClangTargetBuildDescription {
         // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
         let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
-            args += ["-fmodules", "-fmodule-name=" + target.c99name]
+            args += ["-fmodules", "-fmodule-name=" + module.c99name]
         }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
@@ -343,7 +343,7 @@ package final class ClangTargetBuildDescription {
 
         guard let path = try self.compilePaths().first(where: { $0.source == filePath }) else {
             throw BuildDescriptionError.requestedFileNotPartOfTarget(
-                targetName: self.target.name,
+                targetName: self.module.name,
                 requestedFilePath: filePath
             )
         }
@@ -373,7 +373,7 @@ package final class ClangTargetBuildDescription {
 
     /// Returns the build flags from the declared build settings.
     private func buildSettingsFlags() throws -> [String] {
-        let scope = buildParameters.createScope(for: target)
+        let scope = buildParameters.createScope(for: module)
         var flags: [String] = []
 
         // C defines.
@@ -383,7 +383,7 @@ package final class ClangTargetBuildDescription {
         // Header search paths.
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += try headerSearchPaths.map {
-            "-I\(try AbsolutePath(validating: $0, relativeTo: target.sources.root).pathString)"
+            "-I\(try AbsolutePath(validating: $0, relativeTo: module.sources.root).pathString)"
         }
 
         // Other C flags.
@@ -438,7 +438,7 @@ package final class ClangTargetBuildDescription {
             """
             #import <Foundation/Foundation.h>
 
-            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
+            NSBundle* \(module.c99name)_SWIFTPM_MODULE_BUNDLE() {
                 NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
 
                 NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
@@ -470,9 +470,9 @@ package final class ClangTargetBuildDescription {
             extern "C" {
             #endif
 
-            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
+            NSBundle* \(module.c99name)_SWIFTPM_MODULE_BUNDLE(void);
 
-            #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+            #define SWIFTPM_MODULE_BUNDLE \(module.c99name)_SWIFTPM_MODULE_BUNDLE()
 
             #if __cplusplus
             }

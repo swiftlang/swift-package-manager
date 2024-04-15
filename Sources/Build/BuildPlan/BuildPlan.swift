@@ -250,8 +250,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         buildParameters: BuildParameters,
         graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -316,7 +316,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         let macroProductsByTarget = productMap.values.filter { $0.product.type == .macro }
             .reduce(into: [ResolvedModule.ID: ResolvedProduct]()) {
-                if let target = $1.product.targets.first {
+                if let target = $1.product.modules.first {
                     $0[target.id] = $1.product
                 }
             }
@@ -328,7 +328,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         var targetMap = [ResolvedModule.ID: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
         var shouldGenerateTestObservation = true
-        for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
+        for target in graph.allModules.sorted(by: { $0.name < $1.name }) {
             let buildParameters: BuildParameters
             switch target.buildTriple {
             case .tools:
@@ -344,7 +344,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
 
                 switch dependency {
-                case .target: break
+                case .module: break
                 case .product(let product, _):
                     if buildParameters.triple.isDarwin() {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
@@ -367,7 +367,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     throw InternalError("package not found for \(target)")
                 }
 
-                let requiredMacroProducts = try target.recursiveTargetDependencies()
+                let requiredMacroProducts = try target.recursiveModuleDependencies()
                     .filter { $0.underlying.type == .macro }
                     .compactMap { macroProductsByTarget[$0.id] }
 
@@ -378,7 +378,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
 
                 targetMap[target.id] = try .swift(
-                    SwiftTargetBuildDescription(
+                    SwiftModuleBuildDescription(
                         package: package,
                         target: target,
                         toolsVersion: toolsVersion,
@@ -399,9 +399,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
 
                 targetMap[target.id] = try .clang(
-                    ClangTargetBuildDescription(
+                    ClangModuleBuildDescription(
                         package: package,
-                        target: target,
+                        module: target,
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
                         buildParameters: buildParameters,
@@ -417,7 +417,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
                 try pluginDescriptions.append(PluginDescription(
                     target: target,
-                    products: package.products.filter { $0.targets.contains(id: target.id) },
+                    products: package.products.filter { $0.modules.contains(id: target.id) },
                     package: package,
                     toolsVersion: toolsVersion,
                     fileSystem: fileSystem
@@ -558,7 +558,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in self.graph.reachableTargets {
+        for target in self.graph.reachableModules {
             if let systemLib = target.underlying as? SystemLibraryTarget {
                 try arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
@@ -595,7 +595,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
 
         // Add search paths from the system library targets.
-        for target in self.graph.reachableTargets {
+        for target in self.graph.reachableModules {
             if let systemLib = target.underlying as? SystemLibraryTarget {
                 arguments += try self.pkgConfig(for: systemLib).cFlags
             }
@@ -739,7 +739,7 @@ extension ResolvedProduct {
     }
 
     private var isBinaryOnly: Bool {
-        self.targets.filter { !($0.underlying is BinaryTarget) }.isEmpty
+        self.modules.filter { !($0.underlying is BinaryTarget) }.isEmpty
     }
 
     private var isPlugin: Bool {

@@ -335,7 +335,7 @@ extension BuildSubset {
         switch self {
         case .product(let name):
             return PackagePIFProjectBuilder.targetName(for: name)
-        case .target(let name):
+        case .module(let name):
             return name
         case .allExcludingTests:
             return PIFBuilder.allExcludingTestsTargetName

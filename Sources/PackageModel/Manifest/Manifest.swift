@@ -144,30 +144,30 @@ public final class Manifest: Sendable {
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calculated it, returned the cached value.
-        if let targets = _requiredTargets[productFilter] {
-            return targets
+        if let modules = _requiredTargets[productFilter] {
+            return modules
         } else {
-            let targets: [TargetDescription]
+            let modules: [TargetDescription]
             switch productFilter {
             case .everything:
-                return self.targets
+                return self.modules
             case .specific(let productFilter):
                 let products = self.products.filter { productFilter.contains($0.name) }
-                targets = self.targetsRequired(for: products)
+                modules = self.targetsRequired(for: products)
             }
 
-            self._requiredTargets[productFilter] = targets
-            return targets
+            self._requiredTargets[productFilter] = modules
+            return modules
         }
         #else
         // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-        if let targets = self._requiredTargets[.nothing] {
-            return targets
+        if let modules = self._requiredTargets[.nothing] {
+            return modules
         } else {
-            let targets = self.packageKind.isRoot ? self.targets : self.targetsRequired(for: self.products)
+            let modules = self.packageKind.isRoot ? self.targets : self.targetsRequired(for: self.products)
             // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-            self._requiredTargets[.nothing] = targets
-            return targets
+            self._requiredTargets[.nothing] = modules
+            return modules
         }
         #endif
     }
@@ -179,8 +179,8 @@ public final class Manifest: Sendable {
         if let dependencies = self._requiredDependencies[productFilter] {
             return dependencies
         } else {
-            let targets = self.targetsRequired(for: productFilter)
-            let dependencies = self.dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
+            let modules = self.targetsRequired(for: productFilter)
+            let dependencies = self.dependenciesRequired(for: modules, keepUnused: productFilter == .everything)
             self._requiredDependencies[productFilter] = dependencies
             return dependencies
         }
@@ -194,14 +194,14 @@ public final class Manifest: Sendable {
             return dependencies
         } else {
             var requiredDependencies: Set<PackageIdentity> = []
-            for target in self.targetsRequired(for: self.products) {
-                for targetDependency in target.dependencies {
+            for module in self.targetsRequired(for: self.products) {
+                for targetDependency in module.dependencies {
                     if let dependency = self.packageDependency(referencedBy: targetDependency) {
                         requiredDependencies.insert(dependency.identity)
                     }
                 }
 
-                target.pluginUsages?.forEach {
+                module.pluginUsages?.forEach {
                     if let dependency = self.packageDependency(referencedBy: $0) {
                         requiredDependencies.insert(dependency.identity)
                     }

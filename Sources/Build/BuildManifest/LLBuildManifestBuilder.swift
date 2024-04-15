@@ -137,7 +137,7 @@ package class LLBuildManifestBuilder {
 extension LLBuildManifestBuilder {
     private func addPackageStructureCommand() {
         let inputs = self.plan.graph.rootPackages.flatMap { package -> [Node] in
-            var inputs = package.targets
+            var inputs = package.modules
                 .map(\.sources.root)
                 .sorted()
                 .map { Node.directoryStructure($0) }
@@ -253,7 +253,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.target).compactMap { self.plan.targetMap[$0.id] }
+                .compactMap(\.module).compactMap { self.plan.targetMap[$0.id] }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -280,7 +280,7 @@ extension LLBuildManifestBuilder {
             // Get the Swift target build descriptions of all discovery targets this synthesized entry point target
             // depends on.
             let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
-                .compactMap(\.target?.id)
+                .compactMap(\.module?.id)
                 .compactMap { self.plan.targetMap[$0] }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
@@ -309,7 +309,7 @@ extension LLBuildManifestBuilder {
 extension TargetBuildDescription {
     /// If receiver represents a Swift target build description whose test target role is Discovery,
     /// then this returns that Swift target build description, else returns nil.
-    fileprivate var testDiscoveryTargetBuildDescription: SwiftTargetBuildDescription? {
+    fileprivate var testDiscoveryTargetBuildDescription: SwiftModuleBuildDescription? {
         guard case .swift(let targetBuildDescription) = self,
               case .discovery = targetBuildDescription.testTargetRole else { return nil }
         return targetBuildDescription

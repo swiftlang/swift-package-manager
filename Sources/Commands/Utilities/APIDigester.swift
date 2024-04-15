@@ -319,7 +319,7 @@ extension ModulesGraph {
         self.rootPackages
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
-            .flatMap(\.targets)
+            .flatMap(\.modules)
             .filter { $0.underlying is SwiftTarget }
             .map { $0.c99name }
     }

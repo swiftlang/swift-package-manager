@@ -44,8 +44,8 @@ extension Build.BuildPlan {
         buildParameters: BuildParameters,
         graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -3132,10 +3132,10 @@ final class BuildPlanTests: XCTestCase {
         graphResult.check(reachableTargets: "ATarget", "BTarget1")
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         graphResult.check(products: "aexec", "BLibrary")
-        graphResult.check(targets: "ATarget", "BTarget1")
+        graphResult.check(modules: "ATarget", "BTarget1")
         #else
         graphResult.check(products: "BLibrary", "bexec", "aexec", "cexec")
-        graphResult.check(targets: "ATarget", "BTarget1", "BTarget2", "CTarget")
+        graphResult.check(modules: "ATarget", "BTarget1", "BTarget2", "CTarget")
         #endif
 
         let planResult = try BuildPlanResult(plan: BuildPlan(

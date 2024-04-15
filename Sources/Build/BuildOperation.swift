@@ -375,7 +375,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         switch subset {
         case .product(let productName):
             subsetDescriptor = "product '\(productName)'"
-        case .target(let targetName):
+        case .module(let targetName):
             subsetDescriptor = "target: '\(targetName)'"
         case .allExcludingTests, .allIncludingTests:
             subsetDescriptor = nil
@@ -431,7 +431,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
         case .product(let productName):
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
-        case .target(let targetName):
+        case .module(let targetName):
             pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
@@ -605,7 +605,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
             }
 
             // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
-            prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+            prebuildCommandResults = try graph.reachableModules.reduce(into: [:], { partial, target in
                 partial[target.id] = try buildToolPluginInvocationResults[target.id].map {
                     try self.runPrebuildCommands(for: $0.results)
                 }
@@ -617,12 +617,12 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
-        let targetsToConsider: [ResolvedTarget]
+        let targetsToConsider: [ResolvedModule]
         if let subset = subset, let recursiveDependencies = try 
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
-            targetsToConsider = Array(graph.reachableTargets)
+            targetsToConsider = Array(graph.reachableModules)
         }
 
         for target in targetsToConsider {
@@ -882,21 +882,21 @@ extension BuildSubset {
     func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
-            return Array(graph.reachableTargets)
+            return Array(graph.reachableModules)
         case .allExcludingTests:
-            return graph.reachableTargets.filter { $0.type != .test }
+            return graph.reachableModules.filter { $0.type != .test }
         case .product(let productName):
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
-            return try product.recursiveTargetDependencies()
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+            return try product.recursiveModuleDependencies()
+        case .module(let targetName):
+            guard let target = graph.allModules.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return try target.recursiveTargetDependencies()
+            return try target.recursiveModuleDependencies()
         }
     }
 
@@ -926,8 +926,8 @@ extension BuildSubset {
             return observabilityScope.trap {
                 try product.getLLBuildTargetName(config: config)
             }
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+        case .module(let targetName):
+            guard let target = graph.allModules.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }

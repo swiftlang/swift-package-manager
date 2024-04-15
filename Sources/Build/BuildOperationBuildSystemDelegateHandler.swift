@@ -385,14 +385,13 @@ package struct BuildDescription: Codable {
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
             let deps = try targetBuildDescription.target.recursiveDependencies(
                 satisfying: plan.buildParameters(for: targetBuildDescription.target).buildEnvironment
-            )
-                .compactMap(\.target).map(\.c99name)
+            ).compactMap(\.module).map(\.c99name)
             partial[targetBuildDescription.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
         for (targetID, description) in plan.targetMap {
-            guard case .swift(let desc) = description, let target = plan.graph.allTargets[targetID] else {
+            guard case .swift(let desc) = description, let target = plan.graph.allModules[targetID] else {
                 continue
             }
             let buildParameters = plan.buildParameters(for: target)
@@ -405,7 +404,7 @@ package struct BuildDescription: Codable {
             }
         }
         generatedSourceTargets.append(
-            contentsOf: plan.graph.allTargets.filter { $0.type == .plugin }
+            contentsOf: plan.graph.allModules.filter { $0.type == .plugin }
                 .map(\.c99name)
         )
         self.swiftTargetScanArgs = targetCommandLines

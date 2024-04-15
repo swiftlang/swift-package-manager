@@ -164,16 +164,16 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     }
 
     func testRecursiveDependencies() throws {
-        var resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t0")
+        var resolvedModule = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
         for i in 1..<1000 {
-            resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
-        }        
+            resolvedModule = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedModule)
+        }
 
         let N = 10
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try resolvedTarget.recursiveTargetDependencies()
+                    _ = try resolvedModule.recursiveModuleDependencies()
                 }
             } catch {
                 XCTFail("Loading package graph is not expected to fail in this test.")

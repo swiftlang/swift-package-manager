@@ -151,7 +151,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             buildSubset = .product(name)
             explicitProduct = name
         case .target(let name):
-            buildSubset = .target(name)
+            buildSubset = .module(name)
         }
 
         // Create a build operation. We have to disable the cache in order to get a build plan created.
@@ -387,12 +387,12 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+        guard let target = packageGraph.allModules.first(where: { $0.name == targetName }) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
         // Build the target, if needed.
-        try buildSystem.build(subset: .target(target.name))
+        try buildSystem.build(subset: .module(target.name))
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(

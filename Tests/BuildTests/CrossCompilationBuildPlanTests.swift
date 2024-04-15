@@ -14,7 +14,7 @@ import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Build.BuildPlan
 import class Build.ProductBuildDescription
-import class Build.SwiftTargetBuildDescription
+import class Build.SwiftModuleBuildDescription
 import struct Basics.Triple
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription

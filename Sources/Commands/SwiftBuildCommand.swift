@@ -38,7 +38,7 @@ extension BuildSubset {
             return "--build-tests"
         case .product:
             return "--product"
-        case .target:
+        case .module:
             return "--target"
         }
     }
@@ -54,7 +54,7 @@ struct BuildCommandOptions: ParsableArguments {
         }
 
         if let target {
-            allSubsets.append(.target(target))
+            allSubsets.append(.module(target))
         }
 
         if buildTests {

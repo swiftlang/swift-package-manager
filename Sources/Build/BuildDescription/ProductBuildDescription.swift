@@ -48,8 +48,8 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
-    /// The list of targets that are going to be linked statically in this product.
-    var staticTargets: [ResolvedModule] = []
+    /// The list of libraries that are going to be linked statically in this product.
+    var staticLibraries: [ResolvedModule] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     var swiftASTs: SortedArray<AbsolutePath> = .init()
@@ -274,7 +274,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
             // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
             // duplicates with `OrderedSet`.
             var experimentalFeatures = OrderedSet<String>()
-            for target in self.product.targets {
+            for target in self.product.modules {
                 let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
                 for case let .enableExperimentalFeature(feature) in swiftSettings.map(\.kind)  {
                     experimentalFeatures.append(feature)
@@ -321,7 +321,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[self.product.targets.startIndex])
+        args += try self.buildParameters.targetTripleArgs(for: self.product.modules[self.product.modules.startIndex])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags
@@ -368,22 +368,22 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
         var flags: [String] = []
 
         // Linked libraries.
-        let libraries = OrderedSet(self.staticTargets.reduce([]) {
+        let libraries = OrderedSet(self.staticLibraries.reduce([]) {
             $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
         })
         flags += libraries.map { "-l" + $0 }
 
         // Linked frameworks.
         if self.buildParameters.triple.supportsFrameworks {
-            let frameworks = OrderedSet(self.staticTargets.reduce([]) {
+            let frameworks = OrderedSet(self.staticLibraries.reduce([]) {
                 $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
             })
             flags += frameworks.flatMap { ["-framework", $0] }
         }
 
         // Other linker flags.
-        for target in self.staticTargets {
-            let scope = self.buildParameters.createScope(for: target)
+        for staticLibrary in self.staticLibraries {
+            let scope = self.buildParameters.createScope(for: staticLibrary)
             flags += scope.evaluate(.OTHER_LDFLAGS)
         }
 
@@ -396,7 +396,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
 }
 
 extension SortedArray where Element == AbsolutePath {
-    package static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
+    package static func +=(lhs: inout SortedArray, rhs: some Sequence<AbsolutePath>) {
         lhs.insert(contentsOf: rhs)
     }
 }

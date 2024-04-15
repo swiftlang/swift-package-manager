@@ -20,7 +20,7 @@ import PackageModel
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.
     func createClangCompileCommand(
-        _ target: ClangTargetBuildDescription
+        _ buildDescription: ClangModuleBuildDescription
     ) throws {
         var inputs: [Node] = []
 
@@ -28,20 +28,20 @@ extension LLBuildManifestBuilder {
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = try self.createResourcesBundle(for: .clang(target)) {
+        if let resourcesNode = try self.createResourcesBundle(for: .clang(buildDescription)) {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedModule) {
+        func addStaticLibraryInputs(_ target: ResolvedModule) {
             if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
+        for dependency in buildDescription.module.dependencies(satisfying: buildDescription.buildEnvironment) {
             switch dependency {
-            case .target(let target, _):
-                addStaticTargetInputs(target)
+            case .module(let module, _):
+                addStaticLibraryInputs(module)
 
             case .product(let product, _):
                 switch product.type {
@@ -54,8 +54,8 @@ extension LLBuildManifestBuilder {
                     inputs.append(file: binary)
 
                 case .library(.automatic), .library(.static), .plugin:
-                    for target in product.targets {
-                        addStaticTargetInputs(target)
+                    for module in product.modules {
+                        addStaticLibraryInputs(module)
                     }
                 case .test:
                     break
@@ -63,8 +63,8 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for binaryPath in target.libraryBinaryPaths {
-            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
+        for binaryPath in buildDescription.libraryBinaryPaths {
+            let path = buildDescription.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
@@ -74,15 +74,15 @@ extension LLBuildManifestBuilder {
 
         var objectFileNodes: [Node] = []
 
-        for path in try target.compilePaths() {
-            let args = try target.emitCommandLine(for: path.source)
+        for path in try buildDescription.compilePaths() {
+            let args = try buildDescription.emitCommandLine(for: path.source)
 
             let objectFileNode: Node = .file(path.object)
             objectFileNodes.append(objectFileNode)
 
             self.manifest.addClangCmd(
                 name: path.object.pathString,
-                description: "Compiling \(target.target.name) \(path.filename)",
+                description: "Compiling \(buildDescription.module.name) \(path.filename)",
                 inputs: inputs + [.file(path.source)],
                 outputs: [objectFileNode],
                 arguments: args,
@@ -90,10 +90,10 @@ extension LLBuildManifestBuilder {
             )
         }
 
-        let additionalInputs = try addBuildToolPlugins(.clang(target))
+        let additionalInputs = try addBuildToolPlugins(.clang(buildDescription))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
+        let targetName = buildDescription.module.getLLBuildTargetName(config: buildDescription.buildParameters.buildConfig)
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
@@ -103,8 +103,11 @@ extension LLBuildManifestBuilder {
             outputs: [output]
         )
 
-        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
-            if !target.isTestTarget {
+        if self.plan.graph.isInRootPackages(
+            buildDescription.module,
+            satisfying: buildDescription.buildParameters.buildEnvironment
+        ) {
+            if !buildDescription.isTestModule {
                 self.addNode(output, toTarget: .main)
             }
             self.addNode(output, toTarget: .test)

@@ -352,7 +352,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try addTarget(for: product)
         }
 
-        for target in package.targets.sorted(by: { $0.name < $1.name }) {
+        for target in package.modules.sorted(by: { $0.name < $1.name }) {
             try self.addTarget(for: target)
         }
 
@@ -537,9 +537,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let dependencies = product.recursivePackageDependencies()
         for dependency in dependencies {
             switch dependency {
-            case .target(let target, let conditions):
-                if target.type != .systemModule {
-                    addDependency(to: target, in: pifTarget, conditions: conditions, linkProduct: true)
+            case .module(let module, let conditions):
+                if module.type != .systemModule {
+                    addDependency(to: module, in: pifTarget, conditions: conditions, linkProduct: true)
                 }
             case .product(let product, let conditions):
                 addDependency(to: product, in: pifTarget, conditions: conditions, linkProduct: true)
@@ -547,11 +547,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         var settings = PIF.BuildSettings()
-        let usesUnsafeFlags = dependencies.contains { $0.target?.underlying.usesUnsafeFlags == true }
+        let usesUnsafeFlags = dependencies.contains { $0.module?.underlying.usesUnsafeFlags == true }
         settings[.USES_SWIFTPM_UNSAFE_FLAGS] = usesUnsafeFlags ? "YES" : "NO"
 
         // If there are no system modules in the dependency graph, mark the target as extension-safe.
-        let dependsOnAnySystemModules = dependencies.contains { $0.target?.type == .systemModule }
+        let dependsOnAnySystemModules = dependencies.contains { $0.module?.type == .systemModule }
         if !dependsOnAnySystemModules {
             settings[.APPLICATION_EXTENSION_API_ONLY] = "YES"
         }
@@ -779,9 +779,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         linkProduct: Bool
     ) {
         switch dependency {
-        case .target(let target, let conditions):
+        case .module(let module, let conditions):
             addDependency(
-                to: target,
+                to: module,
                 in: pifTarget,
                 conditions: conditions,
                 linkProduct: linkProduct
@@ -1396,7 +1396,7 @@ extension ResolvedProduct {
     var pifTargetGUID: PIF.GUID { "PACKAGE-PRODUCT:\(name)" }
 
     var mainTarget: ResolvedModule {
-        targets.first { $0.type == underlying.type.targetType }!
+        modules.first { $0.type == underlying.type.targetType }!
     }
 
     /// Returns the recursive dependencies, limited to the target's package, which satisfy the input build environment,
@@ -1404,7 +1404,7 @@ extension ResolvedProduct {
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
     public func recursivePackageDependencies() -> [ResolvedModule.Dependency] {
-        let initialDependencies = targets.map { ResolvedModule.Dependency.target($0, conditions: []) }
+        let initialDependencies = modules.map { ResolvedModule.Dependency.module($0, conditions: []) }
         return try! topologicalSort(initialDependencies) { dependency in
             return dependency.packageDependencies
         }.sorted()
@@ -1417,18 +1417,17 @@ extension ResolvedModule {
 }
 
 extension Array where Element == ResolvedModule.Dependency {
-
-    /// Sorts to get products first, sorted by name, followed by targets, sorted by name.
+    /// Sorts to get products first, sorted by name, followed by modules, sorted by name.
     func sorted() -> [ResolvedModule.Dependency] {
         sorted { lhsDependency, rhsDependency in
             switch (lhsDependency, rhsDependency) {
-            case (.product, .target):
+            case (.product, .module):
                 return true
-            case (.target, .product):
+            case (.module, .product):
                 return false
             case (.product(let lhsProduct, _), .product(let rhsProduct, _)):
                 return lhsProduct.name < rhsProduct.name
-            case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
+            case (.module(let lhsTarget, _), .module(let rhsTarget, _)):
                 return lhsTarget.name < rhsTarget.name
             }
         }

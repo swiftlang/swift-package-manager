@@ -17,10 +17,10 @@ import class PackageModel.SystemLibraryTarget
 
 extension BuildPlan {
     /// Plan a Clang target.
-    func plan(clangTarget: ClangTargetBuildDescription) throws {
-        let dependencies = try clangTarget.target.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
+    func plan(clangTarget: ClangModuleBuildDescription) throws {
+        let dependencies = try clangTarget.module.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
 
-        for case .target(let dependency, _) in dependencies {
+        for case .module(let dependency, _) in dependencies {
             switch dependency.underlying {
             case is SwiftTarget:
                 if case let .swift(dependencyTargetDescription)? = targetMap[dependency.id] {

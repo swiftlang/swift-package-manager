@@ -155,7 +155,7 @@ struct PluginCommand: SwiftCommand {
                 guard case .command(let intent, _) = plugin.capability else { continue }
                 var line = "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
                 if let package = packageGraph.packages
-                    .first(where: { $0.targets.contains(where: { $0.name == plugin.name }) })
+                    .first(where: { $0.modules.contains(where: { $0.name == plugin.name }) })
                 {
                     line += " in package ‘\(package.manifest.displayName)’"
                 }
@@ -376,9 +376,9 @@ struct PluginCommand: SwiftCommand {
     static func availableCommandPlugins(in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [PluginTarget] {
         // All targets from plugin products of direct dependencies are "available".
         let directDependencyPackages = graph.rootPackages.flatMap { $0.dependencies }.filter { $0.matching(identity: packageIdentity) }
-        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.targets }
+        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.modules }
         // As well as any plugin targets in root packages.
-        let rootPackageTargets = graph.rootPackages.filter { $0.matching(identity: packageIdentity) }.flatMap { $0.targets }
+        let rootPackageTargets = graph.rootPackages.filter { $0.matching(identity: packageIdentity) }.flatMap { $0.modules }
         return (directDependencyPluginTargets + rootPackageTargets).compactMap { $0.underlying as? PluginTarget }.filter {
             switch $0.capability {
             case .buildTool: return false

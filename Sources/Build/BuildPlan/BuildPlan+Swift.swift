@@ -16,11 +16,11 @@ import class PackageModel.ClangTarget
 import class PackageModel.SystemLibraryTarget
 
 extension BuildPlan {
-    func plan(swiftTarget: SwiftTargetBuildDescription) throws {
+    func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
         let environment = swiftTarget.buildParameters.buildEnvironment
-        for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: environment) {
+        for case .module(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: environment) {
             switch dependency.underlying {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency.id] else {

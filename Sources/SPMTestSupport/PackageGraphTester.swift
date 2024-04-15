@@ -30,25 +30,25 @@ package final class PackageGraphResult {
 
     // TODO: deprecate / transition to PackageIdentity
     package func check(roots: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.rootPackages.map{$0.manifest.displayName }.sorted(), roots.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.rootPackages.map{ $0.manifest.displayName }.sorted(), roots.sorted(), file: file, line: line)
     }
 
     package func check(roots: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.rootPackages.map{$0.identity }.sorted(), roots.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.rootPackages.map{ $0.identity }.sorted(), roots.sorted(), file: file, line: line)
     }
 
     // TODO: deprecate / transition to PackageIdentity
     package func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.manifest.displayName }.sorted(), packages.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.map { $0.manifest.displayName }.sorted(), packages.sorted(), file: file, line: line)
     }
 
     package func check(packages: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.identity }.sorted(), packages.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.map { $0.identity }.sorted(), packages.sorted(), file: file, line: line)
     }
 
     package func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
-            graph.allTargets
+            graph.allModules
                 .filter{ $0.type != .test }
                 .map{ $0.name }
                 .sorted(), targets.sorted(), file: file, line: line)
@@ -59,7 +59,7 @@ package final class PackageGraphResult {
     }
 
     package func check(reachableTargets: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(Set(graph.reachableTargets.map { $0.name }), Set(reachableTargets), file: file, line: line)
+        XCTAssertEqual(Set(graph.reachableModules.map { $0.name }), Set(reachableTargets), file: file, line: line)
     }
 
     package func check(reachableProducts: String..., file: StaticString = #file, line: UInt = #line) {
@@ -112,14 +112,14 @@ package final class PackageGraphResult {
 
     package func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
-            graph.allTargets
+            graph.allModules
                 .filter{ $0.type == .test }
                 .map{ $0.name }
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
-    package func find(target: String) -> ResolvedTarget? {
-        return graph.allTargets.first(where: { $0.name == target })
+    package func find(target: String) -> ResolvedModule? {
+        return graph.allModules.first(where: { $0.name == target })
     }
 
     package func find(product: String) -> ResolvedProduct? {
@@ -130,18 +130,18 @@ package final class PackageGraphResult {
         return graph.packages.first(where: { $0.identity == package })
     }
 
-    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedTarget> {
-        let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
+    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {
+        let inputTargets = graph.inputPackages.lazy.flatMap { $0.modules }
         let recursiveBuildTargetDependencies = try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
-            .compactMap { $0.target }
+            .compactMap { $0.module }
         return IdentifiableSet(inputTargets).union(recursiveBuildTargetDependencies)
     }
 
     private func reachableBuildProducts(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedProduct> {
         let recursiveBuildProductDependencies = try graph.inputPackages
             .lazy
-            .flatMap { $0.targets }
+            .flatMap { $0.modules }
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.product }
         return IdentifiableSet(graph.inputPackages.flatMap { $0.products }).union(recursiveBuildProductDependencies)
@@ -149,9 +149,9 @@ package final class PackageGraphResult {
 }
 
 package final class ResolvedTargetResult {
-    private let target: ResolvedTarget
+    private let target: ResolvedModule
 
-    init(_ target: ResolvedTarget) {
+    init(_ target: ResolvedModule) {
         self.target = target
     }
 
@@ -200,9 +200,9 @@ package final class ResolvedTargetResult {
 }
 
 package final class ResolvedTargetDependencyResult {
-    private let dependency: ResolvedTarget.Dependency
+    private let dependency: ResolvedModule.Dependency
 
-    init(_ dependency: ResolvedTarget.Dependency) {
+    init(_ dependency: ResolvedModule.Dependency) {
         self.dependency = dependency
     }
 
@@ -227,7 +227,7 @@ package final class ResolvedProductResult {
     }
 
     package func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(Set(targets), Set(product.targets.map({ $0.name })), file: file, line: line)
+        XCTAssertEqual(Set(targets), Set(product.modules.map({ $0.name })), file: file, line: line)
     }
 
     package func check(type: ProductType, file: StaticString = #file, line: UInt = #line) {
@@ -254,10 +254,10 @@ package final class ResolvedProductResult {
     }
 }
 
-extension ResolvedTarget.Dependency {
+extension ResolvedModule.Dependency {
     package var name: String {
         switch self {
-        case .target(let target, _):
+        case .module(let target, _):
             return target.name
         case .product(let product, _):
             return product.name

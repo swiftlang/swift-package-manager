@@ -12,10 +12,10 @@
 
 package struct MockProduct {
     package let name: String
-    package let targets: [String]
+    package let modules: [String]
 
     package init(name: String, targets: [String]) {
         self.name = name
-        self.targets = targets
+        self.modules = targets
     }
 }

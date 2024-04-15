@@ -65,8 +65,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeResolvedTarget() throws -> ResolvedTarget {
-        ResolvedTarget(
+    private func makeResolvedTarget() throws -> ResolvedModule {
+        ResolvedModule(
             packageIdentity: .plain("dummy"),
             underlying: try makeClangTarget(),
             dependencies: [],
@@ -77,7 +77,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
 
     private func makeTargetBuildDescription(_ packageName: String,
                                             buildParameters: BuildParameters? = nil,
-                                            usesSourceControl: Bool = false) throws -> ClangTargetBuildDescription {
+                                            usesSourceControl: Bool = false) throws -> ClangModuleBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
         let manifest: Manifest
@@ -101,7 +101,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                               targetSearchPath: .root,
                               testTargetSearchPath: .root)
 
-        return try ClangTargetBuildDescription(
+        return try ClangModuleBuildDescription(
             package: .init(underlying: package,
                            defaultLocalization: nil,
                            supportedPlatforms: [],
@@ -110,7 +110,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                            products: [],
                            registryMetadata: nil,
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
-            target: target,
+            module: target,
             toolsVersion: .current,
             buildParameters: buildParameters ?? mockBuildParameters(
                 toolchain: try UserToolchain.default,

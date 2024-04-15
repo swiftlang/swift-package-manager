@@ -24,10 +24,10 @@ package enum BuildDescriptionError: Swift.Error {
 /// A target description which can either be for a Swift or Clang target.
 package enum TargetBuildDescription {
     /// Swift target description.
-    case swift(SwiftTargetBuildDescription)
+    case swift(SwiftModuleBuildDescription)
 
     /// Clang target description.
-    case clang(ClangTargetBuildDescription)
+    case clang(ClangModuleBuildDescription)
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
@@ -66,7 +66,7 @@ package enum TargetBuildDescription {
         case .swift(let target):
             return target.target
         case .clang(let target):
-            return target.target
+            return target.module
         }
     }
 

@@ -20,7 +20,7 @@ typealias WireInput = HostToPluginMessage.InputContext
 
 /// Creates the serialized input structure for the plugin script based on all
 /// the input information to a plugin.
-internal struct PluginContextSerializer {
+struct PluginContextSerializer {
     let fileSystem: FileSystem
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
@@ -52,34 +52,33 @@ internal struct PluginContextSerializer {
         return id
     }
 
-    // Adds a target to the serialized structure, if it isn't already there and
-    // if it is of a kind that should be passed to the plugin. If so, this func-
-    // tion returns the target's wire ID. If not, it returns nil.
-    mutating func serialize(target: ResolvedTarget) throws -> WireInput.Target.Id? {
+    // Adds a module to the serialized structure, if it isn't already there and if it is of a kind that should be passed
+    // to the plugin. If so, this function returns the module's wire ID. If not, it returns nil.
+    mutating func serialize(module: ResolvedModule) throws -> WireInput.Target.Id? {
         // If we've already seen the target, just return the wire ID we already assigned to it.
-        if let id = targetsToWireIDs[target.id] { return id }
+        if let id = targetsToWireIDs[module.id] { return id }
 
         // Construct the FileList
         var targetFiles: [WireInput.Target.TargetInfo.File] = []
-        targetFiles.append(contentsOf: try target.underlying.sources.paths.map {
+        targetFiles.append(contentsOf: try module.underlying.sources.paths.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
         })
-        targetFiles.append(contentsOf: try target.underlying.resources.map {
+        targetFiles.append(contentsOf: try module.underlying.resources.map {
             .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
         })
-        targetFiles.append(contentsOf: try target.underlying.ignored.map {
+        targetFiles.append(contentsOf: try module.underlying.ignored.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
-        targetFiles.append(contentsOf: try target.underlying.others.map {
+        targetFiles.append(contentsOf: try module.underlying.others.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
         
         // Create a scope for evaluating build settings.
-        let scope = BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
+        let scope = BuildSettings.Scope(module.underlying.buildSettings, environment: buildEnvironment)
         
         // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
         let targetInfo: WireInput.Target.TargetInfo
-        switch target.underlying {
+        switch module.underlying {
         case let target as SwiftTarget:
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,
@@ -158,10 +157,10 @@ internal struct PluginContextSerializer {
         }
         
         // We only get this far if we are serializing the target. If so we also serialize its dependencies. This needs to be done before assigning the next wire ID for the target we're serializing, to make sure we end up with the correct one.
-        let dependencies: [WireInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
+        let dependencies: [WireInput.Target.Dependency] = try module.dependencies(satisfying: buildEnvironment).compactMap {
             switch $0 {
-            case .target(let target, _):
-                return try serialize(target: target).map { .target(targetId: $0) }
+            case .module(let module, _):
+                return try serialize(module: module).map { .target(targetId: $0) }
             case .product(let product, _):
                 return try serialize(product: product).map { .product(productId: $0) }
             }
@@ -170,11 +169,11 @@ internal struct PluginContextSerializer {
         // Finally assign the next wire ID to the target, and append a serialized Target record.
         let id = targets.count
         targets.append(.init(
-            name: target.name,
-            directoryId: try serialize(path: target.sources.root),
+            name: module.name,
+            directoryId: try serialize(path: module.sources.root),
             dependencies: dependencies,
             info: targetInfo))
-        targetsToWireIDs[target.id] = id
+        targetsToWireIDs[module.id] = id
         return id
     }
 
@@ -191,7 +190,7 @@ internal struct PluginContextSerializer {
             
         case .executable:
             let mainExecTarget = try product.executableTarget
-            guard let mainExecTargetId = try serialize(target: mainExecTarget) else {
+            guard let mainExecTargetId = try serialize(module: mainExecTarget) else {
                 throw InternalError("unable to serialize main executable target \(mainExecTarget) for product \(product)")
             }
             productInfo = .executable(mainTargetId: mainExecTargetId)
@@ -215,7 +214,7 @@ internal struct PluginContextSerializer {
         let id = products.count
         products.append(.init(
             name: product.name,
-            targetIds: try product.targets.compactMap{ try serialize(target: $0) },
+            targetIds: try product.modules.compactMap{ try serialize(module: $0) },
             info: productInfo))
         productsToWireIDs[product.id] = id
         return id
@@ -261,7 +260,7 @@ internal struct PluginContextSerializer {
                 patch: package.manifest.toolsVersion.patch),
             dependencies: dependencies,
             productIds: try package.products.compactMap{ try serialize(product: $0) },
-            targetIds: try package.targets.compactMap{ try serialize(target: $0) }))
+            targetIds: try package.modules.compactMap{ try serialize(module: $0) }))
         packagesToWireIDs[package.id] = id
         return id
     }

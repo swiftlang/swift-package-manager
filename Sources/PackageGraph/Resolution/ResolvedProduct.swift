@@ -29,8 +29,11 @@ public struct ResolvedProduct {
     /// The underlying product.
     public let underlying: Product
 
-    /// The top level targets contained in this product.
-    public let targets: IdentifiableSet<ResolvedModule>
+    /// The top level modules contained in this product.
+    public let modules: IdentifiableSet<ResolvedModule>
+
+    @available(*, deprecated, renamed: "modules")
+    public var targets: IdentifiableSet<ResolvedModule> { self.modules }
 
     /// Executable target for test entry point file.
     public let testEntryPointTarget: ResolvedModule?
@@ -54,8 +57,8 @@ public struct ResolvedProduct {
             guard self.type == .executable || self.type == .snippet || self.type == .macro else {
                 throw InternalError("`executableTarget` should only be called for executable targets")
             }
-            guard let underlyingExecutableTarget = targets.map(\.underlying).executables.first,
-                  let executableTarget = targets.first(where: { $0.underlying == underlyingExecutableTarget })
+            guard let underlyingExecutableTarget = modules.map(\.underlying).executables.first,
+                  let executableTarget = modules.first(where: { $0.underlying == underlyingExecutableTarget })
             else {
                 throw InternalError("could not determine executable target")
             }
@@ -63,18 +66,23 @@ public struct ResolvedProduct {
         }
     }
 
+    @available(*, deprecated, renamed: "init(packageIdentity:product:modules:)")
     public init(packageIdentity: PackageIdentity, product: Product, targets: IdentifiableSet<ResolvedModule>) {
-        assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
+        self.init(packageIdentity: packageIdentity, product: product, modules: targets)
+    }
+
+    public init(packageIdentity: PackageIdentity, product: Product, modules: IdentifiableSet<ResolvedModule>) {
+        assert(product.targets.count == modules.count && product.targets.map(\.name).sorted() == modules.map(\.name).sorted())
         self.packageIdentity = packageIdentity
         self.underlying = product
-        self.targets = targets
+        self.modules = modules
 
         // defaultLocalization is currently shared across the entire package
         // this may need to be enhanced if / when we support localization per target or product
-        let defaultLocalization = self.targets.first?.defaultLocalization
+        let defaultLocalization = self.modules.first?.defaultLocalization
         self.defaultLocalization = defaultLocalization
 
-        let (platforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
+        let (platforms, platformVersionProvider) = Self.computePlatforms(targets: modules)
         self.supportedPlatforms = platforms
         self.platformVersionProvider = platformVersionProvider
 
@@ -90,7 +98,7 @@ public struct ResolvedProduct {
             return ResolvedModule(
                 packageIdentity: packageIdentity,
                 underlying: swiftTarget,
-                dependencies: targets.map { .target($0, conditions: []) },
+                dependencies: modules.map { .module($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
                 supportedPlatforms: platforms,
                 platformVersionProvider: platformVersionProvider
@@ -109,13 +117,18 @@ public struct ResolvedProduct {
         // recursively checking dependencies for SwiftTargets, and considering
         // dynamic library targets to be Swift targets (since the dylib could
         // contain Swift code we don't know about as part of this build).
-        self.targets.contains { $0.underlying is SwiftTarget }
+        self.modules.contains { $0.underlying is SwiftTarget }
     }
 
-    /// Returns the recursive target dependencies.
+    /// Returns the recursive module dependencies.
+    public func recursiveModuleDependencies() throws -> [ResolvedModule] {
+        let recursiveDependencies = try self.modules.lazy.flatMap { try $0.recursiveModuleDependencies() }
+        return Array(IdentifiableSet(self.modules).union(recursiveDependencies))
+    }
+
+    @available(*, deprecated, renamed: "recursiveModuleDependencies")
     public func recursiveTargetDependencies() throws -> [ResolvedModule] {
-        let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
-        return Array(IdentifiableSet(self.targets).union(recursiveDependencies))
+        try self.recursiveModuleDependencies()
     }
 
     private static func computePlatforms(
@@ -140,10 +153,10 @@ public struct ResolvedProduct {
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ diagnosticsEmitter: DiagnosticsEmitter) throws {
-        // Diagnose if any target in this product uses an unsafe flag.
-        for target in try self.recursiveTargetDependencies() {
-            if target.underlying.usesUnsafeFlags {
-                diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: target.name))
+        // Diagnose if any module in this product uses an unsafe flag.
+        for module in try self.recursiveModuleDependencies() {
+            if module.underlying.usesUnsafeFlags {
+                diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: module.name))
             }
         }
     }
@@ -159,7 +172,7 @@ extension ResolvedProduct {
     public var isLinkingXCTest: Bool {
         // To retain existing behavior, we have to check both the product type, as well as the types of all of its
         // targets.
-        self.type == .test || self.targets.contains(where: { $0.type == .test })
+        self.type == .test || self.modules.contains(where: { $0.type == .test })
     }
 }
 

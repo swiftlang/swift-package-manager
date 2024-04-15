@@ -1294,9 +1294,9 @@ public final class PackageBuilder {
             guard target.type == .test else { return false }
             #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
-            if target is ClangTarget {
+            if module is ClangTarget {
                 self.observabilityScope
-                    .emit(.unsupportedCTestTarget(package: self.identity.description, target: target.name))
+                    .emit(.unsupportedCTestTarget(package: self.identity.description, module: module.name))
                 return false
             }
             #endif

@@ -140,7 +140,7 @@ extension PluginTarget {
                 
             case .createBuildToolCommands(let package, let target, let pluginGeneratedSources, let pluginGeneratedResources):
                 let rootPackageId = try serializer.serialize(package: package)
-                guard let targetId = try serializer.serialize(target: target) else {
+                guard let targetId = try serializer.serialize(module: target) else {
                     throw StringError("unexpectedly was unable to serialize target \(target)")
                 }
                 let generatedSources = try pluginGeneratedSources.map { try serializer.serialize(path: $0) }
@@ -398,24 +398,24 @@ extension ModulesGraph {
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
-    ) throws -> [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] {
-        var pluginResultsByTarget: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] = [:]
-        for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
+    ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
+        var pluginResultsByModule: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
+        for target in self.allModules.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
-            var dependencyTargets: [Target] = []
+            var dependencyModules: [Target] = []
             for dependency in target.dependencies(satisfying: buildParameters.buildEnvironment) {
                 switch dependency {
-                case .target(let target, _):
-                    if let pluginTarget = target.underlying as? PluginTarget {
+                case .module(let module, _):
+                    if let pluginTarget = module.underlying as? PluginTarget {
                         assert(pluginTarget.capability == .buildTool)
                         pluginTargets.append(pluginTarget)
                     }
                     else {
-                        dependencyTargets.append(target.underlying)
+                        dependencyModules.append(module.underlying)
                     }
                 case .product(let product, _):
-                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlying as? PluginTarget })
+                    pluginTargets.append(contentsOf: product.modules.compactMap{ $0.underlying as? PluginTarget })
                 }
             }
 
@@ -592,13 +592,13 @@ extension ModulesGraph {
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            pluginResultsByTarget[target.id] = (target, buildToolPluginResults)
+            pluginResultsByModule[target.id] = (target, buildToolPluginResults)
         }
-        return pluginResultsByTarget
+        return pluginResultsByModule
     }
 
     public static func computePluginGeneratedFiles(
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription],
         buildParameters: BuildParameters,
@@ -671,7 +671,7 @@ public extension PluginTarget {
             case .product(let productRef, _):
                 guard
                     let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
-                    let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
+                    let executableTarget = product.modules.map({ $0.underlying }).executables.spm_only
                 else {
                     throw StringError("no product named \(productRef.name)")
                 }
@@ -744,7 +744,7 @@ public struct BuildToolPluginInvocationResult {
     public var package: ResolvedPackage
 
     /// The target in that package to which the plugin was applied.
-    public var target: ResolvedTarget
+    public var target: ResolvedModule
 
     /// If the plugin finished successfully.
     public var succeeded: Bool

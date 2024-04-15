@@ -35,7 +35,7 @@ import PackageModel
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Swift target description.
     func createSwiftCompileCommand(
-        _ target: SwiftTargetBuildDescription
+        _ target: SwiftModuleBuildDescription
     ) throws {
         // Inputs.
         let inputs = try self.computeSwiftCompileCmdInputs(target)
@@ -60,7 +60,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func addSwiftCmdsViaIntegratedDriver(
-        _ target: SwiftTargetBuildDescription,
+        _ target: SwiftModuleBuildDescription,
         inputs: [Node],
         moduleNode: Node
     ) throws {
@@ -96,7 +96,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func addSwiftDriverJobs(
-        for targetDescription: SwiftTargetBuildDescription,
+        for targetDescription: SwiftModuleBuildDescription,
         jobs: [Job],
         inputs: [Node],
         resolver: ArgsResolver,
@@ -192,8 +192,8 @@ extension LLBuildManifestBuilder {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
         let nodes: [ResolvedModule.Dependency] = try self.plan.targetMap.keys.compactMap {
-            guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
-            return ResolvedModule.Dependency.target(target, conditions: [])
+            guard let target = self.plan.graph.allModules[$0] else { throw InternalError("unknown target \($0)") }
+            return ResolvedModule.Dependency.module(target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -207,14 +207,14 @@ extension LLBuildManifestBuilder {
 
         // Create commands for all target descriptions in the plan.
         for dependency in allPackageDependencies.reversed() {
-            guard case .target(let target, _) = dependency else {
+            guard case .module(let module, _) = dependency else {
                 // Product dependency build jobs are added after the fact.
                 // Targets that depend on product dependencies will expand the corresponding
                 // product into its constituent targets.
                 continue
             }
-            guard target.underlying.type != .systemModule,
-                  target.underlying.type != .binary
+            guard module.underlying.type != .systemModule,
+                  module.underlying.type != .binary
             else {
                 // Much like non-Swift targets, system modules will consist of a modulemap
                 // somewhere in the filesystem, with the path to that module being either
@@ -226,8 +226,8 @@ extension LLBuildManifestBuilder {
                 // be able to detect such targets' modules.
                 continue
             }
-            guard let description = plan.targetMap[target.id] else {
-                throw InternalError("Expected description for target \(target)")
+            guard let description = plan.targetMap[module.id] else {
+                throw InternalError("Expected description for target \(module)")
             }
             switch description {
             case .swift(let desc):
@@ -243,7 +243,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func createExplicitSwiftTargetCompileCommand(
-        description: SwiftTargetBuildDescription,
+        description: SwiftModuleBuildDescription,
         dependencyOracle: InterModuleDependencyOracle,
         explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker?
     ) throws {
@@ -268,7 +268,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func addExplicitBuildSwiftCmds(
-        _ targetDescription: SwiftTargetBuildDescription,
+        _ targetDescription: SwiftModuleBuildDescription,
         inputs: [Node],
         dependencyOracle: InterModuleDependencyOracle,
         explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker? = nil
@@ -327,7 +327,7 @@ extension LLBuildManifestBuilder {
                 guard let dependencyProduct = dependency.product else {
                     throw InternalError("unknown dependency product for \(dependency)")
                 }
-                for dependencyProductTarget in dependencyProduct.targets {
+                for dependencyProductTarget in dependencyProduct.modules {
                     guard let dependencyTargetDescription = self.plan.targetMap[dependencyProductTarget.id] else {
                         throw InternalError("unknown dependency target for \(dependencyProductTarget)")
                     }
@@ -336,10 +336,10 @@ extension LLBuildManifestBuilder {
                         dependencyModuleDetailsMap: &dependencyModuleDetailsMap
                     )
                 }
-            case .target:
+            case .module:
                 // Product dependencies are broken down into the targets that make them up.
                 guard
-                    let dependencyTarget = dependency.target,
+                    let dependencyTarget = dependency.module,
                     let dependencyTargetDescription = self.plan.targetMap[dependencyTarget.id]
                 else {
                     throw InternalError("unknown dependency target for \(dependency)")
@@ -371,7 +371,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func addCmdWithBuiltinSwiftTool(
-        _ target: SwiftTargetBuildDescription,
+        _ target: SwiftModuleBuildDescription,
         inputs: [Node],
         cmdOutputs: [Node]
     ) throws {
@@ -400,7 +400,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func computeSwiftCompileCmdInputs(
-        _ target: SwiftTargetBuildDescription
+        _ target: SwiftModuleBuildDescription
     ) throws -> [Node] {
         var inputs = target.sources.map(Node.file)
 
@@ -452,7 +452,7 @@ extension LLBuildManifestBuilder {
 
         for dependency in target.target.dependencies(satisfying: target.buildParameters.buildEnvironment) {
             switch dependency {
-            case .target(let target, _):
+            case .module(let target, _):
                 try addStaticTargetInputs(target)
 
             case .product(let product, _):
@@ -466,8 +466,8 @@ extension LLBuildManifestBuilder {
 
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
-                    for target in product.targets {
-                        try addStaticTargetInputs(target)
+                    for module in product.modules {
+                        try addStaticTargetInputs(module)
                     }
 
                 case .test:
@@ -496,7 +496,7 @@ extension LLBuildManifestBuilder {
     }
 
     /// Adds a top-level phony command that builds the entire target.
-    private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
+    private func addTargetCmd(_ target: SwiftModuleBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
         let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
         let targetOutput: Node = .virtual(targetName)
@@ -515,7 +515,7 @@ extension LLBuildManifestBuilder {
         }
     }
 
-    private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
+    private func addModuleWrapCmd(_ target: SwiftModuleBuildDescription) throws {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
         guard target.buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [

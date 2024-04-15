@@ -16,7 +16,7 @@ import PackageLoading
 import PackageModel
 
 enum PackageGraphError: Swift.Error {
-    /// Indicates a non-root package with no targets.
+    /// Indicates a non-root package with no modules.
     case noModules(Package)
 
     /// The package dependency declaration has cycle in it.
@@ -92,13 +92,19 @@ public struct ModulesGraph {
     public let packages: [ResolvedPackage]
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: IdentifiableSet<ResolvedModule>
+    public let reachableModules: IdentifiableSet<ResolvedModule>
+
+    @available(*, deprecated, renamed: "reachableModules")
+    public var reachableTargets: IdentifiableSet<ResolvedModule> { self.reachableModules }
 
     /// The list of all products reachable from root targets.
     public let reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: IdentifiableSet<ResolvedModule>
+    public let allModules: IdentifiableSet<ResolvedModule>
+
+    @available(*, deprecated, renamed: "allModules")
+    public var allTargets: IdentifiableSet<ResolvedModule> { self.allModules }
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
 
@@ -114,18 +120,18 @@ public struct ModulesGraph {
     public func isInRootPackages(_ target: ResolvedModule, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
         return rootPackages.reduce(into: IdentifiableSet<ResolvedModule>()) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
-            let allDependencies = package.targets.flatMap { $0.dependencies }
+            let allDependencies = package.modules.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
             let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedModule.Dependency) -> ResolvedModule? in
                 switch dep {
-                case .target(let target, _):
+                case .module(let target, _):
                     return target
                 default:
                     return nil
                 }
             }
 
-            accumulator.formUnion(IdentifiableSet(package.targets).subtracting(unsatisfiedDependencyTargets))
+            accumulator.formUnion(IdentifiableSet(package.modules).subtracting(unsatisfiedDependencyTargets))
         }.contains(id: target.id)
     }
 
@@ -166,20 +172,20 @@ public struct ModulesGraph {
         self.binaryArtifacts = binaryArtifacts
         self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
 
-        // Create a mapping from targets to the packages that define them.  Here
+        // Create a mapping from modules to the packages that define them.  Here
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
         self.modulesToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0.id] = package }
+            package.modules.forEach{ partial[$0.id] = package }
         })
 
-        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedModule] in
+        let allModules = IdentifiableSet(packages.flatMap({ package -> [ResolvedModule] in
             if rootPackages.contains(id: package.id) {
-                return package.targets
+                return package.modules
             } else {
-                // Don't include tests targets from non-root packages so swift-test doesn't
+                // Don't include tests modules from non-root packages so swift-test doesn't
                 // try to run them.
-                return package.targets.filter({ $0.type != .test })
+                return package.modules.filter({ $0.type != .test })
             }
         }))
 
@@ -201,14 +207,14 @@ public struct ModulesGraph {
         }))
 
         // Compute the reachable targets and products.
-        let inputTargets = inputPackages.flatMap { $0.targets }
+        let inputTargets = inputPackages.flatMap { $0.modules }
         let inputProducts = inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
-        self.reachableTargets = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.target })
+        self.reachableModules = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.module })
         self.reachableProducts = IdentifiableSet(inputProducts).union(recursiveDependencies.compactMap { $0.product })
         self.rootPackages = rootPackages
-        self.allTargets = allTargets
+        self.allModules = allModules
         self.allProducts = allProducts
     }
 
@@ -217,29 +223,29 @@ public struct ModulesGraph {
     public func computeTestTargetsForExecutableTargets() throws -> [ResolvedModule.ID: [ResolvedModule]] {
         var result = [ResolvedModule.ID: [ResolvedModule]]()
 
-        let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
+        let rootModules = IdentifiableSet(rootPackages.flatMap { $0.modules })
 
         // Create map of test target to set of its direct dependencies.
         let testTargetDepMap: [ResolvedModule.ID: IdentifiableSet<ResolvedModule>] = try {
-            let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
-                ($0.id, IdentifiableSet($0.dependencies.compactMap { $0.target }.filter { $0.type != .plugin }))
+            let testTargetDeps = rootModules.filter({ $0.type == .test }).map({
+                ($0.id, IdentifiableSet($0.dependencies.compactMap { $0.module }.filter { $0.type != .plugin }))
             })
             return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
 
-        for target in rootTargets where target.type == .executable {
+        for module in rootModules where module.type == .executable {
             // Find all dependencies of this target within its package. Note that we do not traverse plugin usages.
-            let dependencies = try topologicalSort(target.dependencies, successors: {
-                $0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }.map{ .target($0, conditions: []) }
-            }).compactMap({ $0.target })
+            let dependencies = try topologicalSort(module.dependencies, successors: {
+                $0.dependencies.compactMap{ $0.module }.filter{ $0.type != .plugin }.map{ .module($0, conditions: []) }
+            }).compactMap({ $0.module })
 
             // Include the test targets whose dependencies intersect with the
             // current target's (recursive) dependencies.
             let testTargets = testTargetDepMap.filter({ (testTarget, deps) in
-                !deps.intersection(dependencies + [target]).isEmpty
+                !deps.intersection(dependencies + [module]).isEmpty
             }).map({ $0.key })
 
-            result[target.id] = testTargets.compactMap { rootTargets[$0] }
+            result[module.id] = testTargets.compactMap { rootModules[$0] }
         }
 
         return result

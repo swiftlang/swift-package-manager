@@ -28,7 +28,7 @@ import DriverSupport
 import struct TSCBasic.ByteString
 
 /// Target description for a Swift target.
-package final class SwiftTargetBuildDescription {
+package final class SwiftModuleBuildDescription {
     /// The package this target belongs to.
     package let package: ResolvedPackage
 
@@ -430,7 +430,7 @@ package final class SwiftTargetBuildDescription {
         }
         #else
         try self.requiredMacroProducts.forEach { macro in
-            if let macroTarget = macro.targets.first {
+            if let macroTarget = macro.modules.first {
                 let executablePath = try self.buildParameters.binaryPath(for: macro).pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
@@ -559,7 +559,7 @@ package final class SwiftTargetBuildDescription {
         // discovery target must enable C++ interop as well
         switch testTargetRole {
         case .discovery, .entryPoint:
-            for dependency in try self.target.recursiveTargetDependencies() {
+            for dependency in try self.target.recursiveModuleDependencies() {
                 let dependencyScope = self.buildParameters.createScope(for: dependency)
                 let dependencySwiftFlags = dependencyScope.evaluate(.OTHER_SWIFT_FLAGS)
                 if let interopModeFlag = dependencySwiftFlags.first(where: { $0.hasPrefix("-cxx-interoperability-mode=") }) {
@@ -847,7 +847,7 @@ package final class SwiftTargetBuildDescription {
 
         // Include path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
-        if target.type == .macro {
+        if module.type == .macro {
             flags += try ["-I", self.buildParameters.toolchain.hostLibDir.pathString]
         }
         #endif

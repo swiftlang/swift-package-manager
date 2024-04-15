@@ -5740,12 +5740,12 @@ final class WorkspaceTests: XCTestCase {
         let barProducts: [MockProduct]
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         barProducts = [
-            MockProduct(name: "Bar", targets: ["Bar"]),
-            MockProduct(name: "BarUnused", targets: ["BarUnused"]),
+            MockProduct(name: "Bar", modules: ["Bar"]),
+            MockProduct(name: "BarUnused", modules: ["BarUnused"]),
         ]
         #else
         // Whether a product is being used does not affect dependency resolution in this case, so we omit the unused product.
-        barProducts = [MockProduct(name: "Bar", targets: ["Bar"])]
+        barProducts = [MockProduct(name: "Bar", modules: ["Bar"])]
         #endif
 
         let workspace = try MockWorkspace(

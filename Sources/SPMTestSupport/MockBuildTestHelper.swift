@@ -152,7 +152,7 @@ package struct BuildPlanResult {
         self.targetMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.targetMap.compactMap {
                 guard 
-                    let target = plan.graph.allTargets[$0] ??
+                    let target = plan.graph.allModules[$0] ??
                         IdentifiableSet(plan.derivedTestTargetsMap.values.flatMap { $0 })[$0]
                 else {
                     throw BuildError.error("Target \($0) not found.")
@@ -187,7 +187,7 @@ package struct BuildPlanResult {
 }
 
 extension TargetBuildDescription {
-    package func swiftTarget() throws -> SwiftTargetBuildDescription {
+    package func swiftTarget() throws -> SwiftModuleBuildDescription {
         switch self {
         case .swift(let target):
             return target
@@ -196,7 +196,7 @@ extension TargetBuildDescription {
         }
     }
 
-    package func clangTarget() throws -> ClangTargetBuildDescription {
+    package func clangTarget() throws -> ClangModuleBuildDescription {
         switch self {
         case .clang(let target):
             return target

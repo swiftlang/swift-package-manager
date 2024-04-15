@@ -58,7 +58,7 @@ extension BuildPlan {
         // Don't link libc++ or libstd++ when building for Embedded Swift.
         // Users can still link it manually for embedded platforms when needed,
         // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
-        if !buildProduct.product.targets.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+        if !buildProduct.product.modules.contains(where: \.underlying.isEmbeddedSwiftTarget) {
             // Link C++ if needed.
             // Note: This will come from build settings in future.
             for target in dependencies.staticTargets {
@@ -100,7 +100,7 @@ extension BuildPlan {
             }
         }
 
-        buildProduct.staticTargets = dependencies.staticTargets
+        buildProduct.staticLibraries = dependencies.staticTargets
         buildProduct.dylibs = try dependencies.dylibs.map {
             guard let product = productMap[$0.id] else {
                 throw InternalError("unknown product \($0)")
@@ -141,7 +141,7 @@ extension BuildPlan {
         // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
         let topLevelDependencies: [PackageModel.Target]
         if product.type == .test {
-            topLevelDependencies = product.targets.flatMap { $0.underlying.dependencies }.compactMap {
+            topLevelDependencies = product.modules.flatMap { $0.underlying.dependencies }.compactMap {
                 switch $0 {
                 case .product:
                     return nil
@@ -160,12 +160,12 @@ extension BuildPlan {
         }
 
         // Sort the product targets in topological order.
-        let nodes: [ResolvedModule.Dependency] = product.targets.map { .target($0, conditions: []) }
+        let nodes: [ResolvedModule.Dependency] = product.modules.map { .module($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the dependencies of a target.
-            case .target(let target, _):
-                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(id: target.id)
+            case .module(let target, _):
+                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.modules.contains(id: target.id)
                 let topLevelIsMacro = isTopLevel && product.type == .macro
                 let topLevelIsPlugin = isTopLevel && product.type == .plugin
                 let topLevelIsTest = isTopLevel && product.type == .test
@@ -185,7 +185,7 @@ extension BuildPlan {
                     return []
                 }
 
-                let productDependencies: [ResolvedModule.Dependency] = product.targets.map { .target($0, conditions: []) }
+                let productDependencies: [ResolvedModule.Dependency] = product.modules.map { .module($0, conditions: []) }
                 switch product.type {
                 case .library(.automatic), .library(.static):
                     return productDependencies
@@ -208,38 +208,38 @@ extension BuildPlan {
 
         for dependency in allTargets {
             switch dependency {
-            case .target(let target, _):
-                switch target.type {
+            case .module(let module, _):
+                switch module.type {
                 // Executable target have historically only been included if they are directly in the product's
                 // target list.  Otherwise they have always been just build-time dependencies.
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
                 case .executable, .snippet, .macro:
-                    if product.targets.contains(id: target.id) {
-                        staticTargets.append(target)
-                    } else if product.type == .test && (target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
+                    if product.modules.contains(id: module.id) {
+                        staticTargets.append(module)
+                    } else if product.type == .test && (module.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
                         // Only "top-level" targets should really be considered here, not transitive ones.
-                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(id: target.id)
+                        let isTopLevel = topLevelDependencies.contains(module.underlying) || product.modules.contains(id: module.id)
                         if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
-                            staticTargets.append(target)
+                            staticTargets.append(module)
                         }
                     }
                 // Test targets should be included only if they are directly in the product's target list.
                 case .test:
-                    if product.targets.contains(id: target.id) {
-                        staticTargets.append(target)
+                    if product.modules.contains(id: module.id) {
+                        staticTargets.append(module)
                     }
                 // Library targets should always be included.
                 case .library:
-                    staticTargets.append(target)
+                    staticTargets.append(module)
                 // Add system target to system targets array.
                 case .systemModule:
-                    systemModules.append(target)
+                    systemModules.append(module)
                 // Add binary to binary paths set.
                 case .binary:
-                    guard let binaryTarget = target.underlying as? BinaryTarget else {
-                        throw InternalError("invalid binary target '\(target.name)'")
+                    guard let binaryTarget = module.underlying as? BinaryTarget else {
+                        throw InternalError("invalid binary target '\(module.name)'")
                     }
                     switch binaryTarget.kind {
                     case .xcframework:
@@ -251,7 +251,7 @@ extension BuildPlan {
                         let tools = try self.parseArtifactsArchive(for: binaryTarget, triple: buildParameters.triple)
                         tools.forEach { availableTools[$0.name] = $0.executablePath  }
                     case.unknown:
-                        throw InternalError("unknown binary target '\(target.name)' type")
+                        throw InternalError("unknown binary target '\(module.name)' type")
                     }
                 case .plugin:
                     continue
