@@ -18,9 +18,9 @@ import class TSCBasic.Thread
 import WinSDK
 #endif
 
-public typealias CancellationHandler = (DispatchTime) throws -> Void
+public typealias CancellationHandler = @Sendable (DispatchTime) throws -> Void
 
-public final class Cancellator: Cancellable {
+public final class Cancellator: Cancellable, Sendable {
     public typealias RegistrationKey = String
 
     private let observabilityScope: ObservabilityScope?
@@ -119,7 +119,7 @@ public final class Cancellator: Cancellable {
     }
 
     @discardableResult
-    public func register(name: String, handler: @escaping () throws -> Void) -> RegistrationKey? {
+    public func register(name: String, handler: @escaping @Sendable () throws -> Void) -> RegistrationKey? {
         self.register(name: name, handler: { _ in try handler() })
     }
 
