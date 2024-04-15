@@ -12,14 +12,11 @@
 
 import struct DequeModule.Deque
 
-struct LinkageGraph<Node> {
+/// Undirected graph that stores edges in an adjacency matrix.
+struct UndirectedGraph<Node> {
     init(nodes: [Node]) {
         self.nodes = nodes
         self.edges = .init(rows: nodes.count, columns: nodes.count)
-    }
-    
-    struct Index {
-        fileprivate let value: Int
     }
 
     private var nodes: [Node]
@@ -31,16 +28,20 @@ struct LinkageGraph<Node> {
         self.edges[destination, source] = true
     }
 
-    // FIXME: linkage graphs are not directed
-    func areNodesConnected(source: Index, destination: Index) -> Bool {
-        var todo = Deque<Int>()
-        var done = Set<Int>([source.value])
+    /// Checks whether a connection via previously created edges between two given nodes exists.
+    /// - Parameters:
+    ///   - source: `Index` of a node to start traversing edges from.
+    ///   - destination: `Index` of a node to which a connection could exist via edges from `source`.
+    /// - Returns: `true` if a path from `source` to `destination` exists, `false` otherwise.
+    func areNodesConnected(source: Int, destination: Int) -> Bool {
+        var todo = Deque<Int>([source])
+        var done = Set<Int>()
 
         while !todo.isEmpty {
             let nodeIndex = todo.removeFirst()
 
-            for reachableIndex in self.edges[nodeIndex] {
-                if reachableIndex == destination.value {
+            for reachableIndex in self.edges.nodesAdjacentTo(nodeIndex) {
+                if reachableIndex == destination {
                     return true
                 } else if !done.contains(reachableIndex) {
                     todo.append(reachableIndex)
@@ -51,5 +52,17 @@ struct LinkageGraph<Node> {
         }
 
         return false
+    }
+}
+
+private extension AdjacencyMatrix {
+    func nodesAdjacentTo(_ nodeIndex: Int) -> [Int] {
+        var result = [Int]()
+
+        for i in 0..<self.rows where self[i, nodeIndex] {
+            result.append(i)
+        }
+
+        return result
     }
 }

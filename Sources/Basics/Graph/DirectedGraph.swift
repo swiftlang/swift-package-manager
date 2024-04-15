@@ -12,36 +12,33 @@
 
 import struct DequeModule.Deque
 
-struct DirectedGraph<Node, Attribute> {
-    struct Index {
-        fileprivate let value: Int
+struct DirectedGraph<Node> {
+    init(nodes: [Node]) {
+        self.nodes = nodes
+        self.edges = .init(repeating: [], count: nodes.count)
     }
 
     private var nodes: [Node]
-    private var attributes: [Attribute]
     private var edges: [[Int]]
 
-    mutating func addNode(_ node: Node) -> Index {
-        let result = Index(value: self.nodes.count)
-        self.nodes.append(node)
-        self.edges.append([])
-
-        return result
+    mutating func addEdge(source: Int, destination: Int) {
+        self.edges[source].append(destination)
     }
-
-    mutating func addEdge(source: Index, destination: Index) {
-        self.edges[source.value].append(destination.value)
-    }
-
-    func areNodesConnected(source: Index, destination: Index) -> Bool {
-        var todo = Deque<Int>()
-        var done = Set<Int>([source.value])
+    
+    /// Checks whether a path via previously created edges between two given nodes exists.
+    /// - Parameters:
+    ///   - source: `Index` of a node to start traversing edges from.
+    ///   - destination: `Index` of a node to which a path could exist via edges from `source`.
+    /// - Returns: `true` if a path from `source` to `destination` exists, `false` otherwise.
+    func areNodesConnected(source: Int, destination: Int) -> Bool {
+        var todo = Deque<Int>([source])
+        var done = Set<Int>()
 
         while !todo.isEmpty {
             let nodeIndex = todo.removeFirst()
 
             for reachableIndex in self.edges[nodeIndex] {
-                if reachableIndex == destination.value {
+                if reachableIndex == destination {
                     return true
                 } else if !done.contains(reachableIndex) {
                     todo.append(reachableIndex)

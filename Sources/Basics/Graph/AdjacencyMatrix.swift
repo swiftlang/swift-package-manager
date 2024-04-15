@@ -53,7 +53,6 @@ struct AdjacencyMatrix {
         set {
             let (byteOffset, bitOffsetInByte) = calculateOffsets(row: row, column: column)
 
-            print(byteOffset, bitOffsetInByte)
             self.bytes[byteOffset] |= 1 << bitOffsetInByte
         }
     }
