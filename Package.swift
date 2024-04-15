@@ -194,7 +194,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=complete"),
+                .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
 
