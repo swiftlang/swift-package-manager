@@ -241,7 +241,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private var binaryGroup: PIFGroupBuilder!
-    private let executableTargetProductMap: [ResolvedTarget.ID: ResolvedProduct]
+    private let executableTargetProductMap: [ResolvedModule.ID: ResolvedProduct]
 
     var isRootPackage: Bool { package.manifest.packageKind.isRoot }
 
@@ -372,7 +372,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
-    private func addTarget(for target: ResolvedTarget) throws {
+    private func addTarget(for target: ResolvedModule) throws {
         switch target.type {
         case .library:
             try self.addLibraryTarget(for: target)
@@ -591,7 +591,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         pifTarget.addBuildConfiguration(name: "Release", settings: settings)
     }
 
-    private func addLibraryTarget(for target: ResolvedTarget) throws {
+    private func addLibraryTarget(for target: ResolvedModule) throws {
         let pifTarget = addTarget(
             guid: target.pifTargetGUID,
             name: target.name,
@@ -720,7 +720,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         pifTarget.impartedBuildSettings = impartedSettings
     }
 
-    private func addSystemTarget(for target: ResolvedTarget) throws {
+    private func addSystemTarget(for target: ResolvedModule) throws {
         guard let systemTarget = target.underlying as? SystemLibraryTarget else {
             throw InternalError("unexpected target type")
         }
@@ -774,7 +774,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     }
 
     private func addDependency(
-        to dependency: ResolvedTarget.Dependency,
+        to dependency: ResolvedModule.Dependency,
         in pifTarget: PIFTargetBuilder,
         linkProduct: Bool
     ) {
@@ -797,7 +797,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     }
 
     private func addDependency(
-        to target: ResolvedTarget,
+        to target: ResolvedModule,
         in pifTarget: PIFTargetBuilder,
         conditions: [PackageCondition],
         linkProduct: Bool
@@ -831,7 +831,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         )
     }
 
-    private func addResourceBundle(for target: ResolvedTarget, in pifTarget: PIFTargetBuilder) -> String? {
+    private func addResourceBundle(for target: ResolvedModule, in pifTarget: PIFTargetBuilder) -> String? {
         guard !target.underlying.resources.isEmpty else {
             return nil
         }
@@ -1395,7 +1395,7 @@ extension ResolvedPackage {
 extension ResolvedProduct {
     var pifTargetGUID: PIF.GUID { "PACKAGE-PRODUCT:\(name)" }
 
-    var mainTarget: ResolvedTarget {
+    var mainTarget: ResolvedModule {
         targets.first { $0.type == underlying.type.targetType }!
     }
 
@@ -1403,23 +1403,23 @@ extension ResolvedProduct {
     /// based on their conditions and in a stable order.
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
-    public func recursivePackageDependencies() -> [ResolvedTarget.Dependency] {
-        let initialDependencies = targets.map { ResolvedTarget.Dependency.target($0, conditions: []) }
+    public func recursivePackageDependencies() -> [ResolvedModule.Dependency] {
+        let initialDependencies = targets.map { ResolvedModule.Dependency.target($0, conditions: []) }
         return try! topologicalSort(initialDependencies) { dependency in
             return dependency.packageDependencies
         }.sorted()
     }
 }
 
-extension ResolvedTarget {
+extension ResolvedModule {
     var pifTargetGUID: PIF.GUID { "PACKAGE-TARGET:\(name)" }
     var pifResourceTargetGUID: PIF.GUID { "PACKAGE-RESOURCE:\(name)" }
 }
 
-extension Array where Element == ResolvedTarget.Dependency {
+extension Array where Element == ResolvedModule.Dependency {
 
     /// Sorts to get products first, sorted by name, followed by targets, sorted by name.
-    func sorted() -> [ResolvedTarget.Dependency] {
+    func sorted() -> [ResolvedModule.Dependency] {
         sorted { lhsDependency, rhsDependency in
             switch (lhsDependency, rhsDependency) {
             case (.product, .target):
@@ -1441,7 +1441,7 @@ extension ResolvedPackage {
     }
 }
 
-extension ResolvedTarget {
+extension ResolvedModule {
     func deploymentTarget(for platform: PackageModel.Platform, usingXCTest: Bool = false) -> String? {
         return self.getSupportedPlatform(for: platform, usingXCTest: usingXCTest).version.versionString
     }
@@ -1687,7 +1687,7 @@ extension PIF.PlatformFilter {
 private extension PIF.BuildSettings {
     mutating func addCommonSwiftSettings(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         parameters: PIFBuilderParameters
     ) {
         let packageOptions = package.packageNameArgument(

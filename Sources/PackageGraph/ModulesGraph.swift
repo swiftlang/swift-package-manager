@@ -92,13 +92,13 @@ public struct ModulesGraph {
     public let packages: [ResolvedPackage]
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: IdentifiableSet<ResolvedTarget>
+    public let reachableTargets: IdentifiableSet<ResolvedModule>
 
     /// The list of all products reachable from root targets.
     public let reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: IdentifiableSet<ResolvedTarget>
+    public let allTargets: IdentifiableSet<ResolvedModule>
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
 
@@ -111,12 +111,12 @@ public struct ModulesGraph {
     public let requiredDependencies: [PackageReference]
 
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
-    public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
+    public func isInRootPackages(_ target: ResolvedModule, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.reduce(into: IdentifiableSet<ResolvedTarget>()) { (accumulator: inout IdentifiableSet<ResolvedTarget>, package: ResolvedPackage) in
+        return rootPackages.reduce(into: IdentifiableSet<ResolvedModule>()) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
+            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedModule.Dependency) -> ResolvedModule? in
                 switch dep {
                 case .target(let target, _):
                     return target
@@ -134,10 +134,10 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private let targetsToPackages: [ResolvedTarget.ID: ResolvedPackage]
-    /// Returns the package that contains the target, or nil if the target isn't in the graph.
-    public func package(for target: ResolvedTarget) -> ResolvedPackage? {
-        return self.targetsToPackages[target.id]
+    private let modulesToPackages: [ResolvedModule.ID: ResolvedPackage]
+    /// Returns the package that contains the module, or nil if the module isn't in the graph.
+    public func package(for module: ResolvedModule) -> ResolvedPackage? {
+        return self.modulesToPackages[module.id]
     }
 
 
@@ -169,11 +169,11 @@ public struct ModulesGraph {
         // Create a mapping from targets to the packages that define them.  Here
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
-        self.targetsToPackages = packages.reduce(into: [:], { partial, package in
+        self.modulesToPackages = packages.reduce(into: [:], { partial, package in
             package.targets.forEach{ partial[$0.id] = package }
         })
 
-        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedTarget] in
+        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedModule] in
             if rootPackages.contains(id: package.id) {
                 return package.targets
             } else {
@@ -214,13 +214,13 @@ public struct ModulesGraph {
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
     @_spi(SwiftPMInternal)
-    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget.ID: [ResolvedTarget]] {
-        var result = [ResolvedTarget.ID: [ResolvedTarget]]()
+    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedModule.ID: [ResolvedModule]] {
+        var result = [ResolvedModule.ID: [ResolvedModule]]()
 
         let rootTargets = IdentifiableSet(rootPackages.flatMap { $0.targets })
 
         // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget.ID: IdentifiableSet<ResolvedTarget>] = try {
+        let testTargetDepMap: [ResolvedModule.ID: IdentifiableSet<ResolvedModule>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
                 ($0.id, IdentifiableSet($0.dependencies.compactMap { $0.target }.filter { $0.type != .plugin }))
             })

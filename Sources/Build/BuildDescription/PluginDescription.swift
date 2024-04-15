@@ -43,7 +43,7 @@ package final class PluginDescription: Codable {
     /// Initialize a new plugin target description. The target is expected to be
     /// a `PluginTarget`.
     init(
-        target: ResolvedTarget,
+        target: ResolvedModule,
         products: [ResolvedProduct],
         package: ResolvedPackage,
         toolsVersion: ToolsVersion,

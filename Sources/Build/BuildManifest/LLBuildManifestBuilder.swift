@@ -316,7 +316,7 @@ extension TargetBuildDescription {
     }
 }
 
-extension ResolvedTarget {
+extension ResolvedModule {
     package func getCommandName(config: String) -> String {
         "C." + self.getLLBuildTargetName(config: config)
     }

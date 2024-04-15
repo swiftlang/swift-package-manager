@@ -94,7 +94,7 @@ public protocol BuildPlan {
 
 extension BuildPlan {
     /// Parameters used for building a given target.
-    public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
+    public func buildParameters(for target: ResolvedModule) -> BuildParameters {
         switch target.buildTriple {
         case .tools:
             return self.toolsBuildParameters
