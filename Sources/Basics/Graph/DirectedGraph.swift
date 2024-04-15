@@ -12,6 +12,7 @@
 
 import struct DequeModule.Deque
 
+/// Directed graph that stores edges in [adjacency lists](https://en.wikipedia.org/wiki/Adjacency_list).
 struct DirectedGraph<Node> {
     init(nodes: [Node]) {
         self.nodes = nodes

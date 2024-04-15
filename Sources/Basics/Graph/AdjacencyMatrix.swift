@@ -16,6 +16,8 @@
 /// For example, in a graph that contains 3 nodes `matrix[row: 1, column: 2]` evaluating to `true` means an edge
 /// between nodes with indices `1` and `2` exists. `matrix[row: 1, column: 2]` evaluating to `false` means that no
 /// edge exists.
+///
+/// See https://en.wikipedia.org/wiki/Adjacency_matrix for more details.
 struct AdjacencyMatrix {
     let columns: Int
     let rows: Int
