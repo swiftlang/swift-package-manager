@@ -23,7 +23,7 @@ struct AdjacencyMatrix {
     let rows: Int
     private var bytes: [UInt8]
 
-    /// Allocates a new bit matrix with a given size. Returns `nil` if either `rows` or `columns` are less than `1`.
+    /// Allocates a new bit matrix with a given size.
     /// - Parameters:
     ///   - rows: Number of rows in the matrix.
     ///   - columns: Number of columns in the matrix.
