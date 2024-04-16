@@ -4,11 +4,20 @@ import PackageModel
 import Workspace
 
 let benchmarks = {
+    let defaultMetrics: [BenchmarkMetric] = [
+        .mallocCountTotal,
+        .syscalls,
+    ]
+
     Benchmark(
-        "Package graph loading",
+        "PackageGraphLoading",
         configuration: .init(
-            metrics: BenchmarkMetric.all,
-            maxDuration: .seconds(10)
+            metrics: defaultMetrics,
+            maxDuration: .seconds(10),
+            thresholds: [
+                .mallocCountTotal: .init(absolute: [.p90: 12000]),
+                .syscalls: .init(absolute: [.p90: 1600]),
+            ]
         )
     ) { benchmark in
         let path = try AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
