@@ -46,8 +46,8 @@ public struct DefaultIdentityResolver: IdentityResolver {
             return try self.resolveIdentity(for: url)
         case .registry(let identity):
             return identity
-        case .providedLibrary(let path):
-            return try self.resolveIdentity(for: path)
+        case .providedLibrary(let url, _):
+            return try self.resolveIdentity(for: url)
         }
     }
 
