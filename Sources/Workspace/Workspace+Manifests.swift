@@ -145,7 +145,8 @@ extension Workspace {
                     if checkout.isBranchOrRevisionBased {
                         result.insert(dependency.packageRef)
                     }
-                case .registryDownload, .edited, .custom:
+
+                case .registryDownload, .edited, .providedLibrary, .custom:
                     continue
                 case .fileSystem:
                     result.insert(dependency.packageRef)
@@ -337,7 +338,7 @@ extension Workspace {
                         products: productFilter
                     )
                     allConstraints.append(constraint)
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .providedLibrary, .custom:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
@@ -352,7 +353,7 @@ extension Workspace {
 
             for (_, managedDependency, productFilter, _) in dependencies {
                 switch managedDependency.state {
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom: continue
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .providedLibrary, .custom: continue
                 case .edited: break
                 }
                 // FIXME: We shouldn't need to construct a new package reference object here.
@@ -387,6 +388,8 @@ extension Workspace {
         case .edited(_, let path):
             return path ?? self.location.editSubdirectory(for: dependency)
         case .fileSystem(let path):
+            return path
+        case .providedLibrary(let path, _):
             return path
         case .custom(_, let path):
             return path
@@ -662,6 +665,9 @@ extension Workspace {
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
             packageVersion = downloadedVersion
+        case .providedLibrary(_, let version):
+            packageKind = managedDependency.packageRef.kind
+            packageVersion = version
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
             packageVersion = availableVersion
@@ -874,6 +880,10 @@ extension Workspace {
 
                     observabilityScope
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
+
+                case .providedLibrary(_, version: _):
+                    // TODO: If the dependency is not available we can turn it into a source control dependency
+                    break
 
                 case .fileSystem:
                     self.state.dependencies.remove(dependency.packageRef.identity)

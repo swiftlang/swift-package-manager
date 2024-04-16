@@ -52,6 +52,9 @@ extension Workspace {
         case .registryDownload:
             observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity)' can't be edited")
             return
+        case .providedLibrary:
+            observabilityScope.emit(error: "library dependency '\(dependency.packageRef.identity)' can't be edited")
+            return
         case .custom:
             observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")
             return

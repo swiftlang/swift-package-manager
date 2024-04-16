@@ -723,6 +723,8 @@ extension Workspace {
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
+        case .providedLibrary(_, version: let version):
+            defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
         case .edited:
@@ -1365,6 +1367,8 @@ extension Workspace {
                     result.append("unversioned")
                 }
             case .registryDownload(let version)?, .custom(let version, _):
+                result.append("resolved to '\(version)'")
+            case .providedLibrary(_, version: let version):
                 result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")
