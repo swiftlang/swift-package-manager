@@ -378,7 +378,8 @@ extension PackageGraphError: CustomStringConvertible {
                 switch $0.manifest.packageKind {
                 case .root(let path),
                         .fileSystem(let path),
-                        .localSourceControl(let path):
+                        .localSourceControl(let path),
+                        .providedLibrary(let path):
                     description += " (at '\(path)')"
                 case .remoteSourceControl(let url):
                     description += " (from '\(url)')"

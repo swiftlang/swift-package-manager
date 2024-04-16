@@ -737,7 +737,7 @@ extension ResolvedPackage {
         switch self.underlying.manifest.packageKind {
         case .registry, .remoteSourceControl, .localSourceControl:
             return true
-        case .root, .fileSystem:
+        case .root, .fileSystem, .providedLibrary:
             return false
         }
     }

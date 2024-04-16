@@ -440,6 +440,9 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
+                case .providedLibrary(let path):
+                    self.kind = .providedLibrary
+                    self.location = path.pathString
                 }
                 self.name = reference.deprecatedName
             }
@@ -450,6 +453,7 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
+                case providedLibrary
             }
         }
     }
@@ -492,6 +496,8 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
+        case .providedLibrary:
+            kind = try .providedLibrary(.init(validating: reference.location))
         }
 
         self.init(
@@ -766,6 +772,9 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
+                case .providedLibrary(let path):
+                    self.kind = .providedLibrary
+                    self.location = path.pathString
                 }
                 self.name = reference.deprecatedName
             }
@@ -776,6 +785,7 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
+                case providedLibrary
             }
         }
     }
@@ -819,6 +829,8 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
+        case .providedLibrary:
+            kind = try .providedLibrary(.init(validating: reference.location))
         }
 
         self.init(

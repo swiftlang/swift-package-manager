@@ -1284,6 +1284,8 @@ extension Workspace {
             try self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
+        case .providedLibrary:
+            break // NOOP
         }
 
         // Save the state.
