@@ -93,6 +93,14 @@ extension Workspace: PackageContainerProvider {
                 queue.async {
                     completion(.success(container))
                 }
+
+            case .providedLibrary:
+                let container = try ProvidedLibraryPackageContainer(
+                    package: package,
+                    observabilityScope: observabilityScope)
+                queue.async {
+                    completion(.success(container))
+                }
             }
         } catch {
             queue.async {
