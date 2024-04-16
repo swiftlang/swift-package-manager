@@ -897,7 +897,7 @@ extension PackageRequirement {
 extension PackageReference {
     public func matchingPrebuiltLibrary(in availableLibraries: [LibraryMetadata]) -> LibraryMetadata? {
         switch self.kind {
-        case .fileSystem, .localSourceControl, .root:
+        case .fileSystem, .localSourceControl, .root, .providedLibrary:
             return nil // can never match a prebuilt library
         case .registry(let identity):
             if let registryIdentity = identity.registry {

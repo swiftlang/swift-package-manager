@@ -34,6 +34,9 @@ public struct PackageReference {
         /// A package from  a registry.
         case registry(PackageIdentity)
 
+        /// A prebuilt library provided by a toolchain
+        case providedLibrary(AbsolutePath)
+
         // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)
         public var locationString: String {
@@ -49,6 +52,8 @@ public struct PackageReference {
             case .registry(let identity):
                 // FIXME: this is a placeholder
                 return identity.description
+            case .providedLibrary(let path):
+                return path.pathString
             }
         }
 
@@ -70,6 +75,8 @@ public struct PackageReference {
                 return "remoteSourceControl \(url)"
             case .registry(let identity):
                 return "registry \(identity)"
+            case .providedLibrary(let path):
+                return "library \(path)"
             }
         }
 
@@ -124,6 +131,8 @@ public struct PackageReference {
         case .registry(let identity):
             // FIXME: this is a placeholder
             self.deprecatedName = name ?? identity.description
+        case .providedLibrary(let path):
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
         }
     }
 
@@ -150,6 +159,10 @@ public struct PackageReference {
 
     public static func registry(identity: PackageIdentity) -> PackageReference {
         PackageReference(identity: identity, kind: .registry(identity))
+    }
+
+    public static func library(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+        PackageReference(identity: identity, kind: .providedLibrary(path))
     }
 }
 
@@ -203,7 +216,7 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference.Kind: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case root, fileSystem, localSourceControl, remoteSourceControl, registry
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry, providedLibrary
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -224,6 +237,9 @@ extension PackageReference.Kind: Encodable {
         case .registry:
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
             try unkeyedContainer.encode(self.isRoot)
+        case .providedLibrary(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .providedLibrary)
+            try unkeyedContainer.encode(path)
         }
     }
 }

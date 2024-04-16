@@ -185,7 +185,7 @@ extension Basics.Diagnostic {
                 return "'\(identity.description)'"
             case .remoteSourceControl(let url):
                 return "'\($0.identity)' from \(url)"
-            case .localSourceControl(let path), .fileSystem(let path), .root(let path):
+            case .localSourceControl(let path), .fileSystem(let path), .root(let path), .providedLibrary(let path):
                 return "'\($0.identity)' at \(path)"
             }
         }
