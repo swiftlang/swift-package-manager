@@ -17,7 +17,7 @@ SWIFTPM_BENCHMARK_ALL_METRICS=true swift package benchmark
 
 ## Benchmark Thresholds
 
-`Benchmarks/Thresholds` subdirectory contains recorded allocation and syscall counts for macOS on Apple Silicon. To record new thresholds, run the following command:
+`Benchmarks/Thresholds` subdirectory contains recorded allocation and syscall counts for macOS on Apple Silicon when built with Swift 5.10. To record new thresholds, run the following command:
 
 ```
 swift package --allow-writing-to-package-directory benchmark --format metricP90AbsoluteThresholds --path Thresholds/
