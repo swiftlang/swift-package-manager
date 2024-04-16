@@ -4,7 +4,7 @@ Benchmarks currently use [ordo-one/package-benchmark](https://github.com/ordo-on
 
 ## How to Run
 
-To run the benchmarks in their default configuration, run this commend in the `Benchmarks` subdirectory of the SwiftPM repository clone:
+To run the benchmarks in their default configuration, run this commend in the `Benchmarks` subdirectory of the SwiftPM repository clone (the directory in which this `README.md` file is contained):
 ```
 swift package benchmark
 ```
