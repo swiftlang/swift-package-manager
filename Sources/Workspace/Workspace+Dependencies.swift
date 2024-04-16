@@ -430,7 +430,7 @@ extension Workspace {
                 return !pin.state.equals(checkoutState)
             case .registryDownload(let version):
                 return !pin.state.equals(version)
-            case .edited, .fileSystem, .custom:
+            case .edited, .fileSystem, .providedLibrary, .custom:
                 return true
             }
         }
@@ -784,6 +784,19 @@ extension Workspace {
                 self.state.dependencies.add(dependency)
                 try self.state.save()
                 return path
+            } else if let libraryContainer = container as? ProvidedLibraryPackageContainer {
+                guard case .providedLibrary(_, let path) = libraryContainer.package.kind else {
+                    throw InternalError("invalid container for \(package.identity) of type \(package.kind)")
+                }
+
+                let dependency: ManagedDependency = try .providedLibrary(
+                    packageRef: libraryContainer.package,
+                    version: version
+                )
+
+                self.state.dependencies.add(dependency)
+                try self.state.save()
+                return path
             } else {
                 throw InternalError("invalid container for \(package.identity) of type \(package.kind)")
             }
@@ -1033,6 +1046,8 @@ extension Workspace {
                         packageStateChanges[binding.package.identity] = (binding.package, .updated(newState))
                     case .registryDownload:
                         throw InternalError("Unexpected unversioned binding for downloaded dependency")
+                    case .providedLibrary:
+                        throw InternalError("Unexpected unversioned binding for library dependency")
                     case .custom:
                         throw InternalError("Unexpected unversioned binding for custom dependency")
                     }
@@ -1103,9 +1118,12 @@ extension Workspace {
             case .version(let version):
                 let stateChange: PackageStateChange
                 switch currentDependency?.state {
-                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
+                case .sourceControlCheckout(.version(version, _)),
+                        .registryDownload(version),
+                        .providedLibrary(_, version: version),
+                        .custom(version, _):
                     stateChange = .unchanged
-                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
+                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .providedLibrary, .custom:
                     stateChange = .updated(.init(requirement: .version(version), products: binding.products))
                 case nil:
                     stateChange = .added(.init(requirement: .version(version), products: binding.products))
