@@ -534,8 +534,8 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
     private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
-        let buildToolPluginInvocationResults: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])]
-        let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+        let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
+        let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
@@ -618,7 +618,7 @@ package final class BuildOperation: PackageStructureDelegate, SPMBuildCore.Build
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
-        let targetsToConsider: [ResolvedTarget]
+        let targetsToConsider: [ResolvedModule]
         if let subset = subset, let recursiveDependencies = try 
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
@@ -880,7 +880,7 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
-    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedTarget]? {
+    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
             return Array(graph.reachableTargets)

@@ -430,7 +430,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Run the symbol graph extractor on the target.
         let result = try symbolGraphExtractor.extractSymbolGraph(
-            target: target,
+            module: target,
             buildPlan: try buildSystem.buildPlan,
             outputRedirection: .collect,
             outputDirectory: outputDir,

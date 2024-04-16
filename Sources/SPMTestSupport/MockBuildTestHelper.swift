@@ -14,7 +14,7 @@ import Basics
 
 import Build
 
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
 import PackageModel
 import SPMBuildCore
@@ -141,7 +141,7 @@ enum BuildError: Swift.Error {
 
 package struct BuildPlanResult {
     package let plan: Build.BuildPlan
-    package let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
+    package let targetMap: [ResolvedModule.ID: TargetBuildDescription]
     package let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
 
     package init(plan: Build.BuildPlan) throws {

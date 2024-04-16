@@ -3022,6 +3022,69 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testSwiftLanguageVesionPerTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Sources/bar/bar.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v5,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "bar",
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v3), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS), ["-swift-version", "5"])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS), ["-swift-version", "5"])
+            }
+
+            package.checkModule("bar") { package in
+                let linuxDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                XCTAssertEqual(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS), ["-swift-version", "3"])
+
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS), ["-swift-version", "4"])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+            }
+        }
+    }
 }
 
 final class PackageBuilderTester {

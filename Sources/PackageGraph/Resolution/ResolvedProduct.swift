@@ -30,10 +30,10 @@ public struct ResolvedProduct {
     public let underlying: Product
 
     /// The top level targets contained in this product.
-    public internal(set) var targets: IdentifiableSet<ResolvedTarget>
+    public internal(set) var targets: IdentifiableSet<ResolvedModule>
 
     /// Executable target for test entry point file.
-    public let testEntryPointTarget: ResolvedTarget?
+    public let testEntryPointTarget: ResolvedModule?
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -53,7 +53,7 @@ public struct ResolvedProduct {
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
-    public var executableTarget: ResolvedTarget {
+    public var executableTarget: ResolvedModule {
         get throws {
             guard self.type == .executable || self.type == .snippet || self.type == .macro else {
                 throw InternalError("`executableTarget` should only be called for executable targets")
@@ -70,7 +70,7 @@ public struct ResolvedProduct {
     public init(
         packageIdentity: PackageIdentity,
         product: Product,
-        targets: IdentifiableSet<ResolvedTarget>
+        targets: IdentifiableSet<ResolvedModule>
     ) {
         assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
@@ -95,7 +95,7 @@ public struct ResolvedProduct {
                 packageAccess: true, // entry point target so treated as a part of the package
                 testEntryPointPath: testEntryPointPath
             )
-            return ResolvedTarget(
+            return ResolvedModule(
                 packageIdentity: packageIdentity,
                 underlying: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
@@ -155,13 +155,13 @@ public struct ResolvedProduct {
     }
 
     /// Returns the recursive target dependencies.
-    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
+    public func recursiveTargetDependencies() throws -> [ResolvedModule] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(IdentifiableSet(self.targets).union(recursiveDependencies))
     }
 
     private static func computePlatforms(
-        targets: IdentifiableSet<ResolvedTarget>
+        targets: IdentifiableSet<ResolvedModule>
     ) -> ([SupportedPlatform], PlatformVersionProvider) {
         let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
             merge(into: &partial, platforms: item.supportedPlatforms)

@@ -589,4 +589,38 @@ class ManifestSourceGenerationTests: XCTestCase {
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
     }
+
+    func testManifestGenerationWithSwiftLanguageVersion() async throws {
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_0,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "v5",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v6))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "custom",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.init(string: "5.10")!))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "conditional",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v5), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageVersion(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                )
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_0)
+    }
 }

@@ -65,8 +65,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeResolvedTarget() throws -> ResolvedTarget {
-        ResolvedTarget(
+    private func makeResolvedTarget() throws -> ResolvedModule {
+        ResolvedModule(
             packageIdentity: .plain("dummy"),
             underlying: try makeClangTarget(),
             dependencies: [],

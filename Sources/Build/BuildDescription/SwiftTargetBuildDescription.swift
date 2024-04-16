@@ -33,7 +33,7 @@ package final class SwiftTargetBuildDescription {
     package let package: ResolvedPackage
 
     /// The target described by this target.
-    package let target: ResolvedTarget
+    package let target: ResolvedModule
 
     private let swiftTarget: SwiftTarget
 
@@ -252,7 +252,7 @@ package final class SwiftTargetBuildDescription {
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         destinationBuildParameters: BuildParameters,
@@ -492,7 +492,6 @@ package final class SwiftTargetBuildDescription {
     package func compileArguments() throws -> [String] {
         var args = [String]()
         args += try self.defaultBuildParameters.tripleArgs(for: self.target)
-        args += ["-swift-version", self.swiftVersion.rawValue]
 
         // pass `-v` during verbose builds.
         if self.defaultBuildParameters.outputParameters.isVerbose {
@@ -593,6 +592,11 @@ package final class SwiftTargetBuildDescription {
 
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
+
+        // Fallback to package wide setting if there is no target specific version.
+        if args.firstIndex(of: "-swift-version") == nil {
+            args += ["-swift-version", self.swiftVersion.rawValue]
+        }
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
         // way.

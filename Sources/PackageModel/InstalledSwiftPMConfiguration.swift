@@ -33,6 +33,14 @@ public struct InstalledSwiftPMConfiguration: Codable {
     public let swiftSyntaxVersionForMacroTemplate: Version
 
     public static var `default`: InstalledSwiftPMConfiguration {
-        return .init(version: 0, swiftSyntaxVersionForMacroTemplate: .init(major: 509, minor: 0, patch: 0))
+        return .init(
+            version: 0,
+            swiftSyntaxVersionForMacroTemplate: .init(
+                major: 600,
+                minor: 0,
+                patch: 0,
+                prereleaseIdentifier: "latest"
+            )
+        )
     }
 }

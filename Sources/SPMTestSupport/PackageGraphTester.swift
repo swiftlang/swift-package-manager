@@ -138,7 +138,7 @@ package final class PackageGraphResult {
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
-    package func find(target: String) -> [ResolvedTarget] {
+    package func find(target: String) -> [ResolvedModule] {
         return graph.allTargets.filter { $0.name == target }
     }
 
@@ -150,7 +150,7 @@ package final class PackageGraphResult {
         return graph.packages.first(where: { $0.identity == package })
     }
 
-    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedTarget> {
+    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
         let recursiveBuildTargetDependencies = try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
@@ -169,9 +169,9 @@ package final class PackageGraphResult {
 }
 
 package final class ResolvedTargetResult {
-    let target: ResolvedTarget
+    let target: ResolvedModule
 
-    init(_ target: ResolvedTarget) {
+    init(_ target: ResolvedModule) {
         self.target = target
     }
 
@@ -234,9 +234,9 @@ package final class ResolvedTargetResult {
 }
 
 package final class ResolvedTargetDependencyResult {
-    private let dependency: ResolvedTarget.Dependency
+    private let dependency: ResolvedModule.Dependency
 
-    init(_ dependency: ResolvedTarget.Dependency) {
+    init(_ dependency: ResolvedModule.Dependency) {
         self.dependency = dependency
     }
 
@@ -326,7 +326,7 @@ package final class ResolvedProductResult {
     }
 }
 
-extension ResolvedTarget.Dependency {
+extension ResolvedModule.Dependency {
     package var name: String {
         switch self {
         case .target(let target, _):

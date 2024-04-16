@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 @testable import PackageGraph
 import PackageLoading
 import PackageModel
@@ -19,8 +21,7 @@ import SPMTestSupport
 import Workspace
 import XCTest
 
-class PluginTests: XCTestCase {
-    
+final class PluginTests: XCTestCase {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")

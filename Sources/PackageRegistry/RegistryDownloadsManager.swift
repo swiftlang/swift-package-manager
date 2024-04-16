@@ -163,7 +163,7 @@ public class RegistryDownloadsManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<FetchDetails, Error>) -> Void
+        completion: @escaping @Sendable (Result<FetchDetails, Error>) -> Void
     ) {
         if let cachePath {
             do {

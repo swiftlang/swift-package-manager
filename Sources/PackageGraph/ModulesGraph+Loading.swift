@@ -899,7 +899,7 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 }
 
 /// Builder for resolved target.
-private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
+private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedModule> {
     /// Enumeration to represent target dependencies.
     enum Dependency {
 
@@ -940,14 +940,14 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         self.platformVersionProvider = platformVersionProvider
     }
 
-    override func constructImpl() throws -> ResolvedTarget {
+    override func constructImpl() throws -> ResolvedModule {
         let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
             metadata.targetName = target.name
             return metadata
         }
 
-        let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
+        let dependencies = try self.dependencies.map { dependency -> ResolvedModule.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
                 return .target(try targetBuilder.construct(), conditions: conditions)
@@ -964,7 +964,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             }
         }
 
-        return ResolvedTarget(
+        return ResolvedModule(
             packageIdentity: self.packageIdentity,
             underlying: self.target,
             dependencies: dependencies,

@@ -46,8 +46,7 @@ public class ObservabilitySystem {
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
-        let underlying: @Sendable (ObservabilityScope, Diagnostic)
-            -> Void
+        let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
 
         init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
             self.underlying = underlying

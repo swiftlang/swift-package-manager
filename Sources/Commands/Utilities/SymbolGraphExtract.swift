@@ -50,23 +50,23 @@ package struct SymbolGraphExtract {
         case json(pretty: Bool)
     }
     
-    /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`.
+    /// Creates a symbol graph for `module` in `outputDirectory` using the build information from `buildPlan`.
     /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
     /// how much console output to ask the tool to emit.
     package func extractSymbolGraph(
-        target: ResolvedTarget,
+        module: ResolvedModule,
         buildPlan: BuildPlan,
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
     ) throws -> ProcessResult {
-        let buildParameters = buildPlan.buildParameters(for: target)
+        let buildParameters = buildPlan.buildParameters(for: module)
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.
         var commandLine = [self.tool.pathString]
-        commandLine += ["-module-name", target.c99name]
-        commandLine += try buildParameters.tripleArgs(for: target)
+        commandLine += ["-module-name", module.c99name]
+        commandLine += try buildParameters.tripleArgs(for: module)
         commandLine += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
         commandLine += ["-module-cache-path", try buildParameters.moduleCache.pathString]
         if verboseOutput {
