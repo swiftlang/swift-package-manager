@@ -185,7 +185,8 @@ public struct ResolvedModule {
                 case .product(let productDependency, _):
                     if productDependency.type == .macro {
                         inferredBuildTriple = .tools
-                        break loop                    }
+                        break loop      
+                    }
                 }
             }
             self.buildTriple = inferredBuildTriple
@@ -195,8 +196,8 @@ public struct ResolvedModule {
         self.updateBuildTriplesOfDependencies()
     }
 
-    mutating func updateBuildTriplesOfDependencies(forceUpdate: Bool = false) {
-        if forceUpdate || self.buildTriple == .tools {
+    mutating func updateBuildTriplesOfDependencies() {
+        if self.buildTriple == .tools {
             for (i, dependency) in dependencies.enumerated() {
                 let updatedDependency: Dependency
                 switch dependency {

@@ -11,9 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
-import struct OrderedCollections.OrderedDictionary
-
 import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.
