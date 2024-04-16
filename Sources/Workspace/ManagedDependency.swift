@@ -34,6 +34,9 @@ extension Workspace {
             /// The dependency is downloaded from a registry.
             case registryDownload(version: Version)
 
+            /// The dependency is part of the toolchain in a binary form.
+            case providedLibrary(at: AbsolutePath, version: Version)
+
             /// The dependency is in edited state.
             ///
             /// If the path is non-nil, the dependency is managed by a user and is
@@ -51,6 +54,8 @@ extension Workspace {
                     return "sourceControlCheckout (\(checkoutState))"
                 case .registryDownload(let version):
                     return "registryDownload (\(version))"
+                case .providedLibrary(let path, let version):
+                    return "library (\(path) @ \(version)"
                 case .edited:
                     return "edited"
                 case .custom:
@@ -143,6 +148,21 @@ extension Workspace {
                 packageRef: packageRef,
                 state: .registryDownload(version: version),
                 subpath: subpath
+            )
+        }
+
+        public static func providedLibrary(
+            packageRef: PackageReference,
+            version: Version
+        ) throws -> ManagedDependency {
+            guard case .providedLibrary(_, let path) = packageRef.kind else {
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
+
+            return ManagedDependency(
+                packageRef: packageRef,
+                state: .providedLibrary(at: path, version: version),
+                subpath: try RelativePath(validating: packageRef.identity.description)
             )
         }
 
