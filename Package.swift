@@ -252,6 +252,7 @@ let package = Package(
             name: "PackageModelSyntax",
             dependencies: [
                 "Basics",
+                "PackageLoading",
                 "PackageModel",
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
@@ -428,10 +429,12 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
                 "Basics",
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
+                "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",

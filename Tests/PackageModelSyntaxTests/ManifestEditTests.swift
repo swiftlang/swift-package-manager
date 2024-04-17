@@ -12,10 +12,11 @@
 import Basics
 import PackageModel
 import PackageModelSyntax
+import SPMTestSupport
 @_spi(FixItApplier) import SwiftIDEUtils
 import SwiftParser
 import SwiftSyntax
-
+import struct TSCUtility.Version
 import XCTest
 
 func assertManifestRefactor(
@@ -23,9 +24,9 @@ func assertManifestRefactor(
     expectedManifest: SourceFileSyntax,
     file: StaticString = #filePath,
     line: UInt = #line,
-    operation: (SourceFileSyntax) -> [SourceEdit]
-) {
-    let edits = operation(originalManifest)
+    operation: (SourceFileSyntax) throws -> [SourceEdit]
+) rethrows {
+    let edits = try operation(originalManifest)
     let editedManifestSource = FixItApplier.apply(edits: edits, to: originalManifest)
 
     let editedManifest = Parser.parse(source: editedManifestSource)
@@ -46,8 +47,9 @@ class ManifestEditTests: XCTestCase {
             requirement: .branch("main"), productFilter: .nothing
         )
 
-    func testAddPackageDependencyExistingComma() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingComma() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -55,24 +57,31 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """, expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
                   .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
-                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                  .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
-            )
-        }
+                try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .branch("main"), productFilter: .nothing
+                    ),
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
+            }
     }
 
-    func testAddPackageDependencyExistingNoComma() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingNoComma() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -80,24 +89,32 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """, expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
                   .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
-                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                  .package(url: "https://github.com/apple/swift-system.git", exact: "510.0.0"),
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
-            )
-        }
+                try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .exact("510.0.0"),
+                        productFilter: .nothing
+                    ),
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
+            }
     }
 
-    func testAddPackageDependencyExistingAppended() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingAppended() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -105,60 +122,108 @@ class ManifestEditTests: XCTestCase {
                 ] + []
             )
             """, expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
                   .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
-                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                  .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),
                 ] + []
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
-            )
+                let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
+
+                return try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .range(versionRange),
+                        productFilter: .nothing
+                    ),
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
         }
     }
 
-    func testAddPackageDependencyExistingEmpty() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingOneLine() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [ .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1") ]
+            )
+            """, expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [ .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"), .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),]
+            )
+            """) { manifest in
+                let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
+
+                return try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .range(versionRange),
+                        productFilter: .nothing
+                    ),
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
+        }
+    }
+    func testAddPackageDependencyExistingEmpty() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [ ]
             )
             """,
             expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                    .package(url: "https://github.com/apple/swift-system.git", "508.0.0"..<"510.0.0"),
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
+            try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .range(Version(508,0,0)..<Version(510,0,0)),
+                        productFilter: .nothing
+                    ),
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
             )
         }
     }
 
-    func testAddPackageDependencyNoExistingAtEnd() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyNoExistingAtEnd() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages"
             )
             """, 
             expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                    .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
+            try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
@@ -166,27 +231,89 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
-    func testAddPackageDependencyNoExistingMiddle() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyNoExistingMiddle() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 targets: []
             )
             """,
             expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                    .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ],
                 targets: []
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
+            try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
             )
+        }
+    }
+
+    func testAddPackageDependencyErrors() {
+        XCTAssertThrows(
+            try AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: """
+                // swift-tools-version: 5.5
+                let package: Package = .init(
+                    name: "packages"
+                )
+                """,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotFindPackage = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: """
+                // swift-tools-version: 5.5
+                let package = Package(
+                    name: "packages",
+                    dependencies: blah
+                )
+                """,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotFindArrayLiteralArgument(argumentName: "dependencies", node: _) = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: """
+                // swift-tools-version: 5.4
+                let package = Package(
+                    name: "packages"
+                )
+                """,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        ) { (error: ManifestEditError) in
+            if case .oldManifest(.v5_4) = error {
+                return true
+            } else {
+                return false
+            }
         }
     }
 }
@@ -206,24 +333,25 @@ class ManifestEditTests: XCTestCase {
 ///   - line: The line number on which failure occurred. Defaults to the line number on which this
 ///     function was called.
 public func assertStringsEqualWithDiff(
-  _ actual: String,
-  _ expected: String,
-  _ message: String = "",
-  additionalInfo: @autoclosure () -> String? = nil,
-  file: StaticString = #filePath,
-  line: UInt = #line
+    _ actual: String,
+    _ expected: String,
+    _ message: String = "",
+    additionalInfo: @autoclosure () -> String? = nil,
+    file: StaticString = #filePath,
+    line: UInt = #line
 ) {
-  if actual == expected {
-    return
-  }
-  failStringsEqualWithDiff(
-    actual,
-    expected,
-    message,
-    additionalInfo: additionalInfo(),
-    file: file,
-    line: line
-  )
+    if actual == expected {
+        return
+    }
+
+    failStringsEqualWithDiff(
+        actual,
+        expected,
+        message,
+        additionalInfo: additionalInfo(),
+        file: file,
+        line: line
+    )
 }
 
 /// Asserts that the two data are equal, providing Unix `diff`-style output if they are not.
@@ -238,100 +366,100 @@ public func assertStringsEqualWithDiff(
 ///   - line: The line number on which failure occurred. Defaults to the line number on which this
 ///     function was called.
 public func assertDataEqualWithDiff(
-  _ actual: Data,
-  _ expected: Data,
-  _ message: String = "",
-  additionalInfo: @autoclosure () -> String? = nil,
-  file: StaticString = #filePath,
-  line: UInt = #line
+    _ actual: Data,
+    _ expected: Data,
+    _ message: String = "",
+    additionalInfo: @autoclosure () -> String? = nil,
+    file: StaticString = #filePath,
+    line: UInt = #line
 ) {
-  if actual == expected {
-    return
-  }
+    if actual == expected {
+        return
+    }
 
-  // NOTE: Converting to `Stirng` here looses invalid UTF8 sequence difference,
-  // but at least we can see something is different.
-  failStringsEqualWithDiff(
-    String(decoding: actual, as: UTF8.self),
-    String(decoding: expected, as: UTF8.self),
-    message,
-    additionalInfo: additionalInfo(),
-    file: file,
-    line: line
-  )
+    // NOTE: Converting to `Stirng` here looses invalid UTF8 sequence difference,
+    // but at least we can see something is different.
+    failStringsEqualWithDiff(
+        String(decoding: actual, as: UTF8.self),
+        String(decoding: expected, as: UTF8.self),
+        message,
+        additionalInfo: additionalInfo(),
+        file: file,
+        line: line
+    )
 }
 
 /// `XCTFail` with `diff`-style output.
 public func failStringsEqualWithDiff(
-  _ actual: String,
-  _ expected: String,
-  _ message: String = "",
-  additionalInfo: @autoclosure () -> String? = nil,
-  file: StaticString = #filePath,
-  line: UInt = #line
+    _ actual: String,
+    _ expected: String,
+    _ message: String = "",
+    additionalInfo: @autoclosure () -> String? = nil,
+    file: StaticString = #filePath,
+    line: UInt = #line
 ) {
-  let stringComparison: String
+    let stringComparison: String
 
-  // Use `CollectionDifference` on supported platforms to get `diff`-like line-based output. On
-  // older platforms, fall back to simple string comparison.
-  if #available(macOS 10.15, *) {
-    let actualLines = actual.components(separatedBy: .newlines)
-    let expectedLines = expected.components(separatedBy: .newlines)
+    // Use `CollectionDifference` on supported platforms to get `diff`-like line-based output. On
+    // older platforms, fall back to simple string comparison.
+    if #available(macOS 10.15, *) {
+        let actualLines = actual.components(separatedBy: .newlines)
+        let expectedLines = expected.components(separatedBy: .newlines)
 
-    let difference = actualLines.difference(from: expectedLines)
+        let difference = actualLines.difference(from: expectedLines)
 
-    var result = ""
+        var result = ""
 
-    var insertions = [Int: String]()
-    var removals = [Int: String]()
+        var insertions = [Int: String]()
+        var removals = [Int: String]()
 
-    for change in difference {
-      switch change {
-      case .insert(let offset, let element, _):
-        insertions[offset] = element
-      case .remove(let offset, let element, _):
-        removals[offset] = element
-      }
+        for change in difference {
+            switch change {
+            case .insert(let offset, let element, _):
+                insertions[offset] = element
+            case .remove(let offset, let element, _):
+                removals[offset] = element
+            }
+        }
+
+        var expectedLine = 0
+        var actualLine = 0
+
+        while expectedLine < expectedLines.count || actualLine < actualLines.count {
+            if let removal = removals[expectedLine] {
+                result += "–\(removal)\n"
+                expectedLine += 1
+            } else if let insertion = insertions[actualLine] {
+                result += "+\(insertion)\n"
+                actualLine += 1
+            } else {
+                result += " \(expectedLines[expectedLine])\n"
+                expectedLine += 1
+                actualLine += 1
+            }
+        }
+
+        stringComparison = result
+    } else {
+        // Fall back to simple message on platforms that don't support CollectionDifference.
+        stringComparison = """
+        Expected:
+        \(expected)
+
+        Actual:
+        \(actual)
+        """
     }
 
-    var expectedLine = 0
-    var actualLine = 0
-
-    while expectedLine < expectedLines.count || actualLine < actualLines.count {
-      if let removal = removals[expectedLine] {
-        result += "–\(removal)\n"
-        expectedLine += 1
-      } else if let insertion = insertions[actualLine] {
-        result += "+\(insertion)\n"
-        actualLine += 1
-      } else {
-        result += " \(expectedLines[expectedLine])\n"
-        expectedLine += 1
-        actualLine += 1
-      }
+    var fullMessage = """
+        \(message.isEmpty ? "Actual output does not match the expected" : message)
+        \(stringComparison)
+        """
+    if let additional = additionalInfo() {
+        fullMessage = """
+        \(fullMessage)
+        \(additional)
+        """
     }
-
-    stringComparison = result
-  } else {
-    // Fall back to simple message on platforms that don't support CollectionDifference.
-    stringComparison = """
-      Expected:
-      \(expected)
-
-      Actual:
-      \(actual)
-      """
-  }
-
-  var fullMessage = """
-    \(message.isEmpty ? "Actual output does not match the expected" : message)
-    \(stringComparison)
-    """
-  if let additional = additionalInfo() {
-    fullMessage = """
-      \(fullMessage)
-      \(additional)
-      """
-  }
-  XCTFail(fullMessage, file: file, line: line)
+    XCTFail(fullMessage, file: file, line: line)
 }

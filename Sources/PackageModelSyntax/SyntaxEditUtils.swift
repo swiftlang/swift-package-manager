@@ -22,13 +22,7 @@ let defaultIndent = TriviaPiece.spaces(4)
 extension Trivia {
     /// Determine whether this trivia has newlines or not.
     var hasNewlines: Bool {
-        contains { piece in
-            if case .newlines = piece {
-                return true
-            } else {
-                return false
-            }
-        }
+        contains(where: \.isNewline)
     }
 }
 
@@ -121,7 +115,7 @@ extension LabeledExprListSyntax {
 
         let positionIdx = distance(from: startIndex, to: position)
 
-        let commaToken = TokenSyntax(.comma, presence: .present)
+        let commaToken = TokenSyntax.commaToken()
 
         // Figure out leading trivia and adjust the prior argument (if there is
         // one) by adding a comma, if necessary.
@@ -177,7 +171,7 @@ extension ArrayExprSyntax {
     ) -> ArrayExprSyntax {
         var elements = self.elements
 
-        let commaToken = TokenSyntax(.comma, presence: .present)
+        let commaToken = TokenSyntax.commaToken()
 
         // If there are already elements, tack it on.
         let leadingTrivia: Trivia
@@ -192,7 +186,10 @@ extension ArrayExprSyntax {
             // there.
             if last.trailingComma == nil {
                 var newElements = Array(elements)
-                newElements[newElements.count-1] = last.with(\.trailingComma, commaToken)
+                newElements[newElements.count - 1].trailingComma = commaToken
+                newElements[newElements.count - 1].expression.trailingTrivia =
+                    Trivia()
+                newElements[newElements.count - 1].trailingTrivia = last.trailingTrivia
                 elements = ArrayElementListSyntax(newElements)
             }
 

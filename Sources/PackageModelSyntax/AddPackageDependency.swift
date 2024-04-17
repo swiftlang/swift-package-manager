@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 import SwiftParser
 import SwiftSyntax
@@ -36,18 +37,27 @@ public struct AddPackageDependency {
         _ dependency: PackageDependency,
         to manifest: SourceFileSyntax,
         manifestDirectory: AbsolutePath
-    ) -> [SourceEdit] {
-        guard let packageCall = manifest.findCall(calleeName: "Package") else {
-            return []
+    ) throws -> [SourceEdit] {
+        // Make sure we have tools version 5.5 or greater,
+        let toolsVersion = try ToolsVersionParser.parse(utf8String: manifest.description)
+        if toolsVersion < ToolsVersion.minimumManifestEditVersion {
+            throw ManifestEditError.oldManifest(toolsVersion)
         }
 
-        let dependencySyntax = dependency.asSyntax(manifestDirectory: manifestDirectory)
+        guard let packageCall = manifest.findCall(calleeName: "Package") else {
+            throw ManifestEditError.cannotFindPackage
+        }
+
+        let dependencySyntax = dependency.asSyntax()
 
         // If there is already a "dependencies" argument, append to the array
         // literal in there.
         if let dependenciesArg = packageCall.findArgument(labeled: "dependencies") {
             guard let argArray = dependenciesArg.expression.findArrayArgument() else {
-                return []
+                throw ManifestEditError.cannotFindArrayLiteralArgument(
+                    argumentName: "dependencies",
+                    node: Syntax(dependenciesArg.expression)
+                )
             }
 
             let updatedArgArray = argArray.appending(
@@ -86,8 +96,7 @@ public struct AddPackageDependency {
                             trailingComma: .commaToken()
                         )
                     ],
-                    rightSquare: .rightSquareToken()
-                        .with(\.leadingTrivia, leadingTrivia)
+                    rightSquare: .rightSquareToken(leadingTrivia: leadingTrivia)
                 )
                 newArgument = ExprSyntax(arrayExpr)
             }
