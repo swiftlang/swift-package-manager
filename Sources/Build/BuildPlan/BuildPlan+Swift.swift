@@ -14,6 +14,7 @@ import struct Basics.InternalError
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
 import class PackageModel.SystemLibraryTarget
+import class PackageModel.ProvidedLibraryTarget
 
 extension BuildPlan {
     func plan(swiftTarget: SwiftTargetBuildDescription) throws {
@@ -48,6 +49,10 @@ extension BuildPlan {
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 }
+            case let target as ProvidedLibraryTarget:
+                swiftTarget.additionalFlags += [
+                    "-I", target.path.pathString
+                ]
             default:
                 break
             }
