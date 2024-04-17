@@ -409,6 +409,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         case .macro:
             // Macros are not supported when using XCBuild, similar to package plugins.
             return
+        case .providedLibrary:
+            // Provided libraries don't need to be built.
+            return
         }
     }
 
