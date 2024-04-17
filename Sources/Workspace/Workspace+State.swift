@@ -76,7 +76,6 @@ public final class WorkspaceState {
         self.storage.fileExists()
     }
 
-    /// Returns true if the state file exists on the filesystem.
     func reload() throws {
         let storedState = try self.storage.load()
         self.dependencies = storedState.dependencies
