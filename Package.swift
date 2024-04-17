@@ -49,6 +49,7 @@ let swiftPMDataModelProduct = (
         "PackageLoading",
         "PackageMetadata",
         "PackageModel",
+        "PackageModelSyntax",
         "SourceControl",
         "Workspace",
     ]
@@ -244,6 +245,19 @@ let package = Package(
             exclude: ["CMakeLists.txt", "README.md"],
             resources: packageModelResources,
             swiftSettings: packageModelResourcesSettings
+        ),
+
+        .target(
+            /** Primary Package model objects relationship to SwiftSyntax */
+            name: "PackageModelSyntax",
+            dependencies: [
+                "Basics",
+                "PackageModel",
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+            ]
         ),
 
         .target(
@@ -636,6 +650,14 @@ let package = Package(
             dependencies: ["PackageModel", "SPMTestSupport"]
         ),
         .testTarget(
+            name: "PackageModelSyntaxTests",
+            dependencies: [
+                "PackageModelSyntax",
+                "SPMTestSupport",
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
+            ]
+        ),
+        .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]
         ),
@@ -785,6 +807,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
+        .package(url: "https://github.com/apple/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
@@ -795,6 +818,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
+        .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
