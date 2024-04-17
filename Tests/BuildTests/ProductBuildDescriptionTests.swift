@@ -22,7 +22,9 @@ import struct PackageModel.TargetDescription
 @testable
 import struct PackageGraph.ResolvedProduct
 
-import func SPMTestSupport.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 import func SPMTestSupport.mockBuildParameters
 import func SPMTestSupport.XCTAssertNoDiagnostics
 import XCTest

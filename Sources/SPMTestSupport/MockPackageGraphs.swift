@@ -13,7 +13,12 @@
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
+
 import struct PackageGraph.ModulesGraph
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
@@ -39,7 +44,7 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadPackageGraph(
+    let graph = try loadModulesGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(
@@ -134,7 +139,7 @@ package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackag
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadPackageGraph(
+    let graph = try loadModulesGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(
@@ -164,7 +169,7 @@ package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws ->
     )
 
     let observability = ObservabilitySystem.makeForTesting()
-    let graph = try loadPackageGraph(
+    let graph = try loadModulesGraph(
         fileSystem: fs,
         manifests: [
             Manifest.createRootManifest(

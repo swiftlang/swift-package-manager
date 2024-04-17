@@ -16,7 +16,9 @@
 @testable
 import DriverSupport
 
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
+
 import PackageLoading
 @testable import PackageModel
 import SPMBuildCore

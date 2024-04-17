@@ -24,10 +24,6 @@ extension ObservabilitySystem {
         let observabilitySystem = ObservabilitySystem(collector)
         return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
     }
-
-    package static var NOOP: ObservabilityScope {
-        ObservabilitySystem { _, _ in }.topScope
-    }
 }
 
 package struct TestingObservability {

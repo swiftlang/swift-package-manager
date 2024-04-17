@@ -17,6 +17,10 @@
 import CoreCommands
 
 @testable import Commands
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 @testable import PackageModel
 import SPMTestSupport
 import XCTest

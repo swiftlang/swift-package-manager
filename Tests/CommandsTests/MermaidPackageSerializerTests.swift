@@ -11,11 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import class Basics.ObservabilitySystem
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import class TSCBasic.InMemoryFileSystem
-import func SPMTestSupport.loadModulesGraph
 import func SPMTestSupport.XCTAssertNoDiagnostics
 
 @testable

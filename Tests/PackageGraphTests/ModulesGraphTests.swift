@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
+
 import PackageModel
 import SPMTestSupport
 import XCTest

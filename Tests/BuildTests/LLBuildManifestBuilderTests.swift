@@ -13,7 +13,10 @@
 import Basics
 @testable import Build
 import LLBuildManifest
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageModel
 import struct SPMBuildCore.BuildParameters
 

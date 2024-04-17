@@ -13,16 +13,17 @@
 import struct DequeModule.Deque
 
 /// Directed graph that stores edges in [adjacency lists](https://en.wikipedia.org/wiki/Adjacency_list).
-struct DirectedGraph<Node> {
-    init(nodes: [Node]) {
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+public struct DirectedGraph<Node> {
+    public init(nodes: [Node]) {
         self.nodes = nodes
         self.edges = .init(repeating: [], count: nodes.count)
     }
 
-    private var nodes: [Node]
+    public private(set) var nodes: [Node]
     private var edges: [[Int]]
 
-    mutating func addEdge(source: Int, destination: Int) {
+    public mutating func addEdge(source: Int, destination: Int) {
         self.edges[source].append(destination)
     }
     
@@ -31,7 +32,8 @@ struct DirectedGraph<Node> {
     ///   - source: `Index` of a node to start traversing edges from.
     ///   - destination: `Index` of a node to which a path could exist via edges from `source`.
     /// - Returns: `true` if a path from `source` to `destination` exists, `false` otherwise.
-    func areNodesConnected(source: Int, destination: Int) -> Bool {
+    @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+    public func areNodesConnected(source: Int, destination: Int) -> Bool {
         var todo = Deque<Int>([source])
         var done = Set<Int>()
 

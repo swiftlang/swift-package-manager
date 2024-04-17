@@ -56,6 +56,10 @@ public class ObservabilitySystem {
             self.underlying(scope, diagnostic)
         }
     }
+
+    public static var NOOP: ObservabilityScope {
+        ObservabilitySystem { _, _ in }.topScope
+    }
 }
 
 public protocol ObservabilityHandlerProvider {

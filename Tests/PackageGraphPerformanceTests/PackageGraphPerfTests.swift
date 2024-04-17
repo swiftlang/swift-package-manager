@@ -12,7 +12,10 @@
 
 import Basics
 import OrderedCollections
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SPMTestSupport
