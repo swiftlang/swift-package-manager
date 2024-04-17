@@ -1,13 +1,20 @@
 import Basics
 import Benchmark
+import Foundation
 import PackageModel
 import Workspace
 
 let benchmarks = {
-    let defaultMetrics: [BenchmarkMetric] = [
-        .mallocCountTotal,
-        .syscalls,
-    ]
+    let defaultMetrics: [BenchmarkMetric]
+    if let envVar = ProcessInfo.processInfo.environment["SWIFTPM_BENCHMARK_ALL_METRICS"],
+    envVar.lowercased() == "true" || envVar == "1" {
+        defaultMetrics = .all
+    } else {
+        defaultMetrics = [
+            .mallocCountTotal,
+            .syscalls,
+        ]
+    }
 
     // Benchmarks computation of a resolved graph of modules for a package using `Workspace` as an entry point. It runs PubGrub to get
     // resolved concrete versions of dependencies, assigning all modules and products to each other as corresponding dependencies
