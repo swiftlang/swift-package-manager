@@ -1,14 +1,34 @@
 import Basics
 import Benchmark
+import Foundation
 import PackageModel
 import Workspace
 
 let benchmarks = {
+    let defaultMetrics: [BenchmarkMetric]
+    if let envVar = ProcessInfo.processInfo.environment["SWIFTPM_BENCHMARK_ALL_METRICS"],
+    envVar.lowercased() == "true" || envVar == "1" {
+        defaultMetrics = .all
+    } else {
+        defaultMetrics = [
+            .mallocCountTotal,
+            .syscalls,
+        ]
+    }
+
+    // Benchmarks computation of a resolved graph of modules for a package using `Workspace` as an entry point. It runs PubGrub to get
+    // resolved concrete versions of dependencies, assigning all modules and products to each other as corresponding dependencies
+    // with their build triples, but with the build plan not yet constructed. In this benchmark specifically we're loading `Package.swift`
+    // for SwiftPM itself.
     Benchmark(
-        "Package graph loading",
+        "SwiftPMWorkspaceModulesGraph",
         configuration: .init(
-            metrics: BenchmarkMetric.all,
-            maxDuration: .seconds(10)
+            metrics: defaultMetrics,
+            maxDuration: .seconds(10),
+            thresholds: [
+                .mallocCountTotal: .init(absolute: [.p90: 12000]),
+                .syscalls: .init(absolute: [.p90: 1600]),
+            ]
         )
     ) { benchmark in
         let path = try AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
