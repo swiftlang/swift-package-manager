@@ -424,6 +424,8 @@ extension LLBuildManifestBuilder {
             if target.underlying is BinaryTarget { return }
             // Ignore Plugin Targets.
             if target.underlying is PluginTarget { return }
+            // Ignore Provided Libraries.
+            if target.underlying is ProvidedLibraryTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {

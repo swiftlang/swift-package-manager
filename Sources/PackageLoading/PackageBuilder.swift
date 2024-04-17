@@ -536,6 +536,16 @@ public final class PackageBuilder {
                     throw ModuleError.artifactNotFound(targetName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
+            } else if let targetPath = target.path, target.type == .providedLibrary {
+                guard let path = try? AbsolutePath(validating: targetPath) else {
+                    throw ModuleError.invalidCustomPath(target: target.name, path: targetPath)
+                }
+
+                if !self.fileSystem.isDirectory(path) {
+                    throw ModuleError.unsupportedTargetPath(targetPath)
+                }
+
+                return path
             } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return self.packagePath
@@ -843,6 +853,11 @@ public final class PackageBuilder {
                 kind: artifact.kind,
                 path: potentialModule.path,
                 origin: artifactOrigin
+            )
+        } else if potentialModule.type == .providedLibrary {
+            return ProvidedLibraryTarget(
+                name: potentialModule.name,
+                path: potentialModule.path
             )
         }
 
