@@ -539,8 +539,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
                             XCTAssertEqual(
@@ -569,8 +567,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
                             XCTAssertEqual(
@@ -616,8 +612,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -649,8 +643,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -688,8 +680,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_NAME], "bar")
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(
@@ -712,8 +702,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_NAME], "bar")
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(
@@ -755,8 +743,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_NAME], "cbar")
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -784,8 +770,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_NAME], "cbar")
                             XCTAssertEqual(settings[.SDKROOT], "macosx")
                             XCTAssertEqual(settings[.SUPPORTED_PLATFORMS], ["macosx", "linux"])
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
@@ -922,8 +906,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "FooTests")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
                             XCTAssertEqual(
@@ -972,8 +954,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "FooTests")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
                             XCTAssertEqual(
@@ -1037,8 +1017,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "CFooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "CFooTests")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "CFooTests")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
                             XCTAssertEqual(
                                 settings[.WATCHOS_DEPLOYMENT_TARGET],
@@ -1090,8 +1068,6 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "CFooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "CFooTests")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "CFooTests")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
-                            XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
                             XCTAssertEqual(
                                 settings[.WATCHOS_DEPLOYMENT_TARGET],

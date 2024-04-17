@@ -450,8 +450,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.EXECUTABLE_NAME] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.DEFINES_MODULE] = "YES"
-        settings[.SWIFT_FORCE_STATIC_LINK_STDLIB] = "NO"
-        settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB] = "YES"
 
         if product.type == .executable || product.type == .test {
             settings[.LIBRARY_SEARCH_PATHS] = [
