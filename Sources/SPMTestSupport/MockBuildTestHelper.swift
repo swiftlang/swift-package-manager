@@ -15,6 +15,8 @@ import Basics
 @_spi(SwiftPMInternal)
 import Build
 
+import struct PackageGraph.ResolvedModule
+import struct PackageGraph.ResolvedProduct
 import PackageModel
 import SPMBuildCore
 import TSCUtility
@@ -31,7 +33,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     public let includeSearchPaths = [AbsolutePath]()
     public let librarySearchPaths = [AbsolutePath]()
-    public let swiftResourcesPath: AbsolutePath? = nil
+    public let swiftResourcesPath: AbsolutePath?
     public let swiftStaticResourcesPath: AbsolutePath? = nil
     public let sdkRootPath: AbsolutePath? = nil
     public let extraFlags = PackageModel.BuildFlags()
@@ -50,7 +52,9 @@ public struct MockToolchain: PackageModel.Toolchain {
         #endif
     }
 
-    public init() {}
+    public init(swiftResourcesPath: AbsolutePath? = nil) {
+        self.swiftResourcesPath = swiftResourcesPath
+    }
 }
 
 extension Basics.Triple {
@@ -70,15 +74,15 @@ public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVers
 public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-public func mockBuildParameters(
-    buildPath: AbsolutePath = "/path/to/build",
+package func mockBuildParameters(
+    buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
-    targetTriple: Basics.Triple = hostTriple,
+    triple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
@@ -86,16 +90,16 @@ public func mockBuildParameters(
     omitFramePointers: Bool? = nil
 ) -> BuildParameters {
     try! BuildParameters(
-        dataPath: buildPath,
+        dataPath: buildPath ?? AbsolutePath("/path/to/build").appending(triple.tripleString),
         configuration: config,
         toolchain: toolchain,
-        triple: targetTriple,
+        triple: triple,
         flags: flags,
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
         debuggingParameters: .init(
-            triple: targetTriple,
+            triple: triple,
             shouldEnableDebuggingEntitlement: config == .debug,
             omitFramePointers: omitFramePointers
         ),
@@ -127,24 +131,24 @@ public func mockBuildParameters(environment: BuildEnvironment) -> BuildParameter
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration ?? .debug, targetTriple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug, triple: triple)
 }
 
 enum BuildError: Swift.Error {
     case error(String)
 }
 
-public struct BuildPlanResult {
-    public let plan: Build.BuildPlan
-    public let targetMap: [String: TargetBuildDescription]
-    public let productMap: [String: Build.ProductBuildDescription]
+package struct BuildPlanResult {
+    package let plan: Build.BuildPlan
+    package let targetMap: [ResolvedModule.ID: TargetBuildDescription]
+    package let productMap: [ResolvedProduct.ID: Build.ProductBuildDescription]
 
     public init(plan: Build.BuildPlan) throws {
         self.plan = plan
         self.productMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.buildProducts
                 .compactMap { $0 as? Build.ProductBuildDescription }
-                .map { ($0.product.name, $0) }
+                .map { ($0.product.id, $0) }
         )
         self.targetMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.targetMap.compactMap {
@@ -154,7 +158,7 @@ public struct BuildPlanResult {
                 else {
                     throw BuildError.error("Target \($0) not found.")
                 }
-                return (target.name, $1)
+                return (target.id, $1)
             }
         )
     }
@@ -167,17 +171,27 @@ public struct BuildPlanResult {
         XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
     }
 
-    public func target(for name: String) throws -> TargetBuildDescription {
-        guard let target = targetMap[name] else {
-            throw BuildError.error("Target \(name) not found.")
+    package func target(for name: String) throws -> TargetBuildDescription {
+        let matchingIDs = targetMap.keys.filter({ $0.targetName == name })
+        guard matchingIDs.count == 1, let target = targetMap[matchingIDs[0]] else {
+            if matchingIDs.isEmpty {
+                throw BuildError.error("Target \(name) not found.")
+            } else {
+                throw BuildError.error("More than one target \(name) found.")
+            }
         }
         return target
     }
 
-    public func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
-        guard let product = productMap[name] else {
-            // <rdar://problem/30162871> Display the thrown error on macOS
-            throw BuildError.error("Product \(name) not found.")
+    package func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
+        let matchingIDs = productMap.keys.filter({ $0.productName == name })
+        guard matchingIDs.count == 1, let product = productMap[matchingIDs[0]] else {
+            if matchingIDs.isEmpty {
+                // <rdar://problem/30162871> Display the thrown error on macOS
+                throw BuildError.error("Product \(name) not found.")
+            } else {
+                throw BuildError.error("More than one target \(name) found.")
+            }
         }
         return product
     }

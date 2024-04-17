@@ -26,15 +26,16 @@ import protocol TSCBasic.FileSystem
 
 extension BuildPlan {
     static func makeDerivedTestTargets(
-        _ buildParameters: BuildParameters,
+        destinationBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters,
         _ graph: ModulesGraph,
-        _ disableSandbox: Bool,
+        shouldDisableSandbox: Bool,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, entryPointTargetBuildDescription: SwiftTargetBuildDescription)] {
-        guard buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
-              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) = 
-                buildParameters.testingParameters.testProductStyle
+        guard destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
+              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) =
+                destinationBuildParameters.testingParameters.testProductStyle
         else {
             throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
         }
@@ -68,7 +69,7 @@ extension BuildPlan {
             /// Generates test discovery targets, which contain derived sources listing the discovered tests.
             func generateDiscoveryTargets() throws -> (target: SwiftTarget, resolved: ResolvedModule, buildDescription: SwiftTargetBuildDescription) {
                 let discoveryTargetName = "\(package.manifest.displayName)PackageDiscoveredTests"
-                let discoveryDerivedDir = buildParameters.buildPath.appending(components: "\(discoveryTargetName).derived")
+                let discoveryDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(discoveryTargetName).derived")
                 let discoveryMainFile = discoveryDerivedDir.appending(component: TestDiscoveryTool.mainFileName)
 
                 var discoveryPaths: [AbsolutePath] = []
@@ -84,7 +85,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
-                let discoveryResolvedTarget = ResolvedModule(
+                var discoveryResolvedTarget = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
@@ -92,13 +93,23 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
+
+                discoveryResolvedTarget.buildTriple = testProduct.buildTriple
+                let discoveryTargetBuildParameters: BuildParameters
+                switch discoveryResolvedTarget.buildTriple {
+                case .tools:
+                    discoveryTargetBuildParameters = toolsBuildParameters
+                case .destination:
+                    discoveryTargetBuildParameters = destinationBuildParameters
+                }
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
                     target: discoveryResolvedTarget,
                     toolsVersion: toolsVersion,
-                    buildParameters: buildParameters,
+                    destinationBuildParameters: discoveryTargetBuildParameters,
+                    toolsBuildParameters: toolsBuildParameters,
                     testTargetRole: .discovery,
-                    disableSandbox: disableSandbox,
+                    shouldDisableSandbox: shouldDisableSandbox,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -112,8 +123,8 @@ extension BuildPlan {
                 swiftTargetDependencies: [Target.Dependency],
                 resolvedTargetDependencies: [ResolvedModule.Dependency]
             ) throws -> SwiftTargetBuildDescription {
-                let entryPointDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let entryPointMainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
+                let entryPointDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(testProduct.name).derived")
+                let entryPointMainFileName = TestEntryPointTool.mainFileName(for: destinationBuildParameters.testingParameters.library)
                 let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
@@ -124,7 +135,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
-                let entryPointResolvedTarget = ResolvedModule(
+                var entryPointResolvedTarget = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
@@ -132,13 +143,23 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
+                entryPointResolvedTarget.buildTriple = testProduct.buildTriple
+                let entryPointBuildParameters: BuildParameters
+                switch entryPointResolvedTarget.buildTriple {
+                case .tools:
+                    entryPointBuildParameters = toolsBuildParameters
+                case .destination:
+                    entryPointBuildParameters = destinationBuildParameters
+                }
+
                 return try SwiftTargetBuildDescription(
                     package: package,
                     target: entryPointResolvedTarget,
                     toolsVersion: toolsVersion,
-                    buildParameters: buildParameters,
+                    destinationBuildParameters: entryPointBuildParameters,
+                    toolsBuildParameters: toolsBuildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
-                    disableSandbox: disableSandbox,
+                    shouldDisableSandbox: shouldDisableSandbox,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -148,7 +169,7 @@ extension BuildPlan {
             let swiftTargetDependencies: [Target.Dependency]
             let resolvedTargetDependencies: [ResolvedModule.Dependency]
 
-            switch buildParameters.testingParameters.library {
+            switch destinationBuildParameters.testingParameters.library {
             case .xctest:
                 discoveryTargets = try generateDiscoveryTargets()
                 swiftTargetDependencies = [.target(discoveryTargets!.target, conditions: [])]
@@ -181,9 +202,10 @@ extension BuildPlan {
                             package: package,
                             target: entryPointResolvedTarget,
                             toolsVersion: toolsVersion,
-                            buildParameters: buildParameters,
+                            destinationBuildParameters: destinationBuildParameters,
+                            toolsBuildParameters: toolsBuildParameters,
                             testTargetRole: .entryPoint(isSynthesized: false),
-                            disableSandbox: disableSandbox,
+                            shouldDisableSandbox: shouldDisableSandbox,
                             fileSystem: fileSystem,
                             observabilityScope: observabilityScope
                         )
@@ -203,9 +225,10 @@ extension BuildPlan {
                         package: package,
                         target: entryPointResolvedTarget,
                         toolsVersion: toolsVersion,
-                        buildParameters: buildParameters,
+                        destinationBuildParameters: destinationBuildParameters,
+                        toolsBuildParameters: toolsBuildParameters,
                         testTargetRole: .entryPoint(isSynthesized: false),
-                        disableSandbox: disableSandbox,
+                        shouldDisableSandbox: shouldDisableSandbox,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )

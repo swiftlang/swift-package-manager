@@ -64,8 +64,8 @@ public struct ResolvedPackage {
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlying = underlying
-        self.targets = targets
         self.products = products
+        self.targets = targets
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms

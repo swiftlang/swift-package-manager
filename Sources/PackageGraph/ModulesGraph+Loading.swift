@@ -197,16 +197,16 @@ private func checkAllDependenciesAreUsed(
 ) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
-        let productDependencies = IdentifiableSet(package.targets.flatMap({ target in
-            return target.dependencies.compactMap({ targetDependency in
+        let productDependencies = IdentifiableSet(package.targets.flatMap { target in
+            return target.dependencies.compactMap { targetDependency in
                 switch targetDependency {
                 case .product(let product, _):
                     return product
                 case .target:
                     return nil
                 }
-            })
-        }))
+            }
+        })
 
         for dependencyId in package.dependencies {
             guard let dependency = packages[dependencyId] else {
@@ -239,7 +239,12 @@ private func checkAllDependenciesAreUsed(
             )
 
             // Otherwise emit a warning if none of the dependency package's products are used.
-            let dependencyIsUsed = dependency.products.contains(where: { productDependencies.contains(id: $0.id) })
+            let dependencyIsUsed = dependency.products.contains { product in
+                // Don't compare by product ID, but by product name to make sure both build triples as properties of
+                // `ResolvedProduct.ID` are allowed.
+                productDependencies.contains { $0.name == product.name }
+            }
+
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.description))
             }
@@ -297,7 +302,10 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders, observabilityScope: observabilityScope)
+    let moduleAliasingUsed = try resolveModuleAliases(
+        packageBuilders: packageBuilders,
+        observabilityScope: observabilityScope
+    )
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -662,7 +670,7 @@ private func createResolvedPackages(
             observabilityScope.emit(
                 ModuleError.duplicateModule(
                     targetName: entry.key,
-                    packages: entry.value.map{ $0.identity })
+                    packages: entry.value.map { $0.identity })
             )
         }
     }
@@ -1003,7 +1011,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedModule> {
             }
         }
 
-        return ResolvedTarget(
+        return ResolvedModule(
             packageIdentity: self.packageIdentity,
             underlying: self.target,
             dependencies: dependencies,

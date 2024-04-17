@@ -65,13 +65,13 @@ public struct ModulesGraph {
     public let packages: IdentifiableSet<ResolvedPackage>
 
     /// The list of all targets reachable from root targets.
-    public let reachableTargets: IdentifiableSet<ResolvedModule>
+    public private(set) var reachableTargets: IdentifiableSet<ResolvedModule>
 
     /// The list of all products reachable from root targets.
-    public let reachableProducts: IdentifiableSet<ResolvedProduct>
+    public private(set) var reachableProducts: IdentifiableSet<ResolvedProduct>
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
-    public let allTargets: IdentifiableSet<ResolvedModule>
+    public private(set) var allTargets: IdentifiableSet<ResolvedModule>
 
     /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
     /// dependencies).
@@ -82,8 +82,7 @@ public struct ModulesGraph {
     }
 
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
-
-    public let allProducts: IdentifiableSet<ResolvedProduct>
+    public private(set) var allProducts: IdentifiableSet<ResolvedProduct>
 
     /// Package dependencies required for a fully resolved graph.
     ///
@@ -94,10 +93,14 @@ public struct ModulesGraph {
     /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ target: ResolvedModule, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.reduce(into: IdentifiableSet<ResolvedModule>()) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
+        return rootPackages.reduce(
+            into: IdentifiableSet<ResolvedModule>()
+        ) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
             let allDependencies = package.targets.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedModule.Dependency) -> ResolvedModule? in
+            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (
+                dep: ResolvedModule.Dependency
+            ) -> ResolvedModule? in
                 switch dep {
                 case .target(let target, _):
                     return target
@@ -155,29 +158,46 @@ public struct ModulesGraph {
         self.binaryArtifacts = binaryArtifacts
         self.packages = packages
 
-        let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedModule] in
+        var allTargets = IdentifiableSet<ResolvedModule>()
+        var allProducts = IdentifiableSet<ResolvedProduct>()
+        for package in self.packages {
+            let targetsToInclude: [ResolvedModule]
             if rootPackages.contains(id: package.id) {
-                return package.targets
+                targetsToInclude = Array(package.targets)
             } else {
                 // Don't include tests targets from non-root packages so swift-test doesn't
                 // try to run them.
-                return package.targets.filter({ $0.type != .test })
+                targetsToInclude = package.targets.filter { $0.type != .test }
             }
-        }))
 
-        let allProducts = IdentifiableSet(packages.flatMap({ package -> [ResolvedProduct] in
-            if rootPackages.contains(id: package.id) {
-                return package.products
-            } else {
-                // Don't include tests products from non-root packages so swift-test doesn't
-                // try to run them.
-                return package.products.filter({ $0.type != .test })
+            for target in targetsToInclude {
+                allTargets.insert(target)
+
+                // Explicitly include dependencies of host tools in the maps of all targets or all products
+                if target.buildTriple == .tools {
+                    for dependency in try target.recursiveDependencies() {
+                        switch dependency {
+                        case .target(let targetDependency, _):
+                            allTargets.insert(targetDependency)
+                        case .product(let productDependency, _):
+                            allProducts.insert(productDependency)
+                        }
+                    }
+                }
             }
-        }))
+
+            if rootPackages.contains(id: package.id) {
+                allProducts.formUnion(package.products)
+            } else {
+                // Don't include test products from non-root packages so swift-test doesn't
+                // try to run them.
+                allProducts.formUnion(package.products.filter { $0.type != .test })
+            }
+        }
 
         // Compute the reachable targets and products.
-        let inputTargets = inputPackages.flatMap { $0.targets }
-        let inputProducts = inputPackages.flatMap { $0.products }
+        let inputTargets = self.inputPackages.flatMap { $0.targets }
+        let inputProducts = self.inputPackages.flatMap { $0.products }
         let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
         self.reachableTargets = IdentifiableSet(inputTargets).union(recursiveDependencies.compactMap { $0.target })
@@ -185,6 +205,30 @@ public struct ModulesGraph {
         self.rootPackages = rootPackages
         self.allTargets = allTargets
         self.allProducts = allProducts
+    }
+
+    package mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
+        self.reachableTargets = IdentifiableSet(self.reachableTargets.map {
+            var target = $0
+            target.buildTriple = buildTriple
+            return target
+        })
+        self.reachableProducts = IdentifiableSet(self.reachableProducts.map {
+            var product = $0
+            product.buildTriple = buildTriple
+            return product
+        })
+
+        self.allTargets = IdentifiableSet(self.allTargets.map {
+            var target = $0
+            target.buildTriple = buildTriple
+            return target
+        })
+        self.allProducts = IdentifiableSet(self.allProducts.map {
+            var product = $0
+            product.buildTriple = buildTriple
+            return product
+        })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.

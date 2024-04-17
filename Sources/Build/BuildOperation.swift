@@ -269,7 +269,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     // TODO: Currently this function will only match frameworks.
-    internal func detectUnexpressedDependencies(
+    func detectUnexpressedDependencies(
         availableLibraries: [LibraryMetadata],
         targetDependencyMap: [String: [String]]?
     ) {
@@ -295,7 +295,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
-                guard let contents = try? self.fileSystem.readFileContents(possibleTempsPath.appending(component: "\(c99name).d")) else {
+                guard let contents = try? self.fileSystem.readFileContents(
+                    possibleTempsPath.appending(component: "\(c99name).d")
+                ) else {
                     return [String]()
                 }
 
@@ -520,7 +522,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                config: self.productsBuildParameters.configuration.dirname,
+                buildParameters: self.productsBuildParameters,
                 observabilityScope: self.observabilityScope
             ) {
                 return result
@@ -538,17 +540,20 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
-            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
             // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
+            var buildToolsGraph = graph
+            try buildToolsGraph.updateBuildTripleRecursively(.tools)
+
             let buildOperationForPluginDependencies = BuildOperation(
                 // FIXME: this doesn't maintain the products/tools split cleanly
                 productsBuildParameters: pluginsBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { return graph },
+                packageGraphLoader: { buildToolsGraph },
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -558,7 +563,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
@@ -575,7 +580,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     return nil
                 }
             }
-
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
@@ -615,7 +619,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
-        let targetsToConsider: [ResolvedTarget]
+        let targetsToConsider: [ResolvedModule]
         if let subset = subset, let recursiveDependencies = try 
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
@@ -656,7 +660,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            productsBuildParameters: self.productsBuildParameters,
+            destinationBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -899,9 +903,11 @@ extension BuildSubset {
     }
 
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: ModulesGraph, config: String, observabilityScope: ObservabilityScope)
-        -> String?
-    {
+    func llbuildTargetName(
+        for graph: ModulesGraph,
+        buildParameters: BuildParameters,
+        observabilityScope: ObservabilityScope
+    ) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -922,14 +928,14 @@ extension BuildSubset {
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
             return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
+                try product.getLLBuildTargetName(buildParameters: buildParameters)
             }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return target.getLLBuildTargetName(config: config)
+            return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 }

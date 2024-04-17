@@ -27,13 +27,18 @@ Swift 6.0
 
   `// swift-tools-version:` can now be specified on subsequent lines of `Package.swift`, for example when first few lines are required to contain a licensing comment header.
 
+* [#7118]
+
+  Macros cross-compiled by SwiftPM with Swift SDKs are now correctly built, loaded, and evaluated for the host triple.
+
 Swift 5.10
 -----------
+
 * [#7010]
 
   On macOS, `swift build` and `swift run` now produce binaries that allow backtraces in debug builds. Pass `SWIFT_BACKTRACE=enable=yes` environment variable to enable backtraces on such binaries when running them.
 
-* [7101]
+* [#7101]
 
    Binary artifacts are now cached along side repository checkouts so they do not need to be re-downloaded across projects.
 
