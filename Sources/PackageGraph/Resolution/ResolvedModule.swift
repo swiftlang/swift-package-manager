@@ -136,7 +136,7 @@ public struct ResolvedModule {
     public let underlying: Target
 
     /// The dependencies of this target.
-    public let dependencies: [Dependency]
+    public internal(set) var dependencies: [Dependency]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -147,7 +147,11 @@ public struct ResolvedModule {
     private let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved target should be compiled for.
-    public let buildTriple: BuildTriple
+    public package(set) var buildTriple: BuildTriple {
+        didSet {
+            self.updateBuildTriplesOfDependencies()
+        }
+    }
 
     /// Create a resolved target instance.
     public init(
@@ -164,7 +168,50 @@ public struct ResolvedModule {
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
-        self.buildTriple = .destination
+
+        if underlying.type == .test {
+            // Make sure that test products are built for the tools triple if it has tools as direct dependencies.
+            // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
+            // and SwiftSyntax to be built for the same triple as the tests.
+            // See https://github.com/apple/swift-package-manager/pull/7349 for more context.
+            var inferredBuildTriple = BuildTriple.destination
+            loop: for dependency in dependencies {
+                switch dependency {
+                case .target(let targetDependency, _):
+                    if targetDependency.type == .macro {
+                        inferredBuildTriple = .tools
+                        break loop
+                    }
+                case .product(let productDependency, _):
+                    if productDependency.type == .macro {
+                        inferredBuildTriple = .tools
+                        break loop      
+                    }
+                }
+            }
+            self.buildTriple = inferredBuildTriple
+        } else {
+            self.buildTriple = underlying.buildTriple
+        }
+        self.updateBuildTriplesOfDependencies()
+    }
+
+    mutating func updateBuildTriplesOfDependencies() {
+        if self.buildTriple == .tools {
+            for (i, dependency) in dependencies.enumerated() {
+                let updatedDependency: Dependency
+                switch dependency {
+                case .target(var target, let conditions):
+                    target.buildTriple = self.buildTriple
+                    updatedDependency = .target(target, conditions: conditions)
+                case .product(var product, let conditions):
+                    product.buildTriple = self.buildTriple
+                    updatedDependency = .product(product, conditions: conditions)
+                }
+
+                dependencies[i] = updatedDependency
+            }
+        }
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {
@@ -178,13 +225,13 @@ public struct ResolvedModule {
 
 extension ResolvedModule: CustomStringConvertible {
     public var description: String {
-        return "<ResolvedTarget: \(name)>"
+        return "<ResolvedModule: \(self.name), \(self.type), \(self.buildTriple)>"
     }
 }
 
 extension ResolvedModule.Dependency: CustomStringConvertible {
     public var description: String {
-        var str = "<ResolvedTarget.Dependency: "
+        var str = "<ResolvedModule.Dependency: "
         switch self {
         case .product(let p, _):
             str += p.description
@@ -250,7 +297,7 @@ extension ResolvedModule: Identifiable {
     public struct ID: Hashable {
         public let targetName: String
         let packageIdentity: PackageIdentity
-        public let buildTriple: BuildTriple
+        public var buildTriple: BuildTriple
     }
 
     public var id: ID {
