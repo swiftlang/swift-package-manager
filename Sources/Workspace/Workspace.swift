@@ -96,7 +96,7 @@ public class Workspace {
     public let pinsStore: LoadableResult<PinsStore>
 
     /// The file system on which the workspace will operate.
-    let fileSystem: any FileSystem
+    public let fileSystem: any FileSystem
 
     /// The host toolchain to use.
     private let hostToolchain: UserToolchain

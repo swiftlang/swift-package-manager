@@ -793,6 +793,33 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testPackageAddVersion() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+                """
+            )
+
+            _ = try execute(["add", "--branch", "main", "https://github.com/apple/swift-syntax.git"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/apple/swift-syntax.git", .branch("main")),"#))
+        }
+    }
+
     func testPackageEditAndUnedit() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")

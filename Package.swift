@@ -428,10 +428,12 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
                 "Basics",
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
+                "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
