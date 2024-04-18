@@ -12,7 +12,10 @@
 
 import Basics
 import Build
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageModel
 import SourceKitLSPAPI
 import SPMTestSupport
