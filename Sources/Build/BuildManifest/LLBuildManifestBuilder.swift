@@ -322,7 +322,7 @@ extension ResolvedModule {
     }
 
     public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
-        "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
     }
 
     public func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {

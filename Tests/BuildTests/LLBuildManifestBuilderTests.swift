@@ -218,6 +218,6 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
         let manifest = try builder.generateManifest(at: "/manifest")
 
-        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-debug-tool.module"])
+        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
     }
 }
