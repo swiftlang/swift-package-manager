@@ -405,6 +405,11 @@ package final class SwiftTargetBuildDescription {
             """
             import Foundation
 
+            #if compiler(>=6.0)
+            extension Foundation.Bundle: @unchecked @retroactive Sendable {}
+            #else
+            extension Foundation.Bundle: @unchecked Sendable {}
+            #endif
             extension Foundation.Bundle {
                 static let module: Bundle = {
                     let mainPath = \(mainPathSubstitution)
