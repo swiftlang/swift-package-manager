@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageModel
 import SwiftSyntax
 
 /// An error describing problems that can occur when attempting to edit a
@@ -17,6 +18,13 @@ import SwiftSyntax
 package enum ManifestEditError: Error {
     case cannotFindPackage
     case cannotFindArrayLiteralArgument(argumentName: String, node: Syntax)
+    case oldManifest(ToolsVersion)
+}
+
+extension ToolsVersion {
+    /// The minimum tools version of the manifest file that we support edit
+    /// operations on.
+    static let minimumManifestEditVersion = v5_5
 }
 
 extension ManifestEditError: CustomStringConvertible {
@@ -26,6 +34,8 @@ extension ManifestEditError: CustomStringConvertible {
             "invalid manifest: unable to find 'Package' declaration"
         case .cannotFindArrayLiteralArgument(argumentName: let name, node: _):
             "unable to find array literal for '\(name)' argument"
+        case .oldManifest(let version):
+            "package manifest version \(version) is too old: please update to manifest version \(ToolsVersion.minimumManifestEditVersion) or newer"
         }
     }
 }

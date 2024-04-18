@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 import SwiftParser
 import SwiftSyntax
@@ -37,6 +38,12 @@ public struct AddPackageDependency {
         to manifest: SourceFileSyntax,
         manifestDirectory: AbsolutePath
     ) throws -> [SourceEdit] {
+        // Make sure we have tools version 5.5 or greater,
+        let toolsVersion = try ToolsVersionParser.parse(utf8String: manifest.description)
+        if toolsVersion < ToolsVersion.minimumManifestEditVersion {
+            throw ManifestEditError.oldManifest(toolsVersion)
+        }
+
         guard let packageCall = manifest.findCall(calleeName: "Package") else {
             throw ManifestEditError.cannotFindPackage
         }

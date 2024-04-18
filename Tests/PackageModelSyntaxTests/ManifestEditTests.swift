@@ -48,6 +48,7 @@ class ManifestEditTests: XCTestCase {
 
     func testAddPackageDependencyExistingComma() throws {
         try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -55,6 +56,7 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """, expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -73,6 +75,7 @@ class ManifestEditTests: XCTestCase {
 
     func testAddPackageDependencyExistingNoComma() throws {
         try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -80,6 +83,7 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """, expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -98,6 +102,7 @@ class ManifestEditTests: XCTestCase {
 
     func testAddPackageDependencyExistingAppended() throws {
         try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -105,6 +110,7 @@ class ManifestEditTests: XCTestCase {
                 ] + []
             )
             """, expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -123,12 +129,14 @@ class ManifestEditTests: XCTestCase {
 
     func testAddPackageDependencyExistingEmpty() throws {
         try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [ ]
             )
             """,
             expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -146,11 +154,13 @@ class ManifestEditTests: XCTestCase {
 
     func testAddPackageDependencyNoExistingAtEnd() throws {
         try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages"
             )
             """, 
             expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -168,12 +178,14 @@ class ManifestEditTests: XCTestCase {
 
     func testAddPackageDependencyNoExistingMiddle() throws {
         try assertManifestRefactor("""
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 targets: []
             )
             """,
             expectedManifest: """
+            // swift-tools-version: 5.5
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -195,6 +207,7 @@ class ManifestEditTests: XCTestCase {
             try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: """
+                // swift-tools-version: 5.5
                 let package: Package = .init(
                     name: "packages"
                 )
@@ -213,6 +226,7 @@ class ManifestEditTests: XCTestCase {
             try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: """
+                // swift-tools-version: 5.5
                 let package = Package(
                     name: "packages",
                     dependencies: blah
@@ -222,6 +236,25 @@ class ManifestEditTests: XCTestCase {
             )
         ) { (error: ManifestEditError) in
             if case .cannotFindArrayLiteralArgument(argumentName: "dependencies", node: _) = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: """
+                // swift-tools-version: 5.4
+                let package = Package(
+                    name: "packages"
+                )
+                """,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        ) { (error: ManifestEditError) in
+            if case .oldManifest(.v5_4) = error {
                 return true
             } else {
                 return false

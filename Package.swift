@@ -252,6 +252,7 @@ let package = Package(
             name: "PackageModelSyntax",
             dependencies: [
                 "Basics",
+                "PackageLoading",
                 "PackageModel",
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
