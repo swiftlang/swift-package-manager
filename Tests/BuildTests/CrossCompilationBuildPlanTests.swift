@@ -20,6 +20,9 @@ import struct Basics.Triple
 import enum PackageGraph.BuildTriple
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
+import struct PackageModel.SwiftSDK
+import class PackageModel.SwiftSDKBundleStore
+import class PackageModel.UserToolchain
 import func SPMTestSupport.loadPackageGraph
 
 import func SPMTestSupport.embeddedCxxInteropPackageGraph
@@ -305,6 +308,46 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 "-Xfrontend", .contains(toolsTriple.tripleString)
             ]
         )
+    }
+
+    func testToolchainArgument() throws {
+        let (graph, fs, scope) = try trivialPackageGraph(pkgRootPath: "/Pkg")
+
+        let customTargetToolchain = AbsolutePath("/path/to/toolchain")
+        try fs.createDirectory(customTargetToolchain, recursive: true)
+
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK()
+        let hostTriple = try! Triple("arm64-apple-macosx14.0")
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: "/",
+            fileSystem: fs,
+            observabilityScope: scope,
+            outputHandler: { _ in }
+        )
+
+        let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+            hostSwiftSDK: hostSwiftSDK,
+            hostTriple: hostTriple,
+            customTargetToolchain: customTargetToolchain,
+            swiftSDKStore: store,
+            observabilityScope: scope,
+            fileSystem: fs
+        )
+
+        let buildParameters = mockBuildParameters(toolchain: try UserToolchain(swiftSDK: targetSwiftSDK))
+
+        let plan = try BuildPlan(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let target = try result.target(for: "app")
+        let compileArguments = try target.swiftTarget().emitCommandLine()
+
+        XCTAssertMatch(compileArguments, [.contains("/path/to/toolchain")])
     }
 }
 

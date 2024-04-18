@@ -365,7 +365,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         ])
     }
 
-    func testTargetSDKDeriviation() async throws {
+    func testTargetSDKDerivation() async throws {
         let toolsetRootPath = AbsolutePath("/path/to/toolpath")
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
             bundleArtifacts: [
