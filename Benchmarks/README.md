@@ -26,7 +26,7 @@ built with Swift 5.10. To record new thresholds, run the following command:
 ```
 swift package --allow-writing-to-package-directory benchmark \
   --format metricP90AbsoluteThresholds \
-  --path "Thresholds/$([[ $(uname) == Darwin ]] && echo macosx || echo linux)-$(uname -m)"
+  --path "Thresholds/$([[ $(uname) == Darwin ]] && echo macos || echo linux)-$(uname -m)"
 ```
 
 To verify that recorded thresholds do not exceeded given relative or absolute values (passed as `thresholds` arguments
