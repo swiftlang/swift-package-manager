@@ -2,6 +2,9 @@ prefix=/usr/local/bin
 exec_prefix=${prefix}
 
 #some comment
+Name: failure_case
+Version: 1
+Description: Demonstrate failure caused by use of an undefined variable
 
 Requires: gdk-3.0 >= 1.0.0
 Libs: -L${prefix} -lgtk-3 ${my_dep}
