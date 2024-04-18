@@ -103,7 +103,7 @@ extension SwiftPackageCommand {
                 productFilter: .everything
             )
 
-            let edits = AddPackageDependency.addPackageDependency(
+            let edits = try AddPackageDependency.addPackageDependency(
                 packageDependency,
                 to: manifestSyntax,
                 manifestDirectory: packagePath.parentDirectory

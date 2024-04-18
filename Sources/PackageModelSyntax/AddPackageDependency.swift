@@ -36,9 +36,9 @@ public struct AddPackageDependency {
         _ dependency: PackageDependency,
         to manifest: SourceFileSyntax,
         manifestDirectory: AbsolutePath
-    ) -> [SourceEdit] {
+    ) throws -> [SourceEdit] {
         guard let packageCall = manifest.findCall(calleeName: "Package") else {
-            return []
+            throw ManifestEditError.cannotFindPackage
         }
 
         let dependencySyntax = dependency.asSyntax(manifestDirectory: manifestDirectory)
@@ -47,7 +47,10 @@ public struct AddPackageDependency {
         // literal in there.
         if let dependenciesArg = packageCall.findArgument(labeled: "dependencies") {
             guard let argArray = dependenciesArg.expression.findArrayArgument() else {
-                return []
+                throw ManifestEditError.cannotFindArrayLiteralArgument(
+                    argumentName: "dependencies",
+                    node: Syntax(dependenciesArg.expression)
+                )
             }
 
             let updatedArgArray = argArray.appending(

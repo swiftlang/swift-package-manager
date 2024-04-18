@@ -12,10 +12,10 @@
 import Basics
 import PackageModel
 import PackageModelSyntax
+import SPMTestSupport
 @_spi(FixItApplier) import SwiftIDEUtils
 import SwiftParser
 import SwiftSyntax
-
 import XCTest
 
 func assertManifestRefactor(
@@ -23,9 +23,9 @@ func assertManifestRefactor(
     expectedManifest: SourceFileSyntax,
     file: StaticString = #filePath,
     line: UInt = #line,
-    operation: (SourceFileSyntax) -> [SourceEdit]
-) {
-    let edits = operation(originalManifest)
+    operation: (SourceFileSyntax) throws -> [SourceEdit]
+) rethrows {
+    let edits = try operation(originalManifest)
     let editedManifestSource = FixItApplier.apply(edits: edits, to: originalManifest)
 
     let editedManifest = Parser.parse(source: editedManifestSource)
@@ -46,8 +46,8 @@ class ManifestEditTests: XCTestCase {
             requirement: .branch("main"), productFilter: .nothing
         )
 
-    func testAddPackageDependencyExistingComma() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingComma() throws {
+        try assertManifestRefactor("""
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -63,16 +63,16 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
-            )
-        }
+                try AddPackageDependency.addPackageDependency(
+                    Self.swiftSystemPackageDependency,
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
+            }
     }
 
-    func testAddPackageDependencyExistingNoComma() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingNoComma() throws {
+        try assertManifestRefactor("""
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -88,16 +88,16 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
-            )
-        }
+                try AddPackageDependency.addPackageDependency(
+                    Self.swiftSystemPackageDependency,
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
+            }
     }
 
-    func testAddPackageDependencyExistingAppended() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingAppended() throws {
+        try assertManifestRefactor("""
             let package = Package(
                 name: "packages",
                 dependencies: [
@@ -113,16 +113,16 @@ class ManifestEditTests: XCTestCase {
                 ] + []
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
-            )
+                try AddPackageDependency.addPackageDependency(
+                    Self.swiftSystemPackageDependency,
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
         }
     }
 
-    func testAddPackageDependencyExistingEmpty() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyExistingEmpty() throws {
+        try assertManifestRefactor("""
             let package = Package(
                 name: "packages",
                 dependencies: [ ]
@@ -136,7 +136,7 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
+            try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
@@ -144,8 +144,8 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
-    func testAddPackageDependencyNoExistingAtEnd() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyNoExistingAtEnd() throws {
+        try assertManifestRefactor("""
             let package = Package(
                 name: "packages"
             )
@@ -158,7 +158,7 @@ class ManifestEditTests: XCTestCase {
                 ]
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
+            try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
@@ -166,8 +166,8 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
-    func testAddPackageDependencyNoExistingMiddle() {
-        assertManifestRefactor("""
+    func testAddPackageDependencyNoExistingMiddle() throws {
+        try assertManifestRefactor("""
             let package = Package(
                 name: "packages",
                 targets: []
@@ -182,11 +182,50 @@ class ManifestEditTests: XCTestCase {
                 targets: []
             )
             """) { manifest in
-            AddPackageDependency.addPackageDependency(
+            try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
             )
+        }
+    }
+
+    func testAddPackageDependencyErrors() {
+        XCTAssertThrows(
+            try AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: """
+                let package: Package = .init(
+                    name: "packages"
+                )
+                """,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotFindPackage = error {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        XCTAssertThrows(
+            try AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: """
+                let package = Package(
+                    name: "packages",
+                    dependencies: blah
+                )
+                """,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        ) { (error: ManifestEditError) in
+            if case .cannotFindArrayLiteralArgument(argumentName: "dependencies", node: _) = error {
+                return true
+            } else {
+                return false
+            }
         }
     }
 }
@@ -206,24 +245,25 @@ class ManifestEditTests: XCTestCase {
 ///   - line: The line number on which failure occurred. Defaults to the line number on which this
 ///     function was called.
 public func assertStringsEqualWithDiff(
-  _ actual: String,
-  _ expected: String,
-  _ message: String = "",
-  additionalInfo: @autoclosure () -> String? = nil,
-  file: StaticString = #filePath,
-  line: UInt = #line
+    _ actual: String,
+    _ expected: String,
+    _ message: String = "",
+    additionalInfo: @autoclosure () -> String? = nil,
+    file: StaticString = #filePath,
+    line: UInt = #line
 ) {
-  if actual == expected {
-    return
-  }
-  failStringsEqualWithDiff(
-    actual,
-    expected,
-    message,
-    additionalInfo: additionalInfo(),
-    file: file,
-    line: line
-  )
+    if actual == expected {
+        return
+    }
+
+    failStringsEqualWithDiff(
+        actual,
+        expected,
+        message,
+        additionalInfo: additionalInfo(),
+        file: file,
+        line: line
+    )
 }
 
 /// Asserts that the two data are equal, providing Unix `diff`-style output if they are not.
@@ -238,100 +278,100 @@ public func assertStringsEqualWithDiff(
 ///   - line: The line number on which failure occurred. Defaults to the line number on which this
 ///     function was called.
 public func assertDataEqualWithDiff(
-  _ actual: Data,
-  _ expected: Data,
-  _ message: String = "",
-  additionalInfo: @autoclosure () -> String? = nil,
-  file: StaticString = #filePath,
-  line: UInt = #line
+    _ actual: Data,
+    _ expected: Data,
+    _ message: String = "",
+    additionalInfo: @autoclosure () -> String? = nil,
+    file: StaticString = #filePath,
+    line: UInt = #line
 ) {
-  if actual == expected {
-    return
-  }
+    if actual == expected {
+        return
+    }
 
-  // NOTE: Converting to `Stirng` here looses invalid UTF8 sequence difference,
-  // but at least we can see something is different.
-  failStringsEqualWithDiff(
-    String(decoding: actual, as: UTF8.self),
-    String(decoding: expected, as: UTF8.self),
-    message,
-    additionalInfo: additionalInfo(),
-    file: file,
-    line: line
-  )
+    // NOTE: Converting to `Stirng` here looses invalid UTF8 sequence difference,
+    // but at least we can see something is different.
+    failStringsEqualWithDiff(
+        String(decoding: actual, as: UTF8.self),
+        String(decoding: expected, as: UTF8.self),
+        message,
+        additionalInfo: additionalInfo(),
+        file: file,
+        line: line
+    )
 }
 
 /// `XCTFail` with `diff`-style output.
 public func failStringsEqualWithDiff(
-  _ actual: String,
-  _ expected: String,
-  _ message: String = "",
-  additionalInfo: @autoclosure () -> String? = nil,
-  file: StaticString = #filePath,
-  line: UInt = #line
+    _ actual: String,
+    _ expected: String,
+    _ message: String = "",
+    additionalInfo: @autoclosure () -> String? = nil,
+    file: StaticString = #filePath,
+    line: UInt = #line
 ) {
-  let stringComparison: String
+    let stringComparison: String
 
-  // Use `CollectionDifference` on supported platforms to get `diff`-like line-based output. On
-  // older platforms, fall back to simple string comparison.
-  if #available(macOS 10.15, *) {
-    let actualLines = actual.components(separatedBy: .newlines)
-    let expectedLines = expected.components(separatedBy: .newlines)
+    // Use `CollectionDifference` on supported platforms to get `diff`-like line-based output. On
+    // older platforms, fall back to simple string comparison.
+    if #available(macOS 10.15, *) {
+        let actualLines = actual.components(separatedBy: .newlines)
+        let expectedLines = expected.components(separatedBy: .newlines)
 
-    let difference = actualLines.difference(from: expectedLines)
+        let difference = actualLines.difference(from: expectedLines)
 
-    var result = ""
+        var result = ""
 
-    var insertions = [Int: String]()
-    var removals = [Int: String]()
+        var insertions = [Int: String]()
+        var removals = [Int: String]()
 
-    for change in difference {
-      switch change {
-      case .insert(let offset, let element, _):
-        insertions[offset] = element
-      case .remove(let offset, let element, _):
-        removals[offset] = element
-      }
+        for change in difference {
+            switch change {
+            case .insert(let offset, let element, _):
+                insertions[offset] = element
+            case .remove(let offset, let element, _):
+                removals[offset] = element
+            }
+        }
+
+        var expectedLine = 0
+        var actualLine = 0
+
+        while expectedLine < expectedLines.count || actualLine < actualLines.count {
+            if let removal = removals[expectedLine] {
+                result += "–\(removal)\n"
+                expectedLine += 1
+            } else if let insertion = insertions[actualLine] {
+                result += "+\(insertion)\n"
+                actualLine += 1
+            } else {
+                result += " \(expectedLines[expectedLine])\n"
+                expectedLine += 1
+                actualLine += 1
+            }
+        }
+
+        stringComparison = result
+    } else {
+        // Fall back to simple message on platforms that don't support CollectionDifference.
+        stringComparison = """
+        Expected:
+        \(expected)
+
+        Actual:
+        \(actual)
+        """
     }
 
-    var expectedLine = 0
-    var actualLine = 0
-
-    while expectedLine < expectedLines.count || actualLine < actualLines.count {
-      if let removal = removals[expectedLine] {
-        result += "–\(removal)\n"
-        expectedLine += 1
-      } else if let insertion = insertions[actualLine] {
-        result += "+\(insertion)\n"
-        actualLine += 1
-      } else {
-        result += " \(expectedLines[expectedLine])\n"
-        expectedLine += 1
-        actualLine += 1
-      }
+    var fullMessage = """
+        \(message.isEmpty ? "Actual output does not match the expected" : message)
+        \(stringComparison)
+        """
+    if let additional = additionalInfo() {
+        fullMessage = """
+        \(fullMessage)
+        \(additional)
+        """
     }
-
-    stringComparison = result
-  } else {
-    // Fall back to simple message on platforms that don't support CollectionDifference.
-    stringComparison = """
-      Expected:
-      \(expected)
-
-      Actual:
-      \(actual)
-      """
-  }
-
-  var fullMessage = """
-    \(message.isEmpty ? "Actual output does not match the expected" : message)
-    \(stringComparison)
-    """
-  if let additional = additionalInfo() {
-    fullMessage = """
-      \(fullMessage)
-      \(additional)
-      """
-  }
-  XCTFail(fullMessage, file: file, line: line)
+    XCTFail(fullMessage, file: file, line: line)
 }
