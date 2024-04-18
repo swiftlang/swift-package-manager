@@ -29,7 +29,7 @@ import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
-import struct PackageModel.LibraryMetadata
+import struct PackageModel.ProvidedLibrary
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -62,7 +62,7 @@ extension Workspace {
 
         private let workspace: Workspace
 
-        private let availableLibraries: [LibraryMetadata]
+        private let availableLibraries: [ProvidedLibrary]
 
         private let observabilityScope: ObservabilityScope
 
@@ -82,7 +82,7 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            availableLibraries: [LibraryMetadata],
+            availableLibraries: [ProvidedLibrary],
             observabilityScope: ObservabilityScope
         ) {
             self.root = root
@@ -168,7 +168,7 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            availableLibraries: [LibraryMetadata],
+            availableLibraries: [ProvidedLibrary],
             observabilityScope: ObservabilityScope
         ) throws
             -> (
@@ -200,7 +200,7 @@ extension Workspace {
             })
 
             let identitiesAvailableInSDK = availableLibraries.flatMap {
-                $0.identities.map {
+                $0.metadata.identities.map {
                     $0.ref
                 }.filter {
                     // We "trust the process" here, if an identity from the SDK is available, filter it.
@@ -433,7 +433,7 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
@@ -800,7 +800,7 @@ extension Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func fixManagedDependencies(
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.

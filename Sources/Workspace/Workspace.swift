@@ -587,7 +587,7 @@ public class Workspace {
         )
     }
 
-    fileprivate var providedLibraries: [LibraryMetadata] {
+    fileprivate var providedLibraries: [ProvidedLibrary] {
         // Note: Eventually, we should get these from the individual SDKs, but the first step is providing the metadata centrally in the toolchain.
         return self.hostToolchain.providedLibraries
     }
@@ -641,7 +641,7 @@ extension Workspace {
         packageName: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
@@ -894,7 +894,7 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {

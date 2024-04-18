@@ -88,7 +88,7 @@ public final class UserToolchain: Toolchain {
 
     public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
-    public let providedLibraries: [LibraryMetadata]
+    public let providedLibraries: [ProvidedLibrary]
 
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
@@ -528,7 +528,7 @@ public final class UserToolchain: Toolchain {
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
-        customProvidedLibraries: [LibraryMetadata]? = nil,
+        customProvidedLibraries: [ProvidedLibrary]? = nil
         fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
@@ -572,27 +572,20 @@ public final class UserToolchain: Toolchain {
         if let customProvidedLibraries {
             self.providedLibraries = customProvidedLibraries
         } else {
-            // When building with CMake or `swift build --build-system xcode`, we need to skip resource support.
-            #if SKIP_RESOURCE_SUPPORT
-            let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
-            #else
-            let path: AbsolutePath
-            if let developmentPath = Bundle.module.path(forResource: "provided-libraries", ofType: "json") {
-                // During development, we should be able to find the metadata file using `Bundle.module`.
-                path = try AbsolutePath(validating: developmentPath)
-            } else {
-                // When deployed, we can find the metadata file in the toolchain.
-                path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "provided-libraries.json"])
-            }
-            #endif
-            if localFileSystem.exists(path) {
-                self.providedLibraries = try JSONDecoder.makeWithDefaults().decode(
-                    path: path,
-                    fileSystem: localFileSystem,
-                    as: [LibraryMetadata].self
+            let path = swiftCompilerPath.parentDirectory.parentDirectory.appending(components: [
+                "share", "pm", "provided-libraries.json",
+            ])
+            self.providedLibraries = try Self.loadJSONResource(
+                config: path,
+                type: [LibraryMetadata].self,
+                default: []
+            ).map {
+                .init(
+                    location: path.parentDirectory.appending(component: $0.productName),
+                    metadata: $0
                 )
-            } else {
-                self.providedLibraries = []
+            }.filter {
+                localFileSystem.isDirectory($0.location)
             }
         }
 

@@ -31,15 +31,17 @@ public struct MockToolchain: PackageModel.Toolchain {
     #else
     public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
     #endif
-    public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
-    public let includeSearchPaths = [AbsolutePath]()
-    public let librarySearchPaths = [AbsolutePath]()
-    public let swiftResourcesPath: AbsolutePath?
-    public let swiftStaticResourcesPath: AbsolutePath? = nil
-    public let sdkRootPath: AbsolutePath? = nil
-    public let extraFlags = PackageModel.BuildFlags()
-    public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
-    public let providedLibraries = [LibraryMetadata]()
+    package let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
+    package let includeSearchPaths = [AbsolutePath]()
+    package let librarySearchPaths = [AbsolutePath]()
+    package let swiftResourcesPath: AbsolutePath?
+    package let swiftStaticResourcesPath: AbsolutePath? = nil
+    package let isSwiftDevelopmentToolchain = false
+    package let sdkRootPath: AbsolutePath? = nil
+    package let swiftPluginServerPath: AbsolutePath? = nil
+    package let extraFlags = PackageModel.BuildFlags()
+    package let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
+    package let providedLibraries = [ProvidedLibrary]()
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"

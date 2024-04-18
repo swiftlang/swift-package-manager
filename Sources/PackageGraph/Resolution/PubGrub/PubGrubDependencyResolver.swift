@@ -105,7 +105,7 @@ public struct PubGrubDependencyResolver {
     private let pins: PinsStore.Pins
 
     /// The packages that are available in a prebuilt form in SDK or a toolchain
-    private let availableLibraries: [LibraryMetadata]
+    private let availableLibraries: [ProvidedLibrary]
 
     /// The container provider used to load package containers.
     private let provider: ContainerProvider
@@ -125,7 +125,7 @@ public struct PubGrubDependencyResolver {
     public init(
         provider: PackageContainerProvider,
         pins: PinsStore.Pins = [:],
-        availableLibraries: [LibraryMetadata] = [],
+        availableLibraries: [ProvidedLibrary] = [],
         skipDependenciesUpdates: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
@@ -895,14 +895,14 @@ extension PackageRequirement {
 }
 
 extension PackageReference {
-    public func matchingPrebuiltLibrary(in availableLibraries: [LibraryMetadata]) -> LibraryMetadata? {
+    public func matchingPrebuiltLibrary(in availableLibraries: [ProvidedLibrary]) -> ProvidedLibrary? {
         switch self.kind {
         case .fileSystem, .localSourceControl, .root, .providedLibrary:
             return nil // can never match a prebuilt library
         case .registry(let identity):
             if let registryIdentity = identity.registry {
                 return availableLibraries.first(
-                    where: { $0.identities.contains(
+                    where: { $0.metadata.identities.contains(
                         where: { $0 == .packageIdentity(
                             scope: registryIdentity.scope.description,
                             name: registryIdentity.name.description
@@ -916,7 +916,7 @@ extension PackageReference {
             }
         case .remoteSourceControl(let url):
             return availableLibraries.first(where: {
-                $0.identities.contains(where: { $0 == .sourceControl(url: url) })
+                $0.metadata.identities.contains(where: { $0 == .sourceControl(url: url) })
             })
         }
     }
