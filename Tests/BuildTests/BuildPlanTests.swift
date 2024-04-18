@@ -6368,4 +6368,51 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
     }
+
+    func testDefaultVersions() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/foo/foo.swift"
+        )
+
+        let expectedVersions = [
+          ToolsVersion.v4: "4",
+          ToolsVersion.v4_2: "4.2",
+          ToolsVersion.v5: "5",
+          ToolsVersion.v6_0: "6",
+          ToolsVersion.vNext: "6"
+        ]
+        for (toolsVersion, expectedVersionString) in expectedVersions {
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+              fileSystem: fs,
+              manifests: [
+                Manifest.createRootManifest(
+                  displayName: "Pkg",
+                  path: "/Pkg",
+                  toolsVersion: toolsVersion,
+                  targets: [
+                    TargetDescription(
+                      name: "foo"
+                    ),
+                  ]
+                ),
+              ],
+              observabilityScope: observability.topScope
+            )
+
+            let result = try BuildPlanResult(plan: BuildPlan(
+              buildParameters: mockBuildParameters(),
+              graph: graph,
+              fileSystem: fs,
+              observabilityScope: observability.topScope
+            ))
+
+            XCTAssertMatch(
+              try result.target(for: "foo").swiftTarget().compileArguments(),
+              [
+                "-swift-version", .equal(expectedVersionString)
+              ]
+            )
+        }
+    }
 }

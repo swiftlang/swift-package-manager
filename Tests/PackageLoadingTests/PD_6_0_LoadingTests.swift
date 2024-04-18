@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,12 +16,14 @@ import SourceControl
 import SPMTestSupport
 import XCTest
 
-class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
+final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v6_0
     }
 
     func testPackageContextGitStatus() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.hasUncommittedChanges == true)")
@@ -34,6 +36,8 @@ class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitTag() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.currentTag ?? "")")
@@ -46,6 +50,8 @@ class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageContextGitCommit() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         let content = """
                 import PackageDescription
                 let package = Package(name: "\\(Context.gitInformation?.currentCommit ?? "")")
