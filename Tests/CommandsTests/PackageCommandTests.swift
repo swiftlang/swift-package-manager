@@ -793,7 +793,7 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
-    func testPackageAddVersion() throws {
+    func testPackageAddDependency() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageB")
@@ -810,7 +810,7 @@ final class PackageCommandTests: CommandsTestCase {
                 """
             )
 
-            _ = try execute(["add", "--branch", "main", "https://github.com/apple/swift-syntax.git"], packagePath: path)
+            _ = try execute(["add-dependency", "--branch", "main", "https://github.com/apple/swift-syntax.git"], packagePath: path)
 
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)

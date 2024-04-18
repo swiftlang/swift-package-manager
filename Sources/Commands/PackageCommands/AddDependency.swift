@@ -23,29 +23,33 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
-    struct Add: SwiftCommand {
+    struct AddDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a dependency to the package manifest")
+            abstract: "Add a package dependency to the manifest")
+
+        @Argument(help: "The URL or directory of the package to add")
+        var dependency: String
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The branch to depend on")
-        var branch: String?
+        @Option(help: "The exact package version to depend on")
+        var exact: Version?
 
-        @Option(help: "The minimum version requirement")
-        var fromVersion: String?
-
-        @Option(help: "The exact version requirement")
-        var exactVersion: String?
-
-        @Option(help: "A specific revision requirement")
+        @Option(help: "The specific package revision to depend on")
         var revision: String?
 
-        // FIXME: range option
+        @Option(help: "The branch of the package to depend on")
+        var branch: String?
 
-        @Argument(help: "The URL or directory of the package to add")
-        var url: String
+        @Option(help: "The package version to depend on (up to the next major version)")
+        var from: Version?
+
+        @Option(help: "The package version to depend on (up to the next minor version)")
+        var upToNextMinorFrom: Version?
+
+        @Option(help: "Specify upper bound on the package version range (exclusive)")
+        var to: Version?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
@@ -73,26 +77,59 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let identity = PackageIdentity(url: .init(url))
+            let identity = PackageIdentity(url: .init(dependency))
 
-            // Figure out the version requirement.
-            let requirement: PackageDependency.SourceControl.Requirement
+            // Collect all of the possible version requirements.
+            var requirements: [PackageDependency.SourceControl.Requirement] = []
+            if let exact {
+                requirements.append(.exact(exact))
+            }
+
             if let branch {
-                requirement = .branch(branch)
-            } else if let fromVersion {
-                requirement = .revision(fromVersion)
-            } else if let exactVersion {
-                requirement = .exact(try Version(versionString: exactVersion))
+                requirements.append(.branch(branch))
+            }
+
+            if let revision {
+                requirements.append(.revision(revision))
+            }
+
+            if let from {
+                requirements.append(.range(.upToNextMajor(from: from)))
+            }
+
+            if let upToNextMinorFrom {
+                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+            }
+
+            if requirements.count > 1 {
+                throw StringError("must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from")
+            }
+
+            guard let firstRequirement = requirements.first else {
+                throw StringError("must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from")
+            }
+
+            let requirement: PackageDependency.SourceControl.Requirement
+            if case .range(let range) = firstRequirement {
+                if let to {
+                    requirement = .range(range.lowerBound..<to)
+                } else {
+                    requirement = .range(range)
+                }
             } else {
-                throw StringError("must specify one of --branch, --from-version, or --exact-version")
+                requirement = firstRequirement
+
+                if to != nil {
+                    throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
+                }
             }
 
             // Figure out the location of the package.
             let location: PackageDependency.SourceControl.Location
-            if let path = try? Basics.AbsolutePath(validating: url) {
+            if let path = try? Basics.AbsolutePath(validating: dependency) {
                 location = .local(path)
             } else {
-                location = .remote(.init(url))
+                location = .remote(.init(dependency))
             }
 
             let packageDependency: PackageDependency = .sourceControl(
