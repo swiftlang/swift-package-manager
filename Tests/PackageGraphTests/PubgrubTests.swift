@@ -2023,13 +2023,16 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         try builder.serve(fooRef, at: .version(.init(stringLiteral: "1.2.0")))
         try builder.serve(fooRef, at: .version(.init(stringLiteral: "2.0.0")))
 
-        let availableLibraries: [LibraryMetadata] = [
+        let availableLibraries: [ProvidedLibrary] = [
             .init(
-                identities: [.sourceControl(url: "https://example.com/org/foo")],
-                version: "1.0.0",
-                productName: nil,
-                schemaVersion: 1
-            ),
+                location: .init("/foo"),
+                metadata: .init(
+                    identities: [.sourceControl(url: "https://example.com/org/foo")],
+                    version: "1.0.0",
+                    productName: "foo",
+                    schemaVersion: 1
+                )
+            )
         ]
 
         let resolver = builder.create(availableLibraries: availableLibraries)
@@ -2080,13 +2083,16 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         try builder.serve("target", at: "1.0.0")
         try builder.serve("target", at: "2.0.0")
 
-        let availableLibraries: [LibraryMetadata] = [
+        let availableLibraries: [ProvidedLibrary] = [
             .init(
-                identities: [.sourceControl(url: "https://example.com/org/foo")],
-                version: "1.1.0",
-                productName: nil,
-                schemaVersion: 1
-            ),
+                location: .init("/foo"),
+                metadata: .init(
+                    identities: [.sourceControl(url: "https://example.com/org/foo")],
+                    version: "1.1.0",
+                    productName: "foo",
+                    schemaVersion: 1
+                )
+            )
         ]
 
         let resolver = builder.create(availableLibraries: availableLibraries)
@@ -2126,13 +2132,16 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "bar": [fooRef: (.versionSet(.range(.upToNextMinor(from: "2.0.0"))), .everything)],
         ])
 
-        let availableLibraries: [LibraryMetadata] = [
+        let availableLibraries: [ProvidedLibrary] = [
             .init(
-                identities: [.sourceControl(url: "https://example.com/org/foo")],
-                version: "1.0.0",
-                productName: nil,
-                schemaVersion: 1
-            ),
+                location: .init("/foo"),
+                metadata: .init(
+                    identities: [.sourceControl(url: "https://example.com/org/foo")],
+                    version: "1.0.0",
+                    productName: "foo",
+                    schemaVersion: 1
+                )
+            )
         ]
 
         let resolver = builder.create(availableLibraries: availableLibraries)
@@ -3704,7 +3713,7 @@ class DependencyGraphBuilder {
 
     func create(
         pins: PinsStore.Pins = [:],
-        availableLibraries: [LibraryMetadata] = [],
+        availableLibraries: [ProvidedLibrary] = [],
         delegate: DependencyResolverDelegate? = .none
     ) -> PubGrubDependencyResolver {
         defer {

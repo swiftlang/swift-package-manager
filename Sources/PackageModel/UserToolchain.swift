@@ -88,7 +88,7 @@ public final class UserToolchain: Toolchain {
 
     public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
-    public let providedLibraries: [LibraryMetadata]
+    public let providedLibraries: [ProvidedLibrary]
 
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
@@ -487,7 +487,7 @@ public final class UserToolchain: Toolchain {
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
-        customProvidedLibraries: [LibraryMetadata]? = nil
+        customProvidedLibraries: [ProvidedLibrary]? = nil
     ) throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
@@ -551,7 +551,15 @@ public final class UserToolchain: Toolchain {
             self.providedLibraries = try Self.loadJSONResource(
                 config: path,
                 type: [LibraryMetadata].self,
-                default: [])
+                default: []
+            ).map {
+                .init(
+                    location: path.parentDirectory.appending(component: $0.productName),
+                    metadata: $0
+                )
+            }.filter {
+                localFileSystem.isDirectory($0.location)
+            }
         }
 
         // Use the triple from Swift SDK or compute the host triple using swiftc.
