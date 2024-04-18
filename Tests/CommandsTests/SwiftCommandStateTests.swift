@@ -262,7 +262,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
         let explicitDwarf = try SwiftCommandState.makeMockState(options: explicitDwarfOptions)
         plan = try BuildPlan(
-            productsBuildParameters: explicitDwarf.productsBuildParameters,
+            destinationBuildParameters: explicitDwarf.productsBuildParameters,
             toolsBuildParameters: explicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -277,7 +277,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitCodeView = try SwiftCommandState.makeMockState(options: explicitCodeViewOptions)
 
         plan = try BuildPlan(
-            productsBuildParameters: explicitCodeView.productsBuildParameters,
+            destinationBuildParameters: explicitCodeView.productsBuildParameters,
             toolsBuildParameters: explicitCodeView.productsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -300,7 +300,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
         let implicitDwarf = try SwiftCommandState.makeMockState(options: implicitDwarfOptions)
         plan = try BuildPlan(
-            productsBuildParameters: implicitDwarf.productsBuildParameters,
+            destinationBuildParameters: implicitDwarf.productsBuildParameters,
             toolsBuildParameters: implicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -313,7 +313,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
         let explicitNoDebugInfo = try SwiftCommandState.makeMockState(options: explicitNoDebugInfoOptions)
         plan = try BuildPlan(
-            productsBuildParameters: explicitNoDebugInfo.productsBuildParameters,
+            destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
             toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,

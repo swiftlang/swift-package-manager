@@ -55,7 +55,7 @@ internal struct PluginContextSerializer {
     // Adds a target to the serialized structure, if it isn't already there and
     // if it is of a kind that should be passed to the plugin. If so, this func-
     // tion returns the target's wire ID. If not, it returns nil.
-    mutating func serialize(target: ResolvedTarget) throws -> WireInput.Target.Id? {
+    mutating func serialize(target: ResolvedModule) throws -> WireInput.Target.Id? {
         // If we've already seen the target, just return the wire ID we already assigned to it.
         if let id = targetsToWireIDs[target.id] { return id }
 

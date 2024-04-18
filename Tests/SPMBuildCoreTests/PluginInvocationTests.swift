@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
 import PackageLoading
 import PackageModel
@@ -34,7 +36,7 @@ class PluginInvocationTests: XCTestCase {
             "/Foo/Sources/Foo/SomeFile.abc"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -74,7 +76,8 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            graph.check(targets: "Foo", "FooPlugin", "FooTool")
+            // "FooTool" duplicated as it's present for both build tools and end products triples.
+            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
@@ -82,8 +85,10 @@ class PluginInvocationTests: XCTestCase {
                 target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
-            graph.checkTarget("FooTool") { target in
-                target.check(type: .executable)
+            graph.checkTargets("FooTool") { targets in
+                for target in targets {
+                    target.check(type: .executable)
+                }
             }
         }
 
@@ -188,13 +193,13 @@ class PluginInvocationTests: XCTestCase {
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
-        let builtToolsDir = AbsolutePath("/path/to/build/debug")
         let pluginRunner = MockPluginScriptRunner()
+        let buildParameters = mockBuildParameters(
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+        )
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
-            buildParameters: mockBuildParameters(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-            ),
+            buildParameters: buildParameters,
             additionalFileRules: [],
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
             pkgConfigDirectories: [],
@@ -202,11 +207,12 @@ class PluginInvocationTests: XCTestCase {
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
         )
+        let builtToolsDir = AbsolutePath("/path/to/build/\(buildParameters.triple)/debug")
 
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
-        let (evalTargetID, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
+        let (_, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
 
         XCTAssertEqual(evalResults.count, 1)
@@ -1081,7 +1087,6 @@ class PluginInvocationTests: XCTestCase {
                 }
             }
 
-
             XCTAssertEqual(count, 2)
         }
     }
@@ -1089,7 +1094,7 @@ class PluginInvocationTests: XCTestCase {
     func checkParseArtifactsPlatformCompatibility(
         artifactSupportedTriples: [Triple],
         hostTriple: Triple
-    ) async throws -> [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]  {
+    ) async throws -> [ResolvedModule.ID: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
