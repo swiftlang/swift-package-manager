@@ -48,7 +48,7 @@ public struct AddPackageDependency {
             throw ManifestEditError.cannotFindPackage
         }
 
-        let dependencySyntax = dependency.asSyntax(manifestDirectory: manifestDirectory)
+        let dependencySyntax = dependency.asSyntax()
 
         // If there is already a "dependencies" argument, append to the array
         // literal in there.

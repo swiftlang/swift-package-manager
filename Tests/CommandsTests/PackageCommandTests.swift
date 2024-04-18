@@ -816,7 +816,7 @@ final class PackageCommandTests: CommandsTestCase {
             XCTAssertFileExists(manifest)
             let contents: String = try fs.readFileContents(manifest)
 
-            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/apple/swift-syntax.git", .branch("main")),"#))
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/apple/swift-syntax.git", branch: "main"),"#))
         }
     }
 

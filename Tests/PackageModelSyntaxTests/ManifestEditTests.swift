@@ -16,6 +16,7 @@ import SPMTestSupport
 @_spi(FixItApplier) import SwiftIDEUtils
 import SwiftParser
 import SwiftSyntax
+import struct TSCUtility.Version
 import XCTest
 
 func assertManifestRefactor(
@@ -61,12 +62,17 @@ class ManifestEditTests: XCTestCase {
                 name: "packages",
                 dependencies: [
                   .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
-                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                  .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ]
             )
             """) { manifest in
                 try AddPackageDependency.addPackageDependency(
-                    Self.swiftSystemPackageDependency,
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .branch("main"), productFilter: .nothing
+                    ),
                     to: manifest,
                     manifestDirectory: try! AbsolutePath(validating: "/")
                 )
@@ -88,12 +94,18 @@ class ManifestEditTests: XCTestCase {
                 name: "packages",
                 dependencies: [
                   .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
-                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                  .package(url: "https://github.com/apple/swift-system.git", exact: "510.0.0"),
                 ]
             )
             """) { manifest in
                 try AddPackageDependency.addPackageDependency(
-                    Self.swiftSystemPackageDependency,
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .exact("510.0.0"),
+                        productFilter: .nothing
+                    ),
                     to: manifest,
                     manifestDirectory: try! AbsolutePath(validating: "/")
                 )
@@ -115,12 +127,20 @@ class ManifestEditTests: XCTestCase {
                 name: "packages",
                 dependencies: [
                   .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
-                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                  .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),
                 ] + []
             )
             """) { manifest in
-                try AddPackageDependency.addPackageDependency(
-                    Self.swiftSystemPackageDependency,
+                let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
+
+                return try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .range(versionRange),
+                        productFilter: .nothing
+                    ),
                     to: manifest,
                     manifestDirectory: try! AbsolutePath(validating: "/")
                 )
@@ -140,12 +160,18 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                    .package(url: "https://github.com/apple/swift-system.git", "508.0.0"..<"510.0.0"),
                 ]
             )
             """) { manifest in
             try AddPackageDependency.addPackageDependency(
-                Self.swiftSystemPackageDependency,
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .range(Version(508,0,0)..<Version(510,0,0)),
+                        productFilter: .nothing
+                    ),
                 to: manifest,
                 manifestDirectory: try! AbsolutePath(validating: "/")
             )
@@ -164,7 +190,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                    .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ]
             )
             """) { manifest in
@@ -189,7 +215,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                    .package(url: "https://github.com/apple/swift-system.git", branch: "main"),
                 ],
                 targets: []
             )

@@ -36,5 +36,5 @@ protocol ManifestSyntaxRepresentable {
     /// For example, a `PackageDependency` entity would map to syntax for
     /// something like
     ///     .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1")
-    func asSyntax(manifestDirectory: AbsolutePath) -> PreferredSyntax
+    func asSyntax() -> PreferredSyntax
 }

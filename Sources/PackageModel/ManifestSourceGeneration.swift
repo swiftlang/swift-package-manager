@@ -62,7 +62,7 @@ public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription)
 
 
 /// Convenience initializers for package manifest structures.
-package extension SourceCodeFragment {
+fileprivate extension SourceCodeFragment {
 
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
     init(
@@ -633,7 +633,7 @@ public struct SourceCodeFragment {
         self.subnodes = subnodes
     }
     
-    package func generateSourceCode(indent: String = "") -> String {
+    func generateSourceCode(indent: String = "") -> String {
         var string = literal
         if let subnodes {
             switch delimiters {
