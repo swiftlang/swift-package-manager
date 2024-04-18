@@ -17,7 +17,8 @@ import XCTest
 import var TSCBasic.localFileSystem
 
 final class BuildSystemDelegateTests: XCTestCase {
-    func testDoNotFilterLinkerDiagnostics() throws {
+    func testDoNotFilterLinkerDiagnostics() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try fixture(name: "Miscellaneous/DoNotFilterLinkerDiagnostics") { fixturePath in
             #if !os(macOS)

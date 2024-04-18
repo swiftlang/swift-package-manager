@@ -3027,7 +3027,7 @@ final class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSwiftLanguageVesionPerTarget() throws {
+    func testSwiftLanguageVersionPerTarget() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/foo.swift",
             "/Sources/bar/bar.swift"
