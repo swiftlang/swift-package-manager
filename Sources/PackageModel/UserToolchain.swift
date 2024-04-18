@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -173,9 +173,7 @@ public final class UserToolchain: Toolchain {
         environment: EnvironmentVariables,
         searchPaths: [AbsolutePath],
         extraSwiftFlags: [String]
-    ) throws
-        -> AbsolutePath
-    {
+    ) throws -> AbsolutePath {
         let variable: String = triple.isApple() ? "LIBTOOL" : "AR"
         let tool: String = {
             if triple.isApple() { return "libtool" }
@@ -567,7 +565,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Use the triple from Swift SDK or compute the host triple using swiftc.
-        var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.hostTripleCompiler)
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
@@ -662,7 +660,7 @@ public final class UserToolchain: Toolchain {
 
         self.configuration = .init(
             librarianPath: librarianPath,
-            swiftCompilerPath: swiftCompilers.manifest,
+            swiftCompilerPath: swiftCompilers.targetTripleCompiler,
             swiftCompilerFlags: self.extraFlags.swiftCompilerFlags,
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
@@ -895,9 +893,7 @@ public final class UserToolchain: Toolchain {
 
     private static func loadJSONResource<T: Decodable>(
         config: AbsolutePath, type: T.Type, `default`: T
-    )
-        throws -> T
-    {
+    ) throws -> T {
         if localFileSystem.exists(config) {
             return try JSONDecoder.makeWithDefaults().decode(
                 path: config,

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -109,7 +109,7 @@ package struct LocationOptions: ParsableArguments {
 
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
-    package var customCompileDestination: AbsolutePath?
+    package var customDestinationFile: AbsolutePath?
 
     /// Path to the directory containing installed Swift SDKs.
     @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
@@ -386,15 +386,15 @@ package struct BuildOptions: ParsableArguments {
 
     /// The compilation destination’s target triple.
     @Option(name: .customLong("triple"), transform: Triple.init)
-    package var customCompileTriple: Triple?
+    package var customTargetTriple: Triple?
 
     /// Path to the compilation destination’s SDK.
     @Option(name: .customLong("sdk"))
-    package var customCompileSDK: AbsolutePath?
+    package var customTargetSDK: AbsolutePath?
 
     /// Path to the compilation destination’s toolchain.
     @Option(name: .customLong("toolchain"))
-    package var customCompileToolchain: AbsolutePath?
+    package var customTargetTripleToolchain: AbsolutePath?
 
     /// The architectures to compile for.
     @Option(

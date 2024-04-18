@@ -367,7 +367,7 @@ package final class SwiftCommandState {
             observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
+        if !options.build.architectures.isEmpty && options.build.customTargetTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
@@ -824,13 +824,13 @@ package final class SwiftCommandState {
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
-                customCompileDestination: options.locations.customCompileDestination,
-                customCompileTriple: options.build.customCompileTriple,
-                customCompileToolchain: options.build.customCompileToolchain,
-                customCompileSDK: options.build.customCompileSDK,
+                customDestinationFile: options.locations.customDestinationFile,
+                customTargetTriple: options.build.customTargetTriple,
+                customTargetToolchain: options.build.customTargetTripleToolchain,
+                customTargetSDK: options.build.customTargetSDK,
                 swiftSDKSelector: options.build.swiftSDKSelector,
                 architectures: options.build.architectures,
-                store: store,
+                swiftSDKStore: store,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
             )

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -391,7 +391,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
-                store: store,
+                swiftSDKStore: store,
                 observabilityScope: system.topScope,
                 fileSystem: fileSystem
             )
@@ -404,7 +404,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 swiftSDKSelector: "\(testArtifactID)1",
-                store: store,
+                swiftSDKStore: store,
                 observabilityScope: system.topScope,
                 fileSystem: fileSystem
             )
@@ -419,7 +419,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 swiftSDKSelector: "\(testArtifactID)2",
-                store: store,
+                swiftSDKStore: store,
                 observabilityScope: system.topScope,
                 fileSystem: fileSystem
             )
@@ -429,23 +429,23 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         do {
             // Check explicit overriding options.
-            let customCompileSDK = AbsolutePath("/path/to/sdk")
+            let customTargetSDK = AbsolutePath("/path/to/sdk")
             let archs = ["x86_64-apple-macosx10.15"]
-            let customCompileToolchain = AbsolutePath("/path/to/toolchain")
-            try fileSystem.createDirectory(customCompileToolchain, recursive: true)
+            let customTargetToolchain = AbsolutePath("/path/to/toolchain")
+            try fileSystem.createDirectory(customTargetToolchain, recursive: true)
 
             let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
-                customCompileToolchain: customCompileToolchain,
-                customCompileSDK: customCompileSDK,
+                customTargetToolchain: customTargetToolchain,
+                customTargetSDK: customTargetSDK,
                 architectures: archs,
-                store: store,
+                swiftSDKStore: store,
                 observabilityScope: system.topScope,
                 fileSystem: fileSystem
             )
             XCTAssertEqual(targetSwiftSDK.architectures, archs)
-            XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath, customCompileSDK)
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath, customTargetSDK)
         }
     }
 }

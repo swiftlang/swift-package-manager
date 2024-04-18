@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -648,20 +648,20 @@ public struct SwiftSDK: Equatable {
     package static func deriveTargetSwiftSDK(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
-      customCompileDestination: AbsolutePath? = nil,
-      customCompileTriple: Triple? = nil,
-      customCompileToolchain: AbsolutePath? = nil,
-      customCompileSDK: AbsolutePath? = nil,
+      customDestinationFile: AbsolutePath? = nil,
+      customTargetTriple: Triple? = nil,
+      customTargetToolchain: AbsolutePath? = nil,
+      customTargetSDK: AbsolutePath? = nil,
       swiftSDKSelector: String? = nil,
       architectures: [String] = [],
-      store: SwiftSDKBundleStore,
+      swiftSDKStore: SwiftSDKBundleStore,
       observabilityScope: ObservabilityScope,
       fileSystem: FileSystem
     ) throws -> SwiftSDK {
         var swiftSDK: SwiftSDK
         var isBasedOnHostSDK: Bool = false
         // Create custom toolchain if present.
-        if let customDestination = customCompileDestination {
+        if let customDestination = customDestinationFile {
             let swiftSDKs = try SwiftSDK.decode(
                 fromFile: customDestination,
                 fileSystem: fileSystem,
@@ -670,42 +670,41 @@ public struct SwiftSDK: Equatable {
             if swiftSDKs.count == 1 {
                 swiftSDK = swiftSDKs[0]
             } else if swiftSDKs.count > 1,
-                      let triple = customCompileTriple,
+                      let triple = customTargetTriple,
                       let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
             {
                 swiftSDK = matchingSDK
             } else {
                 throw SwiftSDKError.noSwiftSDKDecoded(customDestination)
             }
-        } else if let triple = customCompileTriple,
+        } else if let triple = customTargetTriple,
                   let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: triple, hostSDK: hostSwiftSDK)
         {
             swiftSDK = targetSwiftSDK
         } else if let swiftSDKSelector {
-            swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+            swiftSDK = try swiftSDKStore.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
         } else {
             // Otherwise use the host toolchain.
             swiftSDK = hostSwiftSDK
             isBasedOnHostSDK = true
         }
         // Apply any manual overrides.
-        if let triple = customCompileTriple {
+        if let triple = customTargetTriple {
             swiftSDK.targetTriple = triple
         }
-        if let binDir = customCompileToolchain {
+        if let binDir = customTargetToolchain {
             if !fileSystem.exists(binDir) {
-                observabilityScope.emit(
-                    warning: """
-                        Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
-                            binDir
-                        )`
-                        """
+                observabilityScope.emit(warning: """
+                    Toolchain directory specified through a command-line option doesn't exist and is ignored: `\(
+                        binDir
+                    )`
+                    """
                 )
             }
 
             swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
-        if let sdk = customCompileSDK {
+        if let sdk = customTargetSDK {
             swiftSDK.pathsConfiguration.sdkRootPath = sdk
         }
         swiftSDK.architectures = architectures.isEmpty ? nil : architectures
