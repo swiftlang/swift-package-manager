@@ -147,6 +147,35 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
+    func testAddPackageDependencyExistingOneLine() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [ .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1") ]
+            )
+            """, expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [ .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"), .package(url: "https://github.com/apple/swift-system.git", from: "510.0.0"),]
+            )
+            """) { manifest in
+                let versionRange = Range<Version>.upToNextMajor(from: Version(510, 0, 0))
+
+                return try AddPackageDependency.addPackageDependency(
+                    PackageDependency.remoteSourceControl(
+                        identity: PackageIdentity(url: Self.swiftSystemURL),
+                        nameForTargetDependencyResolutionOnly: nil,
+                        url: Self.swiftSystemURL,
+                        requirement: .range(versionRange),
+                        productFilter: .nothing
+                    ),
+                    to: manifest,
+                    manifestDirectory: try! AbsolutePath(validating: "/")
+                )
+        }
+    }
     func testAddPackageDependencyExistingEmpty() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5

@@ -96,8 +96,7 @@ public struct AddPackageDependency {
                             trailingComma: .commaToken()
                         )
                     ],
-                    rightSquare: .rightSquareToken()
-                        .with(\.leadingTrivia, leadingTrivia)
+                    rightSquare: .rightSquareToken(leadingTrivia: leadingTrivia)
                 )
                 newArgument = ExprSyntax(arrayExpr)
             }
