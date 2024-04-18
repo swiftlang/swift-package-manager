@@ -37,7 +37,7 @@ import class PackageGraph.PinsStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
-import struct PackageModel.LibraryMetadata
+import struct PackageModel.ProvidedLibrary
 import enum PackageModel.PackageDependency
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -57,7 +57,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         packages: [String] = [],
         dryRun: Bool = false,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         let start = DispatchTime.now()
@@ -200,7 +200,7 @@ extension Workspace {
     func _resolve(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         resolvedFileStrategy: ResolvedFileStrategy,
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
@@ -304,7 +304,7 @@ extension Workspace {
     func _resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
@@ -343,7 +343,7 @@ extension Workspace {
     fileprivate func tryResolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
@@ -495,7 +495,7 @@ extension Workspace {
     func resolveAndUpdateResolvedFile(
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
@@ -849,7 +849,7 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
         constraints: [PackageContainerConstraint],
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> ResolutionPrecomputationResult {
         let computedConstraints =
@@ -1144,7 +1144,7 @@ extension Workspace {
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
         pins: PinsStore.Pins,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate

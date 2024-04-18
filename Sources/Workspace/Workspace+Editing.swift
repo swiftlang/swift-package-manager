@@ -15,7 +15,7 @@ import class Basics.ObservabilityScope
 import struct Basics.RelativePath
 import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
-import struct PackageModel.LibraryMetadata
+import struct PackageModel.ProvidedLibrary
 import struct SourceControl.Revision
 import class TSCBasic.InMemoryFileSystem
 
@@ -173,7 +173,7 @@ extension Workspace {
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
-        availableLibraries: [LibraryMetadata],
+        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws {
         // Compute if we need to force remove.
