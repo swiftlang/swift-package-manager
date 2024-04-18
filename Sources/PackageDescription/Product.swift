@@ -68,8 +68,7 @@ public class Product {
     }
 
     /// The executable product of a Swift package.
-    public final class Executable: Product {
-
+    public final class Executable: Product, @unchecked Sendable {
         /// The names of the targets in this product.
         public let targets: [String]
 
@@ -80,7 +79,7 @@ public class Product {
     }
 
     /// The library product of a Swift package.
-    public final class Library: Product {
+    public final class Library: Product, @unchecked Sendable {
         /// The different types of a library product.
         public enum LibraryType: String {
             /// A statically linked library.
@@ -106,7 +105,7 @@ public class Product {
     }
 
     /// The plug-in product of a Swift package.
-    public final class Plugin: Product {
+    public final class Plugin: Product, @unchecked Sendable {
         /// The name of the plug-in target to vend as a product.
         public let targets: [String]
 

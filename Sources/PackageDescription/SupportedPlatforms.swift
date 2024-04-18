@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// A platform supported by Swift Package Manager.
-public struct Platform: Equatable {
+public struct Platform: Equatable, Sendable {
 
     /// The name of the platform.
     let name: String
@@ -88,7 +88,7 @@ public struct Platform: Equatable {
 /// package's deployment version. The deployment target of a package's
 /// dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
-public struct SupportedPlatform: Equatable {
+public struct SupportedPlatform: Equatable, Sendable {
 
     /// The platform.
     let platform: Platform
@@ -698,7 +698,7 @@ extension SupportedPlatform {
     }
 }
 
-fileprivate protocol AppleOSVersion {
+fileprivate protocol AppleOSVersion: Sendable {
     static var name: String { get }
     static var minimumMajorVersion: Int { get }
     init(uncheckedVersion: String)
