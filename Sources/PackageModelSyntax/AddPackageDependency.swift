@@ -46,7 +46,7 @@ public struct AddPackageDependency {
         // If there is already a "dependencies" argument, append to the array
         // literal in there.
         if let dependenciesArg = packageCall.findArgument(labeled: "dependencies") {
-            guard let argArray = dependenciesArg.expression.as(ArrayExprSyntax.self) else {
+            guard let argArray = dependenciesArg.expression.findArrayArgument() else {
                 return []
             }
 

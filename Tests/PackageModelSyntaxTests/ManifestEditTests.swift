@@ -96,6 +96,31 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
+    func testAddPackageDependencyExistingAppended() {
+        assertManifestRefactor("""
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1")
+                ] + []
+            )
+            """, expectedManifest: """
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                  .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1"),
+                  .package(url: "https://github.com/apple/swift-system.git", .branch("main")),
+                ] + []
+            )
+            """) { manifest in
+            AddPackageDependency.addPackageDependency(
+                Self.swiftSystemPackageDependency,
+                to: manifest,
+                manifestDirectory: try! AbsolutePath(validating: "/")
+            )
+        }
+    }
+
     func testAddPackageDependencyExistingEmpty() {
         assertManifestRefactor("""
             let package = Package(

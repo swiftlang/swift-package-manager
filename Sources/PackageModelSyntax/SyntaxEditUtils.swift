@@ -223,3 +223,21 @@ extension ArrayExprSyntax {
         return with(\.elements, elements).with(\.leftSquare, newLeftSquare)
     }
 }
+
+extension ExprSyntax {
+    /// Find an array argument either at the top level or within a sequence
+    /// expression.
+    func findArrayArgument() -> ArrayExprSyntax? {
+        if let arrayExpr = self.as(ArrayExprSyntax.self) {
+            return arrayExpr
+        }
+
+        if let sequenceExpr = self.as(SequenceExprSyntax.self) {
+            return sequenceExpr.elements.lazy.compactMap {
+                $0.findArrayArgument()
+            }.first
+        }
+
+        return nil
+    }
+}
