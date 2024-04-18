@@ -34,6 +34,11 @@ public struct ManifestValidator {
 
     /// Validate the provided manifest.
     public func validate() -> [Basics.Diagnostic] {
+        // Provided library manifest is synthesized by the package manager.
+        if case .providedLibrary =  self.manifest.packageKind {
+            return []
+        }
+
         var diagnostics = [Basics.Diagnostic]()
 
         diagnostics += self.validateTargets()

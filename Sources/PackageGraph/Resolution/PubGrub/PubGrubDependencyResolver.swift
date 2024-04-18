@@ -231,7 +231,7 @@ public struct PubGrubDependencyResolver {
                 continue
             }
 
-            let package = assignment.term.node.package
+            var package = assignment.term.node.package
 
             let boundVersion: BoundVersion
             switch assignment.term.requirement {
@@ -241,16 +241,18 @@ public struct PubGrubDependencyResolver {
                 throw InternalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
-            // Strip packages that have prebuilt libraries only if they match library version.
-            //
-            // FIXME: This is built on assumption that libraries are part of the SDK and are
-            //        always available in include/library paths, but what happens if they are
-            //        part of a toolchain instead? Builder needs an indicator that certain path
-            //        has to be included when building packages that depend on prebuilt libraries.
             if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
                boundVersion == .version(.init(stringLiteral: library.version))
             {
-                continue
+                guard case .remoteSourceControl(let url) = package.kind else {
+                    throw InternalError("Matched provided library against invalid package: \(package)")
+                }
+
+                package = .providedLibrary(
+                    identity: package.identity,
+                    origin: url,
+                    path: library.location
+                )
             }
 
             let products = assignment.term.node.productFilter

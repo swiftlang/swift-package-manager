@@ -206,6 +206,19 @@ extension ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         do {
+            if case .providedLibrary = packageKind {
+                let manifest = try self.loadLibrary(
+                    fileSystem: fileSystem,
+                    packagePath: packagePath,
+                    packageKind: packageKind,
+                    packageIdentity: packageIdentity,
+                    packageLocation: packageLocation,
+                    packageVersion: packageVersion?.version
+                )
+                completion(.success(manifest))
+                return
+            }
+
             // find the manifest path and parse it's tools-version
             let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
             let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
@@ -265,6 +278,53 @@ extension ManifestLoaderProtocol {
                 completion: $0.resume(with:)
             )
         }
+    }
+
+    private func loadLibrary(
+        fileSystem: FileSystem,
+        packagePath: AbsolutePath,
+        packageKind: PackageReference.Kind,
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        packageVersion: Version?
+    ) throws -> Manifest {
+        let names = try fileSystem.getDirectoryContents(packagePath).filter {
+            $0.hasSuffix("swiftmodule")
+        }.map {
+            let components = $0.split(separator: ".")
+            return String(components[0])
+        }
+
+        let products: [ProductDescription] = try names.map {
+            try .init(name: $0, type: .library(.automatic), targets: [$0])
+        }
+
+        let targets: [TargetDescription] = try names.map {
+            try .init(
+                name: $0,
+                path: packagePath.pathString,
+                type: .providedLibrary
+            )
+        }
+
+        return .init(
+            displayName: packageIdentity.description,
+            path: packagePath.appending(component: "provided-libraries.json"),
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            defaultLocalization: nil,
+            platforms: [],
+            version: packageVersion,
+            revision: nil,
+            toolsVersion: .v6_0,
+            pkgConfig: nil,
+            providers: nil,
+            cLanguageStandard: nil,
+            cxxLanguageStandard: nil,
+            swiftLanguageVersions: nil,
+            products: products,
+            targets: targets
+        )
     }
 }
 
