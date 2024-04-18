@@ -10,7 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import Basics
+
 import XCTest
 
 final class DirectedGraphTests: XCTestCase {

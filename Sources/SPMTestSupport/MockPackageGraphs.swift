@@ -13,7 +13,12 @@
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
+
 import struct PackageGraph.ModulesGraph
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+import func PackageGraph.loadModulesGraph
+
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription

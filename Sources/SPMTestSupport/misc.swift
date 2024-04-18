@@ -16,7 +16,10 @@ import struct Foundation.URL
 import class Foundation.Bundle
 #endif
 import OrderedCollections
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SourceControl
@@ -343,52 +346,6 @@ package func loadPackageGraph(
         createREPLProduct: createREPLProduct,
         useXCBuildFileRules: useXCBuildFileRules,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        observabilityScope: observabilityScope
-    )
-}
-
-package func loadModulesGraph(
-    identityResolver: IdentityResolver = DefaultIdentityResolver(),
-    fileSystem: FileSystem,
-    manifests: [Manifest],
-    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
-    explicitProduct: String? = .none,
-    shouldCreateMultipleTestProducts: Bool = false,
-    createREPLProduct: Bool = false,
-    useXCBuildFileRules: Bool = false,
-    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope
-) throws -> ModulesGraph {
-    let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
-    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
-        .reduce(
-            into: OrderedCollections
-                .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
-        ) { partial, item in
-            partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
-        }
-
-    let packages = Array(rootManifests.keys)
-    let input = PackageGraphRootInput(packages: packages)
-    let graphRoot = PackageGraphRoot(
-        input: input,
-        manifests: rootManifests,
-        explicitProduct: explicitProduct,
-        observabilityScope: observabilityScope
-    )
-
-    return try ModulesGraph.load(
-        root: graphRoot,
-        identityResolver: identityResolver,
-        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription
-            .swiftpmFileTypes,
-        externalManifests: externalManifests,
-        binaryArtifacts: binaryArtifacts,
-        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-        createREPLProduct: createREPLProduct,
-        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        availableLibraries: [],
-        fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )
 }

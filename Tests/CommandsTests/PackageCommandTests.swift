@@ -19,7 +19,10 @@ import CoreCommands
 import Commands
 
 import Foundation
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SourceControl

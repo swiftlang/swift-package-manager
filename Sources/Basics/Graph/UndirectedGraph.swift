@@ -13,8 +13,9 @@
 import struct DequeModule.Deque
 
 /// Undirected graph that stores edges in an [adjacency matrix](https://en.wikipedia.org/wiki/Adjacency_list).
-struct UndirectedGraph<Node> {
-    init(nodes: [Node]) {
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+public struct UndirectedGraph<Node> {
+    public init(nodes: [Node]) {
         self.nodes = nodes
         self.edges = .init(rows: nodes.count, columns: nodes.count)
     }
@@ -22,7 +23,7 @@ struct UndirectedGraph<Node> {
     private var nodes: [Node]
     private var edges: AdjacencyMatrix
 
-    mutating func addEdge(source: Int, destination: Int) {
+    public mutating func addEdge(source: Int, destination: Int) {
         // Adjacency matrix is symmetrical for undirected graphs.
         self.edges[source, destination] = true
         self.edges[destination, source] = true
@@ -33,7 +34,7 @@ struct UndirectedGraph<Node> {
     ///   - source: `Index` of a node to start traversing edges from.
     ///   - destination: `Index` of a node to which a connection could exist via edges from `source`.
     /// - Returns: `true` if a path from `source` to `destination` exists, `false` otherwise.
-    func areNodesConnected(source: Int, destination: Int) -> Bool {
+    public func areNodesConnected(source: Int, destination: Int) -> Bool {
         var todo = Deque<Int>([source])
         var done = Set<Int>()
 
