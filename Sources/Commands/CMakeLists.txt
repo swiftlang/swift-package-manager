@@ -56,6 +56,7 @@ target_link_libraries(Commands PUBLIC
   CoreCommands
   LLBuildManifest
   PackageGraph
+  PackageModelSyntax
   SourceControl
   TSCBasic
   TSCUtility
