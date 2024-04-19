@@ -8,6 +8,7 @@
 
 add_library(Commands
   PackageCommands/AddDependency.swift
+  PackageCommands/AddTarget.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
   PackageCommands/CompletionCommand.swift

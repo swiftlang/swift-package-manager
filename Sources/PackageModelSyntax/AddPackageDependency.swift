@@ -36,7 +36,7 @@ public struct AddPackageDependency {
     public static func addPackageDependency(
         _ dependency: PackageDependency,
         to manifest: SourceFileSyntax
-    ) throws -> [SourceEdit] {
+    ) throws -> PackageEditResult {
         // Make sure we have a suitable tools version in the manifest.
         try manifest.checkEditManifestToolsVersion()
 
@@ -44,10 +44,12 @@ public struct AddPackageDependency {
             throw ManifestEditError.cannotFindPackage
         }
 
-        return try packageCall.appendingToArrayArgument(
+        let edits = try packageCall.appendingToArrayArgument(
             label: "dependencies",
             trailingLabels: Self.argumentLabelsAfterDependencies,
             newElement: dependency.asSyntax()
         )
+
+        return PackageEditResult(manifestEdits: edits)
     }
 }

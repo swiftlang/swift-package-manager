@@ -19,15 +19,22 @@ import SwiftSyntax
 import struct TSCUtility.Version
 import XCTest
 
+/// Assert that applying the given edit/refactor operation to the manifest
+/// produces the expected manifest source file and the expected auxiliary
+/// files.
 func assertManifestRefactor(
     _ originalManifest: SourceFileSyntax,
     expectedManifest: SourceFileSyntax,
+    expectedAuxiliarySources: [RelativePath: SourceFileSyntax] = [:],
     file: StaticString = #filePath,
     line: UInt = #line,
-    operation: (SourceFileSyntax) throws -> [SourceEdit]
+    operation: (SourceFileSyntax) throws -> PackageEditResult
 ) rethrows {
     let edits = try operation(originalManifest)
-    let editedManifestSource = FixItApplier.apply(edits: edits, to: originalManifest)
+    let editedManifestSource = FixItApplier.apply(
+        edits: edits.manifestEdits,
+        to: originalManifest
+    )
 
     let editedManifest = Parser.parse(source: editedManifestSource)
     assertStringsEqualWithDiff(
@@ -35,6 +42,27 @@ func assertManifestRefactor(
         expectedManifest.description,
         file: file,
         line: line
+    )
+
+    // Check all of the auxiliary sources.
+    for (auxSourcePath, auxSourceSyntax) in edits.auxiliaryFiles {
+        guard let expectedSyntax = expectedAuxiliarySources[auxSourcePath] else {
+            XCTFail("unexpected auxiliary source file \(auxSourcePath)")
+            return
+        }
+
+        assertStringsEqualWithDiff(
+            auxSourceSyntax.description,
+            expectedSyntax.description,
+            file: file,
+            line: line
+        )
+    }
+
+    XCTAssertEqual(
+        edits.auxiliaryFiles.count,
+        expectedAuxiliarySources.count,
+        "didn't get all of the auxiliary files we expected"
     )
 }
 
@@ -322,7 +350,12 @@ class ManifestEditTests: XCTestCase {
                     .target(name: "MyLib"),
                 ]
             )
-            """) { manifest in
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Sources/MyLib/MyLib.swift") : """
+
+                """
+            ]) { manifest in
             try AddTarget.addTarget(
                 TargetDescription(name: "MyLib"),
                 to: manifest
@@ -345,7 +378,15 @@ class ManifestEditTests: XCTestCase {
                     .target(name: "MyLib", dependencies: ["OtherLib", .product(name: "SwiftSyntax", package: "swift-syntax"), .target(name: "TargetLib")]),
                 ]
             )
-            """) { manifest in
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Sources/MyLib/MyLib.swift") : """
+                import OtherLib
+                import SwiftSyntax
+                import TargetLib
+
+                """
+            ]) { manifest in
             try AddTarget.addTarget(
                 TargetDescription(name: "MyLib",
                                   dependencies: [

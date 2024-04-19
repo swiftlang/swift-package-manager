@@ -820,6 +820,37 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testPackageAddTarget() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client"
+                )
+                """
+            )
+
+            _ = try execute(["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"targets:"#))
+            XCTAssertMatch(contents, .contains(#".executableTarget"#))
+            XCTAssertMatch(contents, .contains(#"name: "client""#))
+            XCTAssertMatch(contents, .contains(#"dependencies:"#))
+            XCTAssertMatch(contents, .contains(#""MyLib""#))
+            XCTAssertMatch(contents, .contains(#""OtherLib""#))
+        }
+    }
+
     func testPackageEditAndUnedit() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")

@@ -12,6 +12,7 @@ add_library(PackageModelSyntax
   ManifestEditError.swift
   ManifestSyntaxRepresentable.swift
   PackageDependency+Syntax.swift
+  PackageEditResult.swift
   SyntaxEditUtils.swift
   TargetDescription+Syntax.swift
 )
