@@ -227,12 +227,12 @@ final class PluginTests: XCTestCase {
             let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "Plugin", "best.txt"])
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
-            let (_, stderr) = try executeSwiftBuild(packageDir)
+            let (_, stderr) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertTrue(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
             XCTAssertFalse(localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
-            let (_, stderr2) = try executeSwiftBuild(packageDir)
+            let (_, stderr2) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertEqual("", stderr2)
             XCTAssertTrue(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
         }
