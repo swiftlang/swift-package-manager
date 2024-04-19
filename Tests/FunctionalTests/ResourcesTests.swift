@@ -157,7 +157,7 @@ class ResourcesTests: XCTestCase {
             try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(resource, string: "best")
 
-            let (_, stderr) = try executeSwiftBuild(packageDir)
+            let (_, stderr) = try executeSwiftBuild(packageDir, env: ["DYLD_PRINT_SEARCHING": "1"])
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }.joined(separator: "\n")
             XCTAssertEqual(filteredStderr, "", "unexpectedly received error output: \(stderr)")
