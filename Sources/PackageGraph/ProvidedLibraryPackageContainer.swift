@@ -12,12 +12,13 @@
 
 import Basics
 import Dispatch
-import PackageGraph
 import PackageLoading
 import PackageModel
 
 import struct TSCUtility.Version
 
+/// TODO: This could be removed once logic to handle provided libraries is integrated
+/// into a \c PubGrubPackageContainer.
 public struct ProvidedLibraryPackageContainer: PackageContainer {
     public let package: PackageReference
 
