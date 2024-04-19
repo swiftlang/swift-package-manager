@@ -38,3 +38,9 @@ protocol ManifestSyntaxRepresentable {
     ///     .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.1")
     func asSyntax() -> PreferredSyntax
 }
+
+extension String: ManifestSyntaxRepresentable {
+    typealias PreferredSyntax = ExprSyntax
+
+    func asSyntax() -> ExprSyntax { "\(literal: self)" }
+}

@@ -142,8 +142,7 @@ extension SwiftPackageCommand {
 
             let edits = try AddPackageDependency.addPackageDependency(
                 packageDependency,
-                to: manifestSyntax,
-                manifestDirectory: packagePath.parentDirectory
+                to: manifestSyntax
             )
 
             if edits.isEmpty {

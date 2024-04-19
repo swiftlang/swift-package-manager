@@ -11,30 +11,26 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageLoading
 import PackageModel
 import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxBuilder
 
-/// Add a package dependency to a manifest's source code.
-public struct AddPackageDependency {
-    /// The set of argument labels that can occur after the "dependencies"
+/// Add a target to a manifest's source code.
+public struct AddTarget {
+    /// The set of argument labels that can occur after the "targets"
     /// argument in the Package initializers.
     ///
     /// TODO: Could we generate this from the the PackageDescription module, so
     /// we don't have keep it up-to-date manually?
-    private static let argumentLabelsAfterDependencies: Set<String> = [
-        "targets",
+    private static let argumentLabelsAfterTargets: Set<String> = [
         "swiftLanguageVersions",
         "cLanguageStandard",
         "cxxLanguageStandard"
     ]
 
-    /// Produce the set of source edits needed to add the given package
-    /// dependency to the given manifest file.
-    public static func addPackageDependency(
-        _ dependency: PackageDependency,
+    public static func addTarget(
+        _ target: TargetDescription,
         to manifest: SourceFileSyntax
     ) throws -> [SourceEdit] {
         // Make sure we have a suitable tools version in the manifest.
@@ -45,9 +41,9 @@ public struct AddPackageDependency {
         }
 
         return try packageCall.appendingToArrayArgument(
-            label: "dependencies",
-            trailingLabels: Self.argumentLabelsAfterDependencies,
-            newElement: dependency.asSyntax()
+            label: "targets",
+            trailingLabels: Self.argumentLabelsAfterTargets,
+            newElement: target.asSyntax()
         )
     }
 }

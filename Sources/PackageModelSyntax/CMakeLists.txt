@@ -8,10 +8,13 @@
 
 add_library(PackageModelSyntax
   AddPackageDependency.swift
+  AddTarget.swift
   ManifestEditError.swift
   ManifestSyntaxRepresentable.swift
   PackageDependency+Syntax.swift
-  SyntaxEditUtils.swift)
+  SyntaxEditUtils.swift
+  TargetDescription+Syntax.swift
+)
 target_link_libraries(PackageModelSyntax PUBLIC
   Basics
   PackageLoading
