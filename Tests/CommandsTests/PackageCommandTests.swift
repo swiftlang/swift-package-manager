@@ -1953,13 +1953,13 @@ final class PackageCommandTests: CommandsTestCase {
 
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             func runPlugin(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
-                let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)
+                let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 completion(stdout, stderr)
             }
 
             // Diagnostics.error causes SwiftPM to return a non-zero exit code, but we still need to check stdout and stderr
             func runPluginWithError(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
-                XCTAssertThrowsError(try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)) { error in
+                XCTAssertThrowsError(try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2151,28 +2151,28 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Check than nothing is echoed when echoLogs is false
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
             XCTAssertMatch(stderr, isEmpty)
         }
 
         // Check that logs are returned to the plugin when echoLogs is false
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
             XCTAssertMatch(stderr, isEmpty)
         }
 
         // Check that logs echoed to the console (on stderr) when echoLogs is true
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
             XCTAssertMatch(stderr, containsLogecho)
         }
 
         // Check that logs are returned to the plugin and echoed to the console (on stderr) when echoLogs is true
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
             XCTAssertMatch(stderr, containsLogecho)
         }
@@ -2465,14 +2465,14 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check arguments
             do {
-                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
                 XCTAssertEqual(stderr, "")
             }
 
             // Check default command arguments
             do {
-                let (stdout, stderr) = try SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                let (stdout, stderr) = try SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
                 XCTAssertEqual(stderr, "")
             }
