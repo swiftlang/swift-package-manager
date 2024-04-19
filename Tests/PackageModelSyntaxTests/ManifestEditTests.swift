@@ -73,8 +73,7 @@ class ManifestEditTests: XCTestCase {
                         url: Self.swiftSystemURL,
                         requirement: .branch("main"), productFilter: .nothing
                     ),
-                    to: manifest,
-                    manifestDirectory: try! AbsolutePath(validating: "/")
+                    to: manifest
                 )
             }
     }
@@ -106,8 +105,7 @@ class ManifestEditTests: XCTestCase {
                         requirement: .exact("510.0.0"),
                         productFilter: .nothing
                     ),
-                    to: manifest,
-                    manifestDirectory: try! AbsolutePath(validating: "/")
+                    to: manifest
                 )
             }
     }
@@ -141,8 +139,7 @@ class ManifestEditTests: XCTestCase {
                         requirement: .range(versionRange),
                         productFilter: .nothing
                     ),
-                    to: manifest,
-                    manifestDirectory: try! AbsolutePath(validating: "/")
+                    to: manifest
                 )
         }
     }
@@ -171,8 +168,7 @@ class ManifestEditTests: XCTestCase {
                         requirement: .range(versionRange),
                         productFilter: .nothing
                     ),
-                    to: manifest,
-                    manifestDirectory: try! AbsolutePath(validating: "/")
+                    to: manifest
                 )
         }
     }
@@ -201,8 +197,7 @@ class ManifestEditTests: XCTestCase {
                         requirement: .range(Version(508,0,0)..<Version(510,0,0)),
                         productFilter: .nothing
                     ),
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
+                to: manifest
             )
         }
     }
@@ -225,8 +220,7 @@ class ManifestEditTests: XCTestCase {
             """) { manifest in
             try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
+                to: manifest
             )
         }
     }
@@ -251,8 +245,7 @@ class ManifestEditTests: XCTestCase {
             """) { manifest in
             try AddPackageDependency.addPackageDependency(
                 Self.swiftSystemPackageDependency,
-                to: manifest,
-                manifestDirectory: try! AbsolutePath(validating: "/")
+                to: manifest
             )
         }
     }
@@ -266,8 +259,7 @@ class ManifestEditTests: XCTestCase {
                 let package: Package = .init(
                     name: "packages"
                 )
-                """,
-                manifestDirectory: try! AbsolutePath(validating: "/")
+                """
             )
         ) { (error: ManifestEditError) in
             if case .cannotFindPackage = error {
@@ -286,8 +278,7 @@ class ManifestEditTests: XCTestCase {
                     name: "packages",
                     dependencies: blah
                 )
-                """,
-                manifestDirectory: try! AbsolutePath(validating: "/")
+                """
             )
         ) { (error: ManifestEditError) in
             if case .cannotFindArrayLiteralArgument(argumentName: "dependencies", node: _) = error {
@@ -305,8 +296,7 @@ class ManifestEditTests: XCTestCase {
                 let package = Package(
                     name: "packages"
                 )
-                """,
-                manifestDirectory: try! AbsolutePath(validating: "/")
+                """
             )
         ) { (error: ManifestEditError) in
             if case .oldManifest(.v5_4) = error {
@@ -314,6 +304,57 @@ class ManifestEditTests: XCTestCase {
             } else {
                 return false
             }
+        }
+    }
+
+    func testAddLibraryTarget() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(name: "MyLib"),
+                ]
+            )
+            """) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(name: "MyLib"),
+                to: manifest
+            )
+        }
+    }
+
+    func testAddLibraryTargetWithDependencies() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(name: "MyLib", dependencies: ["OtherLib", .product(name: "SwiftSyntax", package: "swift-syntax"), .target(name: "TargetLib")]),
+                ]
+            )
+            """) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(name: "MyLib",
+                                  dependencies: [
+                                    .byName(name: "OtherLib", condition: nil),
+                                    .product(name: "SwiftSyntax", package: "swift-syntax"),
+                                    .target(name: "TargetLib", condition: nil)
+                                  ]),
+                to: manifest
+            )
         }
     }
 }

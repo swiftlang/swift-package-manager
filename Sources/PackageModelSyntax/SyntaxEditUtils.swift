@@ -238,3 +238,173 @@ extension ExprSyntax {
         return nil
     }
 }
+
+// MARK: Utilities to oeprate on arrays of array literal elements.
+extension Array<ArrayElementSyntax> {
+    /// Append a new argument expression.
+    mutating func append(expression: ExprSyntax) {
+        // Add a comma on the prior expression, if there is one.
+        if count > 0 {
+            self[count - 1].trailingComma = TokenSyntax.commaToken(trailingTrivia: .space)
+        }
+
+        append(
+            ArrayElementSyntax(
+                expression: expression
+            )
+        )
+    }
+}
+
+// MARK: Utilities to operate on arrays of call arguments.
+
+extension Array<LabeledExprSyntax> {
+    /// Append a potentially labeled argument with the argument expression.
+    mutating func append(label: String?, expression: ExprSyntax) {
+        // Add a comma on the prior expression, if there is one.
+        if count > 0 {
+            self[count - 1].trailingComma = TokenSyntax.commaToken(trailingTrivia: .space)
+        }
+
+        // Add the new expression.
+        append(LabeledExprSyntax(label: label, expression: expression))
+    }
+
+    /// Append a potentially labeled argument with a string literal.
+    mutating func append(label: String?, stringLiteral: String) {
+        append(label: label, expression: "\(literal: stringLiteral)")
+    }
+
+    /// Append a potentially labeled argument with a string literal, but only
+    /// when the string literal is not nil.
+    mutating func appendIf(label: String?, stringLiteral: String?) {
+        if let stringLiteral {
+            append(label: label, stringLiteral: stringLiteral)
+        }
+    }
+
+    /// Append an array literal containing elements that can be rendered
+    /// into expression syntax nodes.
+    mutating func append<T>(
+        label: String?,
+        arrayLiteral: [T]
+    ) where T: ManifestSyntaxRepresentable, T.PreferredSyntax == ExprSyntax {
+        var elements: [ArrayElementSyntax] = []
+        for element in arrayLiteral {
+            elements.append(expression: element.asSyntax())
+        }
+
+        let array = ArrayExprSyntax(elements: ArrayElementListSyntax(elements))
+        append(label: label, expression: ExprSyntax(array))
+    }
+
+    /// Append an array literal containing elements that can be rendered
+    /// into expression syntax nodes.
+    mutating func appendIf<T>(
+        label: String?,
+        arrayLiteral: [T]?
+    ) where T: ManifestSyntaxRepresentable, T.PreferredSyntax == ExprSyntax {
+        guard let arrayLiteral else { return }
+        append(label: label, arrayLiteral: arrayLiteral)
+    }
+
+    /// Append an array literal containing elements that can be rendered
+    /// into expression syntax nodes, but only if it's not empty.
+    mutating func appendIfNonEmpty<T>(
+        label: String?,
+        arrayLiteral: [T]
+    ) where T: ManifestSyntaxRepresentable, T.PreferredSyntax == ExprSyntax {
+        if arrayLiteral.isEmpty { return }
+
+        append(label: label, arrayLiteral: arrayLiteral)
+    }
+}
+
+// MARK: Utilities for adding arguments into calls.
+extension FunctionCallExprSyntax {
+    /// Produce source edits that will add the given new element to the
+    /// array for an argument with the given label (if there is one), or
+    /// introduce a new argument with an array literal containing only the
+    /// new element.
+    ///
+    /// - Parameters:
+    ///   - label: The argument label for the argument whose array will be
+    ///     added or modified.
+    ///   - trailingLabels: The argument labels that could follow the label,
+    ///     which helps determine where the argument should be inserted if
+    ///     it doesn't exist yet.
+    ///   - newElement: The new element.
+    /// - Returns: the resulting source edits to make this change.
+    func appendingToArrayArgument(
+        label: String,
+        trailingLabels: Set<String>,
+        newElement: ExprSyntax
+    ) throws -> [SourceEdit] {
+        // If there is already an argument with this name, append to the array
+        // literal in there.
+        if let arg = findArgument(labeled: label) {
+            guard let argArray = arg.expression.findArrayArgument() else {
+                throw ManifestEditError.cannotFindArrayLiteralArgument(
+                    argumentName: label,
+                    node: Syntax(arg.expression)
+                )
+            }
+
+            let updatedArgArray = argArray.appending(
+                element: newElement,
+                outerLeadingTrivia: arg.leadingTrivia
+            )
+            return [ .replace(argArray, with: updatedArgArray.description) ]
+        }
+
+        // There was no argument, so we need to create one.
+
+        // Insert the new argument at the appropriate place in the call.
+        let insertionPos = arguments.findArgumentInsertionPosition(
+            labelsAfter: trailingLabels
+        )
+        let newArguments = arguments.insertingArgument(
+            at: insertionPos
+        ) { (leadingTrivia, trailingComma) in
+            // The argument is always [ element ], but if we have any newlines
+            // in the leading trivia, then we really want to split it across
+            // multiple lines, like this:
+            // [
+            //   element
+            // ]
+            let newArgument: ExprSyntax
+            if !leadingTrivia.hasNewlines  {
+                newArgument = " [ \(newElement), ]"
+            } else {
+                let innerTrivia = leadingTrivia.appending(defaultIndent)
+                let arrayExpr = ArrayExprSyntax(
+                    leadingTrivia: .space,
+                    elements: [
+                        ArrayElementSyntax(
+                            leadingTrivia: innerTrivia,
+                            expression: newElement,
+                            trailingComma: .commaToken()
+                        )
+                    ],
+                    rightSquare: .rightSquareToken(leadingTrivia: leadingTrivia)
+                )
+                newArgument = ExprSyntax(arrayExpr)
+            }
+
+            return LabeledExprSyntax(
+                leadingTrivia: leadingTrivia,
+                label: "\(raw: label)",
+                colon: .colonToken(),
+                expression: newArgument,
+                trailingComma: trailingComma
+            )
+        }
+
+        return [
+            SourceEdit.replace(
+                arguments,
+                with: newArguments.description
+            )
+        ]
+    }
+}

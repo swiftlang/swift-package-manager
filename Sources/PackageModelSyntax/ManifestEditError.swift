@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageLoading
 import PackageModel
 import SwiftSyntax
 
@@ -36,6 +37,17 @@ extension ManifestEditError: CustomStringConvertible {
             "unable to find array literal for '\(name)' argument"
         case .oldManifest(let version):
             "package manifest version \(version) is too old: please update to manifest version \(ToolsVersion.minimumManifestEditVersion) or newer"
+        }
+    }
+}
+
+extension SourceFileSyntax {
+    /// Check that the manifest described by this source file meets the minimum
+    /// tools version requirements for editing the manifest.
+    func checkEditManifestToolsVersion() throws {
+        let toolsVersion = try ToolsVersionParser.parse(utf8String: description)
+        if toolsVersion < ToolsVersion.minimumManifestEditVersion {
+            throw ManifestEditError.oldManifest(toolsVersion)
         }
     }
 }

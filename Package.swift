@@ -254,6 +254,7 @@ let package = Package(
                 "Basics",
                 "PackageLoading",
                 "PackageModel",
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
