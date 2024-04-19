@@ -17,6 +17,7 @@ import enum PackageFingerprint.FingerprintCheckingMode
 import enum PackageGraph.ContainerUpdateStrategy
 import protocol PackageGraph.PackageContainer
 import protocol PackageGraph.PackageContainerProvider
+import struct PackageGraph.ProvidedLibraryPackageContainer
 import struct PackageModel.PackageReference
 
 // MARK: - Package container provider
