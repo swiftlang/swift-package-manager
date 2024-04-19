@@ -2044,12 +2044,18 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         ])
 
         let result = resolver.solve(constraints: dependencies1)
-        // Available libraries are filtered from the resolver results, so this is expected to be empty.
-        AssertResult(result, [])
+        print(try result.get())
+        AssertResult(result, [
+            (
+                "foo",
+                .providedLibrary(.init("https://example.com/org/foo"), .init("/foo")),
+                .version(.init(stringLiteral: "1.0.0"))
+            ),
+        ])
 
         let result2 = resolver.solve(constraints: dependencies2)
         AssertResult(result2, [
-            ("foo", .version(.init(stringLiteral: "1.2.0"))),
+            ("foo", fooRef.kind, .version(.init(stringLiteral: "1.2.0"))),
         ])
     }
 
@@ -2101,14 +2107,23 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
             "target": (.versionSet(.range(.upToNextMajor(from: "2.0.0"))), .everything),
         ])
 
-        // This behavior requires an explanation - "foo" is elided because 1.1.0 is prebuilt.
-        // It matches "root" requirements but without prebuilt library the solver would pick
-        // "1.0.0" because "foo" 1.1.0 dependency version requirements are incompatible with
-        // "target" 2.0.0.
+        // This behavior requires an explanation - "foo" is selected to be 1.1.0 because its
+        // prebuilt matches "root" requirements but without prebuilt library the solver would
+        // pick "1.0.0" because "foo" 1.1.0 dependency version requirements are incompatible
+        // with "target" 2.0.0.
 
         let result = resolver.solve(constraints: dependencies)
         AssertResult(result, [
-            ("target", .version(.init(stringLiteral: "2.0.0"))),
+            (
+                "foo",
+                .providedLibrary(.init("https://example.com/org/foo"), .init("/foo")),
+                .version(.init(stringLiteral: "1.1.0"))
+            ),
+            (
+                "target",
+                .localSourceControl("/target"),
+                .version(.init(stringLiteral: "2.0.0"))
+            ),
         ])
     }
 
@@ -2152,8 +2167,8 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
 
         let result = resolver.solve(constraints: dependencies)
         AssertResult(result, [
-            ("foo", .version(.init(stringLiteral: "1.1.0"))),
-            ("bar", .version(.init(stringLiteral: "1.0.0"))),
+            ("foo", fooRef.kind, .version(.init(stringLiteral: "1.1.0"))),
+            ("bar", .localSourceControl("/bar"), .version(.init(stringLiteral: "1.0.0"))),
         ])
     }
 }
@@ -3298,6 +3313,22 @@ private func AssertBindings(
     file: StaticString = #file,
     line: UInt = #line
 ) {
+    AssertBindings(
+        bindings,
+        packages.map {
+            (identity: $0, kind: nil, version: $1)
+        },
+        file: file,
+        line: line
+    )
+}
+
+private func AssertBindings(
+    _ bindings: [DependencyResolverBinding],
+    _ packages: [(identity: PackageIdentity, kind: PackageReference.Kind?, version: BoundVersion)],
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     if bindings.count > packages.count {
         let unexpectedBindings = bindings
             .filter { binding in
@@ -3314,7 +3345,17 @@ private func AssertBindings(
         )
     }
     for package in packages {
-        guard let binding = bindings.first(where: { $0.package.identity == package.identity }) else {
+        guard let binding = bindings.first(where: {
+            if $0.package.identity != package.identity {
+                return false
+            }
+
+            if let kind = package.kind, $0.package.kind != kind {
+                return false
+            }
+
+            return true
+        }) else {
             XCTFail("No binding found for \(package.identity).", file: file, line: line)
             continue
         }
@@ -3336,9 +3377,23 @@ private func AssertResult(
     file: StaticString = #file,
     line: UInt = #line
 ) {
+    AssertResult(result, packages.map { ($0, nil, $1) }, file: file, line: line)
+}
+
+private func AssertResult(
+    _ result: Result<[DependencyResolverBinding], Error>,
+    _ packages: [(identifier: String, kind: PackageReference.Kind?, version: BoundVersion)],
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     switch result {
     case .success(let bindings):
-        AssertBindings(bindings, packages.map { (PackageIdentity($0.identifier), $0.version) }, file: file, line: line)
+        AssertBindings(
+            bindings,
+            packages.map { (PackageIdentity($0.identifier), $0.kind, $0.version) },
+            file: file,
+            line: line
+        )
     case .failure(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
@@ -3544,6 +3599,18 @@ public struct MockProvider: PackageContainerProvider {
         ) -> Void
     ) {
         queue.async {
+            if case .providedLibrary(_, _) = package.kind {
+                do {
+                    let container = try ProvidedLibraryPackageContainer(
+                        package: package,
+                        observabilityScope: observabilityScope
+                    )
+                    return completion(.success(container))
+                } catch {
+                    return completion(.failure(error))
+                }
+            }
+
             completion(
                 self.containersByIdentifier[package].map { .success($0) } ??
                     .failure(_MockLoadingError.unknownModule)

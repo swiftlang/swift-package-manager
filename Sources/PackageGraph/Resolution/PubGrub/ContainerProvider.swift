@@ -97,6 +97,14 @@ final class ContainerProvider {
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pins: self.pins)
+
+                    // This container is not cached because it's intended to be transparent
+                    // and requested only when forming final assignments. Caching it would
+                    // mean that subsequent calls to `solve` would pick it up.
+                    if case .providedLibrary = package.kind {
+                        return pubGrubContainer
+                    }
+
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer

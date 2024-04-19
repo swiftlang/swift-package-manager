@@ -15,7 +15,6 @@ add_library(Workspace
   ManagedArtifact.swift
   ManagedDependency.swift
   PackageContainer/FileSystemPackageContainer.swift
-  PackageContainer/ProvidedLibraryPackageContainer.swift
   PackageContainer/RegistryPackageContainer.swift
   PackageContainer/SourceControlPackageContainer.swift
   ResolvedFileWatcher.swift
