@@ -15,7 +15,6 @@ import Basics
 import CoreCommands
 import PackageModel
 import PackageModelSyntax
-@_spi(FixItApplier) import SwiftIDEUtils
 import SwiftParser
 import SwiftSyntax
 import TSCBasic
@@ -140,19 +139,16 @@ extension SwiftPackageCommand {
                 productFilter: .everything
             )
 
-            let edits = try AddPackageDependency.addPackageDependency(
+            let editResult = try AddPackageDependency.addPackageDependency(
                 packageDependency,
                 to: manifestSyntax
             )
 
-            if edits.isEmpty {
-                throw StringError("Unable to add package to manifest file")
-            }
-
-            let updatedManifestSource = FixItApplier.apply(edits: edits, to: manifestSyntax)
-            try fileSystem.writeFileContents(
-                manifestPath,
-                string: updatedManifestSource
+            try editResult.applyEdits(
+                to: fileSystem,
+                manifest: manifestSyntax,
+                manifestPath: manifestPath,
+                verbose: !globalOptions.logging.quiet
             )
         }
     }

@@ -36,6 +36,7 @@ package struct SwiftPackageCommand: AsyncParsableCommand {
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             AddDependency.self,
+            AddTarget.self,
             Clean.self,
             PurgeCache.self,
             Reset.self,
