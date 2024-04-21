@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import SwiftBasicFormat
 import SwiftSyntax
 import SwiftParser
 
@@ -244,12 +245,22 @@ extension Array<ArrayElementSyntax> {
     /// Append a new argument expression.
     mutating func append(expression: ExprSyntax) {
         // Add a comma on the prior expression, if there is one.
+        let leadingTrivia: Trivia?
         if count > 0 {
-            self[count - 1].trailingComma = TokenSyntax.commaToken(trailingTrivia: .space)
+            self[count - 1].trailingComma = TokenSyntax.commaToken()
+            leadingTrivia = .newline
+
+            // Adjust the first element to start with a newline
+            if count == 1 {
+                self[0].leadingTrivia = .newline
+            }
+        } else {
+            leadingTrivia = nil
         }
 
         append(
             ArrayElementSyntax(
+                leadingTrivia: leadingTrivia,
                 expression: expression
             )
         )
@@ -262,12 +273,26 @@ extension Array<LabeledExprSyntax> {
     /// Append a potentially labeled argument with the argument expression.
     mutating func append(label: String?, expression: ExprSyntax) {
         // Add a comma on the prior expression, if there is one.
+        let leadingTrivia: Trivia
         if count > 0 {
-            self[count - 1].trailingComma = TokenSyntax.commaToken(trailingTrivia: .space)
+            self[count - 1].trailingComma = TokenSyntax.commaToken()
+            leadingTrivia = .newline
+
+            // Adjust the first element to start with a newline
+            if count == 1 {
+                self[0].leadingTrivia = .newline
+            }
+        } else {
+            leadingTrivia = Trivia()
         }
 
         // Add the new expression.
-        append(LabeledExprSyntax(label: label, expression: expression))
+        append(
+            LabeledExprSyntax(
+                label: label,
+                expression: expression
+            ).with(\.leadingTrivia, leadingTrivia)
+        )
     }
 
     /// Append a potentially labeled argument with a string literal.
@@ -294,7 +319,19 @@ extension Array<LabeledExprSyntax> {
             elements.append(expression: element.asSyntax())
         }
 
-        let array = ArrayExprSyntax(elements: ArrayElementListSyntax(elements))
+        // When we have more than one element in the array literal, we add
+        // newlines at the beginning of each element. Do the same for the
+        // right square bracket.
+        let rightSquareLeadingTrivia: Trivia = elements.count > 0
+            ? .newline
+            : Trivia()
+
+        let array = ArrayExprSyntax(
+            elements: ArrayElementListSyntax(elements),
+            rightSquare: .rightSquareToken(
+                leadingTrivia: rightSquareLeadingTrivia
+            )
+        )
         append(label: label, expression: ExprSyntax(array))
     }
 
@@ -350,8 +387,19 @@ extension FunctionCallExprSyntax {
                 )
             }
 
+            // Format the element appropriately for the context.
+            let indentation = Trivia(
+                pieces: arg.leadingTrivia.filter { $0.isSpaceOrTab }
+            )
+            let format = BasicFormat(
+                indentationWidth: [ defaultIndent ],
+                initialIndentation: indentation.appending(defaultIndent)
+            )
+            let formattedElement = newElement.formatted(using: format)
+                .cast(ExprSyntax.self)
+
             let updatedArgArray = argArray.appending(
-                element: newElement,
+                element: formattedElement,
                 outerLeadingTrivia: arg.leadingTrivia
             )
             return [ .replace(argArray, with: updatedArgArray.description) ]
@@ -366,36 +414,40 @@ extension FunctionCallExprSyntax {
         let newArguments = arguments.insertingArgument(
             at: insertionPos
         ) { (leadingTrivia, trailingComma) in
-            // The argument is always [ element ], but if we have any newlines
-            // in the leading trivia, then we really want to split it across
-            // multiple lines, like this:
-            // [
-            //   element
-            // ]
-            let newArgument: ExprSyntax
-            if !leadingTrivia.hasNewlines  {
-                newArgument = " [ \(newElement), ]"
-            } else {
-                let innerTrivia = leadingTrivia.appending(defaultIndent)
-                let arrayExpr = ArrayExprSyntax(
-                    leadingTrivia: .space,
-                    elements: [
+            // Format the element appropriately for the context.
+            let indentation = Trivia(pieces: leadingTrivia.filter { $0.isSpaceOrTab })
+            let format = BasicFormat(
+                indentationWidth: [ defaultIndent ],
+                initialIndentation: indentation.appending(defaultIndent)
+            )
+            let formattedElement = newElement.formatted(using: format)
+                .cast(ExprSyntax.self)
+
+            // Form the array.
+            let newArgument = ArrayExprSyntax(
+                leadingTrivia: .space,
+                leftSquare: .leftSquareToken(
+                    trailingTrivia: .newline
+                ),
+                elements: ArrayElementListSyntax(
+                    [
                         ArrayElementSyntax(
-                            leadingTrivia: innerTrivia,
-                            expression: newElement,
+                            expression: formattedElement,
                             trailingComma: .commaToken()
                         )
-                    ],
-                    rightSquare: .rightSquareToken(leadingTrivia: leadingTrivia)
+                    ]
+                ),
+                rightSquare: .rightSquareToken(
+                    leadingTrivia: leadingTrivia
                 )
-                newArgument = ExprSyntax(arrayExpr)
-            }
+            )
 
+            // Create the labeled argument for the array.
             return LabeledExprSyntax(
                 leadingTrivia: leadingTrivia,
                 label: "\(raw: label)",
                 colon: .colonToken(),
-                expression: newArgument,
+                expression: ExprSyntax(newArgument),
                 trailingComma: trailingComma
             )
         }

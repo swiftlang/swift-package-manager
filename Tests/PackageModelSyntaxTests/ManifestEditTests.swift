@@ -213,7 +213,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-system.git", "508.0.0"..<"510.0.0"),
+                    .package(url: "https://github.com/apple/swift-system.git", "508.0.0" ..< "510.0.0"),
                 ]
             )
             """) { manifest in
@@ -375,7 +375,14 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 targets: [
-                    .target(name: "MyLib", dependencies: ["OtherLib", .product(name: "SwiftSyntax", package: "swift-syntax"), .target(name: "TargetLib")]),
+                    .target(
+                        name: "MyLib",
+                        dependencies: [
+                            "OtherLib",
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                            .target(name: "TargetLib")
+                        ]
+                    ),
                 ]
             )
             """,
@@ -394,6 +401,62 @@ class ManifestEditTests: XCTestCase {
                                     .product(name: "SwiftSyntax", package: "swift-syntax"),
                                     .target(name: "TargetLib", condition: nil)
                                   ]),
+                to: manifest
+            )
+        }
+    }
+
+    func testAddExecutableTargetWithDependencies() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(name: "MyLib")
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(name: "MyLib"),
+                    .executableTarget(
+                        name: "MyProgram",
+                        dependencies: [
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                            .target(name: "TargetLib"),
+                            "MyLib"
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Sources/MyProgram/MyProgram.swift") : """
+                import MyLib
+                import SwiftSyntax
+                import TargetLib
+
+                @main
+                struct MyProgramMain {
+                    static func main() {
+                        print("Hello, world")
+                    }
+                }
+                """
+            ]) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(
+                    name: "MyProgram",
+                    dependencies: [
+                        .product(name: "SwiftSyntax", package: "swift-syntax"),
+                        .target(name: "TargetLib", condition: nil),
+                        .byName(name: "MyLib", condition: nil)
+                    ],
+                    type: .executable
+                ),
                 to: manifest
             )
         }
