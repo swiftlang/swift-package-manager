@@ -21,6 +21,7 @@ target_link_libraries(PackageModelSyntax PUBLIC
   PackageLoading
   PackageModel
 
+  SwiftSyntax::SwiftBasicFormat
   SwiftSyntax::SwiftDiagnostics
   SwiftSyntax::SwiftIDEUtils
   SwiftSyntax::SwiftParser

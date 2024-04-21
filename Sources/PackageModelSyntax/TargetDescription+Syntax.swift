@@ -71,7 +71,9 @@ extension TargetDescription: ManifestSyntaxRepresentable {
         // Only for plugins
         arguments.appendIf(label: "checksum", stringLiteral: checksum)
 
-        return ".\(raw: functionName)(\(LabeledExprListSyntax(arguments)))"
+        let separateParen: String = arguments.count > 1 ? "\n" : ""
+        let argumentsSyntax = LabeledExprListSyntax(arguments)
+        return ".\(raw: functionName)(\(argumentsSyntax)\(raw: separateParen))"
     }
 }
 
