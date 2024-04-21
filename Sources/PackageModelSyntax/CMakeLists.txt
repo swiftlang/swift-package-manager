@@ -20,13 +20,17 @@ target_link_libraries(PackageModelSyntax PUBLIC
   Basics
   PackageLoading
   PackageModel
+)
 
-  SwiftSyntax::SwiftBasicFormat
-  SwiftSyntax::SwiftDiagnostics
-  SwiftSyntax::SwiftIDEUtils
-  SwiftSyntax::SwiftParser
-  SwiftSyntax::SwiftSyntax
-  SwiftSyntax::SwiftSyntaxBuilder)
+target_link_libraries(PackageModelSyntax PRIVATE
+  SwiftBasicFormat
+  SwiftDiagnostics
+  SwiftIDEUtils
+  SwiftParser
+  SwiftSyntax
+  SwiftSyntaxBuilder
+)
+
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageModelSyntax PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
