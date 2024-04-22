@@ -58,7 +58,6 @@ extension Workspace {
         root: PackageGraphRootInput,
         packages: [String] = [],
         dryRun: Bool = false,
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         let start = DispatchTime.now()
@@ -89,7 +88,6 @@ extension Workspace {
         )
         let currentManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
 
@@ -124,7 +122,6 @@ extension Workspace {
         // Resolve the dependencies.
         let resolver = try self.createResolver(
             pins: pins,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         self.activeResolver = resolver
@@ -167,7 +164,6 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
@@ -201,7 +197,6 @@ extension Workspace {
     func _resolve(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [ProvidedLibrary],
         resolvedFileStrategy: ResolvedFileStrategy,
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
@@ -217,7 +212,6 @@ extension Workspace {
             return try self._resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         case .update(let forceResolution):
@@ -254,7 +248,6 @@ extension Workspace {
             let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
             switch precomputationResult {
@@ -278,7 +271,6 @@ extension Workspace {
             return try self.resolveAndUpdateResolvedFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                availableLibraries: availableLibraries,
                 forceResolution: forceResolution,
                 constraints: [],
                 observabilityScope: observabilityScope
@@ -305,13 +297,11 @@ extension Workspace {
     func _resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         switch precomputationResult {
@@ -344,7 +334,6 @@ extension Workspace {
     fileprivate func tryResolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
@@ -371,7 +360,6 @@ extension Workspace {
             return try (
                 self.loadDependencyManifests(
                     root: graphRoot,
-                    availableLibraries: availableLibraries,
                     observabilityScope: observabilityScope
                 ),
                 .notRequired
@@ -464,7 +452,6 @@ extension Workspace {
         let currentManifests = try self.loadDependencyManifests(
             root: graphRoot,
             automaticallyAddManagedDependencies: true,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
 
@@ -479,7 +466,6 @@ extension Workspace {
             dependencyManifests: currentManifests,
             pinsStore: pinsStore,
             constraints: [],
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
 
@@ -496,7 +482,6 @@ extension Workspace {
     func resolveAndUpdateResolvedFile(
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
-        availableLibraries: [ProvidedLibrary],
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
@@ -524,7 +509,6 @@ extension Workspace {
         )
         let currentManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         guard !observabilityScope.errorsReported else {
@@ -561,7 +545,6 @@ extension Workspace {
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
                 constraints: constraints,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
 
@@ -597,7 +580,6 @@ extension Workspace {
         // Perform dependency resolution.
         let resolver = try self.createResolver(
             pins: pinsStore.pins,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         self.activeResolver = resolver
@@ -628,7 +610,6 @@ extension Workspace {
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
@@ -850,7 +831,6 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
         constraints: [PackageContainerConstraint],
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> ResolutionPrecomputationResult {
         let computedConstraints =
@@ -867,7 +847,7 @@ extension Workspace {
         let resolver = PubGrubDependencyResolver(
             provider: precomputationProvider,
             pins: pinsStore.pins,
-            availableLibraries: availableLibraries,
+            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
         let result = resolver.solve(constraints: computedConstraints)
@@ -1145,7 +1125,6 @@ extension Workspace {
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
         pins: PinsStore.Pins,
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
@@ -1162,7 +1141,7 @@ extension Workspace {
         return PubGrubDependencyResolver(
             provider: packageContainerProvider,
             pins: pins,
-            availableLibraries: availableLibraries,
+            availableLibraries: self.providedLibraries,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
             prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,

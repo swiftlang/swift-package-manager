@@ -46,7 +46,7 @@ public struct ProvidedLibraryPackageContainer: PackageContainer {
     }
 
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
-        .v6_0
+        .v4
     }
 
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
@@ -54,7 +54,7 @@ public struct ProvidedLibraryPackageContainer: PackageContainer {
     }
 
     public func versionsAscending() throws -> [Version] {
-        [] // TODO
+        []
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
