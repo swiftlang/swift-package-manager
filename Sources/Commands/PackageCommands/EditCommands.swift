@@ -72,7 +72,6 @@ extension SwiftPackageCommand {
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftCommandState.getWorkspaceRoot(),
-                availableLibraries: swiftCommandState.getHostToolchain().providedLibraries,
                 observabilityScope: swiftCommandState.observabilityScope
             )
         }
