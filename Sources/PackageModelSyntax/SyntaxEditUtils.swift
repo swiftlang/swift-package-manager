@@ -25,6 +25,16 @@ extension Trivia {
     var hasNewlines: Bool {
         contains(where: \.isNewline)
     }
+
+    /// Produce trivia from the last newline to the end, dropping anything
+    /// prior to that.
+    func onlyLastLine() -> Trivia {
+        guard let lastNewline = pieces.lastIndex(where: { $0.isNewline }) else {
+            return self
+        }
+
+        return Trivia(pieces: pieces[lastNewline...])
+    }
 }
 
 /// Syntax walker to find the first occurrence of a given node kind that
@@ -186,7 +196,7 @@ extension ArrayExprSyntax {
         if let last = elements.last {
             // The leading trivia of the new element should match that of the
             // last element.
-            leadingTrivia = last.leadingTrivia
+            leadingTrivia = last.leadingTrivia.onlyLastLine()
 
             // Add a trailing comma to the last element if it isn't already
             // there.
@@ -324,14 +334,31 @@ extension Array<LabeledExprSyntax> {
             elements.append(expression: element.asSyntax())
         }
 
-        // When we have more than one element in the array literal, we add
-        // newlines at the beginning of each element. Do the same for the
-        // right square bracket.
-        let rightSquareLeadingTrivia: Trivia = elements.count > 0
-            ? .newline
-            : Trivia()
+        // Figure out the trivia for the left and right square
+        let leftSquareTrailingTrivia: Trivia
+        let rightSquareLeadingTrivia: Trivia
+        switch elements.count {
+        case 0:
+            // Put a single space between the square brackets.
+            leftSquareTrailingTrivia = Trivia()
+            rightSquareLeadingTrivia = .space
+
+        case 1:
+            // Put spaces around the single element
+            leftSquareTrailingTrivia = .space
+            rightSquareLeadingTrivia = .space
+
+        default:
+            // Each of the elements will have a leading newline. Add a leading
+            // newline before the close bracket.
+            leftSquareTrailingTrivia = Trivia()
+            rightSquareLeadingTrivia = .newline
+        }
 
         let array = ArrayExprSyntax(
+            leftSquare: .leftSquareToken(
+                trailingTrivia: leftSquareTrailingTrivia
+            ),
             elements: ArrayElementListSyntax(elements),
             rightSquare: .rightSquareToken(
                 leadingTrivia: rightSquareLeadingTrivia
