@@ -20,9 +20,7 @@ target_link_libraries(PackageModelSyntax PUBLIC
   Basics
   PackageLoading
   PackageModel
-)
 
-target_link_libraries(PackageModelSyntax PRIVATE
   SwiftBasicFormat
   SwiftDiagnostics
   SwiftIDEUtils
@@ -40,3 +38,23 @@ install(TARGETS PackageModelSyntax
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageModelSyntax)
+
+set(SWIFT_SYNTAX_MODULES
+  SwiftBasicFormat
+  SwiftParser
+  SwiftParserDiagnostics
+  SwiftDiagnostics
+  SwiftSyntax
+  SwiftOperators
+  SwiftSyntaxBuilder
+  SwiftSyntaxMacros
+  SwiftSyntaxMacroExpansion
+  SwiftCompilerPluginMessageHandling
+  # Support for LSP
+  SwiftIDEUtils
+  SwiftRefactor
+)
+export(TARGETS ${SWIFT_SYNTAX_MODULES}
+       NAMESPACE SwiftSyntax::
+       FILE ${CMAKE_BINARY_DIR}/cmake/modules/SwiftSyntaxConfig.cmake
+       EXPORT_LINK_INTERFACE_LIBRARIES)
