@@ -63,7 +63,7 @@ public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription)
 
 /// Convenience initializers for package manifest structures.
 fileprivate extension SourceCodeFragment {
-    
+
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
     init(
         from manifest: Manifest,
