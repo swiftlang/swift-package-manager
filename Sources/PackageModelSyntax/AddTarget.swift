@@ -43,6 +43,16 @@ public struct AddTarget {
             throw ManifestEditError.cannotFindPackage
         }
 
+        // Create a mutable version of target to which we can add more
+        // content when needed.
+        var target = target
+
+        // Macro targets need to depend on a couple of libraries from
+        // SwiftSyntax.
+        if target.type == .macro {
+            target.dependencies.append(contentsOf: macroTargetDependencies)
+        }
+
         let manifestEdits = try packageCall.appendingToArrayArgument(
             label: "targets",
             trailingLabels: Self.argumentLabelsAfterTargets,
@@ -50,8 +60,8 @@ public struct AddTarget {
         )
 
         let outerDirectory: String? = switch target.type {
-        case .binary, .macro, .plugin, .system: nil
-        case .executable, .regular: "Sources"
+        case .binary, .plugin, .system: nil
+        case .executable, .regular, .macro: "Sources"
         case .test: "Tests"
         }
 
@@ -59,8 +69,58 @@ public struct AddTarget {
             return PackageEditResult(manifestEdits: manifestEdits)
         }
 
-        let sourceFilePath = try RelativePath(validating: outerDirectory)
-            .appending(components: [target.name, "\(target.name).swift"])
+        let outerPath = try RelativePath(validating: outerDirectory)
+
+        /// The set of auxiliary files this refactoring will create.
+        var auxiliaryFiles: AuxiliaryFiles = []
+
+        // Add the primary source file. Every target type has this.
+        addPrimarySourceFile(
+            outerPath: outerPath,
+            target: target,
+            to: &auxiliaryFiles
+        )
+
+        // Perform any other actions that are needed for this target type.
+        switch target.type {
+        case .macro:
+            // Macros need a file that introduces the main entrypoint
+            // describing all of the macros.
+            auxiliaryFiles.addSourceFile(
+                path: outerPath.appending(
+                    components: [target.name, "ProvidedMacros.swift"]
+                ),
+                sourceCode: """
+                import SwiftCompilerPlugin
+
+                @main
+                struct \(raw: target.name)Macros: CompilerPlugin {
+                    let providingMacros: [Macro.Type] = [
+                        \(raw: target.name).self,
+                    ]
+                }
+                """
+            )
+
+        default: break;
+        }
+
+        return PackageEditResult(
+            manifestEdits: manifestEdits,
+            auxiliaryFiles: auxiliaryFiles
+        )
+    }
+
+    /// Add the primary source file for a target to the list of auxiliary
+    /// source files.
+    fileprivate static func addPrimarySourceFile(
+        outerPath: RelativePath,
+        target: TargetDescription,
+        to auxiliaryFiles: inout AuxiliaryFiles
+    ) {
+        let sourceFilePath = outerPath.appending(
+            components: [target.name, "\(target.name).swift"]
+        )
 
         // Introduce imports for each of the dependencies that were specified.
         var importModuleNames = target.dependencies.map {
@@ -83,8 +143,21 @@ public struct AddTarget {
         }
 
         let sourceFileText: SourceFileSyntax = switch target.type {
-        case .binary, .macro, .plugin, .system:
+        case .binary, .plugin, .system:
             fatalError("should have exited above")
+
+        case .macro:
+            """
+            \(imports)
+            struct \(raw: target.name): Macro {
+                /// TODO: Implement one or more of the protocols that inherit
+                /// from Macro. The appropriate macro protocol is determined
+                /// by the "macro" declaration that \(raw: target.name) implements.
+                /// Examples include:
+                ///     @freestanding(expression) macro --> ExpressionMacro
+                ///     @attached(member) macro         --> MemberMacro
+            }
+            """
 
         case .test:
             """
@@ -113,9 +186,9 @@ public struct AddTarget {
             """
         }
 
-        return PackageEditResult(
-            manifestEdits: manifestEdits,
-            auxiliaryFiles: [(sourceFilePath, sourceFileText)]
+        auxiliaryFiles.addSourceFile(
+            path: sourceFilePath,
+            sourceCode: sourceFileText
         )
     }
 }
@@ -131,3 +204,24 @@ fileprivate extension TargetDescription.Dependency {
         }
     }
 }
+
+/// The array of auxiliary files that can be added by a package editing
+/// operation.
+fileprivate typealias AuxiliaryFiles = [(RelativePath, SourceFileSyntax)]
+
+fileprivate extension AuxiliaryFiles {
+    /// Add a source file to the list of auxiliary files.
+    mutating func addSourceFile(
+        path: RelativePath,
+        sourceCode: SourceFileSyntax
+    ) {
+        self.append((path, sourceCode))
+    }
+}
+
+/// The set of dependencies we need to introduce to a newly-created macro
+/// target.
+fileprivate let macroTargetDependencies: [TargetDescription.Dependency] = [
+    .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+]

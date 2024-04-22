@@ -461,6 +461,62 @@ class ManifestEditTests: XCTestCase {
             )
         }
     }
+
+    func testAddMacroTarget() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .macro(
+                        name: "MyMacro",
+                        dependencies: [
+                            .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                            .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
+                        ]
+                    ),
+                ]
+            )
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Sources/MyMacro/MyMacro.swift") : """
+                import SwiftCompilerPlugin
+                import SwiftSyntaxMacros
+
+                struct MyMacro: Macro {
+                    /// TODO: Implement one or more of the protocols that inherit
+                    /// from Macro. The appropriate macro protocol is determined
+                    /// by the "macro" declaration that MyMacro implements.
+                    /// Examples include:
+                    ///     @freestanding(expression) macro --> ExpressionMacro
+                    ///     @attached(member) macro         --> MemberMacro
+                }
+                """,
+                RelativePath("Sources/MyMacro/ProvidedMacros.swift") : """
+                import SwiftCompilerPlugin
+
+                @main
+                struct MyMacroMacros: CompilerPlugin {
+                    let providingMacros: [Macro.Type] = [
+                        MyMacro.self,
+                    ]
+                }
+                """
+                ]
+        ) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(name: "MyMacro", type: .macro),
+                to: manifest
+            )
+        }
+    }
+
 }
 
 
