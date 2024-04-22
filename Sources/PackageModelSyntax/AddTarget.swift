@@ -15,6 +15,7 @@ import PackageModel
 import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxBuilder
+import struct TSCUtility.Version
 
 /// Add a target to a manifest's source code.
 public struct AddTarget {
@@ -53,7 +54,7 @@ public struct AddTarget {
             target.dependencies.append(contentsOf: macroTargetDependencies)
         }
 
-        let manifestEdits = try packageCall.appendingToArrayArgument(
+        var newPackageCall = try packageCall.appendingToArrayArgument(
             label: "targets",
             trailingLabels: Self.argumentLabelsAfterTargets,
             newElement: target.asSyntax()
@@ -66,7 +67,11 @@ public struct AddTarget {
         }
 
         guard let outerDirectory else {
-            return PackageEditResult(manifestEdits: manifestEdits)
+            return PackageEditResult(
+                manifestEdits: [
+                    .replace(packageCall, with: newPackageCall.description)
+                ]
+            )
         }
 
         let outerPath = try RelativePath(validating: outerDirectory)
@@ -82,31 +87,47 @@ public struct AddTarget {
         )
 
         // Perform any other actions that are needed for this target type.
+        var extraManifestEdits: [SourceEdit] = []
         switch target.type {
         case .macro:
-            // Macros need a file that introduces the main entrypoint
-            // describing all of the macros.
-            auxiliaryFiles.addSourceFile(
-                path: outerPath.appending(
-                    components: [target.name, "ProvidedMacros.swift"]
-                ),
-                sourceCode: """
-                import SwiftCompilerPlugin
-
-                @main
-                struct \(raw: target.name)Macros: CompilerPlugin {
-                    let providingMacros: [Macro.Type] = [
-                        \(raw: target.name).self,
-                    ]
-                }
-                """
+            addProvidedMacrosSourceFile(
+                outerPath: outerPath,
+                target: target,
+                to: &auxiliaryFiles
             )
+
+            if !manifest.description.contains("swift-syntax") {
+                newPackageCall = try AddPackageDependency
+                    .addPackageDependencyLocal(
+                        .swiftSyntax,
+                        to: newPackageCall
+                    )
+
+                // Look for the first import declaration and insert an
+                // import of `CompilerPluginSupport` there.
+                let newImport = "import CompilerPluginSupport\n"
+                for node in manifest.statements {
+                    if let importDecl = node.item.as(ImportDeclSyntax.self) {
+                        let insertPos = importDecl
+                            .positionAfterSkippingLeadingTrivia
+                        extraManifestEdits.append(
+                            SourceEdit(
+                                range: insertPos..<insertPos,
+                                replacement: newImport
+                            )
+                        )
+                        break
+                    }
+                }
+            }
 
         default: break;
         }
 
         return PackageEditResult(
-            manifestEdits: manifestEdits,
+            manifestEdits: [
+                .replace(packageCall, with: newPackageCall.description)
+            ] + extraManifestEdits,
             auxiliaryFiles: auxiliaryFiles
         )
     }
@@ -191,6 +212,30 @@ public struct AddTarget {
             sourceCode: sourceFileText
         )
     }
+
+    /// Add a file that introduces the main entrypoint and provided macros
+    /// for a macro target.
+    fileprivate static func addProvidedMacrosSourceFile(
+        outerPath: RelativePath,
+        target: TargetDescription,
+        to auxiliaryFiles: inout AuxiliaryFiles
+    ) {
+        auxiliaryFiles.addSourceFile(
+            path: outerPath.appending(
+                components: [target.name, "ProvidedMacros.swift"]
+            ),
+            sourceCode: """
+            import SwiftCompilerPlugin
+
+            @main
+            struct \(raw: target.name)Macros: CompilerPlugin {
+                let providingMacros: [Macro.Type] = [
+                    \(raw: target.name).self,
+                ]
+            }
+            """
+        )
+    }
 }
 
 fileprivate extension TargetDescription.Dependency {
@@ -225,3 +270,27 @@ fileprivate let macroTargetDependencies: [TargetDescription.Dependency] = [
     .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
     .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
 ]
+
+/// The package dependency for swift-syntax, for use in macros.
+fileprivate extension PackageDependency {
+    /// Source control URL for the swift-syntax package.
+    static var swiftSyntaxURL: SourceControlURL {
+        "https://github.com/apple/swift-syntax.git"
+    }
+
+    /// Package dependency on the swift-syntax package.
+    static var swiftSyntax: PackageDependency {
+        let swiftSyntaxVersionDefault = InstalledSwiftPMConfiguration
+            .default
+            .swiftSyntaxVersionForMacroTemplate
+        let swiftSyntaxVersion = Version(swiftSyntaxVersionDefault.description)!
+
+        return .sourceControl(
+            identity: PackageIdentity(url: swiftSyntaxURL),
+            nameForTargetDependencyResolutionOnly: nil,
+            location: .remote(swiftSyntaxURL),
+            requirement: .range(.upToNextMajor(from: swiftSyntaxVersion)),
+            productFilter: .everything
+        )
+    }
+}
