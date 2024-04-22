@@ -793,6 +793,64 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testPackageAddDependency() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+                """
+            )
+
+            _ = try execute(["add-dependency", "--branch", "main", "https://github.com/apple/swift-syntax.git"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#".package(url: "https://github.com/apple/swift-syntax.git", branch: "main"),"#))
+        }
+    }
+
+    func testPackageAddTarget() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client"
+                )
+                """
+            )
+
+            _ = try execute(["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"targets:"#))
+            XCTAssertMatch(contents, .contains(#".executableTarget"#))
+            XCTAssertMatch(contents, .contains(#"name: "client""#))
+            XCTAssertMatch(contents, .contains(#"dependencies:"#))
+            XCTAssertMatch(contents, .contains(#""MyLib""#))
+            XCTAssertMatch(contents, .contains(#""OtherLib""#))
+        }
+    }
+
     func testPackageEditAndUnedit() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
@@ -1926,13 +1984,13 @@ final class PackageCommandTests: CommandsTestCase {
 
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             func runPlugin(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
-                let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)
+                let (stdout, stderr) = try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 completion(stdout, stderr)
             }
 
             // Diagnostics.error causes SwiftPM to return a non-zero exit code, but we still need to check stdout and stderr
             func runPluginWithError(flags: [String], diagnostics: [String], completion: (String, String) -> Void) throws {
-                XCTAssertThrowsError(try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath)) { error in
+                XCTAssertThrowsError(try SwiftPM.Package.execute(flags + ["print-diagnostics"] + diagnostics, packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
                         return XCTFail("invalid error \(error)")
                     }
@@ -2124,28 +2182,28 @@ final class PackageCommandTests: CommandsTestCase {
 
         // Check than nothing is echoed when echoLogs is false
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
             XCTAssertMatch(stderr, isEmpty)
         }
 
         // Check that logs are returned to the plugin when echoLogs is false
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
             XCTAssertMatch(stderr, isEmpty)
         }
 
         // Check that logs echoed to the console (on stderr) when echoLogs is true
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, isEmpty)
             XCTAssertMatch(stderr, containsLogecho)
         }
 
         // Check that logs are returned to the plugin and echoed to the console (on stderr) when echoLogs is true
         try fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath)
+            let (stdout, stderr) = try SwiftPM.Package.execute(["print-diagnostics", "build", "printlogs", "echologs"], packagePath: fixturePath, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             XCTAssertMatch(stdout, containsLogtext)
             XCTAssertMatch(stderr, containsLogecho)
         }
@@ -2438,14 +2496,14 @@ final class PackageCommandTests: CommandsTestCase {
 
             // Check arguments
             do {
-                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                let (stdout, stderr) = try SwiftPM.Package.execute(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
                 XCTAssertEqual(stderr, "")
             }
 
             // Check default command arguments
             do {
-                let (stdout, stderr) = try SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                let (stdout, stderr) = try SwiftPM.Package.execute(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
                 XCTAssertMatch(stdout, .contains("success"))
                 XCTAssertEqual(stderr, "")
             }
