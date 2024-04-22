@@ -61,8 +61,6 @@ extension Workspace {
 
         private let workspace: Workspace
 
-        private let availableLibraries: [ProvidedLibrary]
-
         private let observabilityScope: ObservabilityScope
 
         private let _dependencies: LoadableResult<(
@@ -81,20 +79,17 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            availableLibraries: [ProvidedLibrary],
             observabilityScope: ObservabilityScope
         ) {
             self.root = root
             self.dependencies = dependencies
             self.workspace = workspace
-            self.availableLibraries = availableLibraries
             self.observabilityScope = observabilityScope
             self._dependencies = LoadableResult {
                 try Self.computeDependencies(
                     root: root,
                     dependencies: dependencies,
                     workspace: workspace,
-                    availableLibraries: availableLibraries,
                     observabilityScope: observabilityScope
                 )
             }
@@ -173,7 +168,6 @@ extension Workspace {
                 fileSystem: FileSystem
             )],
             workspace: Workspace,
-            availableLibraries: [ProvidedLibrary],
             observabilityScope: ObservabilityScope
         ) throws
             -> (
@@ -203,17 +197,6 @@ extension Workspace {
                 }
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
             })
-
-            let identitiesAvailableInSDK = availableLibraries.flatMap {
-                $0.metadata.identities.map {
-                    $0.ref
-                }.filter {
-                    // We "trust the process" here, if an identity from the SDK is available, filter it.
-                    !availableIdentities.contains($0)
-                }.map {
-                    $0.identity
-                }
-            }
 
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = root.packages.map { identity, package in
@@ -291,11 +274,6 @@ extension Workspace {
                 }
             }
             requiredIdentities = inputIdentities.union(requiredIdentities)
-
-            let identitiesToFilter = requiredIdentities.filter {
-                return identitiesAvailableInSDK.contains($0.identity)
-            }
-            requiredIdentities = requiredIdentities.subtracting(identitiesToFilter)
 
             // We should never have loaded a manifest we don't need.
             assert(
@@ -438,7 +416,6 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         automaticallyAddManagedDependencies: Bool = false,
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let prepopulateManagedDependencies: ([PackageReference]) throws -> Void = { refs in
@@ -481,7 +458,6 @@ extension Workspace {
 
         // Validates that all the managed dependencies are still present in the file system.
         self.fixManagedDependencies(
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         guard !observabilityScope.errorsReported else {
@@ -490,7 +466,6 @@ extension Workspace {
                 root: root,
                 dependencies: [],
                 workspace: self,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         }
@@ -564,7 +539,6 @@ extension Workspace {
                 root: root,
                 dependencies: [],
                 workspace: self,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         }
@@ -625,7 +599,6 @@ extension Workspace {
             root: root,
             dependencies: dependencies,
             workspace: self,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
     }
@@ -821,7 +794,6 @@ extension Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func fixManagedDependencies(
-        availableLibraries: [ProvidedLibrary],
         observabilityScope: ObservabilityScope
     ) {
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
@@ -895,7 +867,6 @@ extension Workspace {
                     try self.unedit(
                         dependency: dependency,
                         forceRemove: true,
-                        availableLibraries: availableLibraries,
                         observabilityScope: observabilityScope
                     )
 

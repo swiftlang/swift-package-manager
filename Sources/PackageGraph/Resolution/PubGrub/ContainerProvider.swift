@@ -115,12 +115,9 @@ final class ContainerProvider {
     }
 
     /// Starts prefetching the given containers.
-    func prefetch(containers identifiers: [PackageReference], availableLibraries: [ProvidedLibrary]) {
-        let filteredIdentifiers = identifiers.filter {
-            $0.matchingPrebuiltLibrary(in: availableLibraries) == nil
-        }
+    func prefetch(containers identifiers: [PackageReference]) {
         // Process each container.
-        for identifier in filteredIdentifiers {
+        for identifier in identifiers {
             var needsFetching = false
             self.prefetches.memoize(identifier) {
                 let group = DispatchGroup()

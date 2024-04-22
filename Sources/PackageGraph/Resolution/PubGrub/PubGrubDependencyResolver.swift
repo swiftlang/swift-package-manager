@@ -203,7 +203,7 @@ public struct PubGrubDependencyResolver {
             let pins = self.pins.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: pins, availableLibraries: self.availableLibraries)
+            self.provider.prefetch(containers: pins)
         }
 
         let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
@@ -500,8 +500,9 @@ public struct PubGrubDependencyResolver {
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
             self.provider.prefetch(
-                containers: state.solution.undecided.map(\.node.package),
-                availableLibraries: self.availableLibraries
+                containers: state.solution.undecided.map(\.node.package).filter {
+                    $0.matchingPrebuiltLibrary(in: self.availableLibraries) == nil
+                }
             )
 
             // If decision making determines that no more decisions are to be
