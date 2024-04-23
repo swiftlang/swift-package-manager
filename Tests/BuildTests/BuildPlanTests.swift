@@ -20,7 +20,10 @@ import DriverSupport
 @testable import PackageGraph
 
 import PackageLoading
+
+@_spi(SwiftPMInternal)
 @testable import PackageModel
+
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
