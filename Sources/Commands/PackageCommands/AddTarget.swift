@@ -113,7 +113,10 @@ extension SwiftPackageCommand {
 
             let editResult = try PackageModelSyntax.AddTarget.addTarget(
                 target,
-                to: manifestSyntax
+                to: manifestSyntax,
+                installedSwiftPMConfiguration: swiftCommandState
+                  .getHostToolchain()
+                  .installedSwiftPMConfiguration
             )
 
             try editResult.applyEdits(

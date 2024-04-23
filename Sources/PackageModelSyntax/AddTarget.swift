@@ -35,7 +35,8 @@ public struct AddTarget {
     /// new target.
     public static func addTarget(
         _ target: TargetDescription,
-        to manifest: SourceFileSyntax
+        to manifest: SourceFileSyntax,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration = .default
     ) throws -> PackageEditResult {
         // Make sure we have a suitable tools version in the manifest.
         try manifest.checkEditManifestToolsVersion()
@@ -99,7 +100,9 @@ public struct AddTarget {
             if !manifest.description.contains("swift-syntax") {
                 newPackageCall = try AddPackageDependency
                     .addPackageDependencyLocal(
-                        .swiftSyntax,
+                        .swiftSyntax(
+                          configuration: installedSwiftPMConfiguration
+                        ),
                         to: newPackageCall
                     )
 
@@ -279,9 +282,10 @@ fileprivate extension PackageDependency {
     }
 
     /// Package dependency on the swift-syntax package.
-    static var swiftSyntax: PackageDependency {
-        let swiftSyntaxVersionDefault = InstalledSwiftPMConfiguration
-            .default
+    static func swiftSyntax(
+      configuration: InstalledSwiftPMConfiguration
+    ) -> PackageDependency {
+        let swiftSyntaxVersionDefault = configuration
             .swiftSyntaxVersionForMacroTemplate
         let swiftSyntaxVersion = Version(swiftSyntaxVersionDefault.description)!
 
