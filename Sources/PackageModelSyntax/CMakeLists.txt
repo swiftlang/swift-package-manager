@@ -8,11 +8,13 @@
 
 add_library(PackageModelSyntax
   AddPackageDependency.swift
+  AddProduct.swift
   AddTarget.swift
   ManifestEditError.swift
   ManifestSyntaxRepresentable.swift
   PackageDependency+Syntax.swift
   PackageEditResult.swift
+  ProductDescription+Syntax.swift
   SyntaxEditUtils.swift
   TargetDescription+Syntax.swift
 )
