@@ -49,7 +49,7 @@ extension SwiftSDK {
 extension UserToolchain {
     package static var `default`: Self {
         get throws {
-            return try .init(swiftSDK: SwiftSDK.default)
+            return try .init(swiftSDK: SwiftSDK.default, fileSystem: localFileSystem)
         }
     }
 }

@@ -294,9 +294,10 @@ package final class SwiftCommandState {
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
-        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
+        fileSystem: any FileSystem = localFileSystem
     ) throws {
-        self.fileSystem = localFileSystem
+        self.fileSystem = fileSystem
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
@@ -842,16 +843,19 @@ package final class SwiftCommandState {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(swiftSDK: swiftSDK) })
+        return Result(catching: { try UserToolchain(swiftSDK: swiftSDK, fileSystem: self.fileSystem) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
-            try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(
-                originalWorkingDirectory: self.originalWorkingDirectory,
-                observabilityScope: self.observabilityScope
-            ))
+            try UserToolchain(
+                swiftSDK: SwiftSDK.hostSwiftSDK(
+                    originalWorkingDirectory: self.originalWorkingDirectory,
+                    observabilityScope: self.observabilityScope
+                ),
+                fileSystem: self.fileSystem
+            )
         })
     }()
 
