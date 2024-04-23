@@ -465,14 +465,22 @@ class ManifestEditTests: XCTestCase {
     func testAddMacroTarget() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
+            import PackageDescription
+
             let package = Package(
                 name: "packages"
             )
             """,
             expectedManifest: """
             // swift-tools-version: 5.5
+            import CompilerPluginSupport
+            import PackageDescription
+
             let package = Package(
                 name: "packages",
+                dependencies: [
+                    .package(url: "https://github.com/apple/swift-syntax.git", from: "600.0.0-latest"),
+                ],
                 targets: [
                     .macro(
                         name: "MyMacro",
