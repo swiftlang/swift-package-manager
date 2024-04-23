@@ -242,7 +242,7 @@ public struct PubGrubDependencyResolver {
             }
 
             if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
-               boundVersion == .version(.init(stringLiteral: library.version))
+               boundVersion == .version(library.version)
             {
                 guard case .remoteSourceControl(let url) = package.kind else {
                     throw InternalError("Matched provided library against invalid package: \(package)")
@@ -748,11 +748,9 @@ public struct PubGrubDependencyResolver {
                     continue
                 }
 
-                let version = Version(stringLiteral: library.version)
-
-                if pkgTerm.requirement.contains(version) {
-                    self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
-                    state.decide(pkgTerm.node, at: version)
+                if pkgTerm.requirement.contains(library.version) {
+                    self.delegate?.didResolve(term: pkgTerm, version: library.version, duration: start.distance(to: .now()))
+                    state.decide(pkgTerm.node, at: library.version)
                     return completion(.success(pkgTerm.node))
                 }
             }
