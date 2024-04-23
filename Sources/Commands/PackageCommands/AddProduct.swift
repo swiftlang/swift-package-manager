@@ -22,32 +22,34 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
-    struct AddTarget: SwiftCommand {
-        /// The type of target that can be specified on the command line.
-        enum TargetType: String, Codable, ExpressibleByArgument {
-            case library
+    struct AddProduct: SwiftCommand {
+        /// The package product type used for the command-line. This is a
+        /// subset of `ProductType` that expands out the library types.
+        enum CommandProductType: String, Codable, ExpressibleByArgument {
             case executable
-            case test
-            case macro
+            case library
+            case staticLibrary = "static-library"
+            case dynamicLibrary = "dynamic-library"
+            case plugin
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new target to the manifest")
+            abstract: "Add a new product to the manifest")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The name of the new target")
+        @Argument(help: "The name of the new product")
         var name: String
 
-        @Option(help: "The type of target to add, which can be one of 'library', 'executable', 'test', or 'macro'")
-        var type: TargetType = .library
+        @Option(help: "The type of target to add, which can be one of 'executable', 'library', 'static-library', 'dynamic-library', or 'plugin'")
+        var type: CommandProductType = .library
 
         @Option(
             parsing: .upToNextOption,
-            help: "A list of target dependency names"
+            help: "A list of targets that are part of this product"
         )
-        var dependencies: [String] = []
+        var targets: [String] = []
 
         @Option(help: "The URL for a remote binary target")
         var url: String?
@@ -84,35 +86,24 @@ extension SwiftPackageCommand {
                 }
             }
 
-            // Map the target type.
-            let type: TargetDescription.TargetType = switch self.type {
-                case .library: .regular
-                case .executable: .executable
-                case .test: .test
-                case .macro: .macro
+            // Map the product type.
+            let type: ProductType = switch self.type {
+            case .executable: .executable
+            case .library: .library(.automatic)
+            case .dynamicLibrary: .library(.dynamic)
+            case .staticLibrary: .library(.static)
+            case .plugin: .plugin
             }
 
-            // Map dependencies
-            let dependencies: [TargetDescription.Dependency] =
-                self.dependencies.map {
-                    .byName(name: $0, condition: nil)
-                }
-
-            let target = try TargetDescription(
+            let product = try ProductDescription(
                 name: name,
-                dependencies: dependencies,
-                path: path,
-                url: url,
                 type: type,
-                checksum: checksum
+                targets: targets
             )
 
-            let editResult = try PackageModelSyntax.AddTarget.addTarget(
-                target,
-                to: manifestSyntax,
-                installedSwiftPMConfiguration: swiftCommandState
-                  .getHostToolchain()
-                  .installedSwiftPMConfiguration
+            let editResult = try PackageModelSyntax.AddProduct.addProduct(
+                product,
+                to: manifestSyntax
             )
 
             try editResult.applyEdits(

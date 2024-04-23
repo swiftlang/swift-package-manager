@@ -335,6 +335,43 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
+    func testAddLibraryProduct() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(name: "MyLib"),
+                ],
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                products: [
+                    .library(
+                        name: "MyLib",
+                        type: .dynamic,
+                        targets: [ "MyLib" ]
+                    ),
+                ],
+                targets: [
+                    .target(name: "MyLib"),
+                ],
+            )
+            """) { manifest in
+            try AddProduct.addProduct(
+                ProductDescription(
+                    name: "MyLib",
+                    type: .library(.dynamic),
+                    targets: [ "MyLib" ]
+                ),
+                to: manifest
+            )
+        }
+    }
+
     func testAddLibraryTarget() throws {
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
@@ -412,6 +449,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 targets: [
+                    // These are the targets
                     .target(name: "MyLib")
                 ]
             )
@@ -421,6 +459,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 targets: [
+                    // These are the targets
                     .target(name: "MyLib"),
                     .executableTarget(
                         name: "MyProgram",

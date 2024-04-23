@@ -851,6 +851,36 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testPackageAddProduct() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client"
+                )
+                """
+            )
+
+            _ = try execute(["add-product", "MyLib", "--targets", "MyLib", "--type", "static-library"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"products:"#))
+            XCTAssertMatch(contents, .contains(#".library"#))
+            XCTAssertMatch(contents, .contains(#"name: "MyLib""#))
+            XCTAssertMatch(contents, .contains(#"type: .static"#))
+            XCTAssertMatch(contents, .contains(#"targets:"#))
+            XCTAssertMatch(contents, .contains(#""MyLib""#))
+        }
+    }
     func testPackageEditAndUnedit() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
