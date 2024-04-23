@@ -31,6 +31,7 @@ public struct InstalledSwiftPMConfiguration: Codable {
 
     let version: Int
     public let swiftSyntaxVersionForMacroTemplate: Version
+    public let swiftTestingVersionForTestTemplate: Version
 
     public static var `default`: InstalledSwiftPMConfiguration {
         return .init(
@@ -40,6 +41,12 @@ public struct InstalledSwiftPMConfiguration: Codable {
                 minor: 0,
                 patch: 0,
                 prereleaseIdentifier: "latest"
+            ),
+            swiftTestingVersionForTestTemplate: .init(
+                major: 0,
+                minor: 7,
+                patch: 0,
+                prereleaseIdentifier: nil
             )
         )
     }
