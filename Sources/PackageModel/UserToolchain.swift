@@ -551,9 +551,9 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(
             binDirectories: swiftSDK.toolset.rootPaths,
-            useXcrun: useXcrun,
+            useXcrun: self.useXcrun,
             environment: environment,
-            searchPaths: envSearchPaths,
+            searchPaths: self.envSearchPaths,
             fileSystem: fileSystem
         )
         self.swiftCompilerPath = swiftCompilers.compile
