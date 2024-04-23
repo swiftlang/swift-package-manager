@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct InstalledSwiftPMConfiguration: Codable {
+public struct InstalledSwiftPMConfiguration {
     public struct Version: Codable, CustomStringConvertible {
         let major: Int
         let minor: Int
@@ -42,12 +42,55 @@ public struct InstalledSwiftPMConfiguration: Codable {
                 patch: 0,
                 prereleaseIdentifier: "latest"
             ),
-            swiftTestingVersionForTestTemplate: .init(
-                major: 0,
-                minor: 7,
-                patch: 0,
-                prereleaseIdentifier: nil
-            )
+            swiftTestingVersionForTestTemplate: defaultSwiftTestingVersionForTestTemplate
         )
     }
+
+    private static var defaultSwiftTestingVersionForTestTemplate: Version {
+        .init(
+            major: 0,
+            minor: 7,
+            patch: 0,
+            prereleaseIdentifier: nil
+        )
+    }
+}
+
+extension InstalledSwiftPMConfiguration: Codable {
+    enum CodingKeys: CodingKey {
+        case version
+        case swiftSyntaxVersionForMacroTemplate
+        case swiftTestingVersionForTestTemplate
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.version = try container.decode(
+            Int.self,
+            forKey: CodingKeys.version
+        )
+        self.swiftSyntaxVersionForMacroTemplate = try container.decode(
+            Version.self,
+            forKey: CodingKeys.swiftSyntaxVersionForMacroTemplate
+        )
+        self.swiftTestingVersionForTestTemplate = try container.decodeIfPresent(
+            Version.self,
+            forKey: CodingKeys.swiftTestingVersionForTestTemplate
+        ) ?? InstalledSwiftPMConfiguration.defaultSwiftTestingVersionForTestTemplate
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(self.version, forKey: CodingKeys.version)
+        try container.encode(
+            self.swiftSyntaxVersionForMacroTemplate,
+            forKey: CodingKeys.swiftSyntaxVersionForMacroTemplate
+        )
+        try container.encode(
+            self.swiftTestingVersionForTestTemplate,
+            forKey: CodingKeys.swiftTestingVersionForTestTemplate
+        )
+  }
 }

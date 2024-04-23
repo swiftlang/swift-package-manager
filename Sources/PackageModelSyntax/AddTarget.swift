@@ -399,8 +399,8 @@ fileprivate extension PackageDependency {
     static func swiftTesting(
       configuration: InstalledSwiftPMConfiguration
     ) -> PackageDependency {
-        let swiftTestingVersionDefault = configuration
-            .swiftTestingVersionForTestTemplate
+        let swiftTestingVersionDefault =
+            configuration.swiftTestingVersionForTestTemplate
         let swiftTestingVersion = Version(swiftTestingVersionDefault.description)!
 
         return .sourceControl(
