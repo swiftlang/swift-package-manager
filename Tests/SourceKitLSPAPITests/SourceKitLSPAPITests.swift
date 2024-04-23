@@ -19,7 +19,6 @@ import PackageGraph
 import PackageModel
 import SourceKitLSPAPI
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class SourceKitLSPAPITests: XCTestCase {

@@ -28,7 +28,6 @@ import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
-import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 

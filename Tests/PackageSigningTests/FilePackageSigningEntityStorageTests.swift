@@ -18,8 +18,6 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 import struct TSCUtility.Version
 
 final class FilePackageSigningEntityStorageTests: XCTestCase {

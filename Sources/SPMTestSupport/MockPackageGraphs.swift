@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
 import class Basics.ObservabilityScope
 
@@ -23,7 +24,6 @@ import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import protocol TSCBasic.FileSystem
-import class TSCBasic.InMemoryFileSystem
 
 package typealias MockPackageGraph = (
     graph: ModulesGraph,

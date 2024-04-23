@@ -24,7 +24,6 @@ import SPMBuildCore
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.InMemoryFileSystem
 
 final class BuildOperationTests: XCTestCase {
     func testDetectUnexpressedDependencies() throws {

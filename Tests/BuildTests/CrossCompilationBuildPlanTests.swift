@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
 import class Build.BuildPlan
 import class Build.ProductBuildDescription
@@ -31,7 +32,6 @@ import func SPMTestSupport.trivialPackageGraph
 import struct SPMTestSupport.BuildPlanResult
 import func SPMTestSupport.XCTAssertMatch
 import func SPMTestSupport.XCTAssertNoDiagnostics
-import class TSCBasic.InMemoryFileSystem
 
 import XCTest
 
