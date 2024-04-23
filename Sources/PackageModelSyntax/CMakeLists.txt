@@ -46,16 +46,10 @@ set(SWIFT_SYNTAX_MODULES
   SwiftParserDiagnostics
   SwiftDiagnostics
   SwiftSyntax
-  SwiftOperators
   SwiftSyntaxBuilder
-  SwiftSyntaxMacros
-  SwiftSyntaxMacroExpansion
-  SwiftCompilerPluginMessageHandling
-  # Support for LSP
   SwiftIDEUtils
-  SwiftRefactor
 )
 export(TARGETS ${SWIFT_SYNTAX_MODULES}
-       NAMESPACE SwiftSyntax::
+       NAMESPACE SPMSwiftSyntax::
        FILE ${CMAKE_BINARY_DIR}/cmake/modules/SwiftSyntaxConfig.cmake
        EXPORT_LINK_INTERFACE_LIBRARIES)
