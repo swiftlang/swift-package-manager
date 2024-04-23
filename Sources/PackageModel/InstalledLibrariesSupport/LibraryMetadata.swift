@@ -11,14 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Foundation
+import struct TSCUtility.Version
 
 public struct ProvidedLibrary {
     public let location: AbsolutePath
     public let metadata: LibraryMetadata
 
-    public var version: String {
-        metadata.version
+    public var version: Version {
+        .init(stringLiteral: metadata.version)
     }
 }
 
