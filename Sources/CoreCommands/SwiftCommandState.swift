@@ -302,7 +302,8 @@ package final class SwiftCommandState {
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
-        self.observabilityScope = observabilitySystem.topScope
+        let observabilityScope = observabilitySystem.topScope
+        self.observabilityScope = observabilityScope
         self.shouldDisableSandbox = options.security.shouldDisableSandbox
         self.toolWorkspaceConfiguration = toolWorkspaceConfiguration
         self.workspaceDelegateProvider = workspaceDelegateProvider
@@ -354,6 +355,10 @@ package final class SwiftCommandState {
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory
         )
+
+        self._hostToolchain = Result(catching: {
+            try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(fileSystem: fileSystem))
+        })
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -847,17 +852,7 @@ package final class SwiftCommandState {
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
-    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
-        return Result(catching: {
-            try UserToolchain(
-                swiftSDK: SwiftSDK.hostSwiftSDK(
-                    originalWorkingDirectory: self.originalWorkingDirectory,
-                    observabilityScope: self.observabilityScope
-                ),
-                fileSystem: self.fileSystem
-            )
-        })
-    }()
+    private let _hostToolchain: Result<UserToolchain, Swift.Error>
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {

@@ -222,13 +222,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         ]
 
         init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) throws {
-            guard let cwd: AbsolutePath = fileSystem.currentWorkingDirectory else {
-                throw ExitCode.failure
-            }
-
             self.identityResolver = DefaultIdentityResolver()
             self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
-            self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(originalWorkingDirectory: cwd))
+            self.hostToolchain = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(fileSystem: fileSystem))
             self.targetToolchain = hostToolchain // TODO: support cross-compilation?
             self.fileSystem = fileSystem
             self.observabilityScope = observabilityScope
