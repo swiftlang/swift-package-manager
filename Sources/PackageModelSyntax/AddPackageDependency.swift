@@ -44,12 +44,26 @@ public struct AddPackageDependency {
             throw ManifestEditError.cannotFindPackage
         }
 
-        let edits = try packageCall.appendingToArrayArgument(
+        let newPackageCall = try addPackageDependencyLocal(
+            dependency, to: packageCall
+        )
+
+        return PackageEditResult(
+            manifestEdits: [
+                .replace(packageCall, with: newPackageCall.description)
+            ]
+        )
+    }
+
+    /// Implementation of adding a package dependency to an existing call.
+    static func addPackageDependencyLocal(
+        _ dependency: PackageDependency,
+        to packageCall: FunctionCallExprSyntax
+    ) throws -> FunctionCallExprSyntax {
+        try packageCall.appendingToArrayArgument(
             label: "dependencies",
             trailingLabels: Self.argumentLabelsAfterDependencies,
             newElement: dependency.asSyntax()
         )
-
-        return PackageEditResult(manifestEdits: edits)
     }
 }

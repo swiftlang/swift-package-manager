@@ -81,6 +81,11 @@ extension FunctionCallExprSyntax {
     func findArgument(labeled label: String) -> LabeledExprSyntax? {
         arguments.first { $0.label?.text == label }
     }
+
+    /// Find a call argument index based on its label.
+    func findArgumentIndex(labeled label: String) -> LabeledExprListSyntax.Index? {
+        arguments.firstIndex { $0.label?.text == label }
+    }
 }
 
 extension LabeledExprListSyntax {
@@ -358,6 +363,35 @@ extension Array<LabeledExprSyntax> {
 }
 
 // MARK: Utilities for adding arguments into calls.
+fileprivate class ReplacingRewriter: SyntaxRewriter {
+    let childNode: Syntax
+    let newChildNode: Syntax
+
+    init(childNode: Syntax, newChildNode: Syntax) {
+        self.childNode = childNode
+        self.newChildNode = newChildNode
+        super.init()
+    }
+
+    override func visitAny(_ node: Syntax) -> Syntax? {
+        if node == childNode {
+            return newChildNode
+        }
+
+        return nil
+    }
+}
+
+fileprivate extension SyntaxProtocol {
+    /// Replace the given child with a new child node.
+    func replacingChild(_ childNode: Syntax, with newChildNode: Syntax) -> Self {
+        return ReplacingRewriter(
+            childNode: childNode,
+            newChildNode: newChildNode
+        ).rewrite(self).cast(Self.self)
+    }
+}
+
 extension FunctionCallExprSyntax {
     /// Produce source edits that will add the given new element to the
     /// array for an argument with the given label (if there is one), or
@@ -371,12 +405,12 @@ extension FunctionCallExprSyntax {
     ///     which helps determine where the argument should be inserted if
     ///     it doesn't exist yet.
     ///   - newElement: The new element.
-    /// - Returns: the resulting source edits to make this change.
+    /// - Returns: the function call after making this change.
     func appendingToArrayArgument(
         label: String,
         trailingLabels: Set<String>,
         newElement: ExprSyntax
-    ) throws -> [SourceEdit] {
+    ) throws -> FunctionCallExprSyntax {
         // If there is already an argument with this name, append to the array
         // literal in there.
         if let arg = findArgument(labeled: label) {
@@ -402,7 +436,8 @@ extension FunctionCallExprSyntax {
                 element: formattedElement,
                 outerLeadingTrivia: arg.leadingTrivia
             )
-            return [ .replace(argArray, with: updatedArgArray.description) ]
+
+            return replacingChild(Syntax(argArray), with: Syntax(updatedArgArray))
         }
 
         // There was no argument, so we need to create one.
@@ -452,11 +487,6 @@ extension FunctionCallExprSyntax {
             )
         }
 
-        return [
-            SourceEdit.replace(
-                arguments,
-                with: newArguments.description
-            )
-        ]
+        return with(\.arguments, newArguments)
     }
 }
