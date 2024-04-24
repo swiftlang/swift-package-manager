@@ -699,7 +699,7 @@ extension Basics.Diagnostic {
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> AbsolutePath {
-        buildPath.appending(component: name + self.triple.nsbundleExtension)
+        self.buildPath.appending(component: name + self.triple.nsbundleExtension)
     }
 }
 
