@@ -153,15 +153,11 @@ extension Workspace {
 
         public static func providedLibrary(
             packageRef: PackageReference,
-            version: Version
+            library: ProvidedLibrary
         ) throws -> ManagedDependency {
-            guard case .providedLibrary(_, let path) = packageRef.kind else {
-                throw InternalError("invalid package type: \(packageRef.kind)")
-            }
-
-            return ManagedDependency(
+            ManagedDependency(
                 packageRef: packageRef,
-                state: .providedLibrary(at: path, version: version),
+                state: .providedLibrary(at: library.location, version: library.version),
                 subpath: try RelativePath(validating: packageRef.identity.description)
             )
         }
