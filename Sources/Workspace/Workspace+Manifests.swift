@@ -661,9 +661,14 @@ extension Workspace {
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
             packageVersion = downloadedVersion
-        case .providedLibrary(_, let version):
-            packageKind = managedDependency.packageRef.kind
-            packageVersion = version
+        case .providedLibrary(let path, let version):
+            let manifest: Manifest? = try? .forProvidedLibrary(
+                fileSystem: fileSystem,
+                package: managedDependency.packageRef,
+                libraryPath: path,
+                version: version
+            )
+            return completion(manifest)
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
             packageVersion = availableVersion
