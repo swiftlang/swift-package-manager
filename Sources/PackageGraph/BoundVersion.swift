@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct PackageModel.ProvidedLibrary
 import struct TSCUtility.Version
 
 /// A bound version for a package within an assignment.
@@ -22,7 +23,7 @@ public enum BoundVersion: Equatable, Hashable {
     case excluded
 
     /// The version of the package to include.
-    case version(Version)
+    case version(Version, library: ProvidedLibrary? = nil)
 
     /// The package assignment is unversioned.
     case unversioned
@@ -36,7 +37,7 @@ extension BoundVersion: CustomStringConvertible {
         switch self {
         case .excluded:
             return "excluded"
-        case .version(let version):
+        case .version(let version, _):
             return version.description
         case .unversioned:
             return "unversioned"

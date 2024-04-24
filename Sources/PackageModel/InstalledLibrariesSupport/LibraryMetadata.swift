@@ -13,7 +13,7 @@
 import Basics
 import struct TSCUtility.Version
 
-public struct ProvidedLibrary {
+public struct ProvidedLibrary: Hashable {
     public let location: AbsolutePath
     public let metadata: LibraryMetadata
 
@@ -22,8 +22,8 @@ public struct ProvidedLibrary {
     }
 }
 
-public struct LibraryMetadata: Decodable {
-    public enum Identity: Equatable, Decodable {
+public struct LibraryMetadata: Hashable, Decodable {
+    public enum Identity: Hashable, Decodable {
         case packageIdentity(scope: String, name: String)
         case sourceControl(url: SourceControlURL)
     }

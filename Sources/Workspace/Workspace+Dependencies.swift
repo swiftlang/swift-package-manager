@@ -1096,7 +1096,7 @@ extension Workspace {
                     packageStateChanges[binding.package.identity] = (binding.package, .added(newState))
                 }
 
-            case .version(let version):
+            case .version(let version, _):
                 let stateChange: PackageStateChange
                 switch currentDependency?.state {
                 case .sourceControlCheckout(.version(version, _)),
