@@ -2046,16 +2046,12 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
         let result = resolver.solve(constraints: dependencies1)
         print(try result.get())
         AssertResult(result, [
-            (
-                "foo",
-                .providedLibrary(.init("https://example.com/org/foo"), .init("/foo")),
-                .version(.init(stringLiteral: "1.0.0"))
-            ),
+            ("foo", .version(.init(stringLiteral: "1.0.0"), library: availableLibraries.first!)),
         ])
 
         let result2 = resolver.solve(constraints: dependencies2)
         AssertResult(result2, [
-            ("foo", fooRef.kind, .version(.init(stringLiteral: "1.2.0"))),
+            ("foo", .version(.init(stringLiteral: "1.2.0"))),
         ])
     }
 
@@ -2114,16 +2110,8 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
 
         let result = resolver.solve(constraints: dependencies)
         AssertResult(result, [
-            (
-                "foo",
-                .providedLibrary(.init("https://example.com/org/foo"), .init("/foo")),
-                .version(.init(stringLiteral: "1.1.0"))
-            ),
-            (
-                "target",
-                .localSourceControl("/target"),
-                .version(.init(stringLiteral: "2.0.0"))
-            ),
+            ("foo", .version(.init(stringLiteral: "1.1.0"), library: availableLibraries.first!)),
+            ("target", .version(.init(stringLiteral: "2.0.0"))),
         ])
     }
 
@@ -2167,8 +2155,8 @@ final class PubGrubTestsBasicGraphs: XCTestCase {
 
         let result = resolver.solve(constraints: dependencies)
         AssertResult(result, [
-            ("foo", fooRef.kind, .version(.init(stringLiteral: "1.1.0"))),
-            ("bar", .localSourceControl("/bar"), .version(.init(stringLiteral: "1.0.0"))),
+            ("foo", .version(.init(stringLiteral: "1.1.0"))),
+            ("bar", .version(.init(stringLiteral: "1.0.0"))),
         ])
     }
 }
@@ -3313,22 +3301,6 @@ private func AssertBindings(
     file: StaticString = #file,
     line: UInt = #line
 ) {
-    AssertBindings(
-        bindings,
-        packages.map {
-            (identity: $0, kind: nil, version: $1)
-        },
-        file: file,
-        line: line
-    )
-}
-
-private func AssertBindings(
-    _ bindings: [DependencyResolverBinding],
-    _ packages: [(identity: PackageIdentity, kind: PackageReference.Kind?, version: BoundVersion)],
-    file: StaticString = #file,
-    line: UInt = #line
-) {
     if bindings.count > packages.count {
         let unexpectedBindings = bindings
             .filter { binding in
@@ -3346,15 +3318,7 @@ private func AssertBindings(
     }
     for package in packages {
         guard let binding = bindings.first(where: {
-            if $0.package.identity != package.identity {
-                return false
-            }
-
-            if let kind = package.kind, $0.package.kind != kind {
-                return false
-            }
-
-            return true
+            $0.package.identity == package.identity
         }) else {
             XCTFail("No binding found for \(package.identity).", file: file, line: line)
             continue
@@ -3377,20 +3341,11 @@ private func AssertResult(
     file: StaticString = #file,
     line: UInt = #line
 ) {
-    AssertResult(result, packages.map { ($0, nil, $1) }, file: file, line: line)
-}
-
-private func AssertResult(
-    _ result: Result<[DependencyResolverBinding], Error>,
-    _ packages: [(identifier: String, kind: PackageReference.Kind?, version: BoundVersion)],
-    file: StaticString = #file,
-    line: UInt = #line
-) {
     switch result {
     case .success(let bindings):
         AssertBindings(
             bindings,
-            packages.map { (PackageIdentity($0.identifier), $0.kind, $0.version) },
+            packages.map { (PackageIdentity($0.identifier), $0.version) },
             file: file,
             line: line
         )
@@ -3440,7 +3395,7 @@ public class MockContainer: PackageContainer {
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         var versions: [Version] = []
         for version in self._versions.reversed() {
-            guard case .version(let v) = version else { continue }
+            guard case .version(let v, _) = version else { continue }
             versions.append(v)
         }
         return versions
@@ -3449,7 +3404,7 @@ public class MockContainer: PackageContainer {
     public func versionsAscending() throws -> [Version] {
         var versions: [Version] = []
         for version in self._versions {
-            guard case .version(let v) = version else { continue }
+            guard case .version(let v, _) = version else { continue }
             versions.append(v)
         }
         return versions
@@ -3516,7 +3471,7 @@ public class MockContainer: PackageContainer {
         self._versions.append(version)
         self._versions = self._versions
             .sorted(by: { lhs, rhs -> Bool in
-                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
+                guard case .version(let lv, _) = lhs, case .version(let rv, _) = rhs else {
                     return true
                 }
                 return lv < rv
@@ -3571,7 +3526,7 @@ public class MockContainer: PackageContainer {
         let versions = dependencies.keys.compactMap(Version.init(_:))
         self._versions = versions
             .sorted()
-            .map(BoundVersion.version)
+            .map { .version($0) }
     }
 }
 
@@ -3742,7 +3697,7 @@ class DependencyGraphBuilder {
         let container = self
             .containers[packageReference.identity.description] ?? MockContainer(package: packageReference)
 
-        if case .version(let v) = version {
+        if case .version(let v, _) = version {
             container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
         }
 

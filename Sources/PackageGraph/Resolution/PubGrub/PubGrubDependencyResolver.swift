@@ -231,35 +231,32 @@ public struct PubGrubDependencyResolver {
                 continue
             }
 
-            var package = assignment.term.node.package
+            let package = assignment.term.node.package
 
             let boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .exact(let version):
-                boundVersion = .version(version)
+                if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
+                   version == library.version
+                {
+                    boundVersion = .version(version, library: library)
+                } else {
+                    boundVersion = .version(version)
+                }
             case .range, .any, .empty, .ranges:
                 throw InternalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
-            if let library = package.matchingPrebuiltLibrary(in: availableLibraries),
-               boundVersion == .version(library.version)
-            {
-                guard case .remoteSourceControl(let url) = package.kind else {
-                    throw InternalError("Matched provided library against invalid package: \(package)")
-                }
-
-                package = .providedLibrary(
-                    identity: package.identity,
-                    origin: url,
-                    path: library.location
-                )
-            }
-
             let products = assignment.term.node.productFilter
 
-            // TODO: replace with async/await when available
-            let container = try temp_await { self.provider.getContainer(for: package, completion: $0) }
-            let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
+            let updatePackage: PackageReference
+            if case .version(_, let library) = boundVersion, library != nil {
+                updatePackage = package
+            } else {
+                // TODO: replace with async/await when available
+                let container = try temp_await { self.provider.getContainer(for: package, completion: $0) }
+                updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
+            }
 
             if var existing = flattenedAssignments[updatePackage] {
                 guard existing.binding == boundVersion else {
