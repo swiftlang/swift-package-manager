@@ -3095,9 +3095,9 @@ final class PackageCommandTests: CommandsTestCase {
                         let execProducts = context.package.products(ofType: ExecutableProduct.self)
                         print("execProducts: \\(execProducts.map{ $0.name })")
                         let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
-                        print("swiftTargets: \\(swiftTargets.map{ $0.name })")
+                        print("swiftTargets: \\(swiftTargets.map{ $0.name }.sorted())")
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
-                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
+                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent }.sorted())")
 
                         if let target = target.sourceModule {
                             print("Module kind of '\\(target.name)': \\(target.kind)")
@@ -3161,8 +3161,8 @@ final class PackageCommandTests: CommandsTestCase {
             do {
                 let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("execProducts: [\"FifthTarget\"]"))
-                XCTAssertMatch(stdout, .contains("swiftTargets: [\"ThirdTarget\", \"TestTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
-                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"tests.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
+                XCTAssertMatch(stdout, .contains("swiftTargets: [\"FifthTarget\", \"FirstTarget\", \"FourthTarget\", \"SecondTarget\", \"TestTarget\", \"ThirdTarget\"]"))
+                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\", \"tests.swift\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'FifthTarget': executable"))
             }
 

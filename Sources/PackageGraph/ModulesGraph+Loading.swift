@@ -1097,13 +1097,17 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     }
 
     override func constructImpl() throws -> ResolvedPackage {
-        return ResolvedPackage(
+        let products = try self.products.map { try $0.construct() }
+        var targets = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.targets) }
+        try targets.formUnion(self.targets.map { try $0.construct() })
+
+        return try ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: self.dependencies.map { $0.package.identity },
-            targets: try self.targets.map{ try $0.construct() },
-            products: try self.products.map{ try $0.construct() },
+            targets: targets,
+            products: products,
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )
