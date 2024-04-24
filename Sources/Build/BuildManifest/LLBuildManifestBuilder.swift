@@ -325,8 +325,8 @@ extension ResolvedModule {
         "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
     }
 
-    package func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(self.name)-\(config).module-resources"
+    package func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
     }
 }
 
