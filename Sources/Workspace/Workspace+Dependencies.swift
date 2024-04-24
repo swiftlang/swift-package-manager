@@ -672,7 +672,7 @@ extension Workspace {
                 metadata: packageRef.diagnosticsMetadata
             ).trap {
                 switch state {
-                case .added, .updated, .unchanged:
+                case .added, .updated, .unchanged, .usesLibrary:
                     break
                 case .removed:
                     try self.remove(package: packageRef)
@@ -701,8 +701,23 @@ extension Workspace {
                         productFilter: state.products,
                         observabilityScope: observabilityScope
                     )
-                case .removed, .unchanged:
+                case .removed, .unchanged, .usesLibrary:
                     break
+                }
+            }
+        }
+
+        // Handle provided libraries
+        for (packageRef, state) in packageStateChanges {
+            observabilityScope.makeChildScope(
+                description: "adding provided libraries",
+                metadata: packageRef.diagnosticsMetadata
+            ).trap {
+                if case .usesLibrary(let library) = state {
+                    try self.state.dependencies.add(
+                        .providedLibrary(packageRef: packageRef, library: library)
+                    )
+                    try self.state.save()
                 }
             }
         }
@@ -763,19 +778,6 @@ extension Workspace {
                     state: .custom(version: version, path: path),
                     subpath: RelativePath(validating: "")
                 )
-                self.state.dependencies.add(dependency)
-                try self.state.save()
-                return path
-            } else if let libraryContainer = container as? ProvidedLibraryPackageContainer {
-                guard case .providedLibrary(_, let path) = libraryContainer.package.kind else {
-                    throw InternalError("invalid container for \(package.identity) of type \(package.kind)")
-                }
-
-                let dependency: ManagedDependency = try .providedLibrary(
-                    packageRef: libraryContainer.package,
-                    version: version
-                )
-
                 self.state.dependencies.add(dependency)
                 try self.state.save()
                 return path
@@ -960,6 +962,9 @@ extension Workspace {
         /// The package is updated.
         case updated(State)
 
+        /// The package is replaced with a prebuilt library
+        case usesLibrary(ProvidedLibrary)
+
         public var description: String {
             switch self {
             case .added(let requirement):
@@ -970,15 +975,17 @@ extension Workspace {
                 return "unchanged"
             case .updated(let requirement):
                 return "updated(\(requirement))"
+            case .usesLibrary(let library):
+                return "usesLibrary(\(library.metadata.productName))"
             }
         }
 
         public var isAddedOrUpdated: Bool {
             switch self {
             case .added, .updated:
-                return true
-            case .unchanged, .removed:
-                return false
+                true
+            case .unchanged, .removed, .usesLibrary:
+                false
             }
         }
     }
@@ -1096,18 +1103,20 @@ extension Workspace {
                     packageStateChanges[binding.package.identity] = (binding.package, .added(newState))
                 }
 
-            case .version(let version, _):
-                let stateChange: PackageStateChange
-                switch currentDependency?.state {
+            case .version(let version, let library):
+                let stateChange: PackageStateChange = switch currentDependency?.state {
                 case .sourceControlCheckout(.version(version, _)),
-                        .registryDownload(version),
-                        .providedLibrary(_, version: version),
-                        .custom(version, _):
-                    stateChange = .unchanged
+                     .registryDownload(version),
+                     .providedLibrary(_, version: version),
+                     .custom(version, _):
+                    library.flatMap { .usesLibrary($0) } ?? .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .providedLibrary, .custom:
-                    stateChange = .updated(.init(requirement: .version(version), products: binding.products))
+                    .updated(.init(requirement: .version(version), products: binding.products))
                 case nil:
-                    stateChange = .added(.init(requirement: .version(version), products: binding.products))
+                    library.flatMap { .usesLibrary($0) } ?? .added(.init(
+                        requirement: .version(version),
+                        products: binding.products
+                    ))
                 }
                 packageStateChanges[binding.package.identity] = (binding.package, stateChange)
             }
