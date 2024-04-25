@@ -83,7 +83,7 @@ enum ManifestJSONParser {
         case .localSourceControl(let _packagePath):
             // we have a more accurate path than the virtual one
             packagePath = _packagePath
-        case .root(let _packagePath), .fileSystem(let _packagePath), .providedLibrary(_, let _packagePath):
+        case .root(let _packagePath), .fileSystem(let _packagePath):
             // we dont have a more accurate path, and they should be the same
             // asserting (debug only) to make sure refactoring is correct 11/2023
             assert(packagePath == _packagePath, "expecting package path '\(packagePath)' to be the same as '\(_packagePath)'")

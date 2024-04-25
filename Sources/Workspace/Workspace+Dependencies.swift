@@ -33,7 +33,6 @@ import struct PackageGraph.ObservabilityDependencyResolverDelegate
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
 import struct PackageGraph.PackageGraphRootInput
-import struct PackageGraph.ProvidedLibraryPackageContainer
 import class PackageGraph.PinsStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term

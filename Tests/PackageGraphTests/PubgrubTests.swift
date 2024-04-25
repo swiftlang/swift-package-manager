@@ -3554,18 +3554,6 @@ public struct MockProvider: PackageContainerProvider {
         ) -> Void
     ) {
         queue.async {
-            if case .providedLibrary(_, _) = package.kind {
-                do {
-                    let container = try ProvidedLibraryPackageContainer(
-                        package: package,
-                        observabilityScope: observabilityScope
-                    )
-                    return completion(.success(container))
-                } catch {
-                    return completion(.failure(error))
-                }
-            }
-
             completion(
                 self.containersByIdentifier[package].map { .success($0) } ??
                     .failure(_MockLoadingError.unknownModule)

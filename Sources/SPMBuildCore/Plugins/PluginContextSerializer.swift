@@ -240,8 +240,6 @@ internal struct PluginContextSerializer {
                 return .repository(url: url.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
             case .registry(let identity):
                 return .registry(identity: identity.description, displayVersion: String(describing: package.manifest.version))
-            case .providedLibrary(_, _):
-                throw InternalError("provided libraries are not supported in plugin context")
             }
         }
 

@@ -433,7 +433,6 @@ extension WorkspaceStateStorage {
             let kind: Kind
             let location: String
             let name: String
-            let originURL: String?
 
             init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
@@ -441,28 +440,19 @@ extension WorkspaceStateStorage {
                 case .root(let path):
                     self.kind = .root
                     self.location = path.pathString
-                    self.originURL = nil
                 case .fileSystem(let path):
                     self.kind = .fileSystem
                     self.location = path.pathString
-                    self.originURL = nil
                 case .localSourceControl(let path):
                     self.kind = .localSourceControl
                     self.location = path.pathString
-                    self.originURL = nil
                 case .remoteSourceControl(let url):
                     self.kind = .remoteSourceControl
                     self.location = url.absoluteString
-                    self.originURL = nil
                 case .registry:
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
-                    self.originURL = nil
-                case .providedLibrary(let url, let path):
-                    self.kind = .providedLibrary
-                    self.originURL = url.absoluteString
-                    self.location = path.pathString
                 }
                 self.name = reference.deprecatedName
             }
@@ -473,7 +463,6 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
-                case providedLibrary
             }
         }
     }
@@ -516,14 +505,6 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
-        case .providedLibrary:
-            guard let url = reference.originURL else {
-                throw InternalError("Cannot form provided library reference without origin: \(reference)")
-            }
-            kind = try .providedLibrary(
-                SourceControlURL(url),
-                .init(validating: reference.location)
-            )
         }
 
         self.init(
@@ -791,7 +772,6 @@ extension WorkspaceStateStorage {
             let kind: Kind
             let location: String
             let name: String
-            let originURL: String?
 
             init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
@@ -799,28 +779,19 @@ extension WorkspaceStateStorage {
                 case .root(let path):
                     self.kind = .root
                     self.location = path.pathString
-                    self.originURL = nil
                 case .fileSystem(let path):
                     self.kind = .fileSystem
                     self.location = path.pathString
-                    self.originURL = nil
                 case .localSourceControl(let path):
                     self.kind = .localSourceControl
                     self.location = path.pathString
-                    self.originURL = nil
                 case .remoteSourceControl(let url):
                     self.kind = .remoteSourceControl
                     self.location = url.absoluteString
-                    self.originURL = nil
                 case .registry:
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
-                    self.originURL = nil
-                case .providedLibrary(let url, let path):
-                    self.kind = .providedLibrary
-                    self.originURL = url.absoluteString
-                    self.location = path.pathString
                 }
                 self.name = reference.deprecatedName
             }
@@ -831,7 +802,6 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
-                case providedLibrary
             }
         }
     }
@@ -875,14 +845,6 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
-        case .providedLibrary:
-            guard let url = reference.originURL else {
-                throw InternalError("Cannot form a provided library reference without origin: \(reference)")
-            }
-            kind = try .providedLibrary(
-                SourceControlURL(url),
-                .init(validating: reference.location)
-            )
         }
 
         self.init(

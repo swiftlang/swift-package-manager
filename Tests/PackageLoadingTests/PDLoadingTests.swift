@@ -97,8 +97,6 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
             packagePath = path
         case .remoteSourceControl, .registry:
             packagePath = .root
-        case .providedLibrary(_, let path):
-            packagePath = path
         }
 
         let toolsVersion = toolsVersion
