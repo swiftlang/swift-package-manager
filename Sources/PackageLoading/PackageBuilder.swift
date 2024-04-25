@@ -16,8 +16,8 @@ import OrderedCollections
 import PackageModel
 
 import func TSCBasic.findCycle
-import func TSCBasic.topologicalSort
 import struct TSCBasic.KeyedPair
+import func TSCBasic.topologicalSort
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
@@ -162,7 +162,9 @@ extension ModuleError: CustomStringConvertible {
                 targetsDescription += " and \(targets.count - 3) others"
             }
             return """
-            multiple similar targets \(targetsDescription) appear in registry package '\(registryPackage)' and source control package '\(scmPackage)', \
+            multiple similar targets \(targetsDescription) appear in registry package '\(
+                registryPackage
+            )' and source control package '\(scmPackage)', \
             this may indicate that the two packages are the same and can be de-duplicated \
             by activating the automatic source-control to registry replacement, or by using mirrors. \
             if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
@@ -175,11 +177,11 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
-            return "multiple source roots found: " + paths.map(\.description).sorted().joined(separator: ", ")
+            "multiple source roots found: " + paths.map(\.description).sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
-            return "modulemap '\(path)' should be inside the 'include' directory"
+            "modulemap '\(path)' should be inside the 'include' directory"
         case .modulemapMissing(let path):
-            return "missing system target module map at '\(path)'"
+            "missing system target module map at '\(path)'"
         }
     }
 }
@@ -203,9 +205,9 @@ extension Target.Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidName(let path, let problem):
-            return "invalid target name at '\(path)'; \(problem)"
+            "invalid target name at '\(path)'; \(problem)"
         case .mixedSources(let path):
-            return "target at '\(path)' contains mixed language source files; feature not supported"
+            "target at '\(path)' contains mixed language source files; feature not supported"
         }
     }
 }
@@ -214,7 +216,7 @@ extension Target.Error.ModuleNameProblem: CustomStringConvertible {
     var description: String {
         switch self {
         case .emptyName:
-            return "target names can not be empty"
+            "target names can not be empty"
         }
     }
 }
@@ -231,9 +233,9 @@ extension Product.Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .emptyName:
-            return "product names can not be empty"
+            "product names can not be empty"
         case .moduleEmpty(let product, let target):
-            return "target '\(target)' referenced in product '\(product)' is empty"
+            "target '\(target)' referenced in product '\(product)' is empty"
         }
     }
 }
@@ -313,6 +315,10 @@ public final class PackageBuilder {
     // The set of the sources computed so far, used to validate source overlap
     private var allSources = Set<AbsolutePath>()
 
+    // Caches all declared versions for this package.
+    private var declaredSwiftVersionsCache: [SwiftLanguageVersion]? = nil
+
+    // Caches the version we chose to build for.
     private var swiftVersionCache: SwiftLanguageVersion? = nil
 
     /// Create a builder for the given manifest and package `path`.
@@ -497,15 +503,15 @@ public final class PackageBuilder {
         -> (targetDir: String, testTargetDir: String, pluginTargetDir: String)
     {
         let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
-            fileSystem.isDirectory(packagePath.appending(component: $0))
+            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedSourceDirectories[0]
 
         let testTargetDir = PackageBuilder.predefinedTestDirectories.first(where: {
-            fileSystem.isDirectory(packagePath.appending(component: $0))
+            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedTestDirectories[0]
 
         let pluginTargetDir = PackageBuilder.predefinedPluginDirectories.first(where: {
-            fileSystem.isDirectory(packagePath.appending(component: $0))
+            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedPluginDirectories[0]
 
         return (targetDir, testTargetDir, pluginTargetDir)
@@ -558,14 +564,13 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir: PredefinedTargetDirectory
-            switch target.type {
+            let predefinedDir: PredefinedTargetDirectory = switch target.type {
             case .test:
-                predefinedDir = predefinedTestTargetDirectory
+                predefinedTestTargetDirectory
             case .plugin:
-                predefinedDir = predefinedPluginTargetDirectory
+                predefinedPluginTargetDirectory
             default:
-                predefinedDir = predefinedTargetDirectory
+                predefinedTargetDirectory
             }
             let path = predefinedDir.path.appending(component: target.name)
 
@@ -600,7 +605,12 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, path: path, type: target.type, packageAccess: target.packageAccess)
+            return PotentialModule(
+                name: target.name,
+                path: path,
+                type: target.type,
+                packageAccess: target.packageAccess
+            )
         }
 
         let targets = try createModules(potentialTargets)
@@ -639,12 +649,13 @@ public final class PackageBuilder {
 
         let products = Dictionary(manifest.products.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
 
-        // If there happens to be a plugin product with the right name in the same package, we want to use that automatically.
+        // If there happens to be a plugin product with the right name in the same package, we want to use that
+        // automatically.
         func pluginTargetName(for productName: String) -> String? {
             if let product = products[productName], product.type == .plugin {
-                return product.targets.first
+                product.targets.first
             } else {
-                return nil
+                nil
             }
         }
 
@@ -659,12 +670,12 @@ public final class PackageBuilder {
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
-                    return potentialModuleMap[name]!
+                    potentialModuleMap[name]!
                 case .product:
-                    return nil
+                    nil
                 case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
-                    return potentialModuleMap[name]
+                    potentialModuleMap[name]
                 }
             }
             // If there are plugin usages, consider them to be dependencies too.
@@ -672,16 +683,16 @@ public final class PackageBuilder {
                 successors += pluginUsages.compactMap {
                     switch $0 {
                     case .plugin(_, .some(_)):
-                        return nil
+                        nil
                     case .plugin(let name, nil):
                         if let potentialModule = potentialModuleMap[name] {
-                            return potentialModule
+                            potentialModule
                         } else if let targetName = pluginTargetName(for: name),
                                   let potentialModule = potentialModuleMap[targetName]
                         {
-                            return potentialModule
+                            potentialModule
                         } else {
-                            return nil
+                            nil
                         }
                     }
                 }
@@ -885,7 +896,7 @@ public final class PackageBuilder {
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-        let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
+        let publicHeadersPath = try potentialModule.path.appending(RelativePath(validating: publicHeaderComponent))
         guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
@@ -960,7 +971,7 @@ public final class PackageBuilder {
 
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
-            return SwiftTarget(
+            return try SwiftTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
                 type: targetType,
@@ -971,15 +982,18 @@ public final class PackageBuilder {
                 others: others,
                 dependencies: dependencies,
                 packageAccess: potentialModule.packageAccess,
-                swiftVersion: try self.swiftVersion(),
+                swiftVersion: self.swiftVersion(),
+                declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         } else {
-            // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
+            // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
+            // supported).
 
-            // First determine the type of module map that will be appropriate for the target based on its header layout.
+            // First determine the type of module map that will be appropriate for the target based on its header
+            // layout.
             let moduleMapType: ModuleMapType
 
             if self.fileSystem.exists(publicHeadersPath) {
@@ -1027,8 +1041,7 @@ public final class PackageBuilder {
         for target: TargetDescription?,
         targetRoot: AbsolutePath,
         cxxLanguageStandard: String? = nil
-    ) throws -> BuildSettings.AssignmentTable
-    {
+    ) throws -> BuildSettings.AssignmentTable {
         var table = BuildSettings.AssignmentTable()
         guard let target else { return table }
 
@@ -1098,7 +1111,8 @@ public final class PackageBuilder {
                 }
 
                 if lang == .Cxx {
-                    values = ["-cxx-interoperability-mode=default"] + (cxxLanguageStandard.flatMap { ["-Xcc", "-std=\($0)"] } ?? [])
+                    values = ["-cxx-interoperability-mode=default"] +
+                        (cxxLanguageStandard.flatMap { ["-Xcc", "-std=\($0)"] } ?? [])
                 } else {
                     values = []
                 }
@@ -1174,16 +1188,37 @@ public final class PackageBuilder {
 
         if let platforms = condition?.platformNames.map({
             if let platform = platformRegistry.platformByName[$0] {
-                return platform
+                platform
             } else {
-                return PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
+                PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
             }
-        }), !platforms.isEmpty
-        {
+        }), !platforms.isEmpty {
             conditions.append(.init(platforms: platforms))
         }
 
         return conditions
+    }
+
+    private func declaredSwiftVersions() throws -> [SwiftLanguageVersion] {
+        if let versions = self.declaredSwiftVersionsCache {
+            return versions
+        }
+
+        let versions: [SwiftLanguageVersion]
+        if let swiftLanguageVersions = manifest.swiftLanguageVersions {
+            versions = swiftLanguageVersions.sorted(by: >).filter { $0 <= ToolsVersion.current }
+
+            if versions.isEmpty {
+                throw ModuleError.incompatibleToolsVersions(
+                    package: self.identity.description, required: swiftLanguageVersions, current: .current
+                )
+            }
+        } else {
+            versions = []
+        }
+
+        self.declaredSwiftVersionsCache = versions
+        return versions
     }
 
     /// Computes the swift version to use for this manifest.
@@ -1192,20 +1227,13 @@ public final class PackageBuilder {
             return swiftVersion
         }
 
-        let computedSwiftVersion: SwiftLanguageVersion
-
         // Figure out the swift version from declared list in the manifest.
-        if let swiftLanguageVersions = manifest.swiftLanguageVersions {
-            guard let swiftVersion = swiftLanguageVersions.sorted(by: >).first(where: { $0 <= ToolsVersion.current })
-            else {
-                throw ModuleError.incompatibleToolsVersions(
-                    package: self.identity.description, required: swiftLanguageVersions, current: .current
-                )
-            }
-            computedSwiftVersion = swiftVersion
+        let declaredSwiftVersions = try declaredSwiftVersions()
+        let computedSwiftVersion: SwiftLanguageVersion = if let declaredSwiftVersion = declaredSwiftVersions.first {
+            declaredSwiftVersion
         } else {
             // Otherwise, use the version depending on the manifest version.
-            computedSwiftVersion = self.manifest.toolsVersion.swiftLanguageVersion
+            self.manifest.toolsVersion.swiftLanguageVersion
         }
         self.swiftVersionCache = computedSwiftVersion
         return computedSwiftVersion
@@ -1253,9 +1281,9 @@ public final class PackageBuilder {
                 }
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
-                    SwiftTarget.testEntryPointNames.forEach { name in
+                    for name in SwiftTarget.testEntryPointNames {
                         let path = searchPath.appending(component: name)
-                        if fileSystem.isFile(path) {
+                        if self.fileSystem.isFile(path) {
                             testEntryPointFiles.insert(path)
                         }
                     }
@@ -1351,12 +1379,11 @@ public final class PackageBuilder {
 
         // First add explicit products.
 
-        let filteredProducts: [ProductDescription]
-        switch self.productFilter {
+        let filteredProducts: [ProductDescription] = switch self.productFilter {
         case .everything:
-            filteredProducts = self.manifest.products
+            self.manifest.products
         case .specific(let set):
-            filteredProducts = self.manifest.products.filter { set.contains($0.name) }
+            self.manifest.products.filter { set.contains($0.name) }
         }
         for product in filteredProducts {
             if product.name.isEmpty {
@@ -1554,11 +1581,11 @@ public final class PackageBuilder {
         // These are static constants, safe to access by index; the first choice is preferred.
         switch type {
         case .test:
-            return self.predefinedTestDirectories[0]
+            self.predefinedTestDirectories[0]
         case .plugin:
-            return self.predefinedPluginDirectories[0]
+            self.predefinedPluginDirectories[0]
         default:
-            return self.predefinedSourceDirectories[0]
+            self.predefinedSourceDirectories[0]
         }
     }
 }
@@ -1602,9 +1629,9 @@ extension Manifest {
             [target.name] + target.dependencies.compactMap {
                 switch $0 {
                 case .target(let name, _):
-                    return name
+                    name
                 case .byName, .product:
-                    return nil
+                    nil
                 }
             }
         }
@@ -1650,9 +1677,9 @@ extension Target.Dependency {
     fileprivate var nameAndType: String {
         switch self {
         case .target:
-            return "target-\(name)"
+            "target-\(name)"
         case .product:
-            return "product-\(name)"
+            "product-\(name)"
         }
     }
 }
@@ -1667,7 +1694,7 @@ extension PackageBuilder {
         }
 
         return try walk(snippetsDirectory, fileSystem: self.fileSystem)
-            .filter { fileSystem.isFile($0) && $0.extension == "swift" }
+            .filter { self.fileSystem.isFile($0) && $0.extension == "swift" }
             .map { sourceFile in
                 let name = sourceFile.basenameWithoutExt
                 let sources = Sources(paths: [sourceFile], root: sourceFile.parentDirectory)
@@ -1689,14 +1716,14 @@ extension PackageBuilder {
                     targetRoot: sourceFile.parentDirectory
                 )
 
-                return SwiftTarget(
+                return try SwiftTarget(
                     name: name,
                     type: .snippet,
                     path: .root,
                     sources: sources,
                     dependencies: dependencies,
                     packageAccess: false,
-                    swiftVersion: try swiftVersion(),
+                    swiftVersion: self.swiftVersion(),
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false
