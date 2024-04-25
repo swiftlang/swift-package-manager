@@ -188,6 +188,18 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
             args += ["-Xlinker", "-no_warn_duplicate_libraries"]
         }
 
+        func linkSwiftStdlibStaticallyIfRequested() {
+            // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
+            if self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib {
+                if triple.isDarwin() {
+                    self.observabilityScope.emit(.swiftBackDeployError)
+                } else if triple.isSupportingStaticStdlib {
+                    args += ["-static-stdlib"]
+                    isLinkingStaticStdlib = true
+                }
+            }
+        }
+
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached
@@ -206,6 +218,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
             }
             args += self.deadStripArguments
         case .library(.dynamic):
+            linkSwiftStdlibStaticallyIfRequested()
             args += ["-emit-library"]
             if triple.isDarwin() {
                 let relativePath = try "@rpath/\(buildParameters.binaryRelativePath(for: self.product).pathString)"
@@ -213,16 +226,7 @@ package final class ProductBuildDescription: SPMBuildCore.ProductBuildDescriptio
             }
             args += self.deadStripArguments
         case .executable, .snippet:
-            // Link the Swift stdlib statically, if requested.
-            // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
-            if self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib {
-                if triple.isDarwin() {
-                    self.observabilityScope.emit(.swiftBackDeployError)
-                } else if triple.isSupportingStaticStdlib {
-                    args += ["-static-stdlib"]
-                    isLinkingStaticStdlib = true
-                }
-            }
+            linkSwiftStdlibStaticallyIfRequested()
             args += ["-emit-executable"]
             args += self.deadStripArguments
 
