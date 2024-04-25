@@ -43,6 +43,7 @@ install(TARGETS PackageModelSyntax
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageModelSyntax)
 
 set(SWIFT_SYNTAX_MODULES
+  _SwiftSyntaxCShims
   SwiftBasicFormat
   SwiftParser
   SwiftParserDiagnostics
