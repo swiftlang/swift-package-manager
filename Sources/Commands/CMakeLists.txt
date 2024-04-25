@@ -7,6 +7,9 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
+  PackageCommands/AddDependency.swift
+  PackageCommands/AddProduct.swift 
+  PackageCommands/AddTarget.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
   PackageCommands/CompletionCommand.swift
@@ -56,6 +59,7 @@ target_link_libraries(Commands PUBLIC
   CoreCommands
   LLBuildManifest
   PackageGraph
+  PackageModelSyntax
   SourceControl
   TSCBasic
   TSCUtility

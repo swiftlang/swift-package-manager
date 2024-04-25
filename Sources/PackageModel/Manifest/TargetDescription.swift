@@ -92,7 +92,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     }
 
     /// The declared target dependencies.
-    public let dependencies: [Dependency]
+    public package(set) var dependencies: [Dependency]
 
     /// The custom public headers path.
     public let publicHeadersPath: String?
