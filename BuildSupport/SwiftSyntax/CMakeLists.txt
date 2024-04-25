@@ -1,7 +1,5 @@
 include(FetchContent)
 
-set(BUILD_SHARED_LIBS OFF)
-
 if(DEFINED SWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE)
   file(TO_CMAKE_PATH "${SWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE}" swift_syntax_path)
   FetchContent_Declare(SwiftSyntax
