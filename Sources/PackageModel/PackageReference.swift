@@ -34,9 +34,6 @@ public struct PackageReference {
         /// A package from  a registry.
         case registry(PackageIdentity)
 
-        /// A prebuilt library provided by a toolchain for a package identified by the given "origin" URL.
-        case providedLibrary(SourceControlURL, AbsolutePath)
-
         // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)
         public var locationString: String {
@@ -52,8 +49,6 @@ public struct PackageReference {
             case .registry(let identity):
                 // FIXME: this is a placeholder
                 return identity.description
-            case .providedLibrary(let url, _):
-                return url.absoluteString
             }
         }
 
@@ -75,8 +70,6 @@ public struct PackageReference {
                 return "remoteSourceControl \(url)"
             case .registry(let identity):
                 return "registry \(identity)"
-            case .providedLibrary(let url, let path):
-                return "provided library for \(url) @ \(path)"
             }
         }
 
@@ -131,8 +124,6 @@ public struct PackageReference {
         case .registry(let identity):
             // FIXME: this is a placeholder
             self.deprecatedName = name ?? identity.description
-        case .providedLibrary(let url, _):
-            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromURL: url)
         }
     }
 
@@ -160,14 +151,6 @@ public struct PackageReference {
     public static func registry(identity: PackageIdentity) -> PackageReference {
         PackageReference(identity: identity, kind: .registry(identity))
     }
-
-    public static func providedLibrary(
-        identity: PackageIdentity,
-        origin: SourceControlURL,
-        path: AbsolutePath
-    ) -> PackageReference {
-        PackageReference(identity: identity, kind: .providedLibrary(origin, path))
-    }
 }
 
 extension PackageReference: Equatable {
@@ -187,11 +170,6 @@ extension PackageReference: Equatable {
         switch (self.kind, other.kind) {
         case (.remoteSourceControl(let lurl), .remoteSourceControl(let rurl)):
             return lurl.canonicalURL == rurl.canonicalURL
-        case (.remoteSourceControl(let lurl), .providedLibrary(let rurl, _)),
-             (.providedLibrary(let lurl, _), .remoteSourceControl(let rurl)):
-            return lurl.canonicalURL == rurl.canonicalURL
-        case (.providedLibrary(_, let lpath), .providedLibrary(_, let rpath)):
-            return lpath == rpath
         default:
             return true
         }
@@ -246,10 +224,6 @@ extension PackageReference.Kind: Encodable {
         case .registry:
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
             try unkeyedContainer.encode(self.isRoot)
-        case .providedLibrary(let url, let path):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .providedLibrary)
-            try unkeyedContainer.encode(url)
-            try unkeyedContainer.encode(path)
         }
     }
 }

@@ -1069,8 +1069,6 @@ extension PackageReference.Kind {
             return "remoteSourceControl"
         case .registry:
             return "registry"
-        case .providedLibrary:
-            return "library"
         }
     }
 }
