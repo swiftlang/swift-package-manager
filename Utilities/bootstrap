@@ -202,6 +202,7 @@ def parse_global_args(args):
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
     args.source_dirs["swift-certificates"]    = os.path.join(args.project_root, "..", "swift-certificates")
     args.source_dirs["swift-asn1"]            = os.path.join(args.project_root, "..", "swift-asn1")
+    args.source_dirs["swift-syntax"]          = os.path.join(args.project_root, "..", "swift-syntax")
     args.source_root                          = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
@@ -608,6 +609,7 @@ def build_swiftpm_with_cmake(args):
         "-DSwiftCrypto_DIR="       + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
         "-DSwiftASN1_DIR="         + os.path.join(args.build_dirs["swift-asn1"],            "cmake/modules"),
         "-DSwiftCertificates_DIR=" + os.path.join(args.build_dirs["swift-certificates"],    "cmake/modules"),
+        "-DSWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE=" + args.source_dirs["swift-syntax"],
     ]
 
     if platform.system() == 'Darwin':
