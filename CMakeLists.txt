@@ -45,6 +45,7 @@ if(FIND_PM_DEPS)
   find_package(SwiftASN1 CONFIG REQUIRED)
   find_package(SwiftCertificates CONFIG REQUIRED)
   find_package(SwiftCrypto CONFIG REQUIRED)
+  find_package(SwiftSyntax CONFIG REQUIRED)
 endif()
 
 find_package(dispatch QUIET)
@@ -54,6 +55,5 @@ find_package(SQLite3 REQUIRED)
 # Enable `package` modifier for the whole package.
 add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>")
 
-add_subdirectory(BuildSupport/SwiftSyntax)
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)
