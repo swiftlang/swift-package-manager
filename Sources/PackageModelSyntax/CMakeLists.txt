@@ -52,6 +52,6 @@ set(SWIFT_SYNTAX_MODULES
   SwiftIDEUtils
 )
 export(TARGETS ${SWIFT_SYNTAX_MODULES}
-       NAMESPACE SPMSwiftSyntax::
+       NAMESPACE SwiftSyntax::
        FILE ${CMAKE_BINARY_DIR}/cmake/modules/SwiftSyntaxConfig.cmake
        EXPORT_LINK_INTERFACE_LIBRARIES)
