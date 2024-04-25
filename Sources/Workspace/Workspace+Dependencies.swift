@@ -371,6 +371,20 @@ extension Workspace {
         // automatically manage the parallelism.
         let group = DispatchGroup()
         for pin in pinsStore.pins.values {
+            // Provided library doesn't have a container, we need to inject a special depedency.
+            if let library = pin.packageRef.matchingPrebuiltLibrary(in: self.providedLibraries),
+               case .version(library.version, _) = pin.state
+            {
+                try self.state.dependencies.add(
+                    .providedLibrary(
+                        packageRef: pin.packageRef,
+                        library: library
+                    )
+                )
+                try self.state.save()
+                continue
+            }
+
             group.enter()
             let observabilityScope = observabilityScope.makeChildScope(
                 description: "requesting package containers",
@@ -418,7 +432,9 @@ extension Workspace {
                 return !pin.state.equals(checkoutState)
             case .registryDownload(let version):
                 return !pin.state.equals(version)
-            case .edited, .fileSystem, .providedLibrary, .custom:
+            case .providedLibrary:
+                return false
+            case .edited, .fileSystem, .custom:
                 return true
             }
         }
