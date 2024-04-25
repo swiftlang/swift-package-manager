@@ -183,7 +183,7 @@ extension Basics.Diagnostic {
             switch $0.kind {
             case .registry(let identity):
                 return "'\(identity.description)'"
-            case .remoteSourceControl(let url), .providedLibrary(let url, _):
+            case .remoteSourceControl(let url):
                 return "'\($0.identity)' from \(url)"
             case .localSourceControl(let path), .fileSystem(let path), .root(let path):
                 return "'\($0.identity)' at \(path)"

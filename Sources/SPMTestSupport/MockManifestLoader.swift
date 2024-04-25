@@ -109,9 +109,6 @@ extension ManifestLoader {
             packageIdentity = identity
             // FIXME: placeholder
             packageLocation = identity.description
-        case .providedLibrary(let url, let path):
-            packageIdentity = try identityResolver.resolveIdentity(for: url)
-            packageLocation = path.pathString
         }
         return try await self.load(
             manifestPath: manifestPath,
@@ -159,9 +156,6 @@ extension ManifestLoader {
             packageIdentity = identity
             // FIXME: placeholder
             packageLocation = identity.description
-        case .providedLibrary(let url, let path):
-            packageIdentity = try identityResolver.resolveIdentity(for: url)
-            packageLocation = path.pathString
         }
         return try await self.load(
             packagePath: packagePath,
