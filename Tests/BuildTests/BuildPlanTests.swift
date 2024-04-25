@@ -6260,4 +6260,112 @@ final class BuildPlanTests: XCTestCase {
         let dylibs = Array(buildProduct.dylibs.map({$0.product.name})).sorted()
         XCTAssertEqual(dylibs, ["BarLogging", "FooLogging"])
     }
+
+    func testSwiftPackageWithProvidedLibraries() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/A/Sources/ATarget/main.swift",
+            "/Libraries/B/BTarget.swiftmodule",
+            "/Libraries/C/CTarget.swiftmodule"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    dependencies: [
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(
+                            name: "A",
+                            type: .executable,
+                            targets: ["ATarget"]
+                        )
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget", dependencies: ["BLibrary", "CLibrary"])
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "B",
+                    path: "/B",
+                    products: [
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "BTarget",
+                            path: "/Libraries/B",
+                            type: .providedLibrary
+                        )
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "C",
+                    path: "/C",
+                    products: [
+                        ProductDescription(name: "CLibrary", type: .library(.automatic), targets: ["CTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "CTarget",
+                            path: "/Libraries/C",
+                            type: .providedLibrary
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(1)
+
+        XCTAssertMatch(
+            try result.target(for: "ATarget").swiftTarget().compileArguments(),
+            [
+                .anySequence,
+                "-I", "/Libraries/C",
+                "-I", "/Libraries/B",
+                .anySequence
+            ]
+        )
+
+        let linkerArgs = try result.buildProduct(for: "A").linkArguments()
+
+        XCTAssertMatch(
+            linkerArgs,
+            [
+                .anySequence,
+                "-L", "/Libraries/B",
+                "-l", "BTarget",
+                .anySequence
+            ]
+        )
+
+        XCTAssertMatch(
+            linkerArgs,
+            [
+                .anySequence,
+                "-L", "/Libraries/C",
+                "-l", "CTarget",
+                .anySequence
+            ]
+        )
+    }
 }
