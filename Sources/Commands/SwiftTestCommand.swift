@@ -1356,8 +1356,8 @@ private func buildTestsIfNeeded(
     testProduct: String?
 ) throws -> [BuiltTestProduct] {
     let buildSystem = try swiftCommandState.createBuildSystem(
-      productsBuildParameters: productsBuildParameters,
-      toolsBuildParameters: toolsBuildParameters
+        productsBuildParameters: productsBuildParameters,
+        toolsBuildParameters: toolsBuildParameters
     )
 
     let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
