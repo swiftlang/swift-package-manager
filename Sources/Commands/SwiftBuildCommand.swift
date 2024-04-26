@@ -173,7 +173,12 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
         }
     }
 
-    private func build(_ swiftCommandState: SwiftCommandState, subset: BuildSubset, productsBuildParameters: BuildParameters?, toolsBuildParameters: BuildParameters?) throws {
+    private func build(
+        _ swiftCommandState: SwiftCommandState,
+        subset: BuildSubset,
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?
+    ) throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
