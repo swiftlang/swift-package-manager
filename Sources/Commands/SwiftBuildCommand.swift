@@ -180,21 +180,23 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                     library: library
                 )
             }
+            var productsBuildParameters = try swiftCommandState.productsBuildParameters
+            var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
             for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
                 updateTestingParameters(of: &productsBuildParameters, library: library)
                 updateTestingParameters(of: &toolsBuildParameters, library: library)
                 try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
             }
         } else {
-            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
+            try build(swiftCommandState, subset: subset, productsBuildParameters: nil, toolsBuildParameters: nil)
         }
     }
 
     private func build(
         _ swiftCommandState: SwiftCommandState,
         subset: BuildSubset,
-        productsBuildParameters: BuildParameters,
-        toolsBuildParameters: BuildParameters
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?
     ) throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
