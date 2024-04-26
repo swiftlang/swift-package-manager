@@ -508,7 +508,7 @@ let package = Package(
         ),
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
-            name: "swift-experimental-sdk",
+            name: "swift-sdk",
             dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]
         ),

@@ -6,13 +6,13 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_executable(swift-experimental-sdk
+add_executable(swift-sdk
   Entrypoint.swift)
-target_link_libraries(swift-experimental-sdk PRIVATE
+target_link_libraries(swift-sdk PRIVATE
   SwiftSDKCommand)
 
-target_compile_options(swift-experimental-sdk PRIVATE
+target_compile_options(swift-sdk PRIVATE
   -parse-as-library)
 
-install(TARGETS swift-experimental-sdk
+install(TARGETS swift-sdk
   RUNTIME DESTINATION bin)
