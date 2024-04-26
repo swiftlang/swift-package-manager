@@ -112,7 +112,7 @@ package struct LocationOptions: ParsableArguments {
     package var customCompileDestination: AbsolutePath?
 
     /// Path to the directory containing installed Swift SDKs.
-    @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
+    @Option(name: .customLong("swift-sdks-path"), completion: .directory)
     package var swiftSDKsDirectory: AbsolutePath?
 
     @Option(
@@ -407,7 +407,10 @@ package struct BuildOptions: ParsableArguments {
     package var architectures: [String] = []
 
     /// Filter for selecting a specific Swift SDK to build with.
-    @Option(name: .customLong("experimental-swift-sdk"), help: .hidden)
+    @Option(
+        name: .customLong("swift-sdk"),
+        help: "Filter for selecting a specific Swift SDK to build with"
+    )
     package var swiftSDKSelector: String?
 
     /// Which compile-time sanitizers should be enabled.

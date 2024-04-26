@@ -41,7 +41,7 @@ struct SwiftPM {
             await SwiftPackageCommand.main()
         case "swift-build":
             await SwiftBuildCommand.main()
-        case "swift-experimental-sdk":
+        case "swift-sdk":
             await SwiftSDKCommand.main()
         case "swift-test":
             await SwiftTestCommand.main()
