@@ -15,7 +15,7 @@ import Basics
     
 package struct SwiftSDKCommand: AsyncParsableCommand {
     package static let configuration = CommandConfiguration(
-        commandName: "experimental-sdk",
+        commandName: "sdk",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift SDKs.",
         version: SwiftVersion.current.completeDisplayString,
