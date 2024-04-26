@@ -114,7 +114,8 @@ package struct LocationOptions: ParsableArguments {
     /// Path to the directory containing installed Swift SDKs.
     @Option(
         name: .customLong("swift-sdks-path"),
-        help: "Path to the directory containing installed Swift SDKs"
+        help: "Path to the directory containing installed Swift SDKs",
+        completion: .directory
     )
     package var swiftSDKsDirectory: AbsolutePath?
 
