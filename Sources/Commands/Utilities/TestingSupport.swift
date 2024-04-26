@@ -122,7 +122,7 @@ enum TestingSupport {
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
                     library: .xctest
-                ),
+                ).productsBuildParameters,
                 sanitizers: sanitizers
             )
 
@@ -137,7 +137,7 @@ enum TestingSupport {
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
-            ),
+            ).productsBuildParameters,
             sanitizers: sanitizers
         )
         args = [path.description, "--dump-tests-json"]
@@ -218,8 +218,35 @@ extension SwiftCommandState {
         shouldSkipBuilding: Bool = false,
         experimentalTestOutput: Bool = false,
         library: BuildParameters.Testing.Library
-    ) throws -> BuildParameters {
-        var parameters = try self.productsBuildParameters
+    ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
+        let productsBuildParameters = buildParametersForTest(
+            modifying: try productsBuildParameters,
+            enableCodeCoverage: enableCodeCoverage,
+            enableTestability: enableTestability,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput,
+            library: library
+        )
+        let toolsBuildParameters = buildParametersForTest(
+            modifying: try toolsBuildParameters,
+            enableCodeCoverage: enableCodeCoverage,
+            enableTestability: enableTestability,
+            shouldSkipBuilding: shouldSkipBuilding,
+            experimentalTestOutput: experimentalTestOutput,
+            library: library
+        )
+        return (productsBuildParameters, toolsBuildParameters)
+    }
+
+    private func buildParametersForTest(
+        modifying parameters: BuildParameters,
+        enableCodeCoverage: Bool,
+        enableTestability: Bool?,
+        shouldSkipBuilding: Bool,
+        experimentalTestOutput: Bool,
+        library: BuildParameters.Testing.Library
+    ) -> BuildParameters {
+        var parameters = parameters
 
         var explicitlyEnabledDiscovery = false
         var explicitlySpecifiedPath: AbsolutePath?
