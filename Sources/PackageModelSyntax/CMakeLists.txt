@@ -24,12 +24,12 @@ target_link_libraries(PackageModelSyntax PUBLIC
   PackageLoading
   PackageModel
 
-  SwiftBasicFormat
-  SwiftDiagnostics
-  SwiftIDEUtils
-  SwiftParser
-  SwiftSyntax
-  SwiftSyntaxBuilder
+  SwiftSyntax::SwiftBasicFormat
+  SwiftSyntax::SwiftDiagnostics
+  SwiftSyntax::SwiftIDEUtils
+  SwiftSyntax::SwiftParser
+  SwiftSyntax::SwiftSyntax
+  SwiftSyntax::SwiftSyntaxBuilder
 )
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
@@ -41,17 +41,3 @@ install(TARGETS PackageModelSyntax
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageModelSyntax)
-
-set(SWIFT_SYNTAX_MODULES
-  SwiftBasicFormat
-  SwiftParser
-  SwiftParserDiagnostics
-  SwiftDiagnostics
-  SwiftSyntax
-  SwiftSyntaxBuilder
-  SwiftIDEUtils
-)
-export(TARGETS ${SWIFT_SYNTAX_MODULES}
-       NAMESPACE SPMSwiftSyntax::
-       FILE ${CMAKE_BINARY_DIR}/cmake/modules/SwiftSyntaxConfig.cmake
-       EXPORT_LINK_INTERFACE_LIBRARIES)
