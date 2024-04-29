@@ -609,7 +609,7 @@ private func createResolvedPackages(
                 case (.some(let registryIdentity), .none):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
-                            regsitryPackage: registryIdentity,
+                            registryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package2.identity,
                             targets: potentiallyDuplicatePackage.value
                         )
@@ -617,7 +617,7 @@ private func createResolvedPackages(
                 case (.none, .some(let registryIdentity)):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
-                            regsitryPackage: registryIdentity,
+                            registryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package1.identity,
                             targets: potentiallyDuplicatePackage.value
                         )

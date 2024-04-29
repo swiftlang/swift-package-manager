@@ -87,7 +87,7 @@ public enum ModuleError: Swift.Error {
 
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
-        regsitryPackage: PackageIdentity.RegistryIdentity,
+        registryPackage: PackageIdentity.RegistryIdentity,
         scmPackage: PackageIdentity,
         targets: [String]
     )
