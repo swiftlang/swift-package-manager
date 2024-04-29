@@ -350,8 +350,13 @@ package final class SwiftCommandState {
             fileSystem: fileSystem
         )
         self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
+        if options.locations.deprecatedSwiftSDKsDirectory != nil {
+            self.observabilityScope.emit(
+                warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
+            )
+        }
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
-            explicitDirectory: options.locations.swiftSDKsDirectory
+            explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
 
         // set global process logging handler
@@ -820,6 +825,12 @@ package final class SwiftCommandState {
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
+
+            if options.build.deprecatedSwiftSDKSelector != nil {
+                self.observabilityScope.emit(
+                    warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
+                )
+            }
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
@@ -827,7 +838,7 @@ package final class SwiftCommandState {
                 customCompileTriple: options.build.customCompileTriple,
                 customCompileToolchain: options.build.customCompileToolchain,
                 customCompileSDK: options.build.customCompileSDK,
-                swiftSDKSelector: options.build.swiftSDKSelector,
+                swiftSDKSelector: options.build.swiftSDKSelector ?? options.build.deprecatedSwiftSDKSelector,
                 architectures: options.build.architectures,
                 store: store,
                 observabilityScope: self.observabilityScope,

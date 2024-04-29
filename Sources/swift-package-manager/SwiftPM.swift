@@ -41,6 +41,9 @@ struct SwiftPM {
             await SwiftPackageCommand.main()
         case "swift-build":
             await SwiftBuildCommand.main()
+        case "swift-experimental-sdk":
+            print("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.")
+            fallthrough
         case "swift-sdk":
             await SwiftSDKCommand.main()
         case "swift-test":

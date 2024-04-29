@@ -111,6 +111,9 @@ package struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     package var customCompileDestination: AbsolutePath?
 
+    @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
+    package var deprecatedSwiftSDKsDirectory: AbsolutePath?
+
     /// Path to the directory containing installed Swift SDKs.
     @Option(
         name: .customLong("swift-sdks-path"),
@@ -409,6 +412,9 @@ package struct BuildOptions: ParsableArguments {
         )
     )
     package var architectures: [String] = []
+
+    @Option(name: .customLong("experimental-swift-sdk"), help: .hidden)
+    package var deprecatedSwiftSDKSelector: String?
 
     /// Filter for selecting a specific Swift SDK to build with.
     @Option(

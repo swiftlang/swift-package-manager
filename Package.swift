@@ -534,6 +534,12 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
+            /** Deprecated command superseded by `swift-sdk` */
+            name: "swift-experimental-sdk",
+            dependencies: ["Commands", "SwiftSDKCommand"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Commands"],
