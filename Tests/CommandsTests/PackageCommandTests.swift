@@ -1890,6 +1890,11 @@ final class PackageCommandTests: CommandsTestCase {
                                 print("  \\(file.path): \\(file.type)")
                             }
                         }
+
+                        // Print out the dependencies so that we can check them.
+                        for dependency in context.package.dependencies {
+                            print("  dependency \\(dependency.package.displayName): \\(dependency.package.origin)")
+                        }
                     }
                 }
                 """
@@ -1985,6 +1990,12 @@ final class PackageCommandTests: CommandsTestCase {
                 let workingDirectory = FileManager.default.currentDirectoryPath
                 let (stdout, _) = try SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Initial working directory: \(workingDirectory)"))
+            }
+
+            // Check that information about the dependencies was properly sent to the plugin.
+            do {
+                let (stdout, _) = try SwiftPM.Package.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("dependency HelperPackage: local"))
             }
         }
     }
