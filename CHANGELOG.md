@@ -3,6 +3,12 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 6.0
 -----------
 
+* [#7507] 
+
+  `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and
+  `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
+  `experimental` prefix.
+
 * [#7202]
 
   Package manifests can now access information about the Git repository the given package is in via the context object's 
@@ -403,3 +409,4 @@ Swift 3.0
 [#7118]: https://github.com/apple/swift-package-manager/pull/7118
 [#7201]: https://github.com/apple/swift-package-manager/pull/7201
 [#7202]: https://github.com/apple/swift-package-manager/pull/7202
+[#7505]: https://github.com/apple/swift-package-manager/pull/7507
