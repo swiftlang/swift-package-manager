@@ -73,6 +73,12 @@ struct BuildCommandOptions: ParsableArguments {
     @Flag(help: "Build both source and test targets")
     var buildTests: Bool = false
 
+    /// Whether to enable code coverage.
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage")
+    var enableCodeCoverage: Bool = false
+
     /// If the binary output path should be printed.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
     var shouldPrintBinPath: Bool = false
@@ -148,6 +154,18 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
+
+        var productsBuildParameters = try swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
+
+        // Clean out the code coverage directory that may contain stale
+        // profraw files from a previous run of the code coverage tool.
+        if self.options.enableCodeCoverage {
+            try swiftCommandState.fileSystem.removeFileTree(swiftCommandState.productsBuildParameters.codeCovPath)
+            productsBuildParameters.testingParameters.enableCodeCoverage = true
+            toolsBuildParameters.testingParameters.enableCodeCoverage = true
+        }
+
         if case .allIncludingTests = subset {
             func updateTestingParameters(of buildParameters: inout BuildParameters, library: BuildParameters.Testing.Library) {
                 buildParameters.testingParameters = .init(
@@ -161,23 +179,21 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
                     library: library
                 )
             }
-            var productsBuildParameters = try swiftCommandState.productsBuildParameters
-            var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
             for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
                 updateTestingParameters(of: &productsBuildParameters, library: library)
                 updateTestingParameters(of: &toolsBuildParameters, library: library)
                 try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
             }
         } else {
-            try build(swiftCommandState, subset: subset, productsBuildParameters: nil, toolsBuildParameters: nil)
+            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
         }
     }
 
     private func build(
         _ swiftCommandState: SwiftCommandState,
         subset: BuildSubset,
-        productsBuildParameters: BuildParameters?,
-        toolsBuildParameters: BuildParameters?
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters
     ) throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
