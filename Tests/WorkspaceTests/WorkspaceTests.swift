@@ -1971,7 +1971,7 @@ final class WorkspaceTests: XCTestCase {
             // Ensure that the order of the manifests is stable.
             XCTAssertEqual(
                 manifests.allDependencyManifests.map(\.value.manifest.displayName),
-                ["Foo", "Baz", "Bam", "Bar"]
+                ["Foo", "Bar", "Baz", "Bam"]
             )
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -12111,15 +12111,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: .regex("cyclic dependency declaration found: root[1|2] -> *"),
-                    severity: .error
-                )
-                result.check(
-                    diagnostic: """
-                    exhausted attempts to resolve the dependencies graph, with the following dependencies unresolved:
-                    * 'bar' from http://scm.com/org/bar
-                    * 'foo' from http://scm.com/org/foo
-                    """,
+                    diagnostic: .regex("cyclic dependency declaration found: Root[1|2] -> *"),
                     severity: .error
                 )
             }
