@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,7 +13,10 @@
 import Basics
 @testable import PackageGraph
 import PackageLoading
+
+@_spi(SwiftPMInternal)
 import PackageModel
+
 @testable import SPMBuildCore
 import SPMTestSupport
 import Workspace
@@ -23,7 +26,7 @@ import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.SerializedDiagnostics
 
-class PluginInvocationTests: XCTestCase {
+final class PluginInvocationTests: XCTestCase {
 
     func testBasics() throws {
         // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
