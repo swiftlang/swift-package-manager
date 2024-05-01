@@ -162,6 +162,7 @@ public struct ModulesGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
+        packages: [ResolvedPackage],
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
@@ -169,7 +170,7 @@ public struct ModulesGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
-        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
+        self.packages = packages
         let identitiesToPackages = self.packages.spm_createDictionary { ($0.identity, $0) }
 
         // Create a mapping from targets to the packages that define them.  Here

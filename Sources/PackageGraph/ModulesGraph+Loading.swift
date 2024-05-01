@@ -100,8 +100,6 @@ extension ModulesGraph {
                 flattenedManifests[node.identity] = node
             }
         }
-        // sort by identity
-        allNodes = flattenedManifests.keys.sorted().map { flattenedManifests[$0]! } // force unwrap fine since we are iterating on keys
 
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
@@ -169,6 +167,7 @@ extension ModulesGraph {
         return try ModulesGraph(
             rootPackages: rootPackages,
             rootDependencies: resolvedPackages.filter { rootDependencies.contains($0.manifest) },
+            packages: resolvedPackages,
             dependencies: requiredDependencies,
             binaryArtifacts: binaryArtifacts
         )
