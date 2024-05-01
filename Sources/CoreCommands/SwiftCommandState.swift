@@ -748,6 +748,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            prepareForIndexing: options.build.prepareForIndexing,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,

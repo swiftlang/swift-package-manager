@@ -127,6 +127,38 @@ public class LLBuildManifestBuilder {
         return self.manifest
     }
 
+    package func generatePrepareManifest(at path: AbsolutePath) throws -> LLBuildManifest {
+        self.swiftGetVersionFiles.removeAll()
+
+        self.manifest.createTarget(TargetKind.main.targetName)
+        self.manifest.createTarget(TargetKind.test.targetName)
+        self.manifest.defaultTarget = TargetKind.main.targetName
+
+        addPackageStructureCommand()
+
+        for (_, description) in self.plan.targetMap {
+            switch description {
+            case .swift(let desc):
+                try self.createSwiftCompileCommand(desc)
+            case .clang(let desc):
+                // Need the clang targets for tools
+                if desc.target.buildTriple == .tools {
+                    try self.createClangCompileCommand(desc)
+                }
+            }
+        }
+
+        for (_, description) in self.plan.productMap {
+            // Need to generate macro products
+            if description.product.type == .macro {
+                try self.createProductCommand(description)
+            }
+        }
+
+        try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
+        return self.manifest
+    }
+
     func addNode(_ node: Node, toTarget targetKind: TargetKind) {
         self.manifest.addNode(node, toTarget: targetKind.targetName)
     }

@@ -43,7 +43,13 @@ extension LLBuildManifestBuilder {
         // Outputs.
         let objectNodes = try target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
-        let cmdOutputs = objectNodes + [moduleNode]
+        let cmdOutputs: [Node]
+        if target.prepareForIndexing {
+            // Don't include the object nodes on prepare builds
+            cmdOutputs = [moduleNode]
+        } else {
+            cmdOutputs = objectNodes + [moduleNode]
+        }
 
         if target.defaultBuildParameters.driverParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
@@ -397,7 +403,8 @@ extension LLBuildManifestBuilder {
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
             wholeModuleOptimization: target.defaultBuildParameters.configuration == .release,
-            outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.
+            outputFileMapPath: try target.writeOutputFileMap(), // FIXME: Eliminate side effect.
+            prepareForIndexing: target.prepareForIndexing
         )
     }
 
@@ -417,6 +424,8 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
+        let prepareForIndexing = target.prepareForIndexing
+
         func addStaticTargetInputs(_ target: ResolvedModule) throws {
             // Ignore C Modules.
             if target.underlying is SystemLibraryTarget { return }
@@ -428,7 +437,7 @@ extension LLBuildManifestBuilder {
             if target.underlying is ProvidedLibraryTarget { return }
 
             // Depend on the binary for executable targets.
-            if target.type == .executable {
+            if target.type == .executable && !prepareForIndexing {
                 // FIXME: Optimize.
                 let product = try plan.graph.allProducts.first {
                     try $0.type == .executable && $0.executableTarget.id == target.id
@@ -446,8 +455,15 @@ extension LLBuildManifestBuilder {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
-                for object in try target.objects {
-                    inputs.append(file: object)
+                if prepareForIndexing {
+                    // In preparation, we're only building swiftmodules, need to depend on sources
+                    for source in target.clangTarget.sources.paths {
+                        inputs.append(file: source)
+                    }
+                } else {
+                    for object in try target.objects {
+                        inputs.append(file: object)
+                    }
                 }
             case nil:
                 throw InternalError("unexpected: target \(target) not in target map \(self.plan.targetMap)")
