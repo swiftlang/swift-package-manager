@@ -256,6 +256,7 @@ public class Workspace {
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
