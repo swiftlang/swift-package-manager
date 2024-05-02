@@ -21,11 +21,13 @@ private import class PackageModel.UserToolchain
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedTarget
     private let toolsVersion: ToolsVersion
+    let isPartOfRootPackage: Bool
 
-    init(target: ResolvedTarget, toolsVersion: ToolsVersion) {
+    init(target: ResolvedTarget, toolsVersion: ToolsVersion, isPartOfRootPackage: Bool) {
         assert(target.type == .plugin)
         self.target = target
         self.toolsVersion = toolsVersion
+        self.isPartOfRootPackage = isPartOfRootPackage
     }
 
     var sources: [URL] {
