@@ -84,8 +84,6 @@ public final class UserToolchain: Toolchain {
 
     private let environment: EnvironmentVariables
 
-    public let isSwiftDevelopmentToolchain: Bool
-
     public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
 
     public let providedLibraries: [LibraryMetadata]
@@ -514,22 +512,6 @@ public final class UserToolchain: Toolchain {
         self.swiftCompilerPath = swiftCompilers.compile
         self.architectures = swiftSDK.architectures
 
-        #if canImport(Darwin)
-        let toolchainPlistPath = self.swiftCompilerPath.parentDirectory.parentDirectory.parentDirectory
-            .appending(component: "Info.plist")
-        if localFileSystem.exists(toolchainPlistPath), let toolchainPlist = try? NSDictionary(
-            contentsOf: URL(fileURLWithPath: toolchainPlistPath.pathString),
-            error: ()
-        ), let overrideBuildSettings = toolchainPlist["OverrideBuildSettings"] as? NSDictionary,
-        let isSwiftDevelopmentToolchainStringValue = overrideBuildSettings["SWIFT_DEVELOPMENT_TOOLCHAIN"] as? String {
-            self.isSwiftDevelopmentToolchain = isSwiftDevelopmentToolchainStringValue == "YES"
-        } else {
-            self.isSwiftDevelopmentToolchain = false
-        }
-        #else
-        self.isSwiftDevelopmentToolchain = false
-        #endif
-
         if let customInstalledSwiftPMConfiguration {
             self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
         } else {
@@ -884,15 +866,5 @@ public final class UserToolchain: Toolchain {
 
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
-    }
-
-    private let _swiftPluginServerPath = ThreadSafeBox<AbsolutePath?>()
-
-    public var swiftPluginServerPath: AbsolutePath? {
-        get throws {
-            try _swiftPluginServerPath.memoize {
-                return try Self.derivePluginServerPath(triple: self.targetTriple)
-            }
-        }
     }
 }

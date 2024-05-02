@@ -439,25 +439,6 @@ package final class SwiftTargetBuildDescription {
         }
         #endif
 
-        // If we're using an OSS toolchain, add the required arguments bringing in the plugin server from the default toolchain if available.
-        if self.buildParameters.toolchain.isSwiftDevelopmentToolchain, 
-            DriverSupport.checkSupportedFrontendFlags(
-                flags: ["-external-plugin-path"],
-                toolchain: self.buildParameters.toolchain,
-                fileSystem: self.fileSystem
-            ), 
-            let pluginServer = try self.buildParameters.toolchain.swiftPluginServerPath
-        {
-            let toolchainUsrPath = pluginServer.parentDirectory.parentDirectory
-            let pluginPathComponents = ["lib", "swift", "host", "plugins"]
-
-            let pluginPath = toolchainUsrPath.appending(components: pluginPathComponents)
-            args += ["-Xfrontend", "-external-plugin-path", "-Xfrontend", "\(pluginPath)#\(pluginServer.pathString)"]
-
-            let localPluginPath = toolchainUsrPath.appending(components: ["local"] + pluginPathComponents)
-            args += ["-Xfrontend", "-external-plugin-path", "-Xfrontend", "\(localPluginPath)#\(pluginServer.pathString)"]
-        }
-
         if self.disableSandbox {
             let toolchainSupportsDisablingSandbox = DriverSupport.checkSupportedFrontendFlags(flags: ["-disable-sandbox"], toolchain: self.buildParameters.toolchain, fileSystem: fileSystem)
             if toolchainSupportsDisablingSandbox {
