@@ -150,6 +150,20 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
 
                 XCTAssertEqual(results.filter({ $0.target.buildTriple == .tools }).count, 1)
                 XCTAssertEqual(results.filter({ $0.target.buildTriple == .destination }).count, 1)
+
+                for result in results {
+                    XCTAssertEqual(result.target.packageIdentity, .plain("swift-syntax"))
+                    XCTAssertEqual(graph.package(for: result.target)?.identity, .plain("swift-syntax"))
+                }
+            }
+
+            result.checkTargets("SwiftCompilerPlugin") { results in
+                XCTAssertEqual(results.count, 2)
+
+                for result in results {
+                    XCTAssertEqual(result.target.packageIdentity, .plain("swift-syntax"))
+                    XCTAssertEqual(graph.package(for: result.target)?.identity, .plain("swift-syntax"))
+                }
             }
         }
     }
