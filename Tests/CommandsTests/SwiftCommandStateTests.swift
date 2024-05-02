@@ -338,16 +338,6 @@ final class SwiftCommandStateTests: CommandsTestCase {
             targetArPath.pathString
         ])
 
-        let envKey = "SWIFTPM_CUSTOM_BIN_DIR"
-        let realCustomBinDir = ProcessEnv.vars[envKey]
-        try ProcessEnv.setVar(envKey, value: hostBinDir.pathString)
-        defer {
-            if let realCustomBinDir {
-                try! ProcessEnv.setVar(envKey, value: realCustomBinDir)
-            } else {
-                try! ProcessEnv.unsetVar(envKey)
-            }
-        }
 
         try fs.updatePermissions(hostSwiftcPath, isExecutable: true)
         try fs.updatePermissions(targetSwiftcPath, isExecutable: true)
@@ -372,7 +362,13 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 "--triple", "x86_64-unknown-linux-gnu",
             ]
         )
-        let swiftCommandState = try SwiftCommandState.makeMockState(options: options, fileSystem: fs)
+        let swiftCommandState = try SwiftCommandState.makeMockState(
+            options: options,
+            fileSystem: fs,
+            environment: [
+                "SWIFTPM_CUSTOM_BIN_DIR": hostBinDir.pathString
+            ]
+        )
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(
             try swiftCommandState.getTargetToolchain().swiftCompilerPath,
@@ -400,7 +396,8 @@ extension SwiftCommandState {
     static func makeMockState(
         outputStream: OutputByteStream = stderrStream,
         options: GlobalOptions,
-        fileSystem: any FileSystem = localFileSystem
+        fileSystem: any FileSystem = localFileSystem,
+        environment: EnvironmentVariables = .process()
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,
@@ -420,7 +417,8 @@ extension SwiftCommandState {
                     observabilityScope: $1
                 )
             },
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            environment: environment
         )
     }
 }

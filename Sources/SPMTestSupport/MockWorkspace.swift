@@ -274,6 +274,7 @@ package final class MockWorkspace {
 
         let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
+            environment: .empty(),
             location: .init(
                 scratchDirectory: self.sandbox.appending(".build"),
                 editsDirectory: self.sandbox.appending("edits"),

@@ -7838,7 +7838,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK()),
+            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty()),
             checksumAlgorithm: checksumAlgorithm,
             cachePath: .none,
             customHTTPClient: .none,
@@ -9078,7 +9078,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
 
         let ariFiles = [
             """
@@ -9367,7 +9367,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
 
         let ari = """
         {
@@ -9486,7 +9486,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
 
         let ari = """
         {
@@ -9596,7 +9596,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileArchiveNotFound() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
 
         let ari = """
         {
@@ -9672,7 +9672,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
         let androidTriple = try Triple("x86_64-unknown-linux-android")
         let macTriple = try Triple("arm64-apple-macosx")
         let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
@@ -12299,6 +12299,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
+                environment: .empty(),
                 forRootPackage: .root,
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
@@ -12315,6 +12316,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
+                environment: .empty(),
                 forRootPackage: .root,
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate

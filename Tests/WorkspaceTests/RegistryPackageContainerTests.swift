@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -24,8 +24,7 @@ import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
-class RegistryPackageContainerTests: XCTestCase {
-
+final class RegistryPackageContainerTests: XCTestCase {
     func testToolsVersionCompatibleVersions() async throws {
         let fs = InMemoryFileSystem()
 
@@ -88,6 +87,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .empty(),
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
                 customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -153,6 +153,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .empty(),
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
                 customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -246,6 +247,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
             return try Workspace._init(
                 fileSystem: fs,
+                environment: .empty(),
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
                 customManifestLoader: MockManifestLoader(),

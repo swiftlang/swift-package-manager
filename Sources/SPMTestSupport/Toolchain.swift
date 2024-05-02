@@ -41,7 +41,7 @@ extension SwiftSDK {
     package static var `default`: Self {
         get throws {
             let binDir = try resolveBinDir()
-            return try! SwiftSDK.hostSwiftSDK(binDir)
+            return try! SwiftSDK.hostSwiftSDK(binDir, environment: .process())
         }
     }
 }
@@ -49,7 +49,7 @@ extension SwiftSDK {
 extension UserToolchain {
     package static var `default`: Self {
         get throws {
-            return try .init(swiftSDK: SwiftSDK.default, fileSystem: localFileSystem)
+            return try .init(swiftSDK: SwiftSDK.default, environment: .process(), fileSystem: localFileSystem)
         }
     }
 }

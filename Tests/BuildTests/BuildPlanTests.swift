@@ -4369,7 +4369,7 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
-        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK)
+        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK, environment: .empty())
         let extraBuildParameters = mockBuildParameters(
             toolchain: mockToolchain,
             flags: BuildFlags(
@@ -4511,7 +4511,7 @@ final class BuildPlanTests: XCTestCase {
             ),
             toolset: toolset
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .empty())
         let buildParameters = mockBuildParameters(
             toolchain: toolchain,
             flags: BuildFlags(
@@ -4667,7 +4667,7 @@ final class BuildPlanTests: XCTestCase {
                 .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld"]),
             ])
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .empty())
         let buildParameters = mockBuildParameters(toolchain: toolchain)
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,

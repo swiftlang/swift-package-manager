@@ -526,7 +526,7 @@ public final class UserToolchain: Toolchain {
 
     public init(
         swiftSDK: SwiftSDK,
-        environment: EnvironmentVariables = .process(),
+        environment: EnvironmentVariables,
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,

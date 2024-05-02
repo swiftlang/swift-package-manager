@@ -265,6 +265,8 @@ package final class SwiftCommandState {
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
 
+    private let environment: EnvironmentVariables
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
@@ -295,9 +297,11 @@ package final class SwiftCommandState {
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
-        fileSystem: any FileSystem = localFileSystem
+        fileSystem: any FileSystem = localFileSystem,
+        environment: EnvironmentVariables = ProcessEnv.vars
     ) throws {
         self.fileSystem = fileSystem
+        self.environment = environment
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftCommandObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
@@ -362,7 +366,10 @@ package final class SwiftCommandState {
         )
 
         self._hostToolchain = Result(catching: {
-            try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK(fileSystem: fileSystem))
+            try UserToolchain(
+                swiftSDK: SwiftSDK.hostSwiftSDK(environment: environment, fileSystem: fileSystem),
+                environment: environment
+            )
         })
 
         // set global process logging handler
@@ -858,7 +865,9 @@ package final class SwiftCommandState {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(swiftSDK: swiftSDK, fileSystem: self.fileSystem) })
+        return Result(catching: {
+            try UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+        })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.

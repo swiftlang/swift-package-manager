@@ -173,6 +173,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: any FileSystem,
+        environment: EnvironmentVariables = .process(),
         location: Location,
         authorizationProvider: (any AuthorizationProvider)? = .none,
         registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
@@ -189,6 +190,7 @@ public class Workspace {
     ) throws {
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -236,6 +238,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: FileSystem? = .none,
+        environment: EnvironmentVariables = .process(),
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -331,6 +334,7 @@ public class Workspace {
     public static func _init(
         // core
         fileSystem: FileSystem,
+        environment: EnvironmentVariables,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -359,6 +363,7 @@ public class Workspace {
     ) throws -> Workspace {
         try .init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -388,6 +393,7 @@ public class Workspace {
     private init(
         // core
         fileSystem: FileSystem,
+        environment: EnvironmentVariables,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         registryAuthorizationProvider: AuthorizationProvider?,
@@ -426,7 +432,13 @@ public class Workspace {
         )
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(swiftSDK: .hostSwiftSDK(), fileSystem: fileSystem)
+        let hostToolchain = try customHostToolchain ?? UserToolchain(
+            swiftSDK: .hostSwiftSDK(
+                environment: environment
+            ),
+            environment: environment,
+            fileSystem: fileSystem
+        )
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,

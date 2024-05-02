@@ -365,7 +365,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         ])
     }
 
-    func testTargetSDKDeriviation() async throws {
+    func testTargetSDKDerivation() async throws {
         let toolsetRootPath = AbsolutePath("/path/to/toolpath")
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
             bundleArtifacts: [
@@ -374,7 +374,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
-        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK()
+        let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .empty())
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
         let archiver = MockArchiver()
         let store = SwiftSDKBundleStore(
@@ -424,7 +424,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 fileSystem: fileSystem
             )
             // With toolset in the target SDK, it should contain the host toolset roots at the end.
-            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, [toolsetRootPath] + hostSwiftSDK.toolset.rootPaths)
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths + [toolsetRootPath])
         }
 
         do {
