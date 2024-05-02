@@ -21,6 +21,7 @@ import func PackageGraph.loadModulesGraph
 
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
+import enum PackageModel.ProductType
 import struct PackageModel.TargetDescription
 import protocol TSCBasic.FileSystem
 import class TSCBasic.InMemoryFileSystem
@@ -258,7 +259,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
-package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+package func trivialPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -288,7 +289,7 @@ package func trivialPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackag
     return (graph, fs, observability.topScope)
 }
 
-package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws -> MockPackageGraph {
+package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
         "/Pkg/Sources/app/main.swift",
@@ -325,6 +326,69 @@ package func embeddedCxxInteropPackageGraph(pkgRootPath: AbsolutePath) throws ->
         ],
         observabilityScope: observability.topScope
     )
+    XCTAssertNoDiagnostics(observability.diagnostics)
+
+    return (graph, fs, observability.topScope)
+}
+
+package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(emptyFiles:
+        "/swift-mmio/Sources/MMIOMacros/source.swift",
+        "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
+        "/swift-syntax/Sources/SwiftSyntax/source.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadModulesGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "swift-mmio",
+                path: "/swift-mmio",
+                dependencies: [
+                    .localSourceControl(
+                        path: "/swift-syntax",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "MMIOMacros",
+                        dependencies: [
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                        ],
+                        type: .macro
+                    ),
+                    TargetDescription(
+                        name: "MMIOMacrosTests",
+                        dependencies: [
+                            .target(name: "MMIOMacros"),
+                        ],
+                        type: .test
+                    )
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "swift-syntax",
+                path: "/swift-syntax",
+                products: [
+                    ProductDescription(
+                        name: "SwiftSyntax",
+                        type: .library(linkage),
+                        targets: ["SwiftSyntax"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "SwiftSyntax",
+                        dependencies: []
+                    ),
+                ]
+            ),
+        ],
+        observabilityScope: observability.topScope
+    )
+
     XCTAssertNoDiagnostics(observability.diagnostics)
 
     return (graph, fs, observability.topScope)

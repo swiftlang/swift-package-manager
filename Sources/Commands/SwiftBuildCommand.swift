@@ -73,6 +73,12 @@ struct BuildCommandOptions: ParsableArguments {
     @Flag(help: "Build both source and test targets")
     var buildTests: Bool = false
 
+    /// Whether to enable code coverage.
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage")
+    var enableCodeCoverage: Bool = false
+
     /// If the binary output path should be printed.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
     var shouldPrintBinPath: Bool = false
@@ -148,9 +154,20 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
+
+        var productsBuildParameters = try swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
+
+        // Clean out the code coverage directory that may contain stale
+        // profraw files from a previous run of the code coverage tool.
+        if self.options.enableCodeCoverage {
+            try swiftCommandState.fileSystem.removeFileTree(swiftCommandState.productsBuildParameters.codeCovPath)
+            productsBuildParameters.testingParameters.enableCodeCoverage = true
+            toolsBuildParameters.testingParameters.enableCodeCoverage = true
+        }
+
         if case .allIncludingTests = subset {
-            var buildParameters = try swiftCommandState.productsBuildParameters
-            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+            func updateTestingParameters(of buildParameters: inout BuildParameters, library: BuildParameters.Testing.Library) {
                 buildParameters.testingParameters = .init(
                     configuration: buildParameters.configuration,
                     targetTriple: buildParameters.triple,
@@ -161,18 +178,28 @@ package struct SwiftBuildCommand: AsyncSwiftCommand {
                     testEntryPointPath: globalOptions.build.testEntryPointPath,
                     library: library
                 )
-                try build(swiftCommandState, subset: subset, buildParameters: buildParameters)
+            }
+            for library in try options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState) {
+                updateTestingParameters(of: &productsBuildParameters, library: library)
+                updateTestingParameters(of: &toolsBuildParameters, library: library)
+                try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
             }
         } else {
-            try build(swiftCommandState, subset: subset)
+            try build(swiftCommandState, subset: subset, productsBuildParameters: productsBuildParameters, toolsBuildParameters: toolsBuildParameters)
         }
     }
 
-    private func build(_ swiftCommandState: SwiftCommandState, subset: BuildSubset, buildParameters: BuildParameters? = nil) throws {
+    private func build(
+        _ swiftCommandState: SwiftCommandState,
+        subset: BuildSubset,
+        productsBuildParameters: BuildParameters,
+        toolsBuildParameters: BuildParameters
+    ) throws {
         let buildSystem = try swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-            productsBuildParameters: buildParameters,
+            productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
             outputStream: TSCBasic.stdoutStream

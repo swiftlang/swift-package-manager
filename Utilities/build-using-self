@@ -20,6 +20,8 @@ echo "Current directory is ${PWD}"
 
 CONFIGURATION=debug
 export SWIFTCI_IS_SELF_HOSTED=1
+# Disable Swift 6 mode in swift-syntax to work around rdar://126952308
+export SWIFTSYNTAX_DISABLE_SWIFT_6_MODE=1
 
 set -x
 

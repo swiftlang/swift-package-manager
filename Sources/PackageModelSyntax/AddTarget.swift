@@ -62,7 +62,7 @@ public struct AddTarget {
         )
 
         let outerDirectory: String? = switch target.type {
-        case .binary, .plugin, .system: nil
+        case .binary, .plugin, .system, .providedLibrary: nil
         case .executable, .regular, .macro: "Sources"
         case .test: "Tests"
         }
@@ -167,7 +167,7 @@ public struct AddTarget {
         }
 
         let sourceFileText: SourceFileSyntax = switch target.type {
-        case .binary, .plugin, .system:
+        case .binary, .plugin, .system, .providedLibrary:
             fatalError("should have exited above")
 
         case .macro:

@@ -243,7 +243,7 @@ public struct BuildParameters: Encodable {
 
     /// Returns the path to the dynamic library of a product for the current build parameters.
     func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
-        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(product.name)\(self.triple.dynamicLibraryExtension)")
+        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(product.name)\(self.suffix(triple: product.buildTriple))\(self.triple.dynamicLibraryExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
@@ -254,7 +254,7 @@ public struct BuildParameters: Encodable {
         case .executable, .snippet:
             return potentialExecutablePath
         case .library(.static):
-            return try RelativePath(validating: "lib\(product.name)\(self.triple.staticLibraryExtension)")
+            return try RelativePath(validating: "lib\(product.name)\(self.suffix(triple: product.buildTriple))\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
             return try potentialDynamicLibraryPath(for: product)
         case .library(.automatic), .plugin:

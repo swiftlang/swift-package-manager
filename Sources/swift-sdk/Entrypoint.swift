@@ -15,7 +15,6 @@ import SwiftSDKCommand
 @main
 struct Entrypoint {
     static func main() async {
-        print("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.")
         await SwiftSDKCommand.main()
     }
 }

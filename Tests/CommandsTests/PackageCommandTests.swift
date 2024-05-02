@@ -1890,6 +1890,11 @@ final class PackageCommandTests: CommandsTestCase {
                                 print("  \\(file.path): \\(file.type)")
                             }
                         }
+
+                        // Print out the dependencies so that we can check them.
+                        for dependency in context.package.dependencies {
+                            print("  dependency \\(dependency.package.displayName): \\(dependency.package.origin)")
+                        }
                     }
                 }
                 """
@@ -1985,6 +1990,12 @@ final class PackageCommandTests: CommandsTestCase {
                 let workingDirectory = FileManager.default.currentDirectoryPath
                 let (stdout, _) = try SwiftPM.Package.execute(["mycmd"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Initial working directory: \(workingDirectory)"))
+            }
+
+            // Check that information about the dependencies was properly sent to the plugin.
+            do {
+                let (stdout, _) = try SwiftPM.Package.execute(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
+                XCTAssertMatch(stdout, .contains("dependency HelperPackage: local"))
             }
         }
     }
@@ -3054,9 +3065,9 @@ final class PackageCommandTests: CommandsTestCase {
                         let execProducts = context.package.products(ofType: ExecutableProduct.self)
                         print("execProducts: \\(execProducts.map{ $0.name })")
                         let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
-                        print("swiftTargets: \\(swiftTargets.map{ $0.name })")
+                        print("swiftTargets: \\(swiftTargets.map{ $0.name }.sorted())")
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
-                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
+                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent }.sorted())")
 
                         if let target = target.sourceModule {
                             print("Module kind of '\\(target.name)': \\(target.kind)")
@@ -3120,8 +3131,8 @@ final class PackageCommandTests: CommandsTestCase {
             do {
                 let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("execProducts: [\"FifthTarget\"]"))
-                XCTAssertMatch(stdout, .contains("swiftTargets: [\"ThirdTarget\", \"TestTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
-                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"tests.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
+                XCTAssertMatch(stdout, .contains("swiftTargets: [\"FifthTarget\", \"FirstTarget\", \"FourthTarget\", \"SecondTarget\", \"TestTarget\", \"ThirdTarget\"]"))
+                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\", \"tests.swift\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'FifthTarget': executable"))
             }
 
@@ -3328,7 +3339,6 @@ final class PackageCommandTests: CommandsTestCase {
             // Load the package graph.
             let _ = try workspace.loadPackageGraph(
                 rootInput: rootInput,
-                availableLibraries: [], // assume no provided libraries for testing.
                 observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)

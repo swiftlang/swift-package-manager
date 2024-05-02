@@ -37,7 +37,7 @@ import class PackageGraph.PinsStore
 import struct PackageGraph.PubGrubDependencyResolver
 import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
-import struct PackageModel.LibraryMetadata
+import struct PackageModel.ProvidedLibrary
 import enum PackageModel.PackageDependency
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
@@ -57,7 +57,6 @@ extension Workspace {
         root: PackageGraphRootInput,
         packages: [String] = [],
         dryRun: Bool = false,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         let start = DispatchTime.now()
@@ -88,7 +87,6 @@ extension Workspace {
         )
         let currentManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
 
@@ -123,7 +121,6 @@ extension Workspace {
         // Resolve the dependencies.
         let resolver = try self.createResolver(
             pins: pins,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         self.activeResolver = resolver
@@ -166,7 +163,6 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
@@ -200,7 +196,6 @@ extension Workspace {
     func _resolve(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [LibraryMetadata],
         resolvedFileStrategy: ResolvedFileStrategy,
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
@@ -216,7 +211,6 @@ extension Workspace {
             return try self._resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
         case .update(let forceResolution):
@@ -253,7 +247,6 @@ extension Workspace {
             let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
             switch precomputationResult {
@@ -277,7 +270,6 @@ extension Workspace {
             return try self.resolveAndUpdateResolvedFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                availableLibraries: availableLibraries,
                 forceResolution: forceResolution,
                 constraints: [],
                 observabilityScope: observabilityScope
@@ -304,13 +296,11 @@ extension Workspace {
     func _resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         let (manifests, precomputationResult) = try self.tryResolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: explicitProduct,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         switch precomputationResult {
@@ -343,7 +333,6 @@ extension Workspace {
     fileprivate func tryResolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> (DependencyManifests, ResolutionPrecomputationResult) {
         // Ensure the cache path exists.
@@ -370,7 +359,6 @@ extension Workspace {
             return try (
                 self.loadDependencyManifests(
                     root: graphRoot,
-                    availableLibraries: availableLibraries,
                     observabilityScope: observabilityScope
                 ),
                 .notRequired
@@ -383,6 +371,20 @@ extension Workspace {
         // automatically manage the parallelism.
         let group = DispatchGroup()
         for pin in pinsStore.pins.values {
+            // Provided library doesn't have a container, we need to inject a special depedency.
+            if let library = pin.packageRef.matchingPrebuiltLibrary(in: self.providedLibraries),
+               case .version(library.version, _) = pin.state
+            {
+                try self.state.dependencies.add(
+                    .providedLibrary(
+                        packageRef: pin.packageRef,
+                        library: library
+                    )
+                )
+                try self.state.save()
+                continue
+            }
+
             group.enter()
             let observabilityScope = observabilityScope.makeChildScope(
                 description: "requesting package containers",
@@ -430,6 +432,8 @@ extension Workspace {
                 return !pin.state.equals(checkoutState)
             case .registryDownload(let version):
                 return !pin.state.equals(version)
+            case .providedLibrary:
+                return false
             case .edited, .fileSystem, .custom:
                 return true
             }
@@ -463,7 +467,6 @@ extension Workspace {
         let currentManifests = try self.loadDependencyManifests(
             root: graphRoot,
             automaticallyAddManagedDependencies: true,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
 
@@ -478,7 +481,6 @@ extension Workspace {
             dependencyManifests: currentManifests,
             pinsStore: pinsStore,
             constraints: [],
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
 
@@ -495,7 +497,6 @@ extension Workspace {
     func resolveAndUpdateResolvedFile(
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
-        availableLibraries: [LibraryMetadata],
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
@@ -523,7 +524,6 @@ extension Workspace {
         )
         let currentManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         guard !observabilityScope.errorsReported else {
@@ -560,7 +560,6 @@ extension Workspace {
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
                 constraints: constraints,
-                availableLibraries: availableLibraries,
                 observabilityScope: observabilityScope
             )
 
@@ -596,7 +595,6 @@ extension Workspace {
         // Perform dependency resolution.
         let resolver = try self.createResolver(
             pins: pinsStore.pins,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         self.activeResolver = resolver
@@ -627,7 +625,6 @@ extension Workspace {
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(
             root: graphRoot,
-            availableLibraries: availableLibraries,
             observabilityScope: observabilityScope
         )
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
@@ -690,7 +687,7 @@ extension Workspace {
                 metadata: packageRef.diagnosticsMetadata
             ).trap {
                 switch state {
-                case .added, .updated, .unchanged:
+                case .added, .updated, .unchanged, .usesLibrary:
                     break
                 case .removed:
                     try self.remove(package: packageRef)
@@ -719,8 +716,23 @@ extension Workspace {
                         productFilter: state.products,
                         observabilityScope: observabilityScope
                     )
-                case .removed, .unchanged:
+                case .removed, .unchanged, .usesLibrary:
                     break
+                }
+            }
+        }
+
+        // Handle provided libraries
+        for (packageRef, state) in packageStateChanges {
+            observabilityScope.makeChildScope(
+                description: "adding provided libraries",
+                metadata: packageRef.diagnosticsMetadata
+            ).trap {
+                if case .usesLibrary(let library) = state {
+                    try self.state.dependencies.add(
+                        .providedLibrary(packageRef: packageRef, library: library)
+                    )
+                    try self.state.save()
                 }
             }
         }
@@ -836,7 +848,6 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
         constraints: [PackageContainerConstraint],
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> ResolutionPrecomputationResult {
         let computedConstraints =
@@ -853,7 +864,7 @@ extension Workspace {
         let resolver = PubGrubDependencyResolver(
             provider: precomputationProvider,
             pins: pinsStore.pins,
-            availableLibraries: availableLibraries,
+            availableLibraries: self.providedLibraries,
             observabilityScope: observabilityScope
         )
         let result = resolver.solve(constraints: computedConstraints)
@@ -966,6 +977,9 @@ extension Workspace {
         /// The package is updated.
         case updated(State)
 
+        /// The package is replaced with a prebuilt library
+        case usesLibrary(ProvidedLibrary)
+
         public var description: String {
             switch self {
             case .added(let requirement):
@@ -976,15 +990,17 @@ extension Workspace {
                 return "unchanged"
             case .updated(let requirement):
                 return "updated(\(requirement))"
+            case .usesLibrary(let library):
+                return "usesLibrary(\(library.metadata.productName))"
             }
         }
 
         public var isAddedOrUpdated: Bool {
             switch self {
             case .added, .updated:
-                return true
-            case .unchanged, .removed:
-                return false
+                true
+            case .unchanged, .removed, .usesLibrary:
+                false
             }
         }
     }
@@ -1033,6 +1049,8 @@ extension Workspace {
                         packageStateChanges[binding.package.identity] = (binding.package, .updated(newState))
                     case .registryDownload:
                         throw InternalError("Unexpected unversioned binding for downloaded dependency")
+                    case .providedLibrary:
+                        throw InternalError("Unexpected unversioned binding for library dependency")
                     case .custom:
                         throw InternalError("Unexpected unversioned binding for custom dependency")
                     }
@@ -1100,15 +1118,20 @@ extension Workspace {
                     packageStateChanges[binding.package.identity] = (binding.package, .added(newState))
                 }
 
-            case .version(let version):
-                let stateChange: PackageStateChange
-                switch currentDependency?.state {
-                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
-                    stateChange = .unchanged
-                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
-                    stateChange = .updated(.init(requirement: .version(version), products: binding.products))
+            case .version(let version, let library):
+                let stateChange: PackageStateChange = switch currentDependency?.state {
+                case .sourceControlCheckout(.version(version, _)),
+                     .registryDownload(version),
+                     .providedLibrary(_, version: version),
+                     .custom(version, _):
+                    library.flatMap { .usesLibrary($0) } ?? .unchanged
+                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .providedLibrary, .custom:
+                    .updated(.init(requirement: .version(version), products: binding.products))
                 case nil:
-                    stateChange = .added(.init(requirement: .version(version), products: binding.products))
+                    library.flatMap { .usesLibrary($0) } ?? .added(.init(
+                        requirement: .version(version),
+                        products: binding.products
+                    ))
                 }
                 packageStateChanges[binding.package.identity] = (binding.package, stateChange)
             }
@@ -1126,7 +1149,6 @@ extension Workspace {
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
         pins: PinsStore.Pins,
-        availableLibraries: [LibraryMetadata],
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
@@ -1143,7 +1165,7 @@ extension Workspace {
         return PubGrubDependencyResolver(
             provider: packageContainerProvider,
             pins: pins,
-            availableLibraries: availableLibraries,
+            availableLibraries: self.providedLibraries,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
             prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,

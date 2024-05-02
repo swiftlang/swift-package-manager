@@ -52,12 +52,15 @@ final class BuildOperationTests: XCTestCase {
         buildOp.detectUnexpressedDependencies(
             availableLibraries: [
                 .init(
-                    identities: [
-                        .sourceControl(url: .init("https://example.com/org/foo"))
-                    ],
-                    version: "1.0.0",
-                    productName: "Best",
-                    schemaVersion: 1
+                    location: "/foo",
+                    metadata: .init(
+                        identities: [
+                            .sourceControl(url: .init("https://example.com/org/foo"))
+                        ],
+                        version: "1.0.0",
+                        productName: "Best",
+                        schemaVersion: 1
+                    )
                 )
             ],
             targetDependencyMap: ["Lunch": []]

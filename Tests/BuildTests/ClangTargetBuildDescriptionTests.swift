@@ -106,7 +106,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                            defaultLocalization: nil,
                            supportedPlatforms: [],
                            dependencies: [],
-                           targets: [target],
+                           targets: .init([target]),
                            products: [],
                            registryMetadata: nil,
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),

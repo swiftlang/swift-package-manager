@@ -32,7 +32,6 @@ extension ModulesGraph {
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        availableLibraries: [LibraryMetadata],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> ModulesGraph {
@@ -160,7 +159,6 @@ extension ModulesGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
-            availableLibraries: availableLibraries,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -250,7 +248,6 @@ private func createResolvedPackages(
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
-    availableLibraries: [LibraryMetadata],
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -529,32 +526,26 @@ private func createResolvedPackages(
                             t.name != productRef.name
                         }
 
-                        let identitiesAvailableInSDK = availableLibraries.flatMap { $0.identities.map { $0.identity } }
-                        // TODO: Do we have to care about "name" vs. identity here?
-                        if let name = productRef.package, identitiesAvailableInSDK.contains(PackageIdentity.plain(name)) {
-                            // Do not emit any diagnostic.
-                        } else {
-                            // Find a product name from the available product dependencies that is most similar to the required product name.
-                            let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
-                            var packageContainingBestMatchedProduct: String?
-                            if let bestMatchedProductName, productRef.name == bestMatchedProductName {
-                                let dependentPackages = packageBuilder.dependencies.map(\.package)
-                                for p in dependentPackages where p.targets.contains(where: { $0.name == bestMatchedProductName }) {
-                                    packageContainingBestMatchedProduct = p.identity.description
-                                    break
-                                }
+                        // Find a product name from the available product dependencies that is most similar to the required product name.
+                        let bestMatchedProductName = bestMatch(for: productRef.name, from: Array(allTargetNames))
+                        var packageContainingBestMatchedProduct: String?
+                        if let bestMatchedProductName, productRef.name == bestMatchedProductName {
+                            let dependentPackages = packageBuilder.dependencies.map(\.package)
+                            for p in dependentPackages where p.targets.contains(where: { $0.name == bestMatchedProductName }) {
+                                packageContainingBestMatchedProduct = p.identity.description
+                                break
                             }
-                            let error = PackageGraphError.productDependencyNotFound(
-                                package: package.identity.description,
-                                targetName: targetBuilder.target.name,
-                                dependencyProductName: productRef.name,
-                                dependencyPackageName: productRef.package,
-                                dependencyProductInDecl: !declProductsAsDependency.isEmpty,
-                                similarProductName: bestMatchedProductName, 
-                                packageContainingSimilarProduct: packageContainingBestMatchedProduct
-                            )
-                            packageObservabilityScope.emit(error)
                         }
+                        let error = PackageGraphError.productDependencyNotFound(
+                            package: package.identity.description,
+                            targetName: targetBuilder.target.name,
+                            dependencyProductName: productRef.name,
+                            dependencyPackageName: productRef.package,
+                            dependencyProductInDecl: !declProductsAsDependency.isEmpty,
+                            similarProductName: bestMatchedProductName,
+                            packageContainingSimilarProduct: packageContainingBestMatchedProduct
+                        )
+                        packageObservabilityScope.emit(error)
                     }
                     continue
                 }
@@ -618,7 +609,7 @@ private func createResolvedPackages(
                 case (.some(let registryIdentity), .none):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
-                            regsitryPackage: registryIdentity,
+                            registryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package2.identity,
                             targets: potentiallyDuplicatePackage.value
                         )
@@ -626,7 +617,7 @@ private func createResolvedPackages(
                 case (.none, .some(let registryIdentity)):
                     observabilityScope.emit(
                         ModuleError.duplicateModulesScmAndRegistry(
-                            regsitryPackage: registryIdentity,
+                            registryPackage: registryIdentity,
                             scmPackage: potentiallyDuplicatePackage.key.package1.identity,
                             targets: potentiallyDuplicatePackage.value
                         )
@@ -1050,13 +1041,17 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     }
 
     override func constructImpl() throws -> ResolvedPackage {
-        return ResolvedPackage(
+        let products = try self.products.map { try $0.construct() }
+        var targets = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.targets) }
+        try targets.formUnion(self.targets.map { try $0.construct() })
+
+        return try ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
-            dependencies: try self.dependencies.map{ try $0.construct() },
-            targets: try self.targets.map{ try $0.construct() },
-            products: try self.products.map{ try $0.construct() },
+            dependencies: self.dependencies.map{ try $0.construct() },
+            targets: targets,
+            products: products,
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )

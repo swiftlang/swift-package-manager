@@ -20,7 +20,7 @@ import XCTest
 
 final class CrossCompilationPackageGraphTests: XCTestCase {
     func testTrivialPackage() throws {
-        let graph = try trivialPackageGraph(pkgRootPath: "/Pkg").graph
+        let graph = try trivialPackageGraph().graph
         try PackageGraphTester(graph) { result in
             result.check(packages: "Pkg")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level

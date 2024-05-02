@@ -115,6 +115,8 @@ extension BuildPlan {
         }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
 
+        buildProduct.providedLibraries = dependencies.providedLibraries
+
         buildProduct.availableTools = dependencies.availableTools
     }
 
@@ -127,6 +129,7 @@ extension BuildPlan {
         staticTargets: [ResolvedModule],
         systemModules: [ResolvedModule],
         libraryBinaryPaths: Set<AbsolutePath>,
+        providedLibraries: [String: AbsolutePath],
         availableTools: [String: AbsolutePath]
     ) {
         /* Prior to tools-version 5.9, we used to erroneously recursively traverse executable/plugin dependencies and statically include their
@@ -204,6 +207,7 @@ extension BuildPlan {
         var staticTargets = [ResolvedModule]()
         var systemModules = [ResolvedModule]()
         var libraryBinaryPaths: Set<AbsolutePath> = []
+        var providedLibraries = [String: AbsolutePath]()
         var availableTools = [String: AbsolutePath]()
 
         for dependency in allTargets {
@@ -257,6 +261,8 @@ extension BuildPlan {
                     }
                 case .plugin:
                     continue
+                case .providedLibrary:
+                    providedLibraries[target.name] = target.underlying.path
                 }
 
             case .product(let product, _):
@@ -274,7 +280,7 @@ extension BuildPlan {
             }
         }
 
-        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)
+        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, providedLibraries, availableTools)
     }
 
     /// Extracts the artifacts  from an artifactsArchive

@@ -529,6 +529,12 @@ let package = Package(
         ),
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
+            name: "swift-sdk",
+            dependencies: ["Commands", "SwiftSDKCommand"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Deprecated command superseded by `swift-sdk` */
             name: "swift-experimental-sdk",
             dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]

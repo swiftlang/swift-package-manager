@@ -34,7 +34,7 @@ public struct ResolvedPackage {
     public let underlying: Package
 
     /// The targets contained in the package.
-    public let targets: [ResolvedModule]
+    public let targets: IdentifiableSet<ResolvedModule>
 
     /// The products produced by the package.
     public let products: [ResolvedProduct]
@@ -58,7 +58,7 @@ public struct ResolvedPackage {
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
         dependencies: [ResolvedPackage],
-        targets: [ResolvedModule],
+        targets: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider

@@ -202,6 +202,7 @@ def parse_global_args(args):
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
     args.source_dirs["swift-certificates"]    = os.path.join(args.project_root, "..", "swift-certificates")
     args.source_dirs["swift-asn1"]            = os.path.join(args.project_root, "..", "swift-asn1")
+    args.source_dirs["swift-syntax"]          = os.path.join(args.project_root, "..", "swift-syntax")
     args.source_root                          = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
@@ -434,7 +435,7 @@ def install_swiftpm(prefix, args):
     # Install the swift-package-manager tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
     install_binary(args, "swift-package-manager", os.path.join(cli_tool_dest, "swift-package"), destination_is_directory=False)
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-experimental-sdk"]:
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         note("Creating tool symlink from %s to %s" % (src, dest))
@@ -608,6 +609,7 @@ def build_swiftpm_with_cmake(args):
         "-DSwiftCrypto_DIR="       + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
         "-DSwiftASN1_DIR="         + os.path.join(args.build_dirs["swift-asn1"],            "cmake/modules"),
         "-DSwiftCertificates_DIR=" + os.path.join(args.build_dirs["swift-certificates"],    "cmake/modules"),
+        "-DSWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE=" + args.source_dirs["swift-syntax"],
     ]
 
     if platform.system() == 'Darwin':
@@ -745,6 +747,8 @@ def get_swiftpm_env_cmd(args):
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+    # Disable Swift 6 mode in swift-syntax to work around rdar://126952308
+    env_cmd.append("SWIFTSYNTAX_DISABLE_SWIFT_6_MODE=1")
 
     if not '-macosx' in args.build_target and args.command == 'install':
         env_cmd.append("SWIFTCI_INSTALL_RPATH_OS=%s" % args.platform_path.group(2))
