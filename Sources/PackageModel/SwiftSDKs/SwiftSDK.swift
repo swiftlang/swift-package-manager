@@ -729,7 +729,7 @@ public struct SwiftSDK: Equatable {
     /// Appends a path to the array of toolset root paths.
     /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
     public mutating func add(toolsetRootPath: AbsolutePath) {
-        self.toolset.rootPaths.append(toolsetRootPath)
+        self.toolset.rootPaths.insert(toolsetRootPath, at: 0)
     }
 }
 
