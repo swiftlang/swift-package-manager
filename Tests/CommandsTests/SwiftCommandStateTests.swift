@@ -338,7 +338,16 @@ final class SwiftCommandStateTests: CommandsTestCase {
             targetArPath.pathString
         ])
 
-        try ProcessEnv.setVar("SWIFTPM_CUSTOM_BIN_DIR", value: hostBinDir.pathString)
+        let envKey = "SWIFTPM_CUSTOM_BIN_DIR"
+        let realCustomBinDir = ProcessEnv.vars[envKey]
+        try ProcessEnv.setVar(envKey, value: hostBinDir.pathString)
+        defer {
+            if let realCustomBinDir {
+                try! ProcessEnv.setVar(envKey, value: realCustomBinDir)
+            } else {
+                try! ProcessEnv.unsetVar(envKey)
+            }
+        }
 
         try fs.updatePermissions(hostSwiftcPath, isExecutable: true)
         try fs.updatePermissions(targetSwiftcPath, isExecutable: true)
