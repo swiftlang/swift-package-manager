@@ -207,7 +207,8 @@ public struct ModulesGraph {
                         switch dependency {
                         case .target(let targetDependency, _):
                             allTargets.insert(targetDependency)
-                            modulesToPackages[targetDependency.id] = package
+                            modulesToPackages[targetDependency.id] =
+                                identitiesToPackages[targetDependency.packageIdentity]
                         case .product(let productDependency, _):
                             allProducts.insert(productDependency)
                             productsToPackages[productDependency.id] =
