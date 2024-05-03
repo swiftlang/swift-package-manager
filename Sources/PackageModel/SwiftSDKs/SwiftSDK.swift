@@ -170,7 +170,8 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Whether or not the receiver supports using XCTest.
-    package let xctestSupport: XCTestSupport
+    @_spi(SwiftPMInternal)
+    public let xctestSupport: XCTestSupport
 
     /// Root directory path of the SDK used to compile for the target triple.
     @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
