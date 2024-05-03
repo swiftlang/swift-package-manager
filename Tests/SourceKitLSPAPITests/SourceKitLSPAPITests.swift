@@ -51,15 +51,15 @@ class SourceKitLSPAPITests: XCTestCase {
         )
         let description = BuildDescription(buildPlan: plan)
 
-        try description.checkArguments(for: "exe", graph: graph, partialArguments: ["-module-name", "exe", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/exe.build/exe.swiftmodule"])
-        try description.checkArguments(for: "lib", graph: graph, partialArguments: ["-module-name", "lib", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/Modules/lib.swiftmodule"])
+        try description.checkArguments(for: "exe", graph: graph, partialArguments: ["-module-name", "exe", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/exe.build/exe.swiftmodule"], isPartOfRootPackage: true)
+        try description.checkArguments(for: "lib", graph: graph, partialArguments: ["-module-name", "lib", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/Modules/lib.swiftmodule"], isPartOfRootPackage: true)
     }
 }
 
 extension SourceKitLSPAPI.BuildDescription {
-    @discardableResult func checkArguments(for targetName: String, graph: ModulesGraph, partialArguments: [String]) throws -> Bool {
+    @discardableResult func checkArguments(for targetName: String, graph: ModulesGraph, partialArguments: [String], isPartOfRootPackage: Bool) throws -> Bool {
         let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target))
+        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
 
         guard let file = buildTarget.sources.first else {
             XCTFail("build target \(targetName) contains no files")
@@ -70,6 +70,7 @@ extension SourceKitLSPAPI.BuildDescription {
         let result = arguments.contains(partialArguments)
 
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
+        XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
         return result
     }
 }
