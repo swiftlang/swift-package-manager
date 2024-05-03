@@ -365,13 +365,6 @@ package final class SwiftCommandState {
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
 
-        self._hostToolchain = Result(catching: {
-            try UserToolchain(
-                swiftSDK: SwiftSDK.hostSwiftSDK(environment: environment, fileSystem: fileSystem),
-                environment: environment
-            )
-        })
-
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
@@ -871,7 +864,18 @@ package final class SwiftCommandState {
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
-    private let _hostToolchain: Result<UserToolchain, Swift.Error>
+    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
+        return Result(catching: {
+            try UserToolchain(
+                swiftSDK: SwiftSDK.hostSwiftSDK(
+                    environment: .process(),
+                    observabilityScope: self.observabilityScope
+                ),
+                environment: .process(),
+                fileSystem: self.fileSystem
+            )
+        })
+    }()
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
