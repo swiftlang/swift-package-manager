@@ -22,6 +22,7 @@ typealias WireInput = HostToPluginMessage.InputContext
 /// the input information to a plugin.
 internal struct PluginContextSerializer {
     let fileSystem: FileSystem
+    let modulesGraph: ModulesGraph
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
     let sdkRootPath: AbsolutePath?
