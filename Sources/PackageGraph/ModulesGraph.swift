@@ -89,9 +89,8 @@ public struct ModulesGraph {
     /// The root packages.
     public let rootPackages: IdentifiableSet<ResolvedPackage>
 
-    /// The complete list of contained packages, in topological order starting
-    /// with the root packages.
-    public let packages: [ResolvedPackage]
+    /// The complete set of contained packages.
+    public let packages: IdentifiableSet<ResolvedPackage>
 
     /// The list of all targets reachable from root targets.
     public private(set) var reachableTargets: IdentifiableSet<ResolvedModule>
@@ -140,6 +139,12 @@ public struct ModulesGraph {
     }
 
     private var modulesToPackages: [ResolvedModule.ID: ResolvedPackage]
+
+    /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
+    public func package(for identity: PackageIdentity) -> ResolvedPackage? {
+        packages[identity]
+    }
+
     /// Returns the package that contains the module, or nil if the module isn't in the graph.
     public func package(for module: ResolvedModule) -> ResolvedPackage? {
         return self.modulesToPackages[module.id]
@@ -152,6 +157,11 @@ public struct ModulesGraph {
         return self.productsToPackages[product.id]
     }
 
+    /// Returns all of the packages that the given package depends on directly.
+    public func directDependencies(for package: ResolvedPackage) -> [ResolvedPackage] {
+        package.dependencies.compactMap { self.package(for: $0) }
+    }
+
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
@@ -162,7 +172,7 @@ public struct ModulesGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        packages: [ResolvedPackage],
+        packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
@@ -171,7 +181,6 @@ public struct ModulesGraph {
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
         self.packages = packages
-        let identitiesToPackages = self.packages.spm_createDictionary { ($0.identity, $0) }
 
         // Create a mapping from targets to the packages that define them.  Here
         // we include all targets, including tests in non-root packages, since
@@ -209,11 +218,11 @@ public struct ModulesGraph {
                         case .target(let targetDependency, _):
                             allTargets.insert(targetDependency)
                             modulesToPackages[targetDependency.id] =
-                                identitiesToPackages[targetDependency.packageIdentity]
+                                self.packages[targetDependency.packageIdentity]
                         case .product(let productDependency, _):
                             allProducts.insert(productDependency)
                             productsToPackages[productDependency.id] =
-                                identitiesToPackages[productDependency.packageIdentity]
+                                self.packages[productDependency.packageIdentity]
                         }
                     }
                 }

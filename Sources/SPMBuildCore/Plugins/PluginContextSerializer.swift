@@ -245,7 +245,7 @@ internal struct PluginContextSerializer {
         }
 
         // Serialize the dependencies. It is important to do this before the `let id = package.count` below so the correct wire ID gets assigned.
-        let dependencies = try package.dependencies.map {
+        let dependencies = try modulesGraph.directDependencies(for: package).map {
             WireInput.Package.Dependency(packageId: try serialize(package: $0))
         }
 

@@ -17,11 +17,11 @@ import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 
 protocol DependenciesDumper {
-    func dump(dependenciesOf: ResolvedPackage, on: OutputByteStream)
+    func dump(graph: ModulesGraph, dependenciesOf: ResolvedPackage, on: OutputByteStream)
 }
 
 final class PlainTextDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage], prefix: String = "") {
             var hanger = prefix + "├── "
 
@@ -39,14 +39,14 @@ final class PlainTextDumper: DependenciesDumper {
                     var childPrefix = hanger
                     let startIndex = childPrefix.index(childPrefix.endIndex, offsetBy: -4)
                     childPrefix.replaceSubrange(startIndex..<childPrefix.endIndex, with: replacement)
-                    recursiveWalk(packages: package.dependencies, prefix: childPrefix)
+                    recursiveWalk(packages: graph.directDependencies(for: package), prefix: childPrefix)
                 }
             }
         }
 
         if !rootpkg.dependencies.isEmpty {
             stream.send(".\n")
-            recursiveWalk(packages: rootpkg.dependencies)
+            recursiveWalk(packages: graph.directDependencies(for: rootpkg))
         } else {
             stream.send("No external dependencies found\n")
         }
@@ -54,23 +54,23 @@ final class PlainTextDumper: DependenciesDumper {
 }
 
 final class FlatListDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
                 stream.send(package.identity.description).send("\n")
                 if !package.dependencies.isEmpty {
-                    recursiveWalk(packages: package.dependencies)
+                    recursiveWalk(packages: graph.directDependencies(for: package))
                 }
             }
         }
         if !rootpkg.dependencies.isEmpty {
-            recursiveWalk(packages: rootpkg.dependencies)
+            recursiveWalk(packages: graph.directDependencies(for: rootpkg))
         }
     }
 }
 
 final class DotDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         var nodesAlreadyPrinted: Set<String> = []
         func printNode(_ package: ResolvedPackage) {
             let url = package.manifest.packageLocation
@@ -87,7 +87,7 @@ final class DotDumper: DependenciesDumper {
         var dependenciesAlreadyPrinted: Set<DependencyURLs> = []
         func recursiveWalk(rootpkg: ResolvedPackage) {
             printNode(rootpkg)
-            for dependency in rootpkg.dependencies {
+            for dependency in graph.directDependencies(for: rootpkg) {
                 let rootURL = rootpkg.manifest.packageLocation
                 let dependencyURL = dependency.manifest.packageLocation
                 let urlPair = DependencyURLs(root: rootURL, dependency: dependencyURL)
@@ -120,7 +120,7 @@ final class DotDumper: DependenciesDumper {
 }
 
 final class JSONDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
                 "identity": .string(package.identity.description),
@@ -128,7 +128,7 @@ final class JSONDumper: DependenciesDumper {
                 "url": .string(package.manifest.packageLocation),
                 "version": .string(package.manifest.version?.description ?? "unspecified"),
                 "path": .string(package.path.pathString),
-                "dependencies": .array(package.dependencies.map(convert)),
+                "dependencies": .array(package.dependencies.compactMap { graph.packages[$0] }.map(convert)),
             ])
         }
 

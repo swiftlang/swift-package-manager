@@ -1150,7 +1150,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Package, Error>) -> Void
     ) {
-        guard let previousPackage = packageGraph.packages.first(where: { $0.identity == identity }) else {
+        guard let previousPackage = packageGraph.package(for: identity) else {
             return completion(.failure(StringError("could not find package with identity \(identity)")))
         }
 

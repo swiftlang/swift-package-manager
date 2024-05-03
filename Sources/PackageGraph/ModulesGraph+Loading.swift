@@ -162,7 +162,7 @@ extension ModulesGraph {
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
-        checkAllDependenciesAreUsed(rootPackages, observabilityScope: observabilityScope)
+        checkAllDependenciesAreUsed(packages: resolvedPackages, rootPackages, observabilityScope: observabilityScope)
 
         return try ModulesGraph(
             rootPackages: rootPackages,
@@ -174,7 +174,11 @@ extension ModulesGraph {
     }
 }
 
-private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], observabilityScope: ObservabilityScope) {
+private func checkAllDependenciesAreUsed(
+    packages: IdentifiableSet<ResolvedPackage>,
+    _ rootPackages: [ResolvedPackage],
+    observabilityScope: ObservabilityScope
+) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
         let productDependencies = IdentifiableSet(package.targets.flatMap { target in
@@ -188,7 +192,12 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             }
         })
 
-        for dependency in package.dependencies {
+        for dependencyId in package.dependencies {
+            guard let dependency = packages[dependencyId] else {
+                observabilityScope.emit(.error("Unknown package: \(dependencyId)"))
+                return
+            }
+
             // We continue if the dependency contains executable products to make sure we don't
             // warn on a valid use-case for a lone dependency: swift run dependency executables.
             guard !dependency.products.contains(where: { $0.type == .executable }) else {
@@ -249,7 +258,7 @@ private func createResolvedPackages(
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
-) throws -> [ResolvedPackage] {
+) throws -> IdentifiableSet<ResolvedPackage> {
 
     // Create package builder objects from the input manifests.
     let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap{ node in
@@ -643,7 +652,7 @@ private func createResolvedPackages(
         }
     }
 
-    return try packageBuilders.map { try $0.construct() }
+    return IdentifiableSet(try packageBuilders.map { try $0.construct() })
 }
 
 private func emitDuplicateProductDiagnostic(
@@ -1044,11 +1053,11 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         var targets = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.targets) }
         try targets.formUnion(self.targets.map { try $0.construct() })
 
-        return try ResolvedPackage(
+        return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
-            dependencies: self.dependencies.map{ try $0.construct() },
+            dependencies: self.dependencies.map { $0.package.identity },
             targets: targets,
             products: products,
             registryMetadata: self.registryMetadata,
