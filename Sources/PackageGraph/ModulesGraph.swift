@@ -138,8 +138,6 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private var modulesToPackages: [ResolvedModule.ID: ResolvedPackage]
-
     /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
     public func package(for identity: PackageIdentity) -> ResolvedPackage? {
         packages[identity]
@@ -147,14 +145,12 @@ public struct ModulesGraph {
 
     /// Returns the package that contains the module, or nil if the module isn't in the graph.
     public func package(for module: ResolvedModule) -> ResolvedPackage? {
-        return self.modulesToPackages[module.id]
+        self.package(for: module.packageIdentity)
     }
 
-
-    private var productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product.id]
+        self.package(for: product.packageIdentity)
     }
 
     /// Returns all of the packages that the given package depends on directly.
@@ -182,20 +178,6 @@ public struct ModulesGraph {
         self.binaryArtifacts = binaryArtifacts
         self.packages = packages
 
-        // Create a mapping from targets to the packages that define them.  Here
-        // we include all targets, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        var modulesToPackages = self.packages.reduce(into: [:], { partial, package in
-            package.targets.forEach { partial[$0.id] = package }
-        })
-
-        // Create a mapping from products to the packages that define them.  Here
-        // we include all products, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        var productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach { partial[$0.id] = package }
-        })
-
         var allTargets = IdentifiableSet<ResolvedModule>()
         var allProducts = IdentifiableSet<ResolvedProduct>()
         for package in self.packages {
@@ -217,12 +199,8 @@ public struct ModulesGraph {
                         switch dependency {
                         case .target(let targetDependency, _):
                             allTargets.insert(targetDependency)
-                            modulesToPackages[targetDependency.id] =
-                                self.packages[targetDependency.packageIdentity]
                         case .product(let productDependency, _):
                             allProducts.insert(productDependency)
-                            productsToPackages[productDependency.id] =
-                                self.packages[productDependency.packageIdentity]
                         }
                     }
                 }
@@ -236,9 +214,6 @@ public struct ModulesGraph {
                 allProducts.formUnion(package.products.filter { $0.type != .test })
             }
         }
-
-        self.modulesToPackages = modulesToPackages
-        self.productsToPackages = productsToPackages
 
         // Compute the reachable targets and products.
         let inputTargets = self.inputPackages.flatMap { $0.targets }
@@ -274,17 +249,6 @@ public struct ModulesGraph {
             product.buildTriple = buildTriple
             return product
         })
-
-        self.modulesToPackages = .init(self.modulesToPackages.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return (target, $1)
-        }, uniquingKeysWith: { $1 })
-        self.productsToPackages = .init(self.productsToPackages.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return (product, $1)
-        }, uniquingKeysWith: { $1 })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
