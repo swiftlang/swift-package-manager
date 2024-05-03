@@ -872,7 +872,7 @@ package final class SwiftCommandState {
                     observabilityScope: self.observabilityScope
                 ),
                 environment: .process(),
-                fileSystem: self.fileSystem
+                fileSystem: localFileSystem
             )
         })
     }()
