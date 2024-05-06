@@ -49,7 +49,7 @@ public func DFS<T: Hashable>(
                 continue
             }
 
-            for succ in try successors(curr).reversed() {
+            for succ in try successors(curr) {
                 stack.append(succ)
             }
         }
