@@ -12019,7 +12019,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         .init(name: "Root1Target", dependencies: [
                             .product(name: "FooProduct", package: "foo"),
-                            .product(name: "Root2Target", package: "Root2")
+                            .product(name: "Root2Product", package: "Root2")
                         ]),
                     ],
                     products: [
@@ -12115,7 +12115,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: .regex("cyclic dependency declaration found: Root[1|2] -> *"),
+                    diagnostic: .regex("cyclic dependency declaration found: Root[1|2]Target -> *"),
                     severity: .error
                 )
             }

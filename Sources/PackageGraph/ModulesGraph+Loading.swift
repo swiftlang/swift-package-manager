@@ -17,6 +17,7 @@ import PackageModel
 
 import struct TSCBasic.KeyedPair
 import func TSCBasic.bestMatch
+import func TSCBasic.findCycle
 
 extension ModulesGraph {
     /// Load the package graph for the given package path.
@@ -635,6 +636,31 @@ private func createResolvedPackages(
                     targetName: entry.key,
                     packages: entry.value.map { $0.identity })
             )
+        }
+    }
+
+    do {
+        let targetBuilders = packageBuilders.flatMap {
+            $0.targets.map {
+                KeyedPair($0, key: $0.target)
+            }
+        }
+        if let cycle = findCycle(targetBuilders, successors: {
+            $0.item.dependencies.flatMap {
+                switch $0 {
+                case .product(let productBuilder, conditions: _):
+                    return productBuilder.targets.map { KeyedPair($0, key: $0.target) }
+                case .target:
+                    return [] // local targets were checked by PackageBuilder.
+                }
+            }
+        }) {
+            observabilityScope.emit(
+                ModuleError.cycleDetected(
+                    (cycle.path.map(\.key.name), cycle.cycle.map(\.key.name))
+                )
+            )
+            return IdentifiableSet()
         }
     }
 
