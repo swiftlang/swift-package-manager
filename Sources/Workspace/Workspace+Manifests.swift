@@ -16,7 +16,7 @@ import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SwiftVersion
 import func Basics.temp_await
-import func Basics.DFS
+import func Basics.depthFirstSearch
 import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
@@ -533,7 +533,7 @@ extension Workspace {
             }
 
             var deduplication = [PackageIdentity: Int]()
-            try DFS(
+            try depthFirstSearch(
                 manifestGraphRoots,
                 successors: successorManifests
             ) { pair in

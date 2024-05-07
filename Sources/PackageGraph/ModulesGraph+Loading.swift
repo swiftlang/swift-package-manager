@@ -69,7 +69,7 @@ extension ModulesGraph {
         var allNodes = [GraphLoadingNode]()
 
         // Cycles in dependencies don't matter as long as there are no target cycles between packages.
-        DFS(inputManifests.map { KeyedPair($0, key: $0.id) }) {
+        depthFirstSearch(inputManifests.map { KeyedPair($0, key: $0.id) }) {
             $0.item.requiredDependencies.compactMap { dependency in
                 manifestMap[dependency.identity].map { (manifest, fileSystem) in
                     KeyedPair(

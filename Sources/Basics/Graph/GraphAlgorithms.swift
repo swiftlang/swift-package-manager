@@ -25,7 +25,7 @@ import struct OrderedCollections.OrderedSet
 ///
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
-public func DFS<T: Hashable>(
+public func depthFirstSearch<T: Hashable>(
     _ nodes: [T],
     successors: (T) throws -> [T],
     onUnique: (T) -> Void,
