@@ -162,7 +162,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// Path where swift-testing's JSON output should be written.
     @Option(name: .customLong("experimental-event-stream-output"),
-            help: ArgumentHelp("", visibility: .hidden))
+            help: .hidden)
     var eventStreamOutputPath: AbsolutePath?
 }
 
