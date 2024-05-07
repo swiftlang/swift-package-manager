@@ -157,7 +157,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// Path where swift-testing's JSON configuration should be read.
     @Option(name: .customLong("experimental-configuration-path"),
-            help: ArgumentHelp("", visibility: .hidden))
+            help: .hidden)
     var configurationPath: AbsolutePath?
 
     /// Path where swift-testing's JSON output should be written.
