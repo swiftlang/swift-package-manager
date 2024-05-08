@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftSDKCommand
+import Foundation
 
 @main
 struct Entrypoint {
