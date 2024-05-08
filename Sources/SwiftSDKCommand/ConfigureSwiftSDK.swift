@@ -18,7 +18,7 @@ import PackageModel
 
 import var TSCBasic.stdoutStream
 
-package struct ConfigureSwiftSDK: ParsableCommand {
+struct ConfigureSwiftSDK: AsyncParsableCommand {
     package static let configuration = CommandConfiguration(
         commandName: "configure",
         abstract: """
@@ -64,17 +64,6 @@ package struct ConfigureSwiftSDK: ParsableCommand {
     )
     var toolsetPath: [String] = []
 
-    @Argument(
-        help: """
-        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
-        identifiers.
-        """
-    )
-    var sdkID: String
-
-    @Argument(help: "The target triple of the Swift SDK to configure.")
-    var targetTriple: String
-
     @Flag(
         name: .customLong("reset"),
         help: """
@@ -91,6 +80,17 @@ package struct ConfigureSwiftSDK: ParsableCommand {
         """
     )
     var shouldShowConfiguration: Bool = false
+
+    @Argument(
+        help: """
+        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
+        identifiers.
+        """
+    )
+    var sdkID: String
+
+    @Argument(help: "The target triple of the Swift SDK to configure.")
+    var targetTriple: String
 
     /// The file system used by default by this command.
     private var fileSystem: FileSystem { localFileSystem }
@@ -109,8 +109,6 @@ package struct ConfigureSwiftSDK: ParsableCommand {
 
         return swiftSDKsDirectory
     }
-
-    package init() {}
 
     package func run() async throws {
         let observabilityHandler = SwiftCommandObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
@@ -148,6 +146,7 @@ package struct ConfigureSwiftSDK: ParsableCommand {
 
             if self.shouldShowConfiguration {
                 print(swiftSDK.pathsConfiguration)
+                return
             }
 
             var configuration = swiftSDK.pathsConfiguration
