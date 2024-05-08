@@ -9,6 +9,9 @@ Swift 6.0
   `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
   `experimental` prefix.
 
+* [#7535] The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
+  [SE-0387 proposal text].
+
 * [#7202]
 
   Package manifests can now access information about the Git repository the given package is in via the context object's 
