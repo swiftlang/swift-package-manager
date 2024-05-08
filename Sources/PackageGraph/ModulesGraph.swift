@@ -61,9 +61,8 @@ public struct ModulesGraph {
     /// The root packages.
     public let rootPackages: IdentifiableSet<ResolvedPackage>
 
-    /// The complete list of contained packages, in topological order starting
-    /// with the root packages.
-    public let packages: [ResolvedPackage]
+    /// The complete set of contained packages.
+    public let packages: IdentifiableSet<ResolvedPackage>
 
     /// The list of all targets reachable from root targets.
     public let reachableTargets: IdentifiableSet<ResolvedModule>
@@ -116,17 +115,24 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
-    private let modulesToPackages: [ResolvedModule.ID: ResolvedPackage]
-    /// Returns the package that contains the module, or nil if the module isn't in the graph.
-    public func package(for module: ResolvedModule) -> ResolvedPackage? {
-        return self.modulesToPackages[module.id]
+    /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
+    public func package(for identity: PackageIdentity) -> ResolvedPackage? {
+        packages[identity]
     }
 
+    /// Returns the package that contains the module, or nil if the module isn't in the graph.
+    public func package(for module: ResolvedModule) -> ResolvedPackage? {
+        self.package(for: module.packageIdentity)
+    }
 
-    private let productsToPackages: [ResolvedProduct.ID: ResolvedPackage]
     /// Returns the package that contains the product, or nil if the product isn't in the graph.
     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-        return self.productsToPackages[product.id]
+        self.package(for: product.packageIdentity)
+    }
+
+    /// Returns all of the packages that the given package depends on directly.
+    public func directDependencies(for package: ResolvedPackage) -> [ResolvedPackage] {
+        package.dependencies.compactMap { self.package(for: $0) }
     }
 
     /// All root and root dependency packages provided as input to the graph.
@@ -139,6 +145,7 @@ public struct ModulesGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
+        packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
@@ -146,14 +153,7 @@ public struct ModulesGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
-        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
-
-        // Create a mapping from targets to the packages that define them.  Here
-        // we include all targets, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        self.modulesToPackages = packages.reduce(into: [:], { partial, package in
-            package.targets.forEach{ partial[$0.id] = package }
-        })
+        self.packages = packages
 
         let allTargets = IdentifiableSet(packages.flatMap({ package -> [ResolvedModule] in
             if rootPackages.contains(id: package.id) {
@@ -164,13 +164,6 @@ public struct ModulesGraph {
                 return package.targets.filter({ $0.type != .test })
             }
         }))
-
-        // Create a mapping from products to the packages that define them.  Here
-        // we include all products, including tests in non-root packages, since
-        // this is intended for lookup and not traversal.
-        self.productsToPackages = packages.reduce(into: [:], { partial, package in
-            package.products.forEach { partial[$0.id] = package }
-        })
 
         let allProducts = IdentifiableSet(packages.flatMap({ package -> [ResolvedProduct] in
             if rootPackages.contains(id: package.id) {

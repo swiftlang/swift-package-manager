@@ -3,6 +3,12 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 6.0
 -----------
 
+* [#7530]
+
+  Makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles. For example,
+  package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
+  targets from `B` and vice versa.
+
 * [#7507] 
 
   `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and

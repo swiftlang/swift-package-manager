@@ -644,6 +644,7 @@ final class PackageCommandTests: CommandsTestCase {
 
         let output = BufferedOutputByteStream()
         SwiftPackageCommand.ShowDependencies.dumpDependenciesOf(
+            graph: graph,
             rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
             mode: .dot,
             on: output
