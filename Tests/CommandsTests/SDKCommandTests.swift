@@ -48,7 +48,8 @@ final class SDKCommandTests: CommandsTestCase {
                     )
 
                     if command == .experimentalSDK {
-                        XCTAssertMatch(stdout, .contains(deprecationWarning))
+                        XCTAssertMatch(stderr, .contains(deprecationWarning))
+                        XCTAssertNoMatch(stdout, .contains(deprecationWarning))
                     }
 
                     // We only expect tool's output on the stdout stream.
@@ -57,18 +58,16 @@ final class SDKCommandTests: CommandsTestCase {
                         .contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
                     )
 
-                    XCTAssertEqual(stderr.count, 0)
-
                     (stdout, stderr) = try command.execute(
                         ["list", "--swift-sdks-path", fixturePath.pathString])
 
                     if command == .experimentalSDK {
-                        XCTAssertMatch(stdout, .contains(deprecationWarning))
+                        XCTAssertMatch(stderr, .contains(deprecationWarning))
+                        XCTAssertNoMatch(stdout, .contains(deprecationWarning))
                     }
 
                     // We only expect tool's output on the stdout stream.
                     XCTAssertMatch(stdout, .contains("test-artifact"))
-                    XCTAssertEqual(stderr.count, 0)
 
                     XCTAssertThrowsError(try command.execute(
                         [
@@ -91,30 +90,30 @@ final class SDKCommandTests: CommandsTestCase {
                     }
 
                     if command == .experimentalSDK {
-                        XCTAssertMatch(stdout, .contains(deprecationWarning))
+                        XCTAssertMatch(stderr, .contains(deprecationWarning))
                     }
 
                     (stdout, stderr) = try command.execute(
                         ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
 
                     if command == .experimentalSDK {
-                        XCTAssertMatch(stdout, .contains(deprecationWarning))
+                        XCTAssertMatch(stderr, .contains(deprecationWarning))
+                        XCTAssertNoMatch(stdout, .contains(deprecationWarning))
                     }
 
                     // We only expect tool's output on the stdout stream.
                     XCTAssertMatch(stdout, .contains("test-sdk.artifactbundle` was successfully removed from the file system."))
-                    XCTAssertEqual(stderr.count, 0)
 
                     (stdout, stderr) = try command.execute(
                         ["list", "--swift-sdks-path", fixturePath.pathString])
 
                     if command == .experimentalSDK {
-                        XCTAssertMatch(stdout, .contains(deprecationWarning))
+                        XCTAssertMatch(stderr, .contains(deprecationWarning))
+                        XCTAssertNoMatch(stdout, .contains(deprecationWarning))
                     }
 
                     // We only expect tool's output on the stdout stream.
                     XCTAssertNoMatch(stdout, .contains("test-artifact"))
-                    XCTAssertEqual(stderr.count, 0)
                 }
             }
         }
