@@ -121,4 +121,12 @@ public struct BuildDescription {
             return nil
         }
     }
+
+    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
+    /// dependencies).
+    public func allTargetsInTopologicalOrder(in modulesGraph: ModulesGraph) throws -> [BuildTarget] {
+        try modulesGraph.allTargetsInTopologicalOrder.compactMap {
+            getBuildTarget(for: $0, in: modulesGraph)
+        }
+    }
 }

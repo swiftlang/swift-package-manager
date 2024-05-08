@@ -74,6 +74,14 @@ public struct ModulesGraph {
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
     public let allTargets: IdentifiableSet<ResolvedTarget>
 
+    /// Returns all targets within the module graph in topological order, starting with low-level targets (that have no
+    /// dependencies).
+    package var allTargetsInTopologicalOrder: [ResolvedTarget] {
+        get throws {
+            try topologicalSort(Array(allTargets)) { $0.dependencies.compactMap { $0.target } }.reversed()
+        }
+    }
+
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
 
     public let allProducts: IdentifiableSet<ResolvedProduct>
