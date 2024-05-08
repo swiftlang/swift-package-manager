@@ -239,9 +239,10 @@ public final class SwiftSDKBundleStore {
 
         try await archiver.extract(from: bundlePath, to: extractionResultsDirectory)
 
-        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first,
-                bundleName.hasSuffix(".\(artifactBundleExtension)")
-        else {
+        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first(where: {
+            $0.hasSuffix(".\(artifactBundleExtension)") &&
+                fileSystem.isDirectory(extractionResultsDirectory.appending($0))
+        }) else {
             throw SwiftSDKError.invalidBundleArchive(bundlePath)
         }
 
