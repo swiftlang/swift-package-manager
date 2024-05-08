@@ -154,6 +154,16 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
+
+    /// Path where swift-testing's JSON configuration should be read.
+    @Option(name: .customLong("experimental-configuration-path"),
+            help: .hidden)
+    var configurationPath: AbsolutePath?
+
+    /// Path where swift-testing's JSON output should be written.
+    @Option(name: .customLong("experimental-event-stream-output"),
+            help: .hidden)
+    var eventStreamOutputPath: AbsolutePath?
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -682,9 +692,10 @@ extension SwiftTestCommand {
                 sanitizers: globalOptions.build.sanitizers
             )
 
+            let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
             let runner = TestRunner(
                 bundlePaths: testProducts.map(\.binaryPath),
-                additionalArguments: ["--list-tests"],
+                additionalArguments: additionalArguments,
                 cancellator: swiftCommandState.cancellator,
                 toolchain: toolchain,
                 testEnv: testEnv,
