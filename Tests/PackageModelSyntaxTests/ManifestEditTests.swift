@@ -564,6 +564,53 @@ class ManifestEditTests: XCTestCase {
         }
     }
 
+    func testAddSwiftTestingTestTarget() throws {
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages"
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.5
+            let package = Package(
+                name: "packages",
+                dependencies: [
+                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
+                ],
+                targets: [
+                    .testTarget(
+                        name: "MyTest",
+                        dependencies: [ .product(name: "Testing", package: "swift-testing") ]
+                    ),
+                ]
+            )
+            """,
+            expectedAuxiliarySources: [
+                RelativePath("Tests/MyTest/MyTest.swift") : """
+                import Testing
+
+                @Suite
+                struct MyTestTests {
+                    @Test("MyTest tests")
+                    func example() {
+                        #expect(42 == 17 + 25)
+                    }
+                }
+                """
+            ]) { manifest in
+            try AddTarget.addTarget(
+                TargetDescription(
+                    name: "MyTest",
+                    type: .test
+                ),
+                to: manifest,
+                configuration: .init(
+                    testHarness: .swiftTesting
+                )
+            )
+        }
+    }
 }
 
 
