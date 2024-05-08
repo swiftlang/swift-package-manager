@@ -10,7 +10,7 @@ Swift 6.0
   `experimental` prefix.
 
 * [#7535] The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` with options that exactly match
-  [SE-0387 proposal text](https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration).
+  [SE-0387 proposal text].
 
 * [#7202]
 
@@ -363,6 +363,7 @@ Swift 3.0
 [SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
 [SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
 [SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
+[SE-0387 proposal text]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
