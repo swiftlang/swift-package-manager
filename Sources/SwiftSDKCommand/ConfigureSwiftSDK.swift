@@ -19,7 +19,7 @@ import PackageModel
 import var TSCBasic.stdoutStream
 
 struct ConfigureSwiftSDK: AsyncParsableCommand {
-    package static let configuration = CommandConfiguration(
+    static let configuration = CommandConfiguration(
         commandName: "configure",
         abstract: """
         Manages configuration options for installed Swift SDKs.
@@ -110,7 +110,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
         return swiftSDKsDirectory
     }
 
-    package func run() async throws {
+    func run() async throws {
         let observabilityHandler = SwiftCommandObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
         let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
