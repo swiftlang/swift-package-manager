@@ -36,6 +36,7 @@ add_library(Basics
   FileSystem/VFSOverlay.swift
   Graph/AdjacencyMatrix.swift
   Graph/DirectedGraph.swift
+  Graph/GraphAlgorithms.swift
   Graph/UndirectedGraph.swift
   SourceControlURL.swift
   HTTPClient/HTTPClient.swift

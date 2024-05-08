@@ -43,6 +43,7 @@ extension PluginTarget {
         pkgConfigDirectories: [AbsolutePath],
         sdkRootPath: AbsolutePath?,
         fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate
@@ -62,6 +63,7 @@ extension PluginTarget {
                 pkgConfigDirectories: pkgConfigDirectories,
                 sdkRootPath: sdkRootPath,
                 fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 delegate: delegate,
@@ -107,6 +109,7 @@ extension PluginTarget {
         pkgConfigDirectories: [AbsolutePath],
         sdkRootPath: AbsolutePath?,
         fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate,
@@ -125,6 +128,7 @@ extension PluginTarget {
         do {
             var serializer = PluginContextSerializer(
                 fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
                 buildEnvironment: buildEnvironment,
                 pkgConfigDirectories: pkgConfigDirectories,
                 sdkRootPath: sdkRootPath
@@ -571,6 +575,7 @@ extension ModulesGraph {
                     pkgConfigDirectories: pkgConfigDirectories,
                     sdkRootPath: buildParameters.toolchain.sdkRootPath,
                     fileSystem: fileSystem,
+                    modulesGraph: self,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,
                     delegate: delegate,

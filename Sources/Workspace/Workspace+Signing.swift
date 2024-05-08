@@ -46,7 +46,7 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity]
     ) throws {
         try expectedSigningEntities.forEach { identity, expectedSigningEntity in
-            if let package = packageGraph.packages.first(where: { $0.identity == identity }) {
+            if let package = packageGraph.package(for: identity) {
                 guard let actualSigningEntity = package.registryMetadata?.signature?.signedBy else {
                     throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
                 }
@@ -68,7 +68,7 @@ extension Workspace {
                         expected: expectedSigningEntity
                     )
                 }
-                guard let package = packageGraph.packages.first(where: { $0.identity == mirroredIdentity }) else {
+                guard let package = packageGraph.package(for: mirroredIdentity) else {
                     // Unsure if this case is reachable in practice.
                     throw SigningError.expectedIdentityNotFound(package: identity)
                 }

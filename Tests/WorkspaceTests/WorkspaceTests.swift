@@ -1971,7 +1971,7 @@ final class WorkspaceTests: XCTestCase {
             // Ensure that the order of the manifests is stable.
             XCTAssertEqual(
                 manifests.allDependencyManifests.map(\.value.manifest.displayName),
-                ["Foo", "Baz", "Bam", "Bar"]
+                ["Bam", "Baz", "Bar", "Foo"]
             )
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -11123,7 +11123,7 @@ final class WorkspaceTests: XCTestCase {
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
-                    diagnostic: "cyclic dependency declaration found: Root -> FooUtilityPackage -> BarPackage -> FooUtilityPackage",
+                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
                     severity: .error
                 )
             }
@@ -11207,7 +11207,11 @@ final class WorkspaceTests: XCTestCase {
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
-                    diagnostic: "cyclic dependency declaration found: Root -> FooUtilityPackage -> BarPackage -> FooUtilityPackage",
+                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
+                    severity: .warning
+                )
+                result.check(
+                    diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'OtherUtilityPackage'.",
                     severity: .error
                 )
             }
@@ -11282,7 +11286,7 @@ final class WorkspaceTests: XCTestCase {
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
-                    diagnostic: "cyclic dependency declaration found: Root -> BarPackage -> Root",
+                    diagnostic: "product 'FooProduct' required by package 'bar' target 'BarTarget' not found in package 'FooPackage'.",
                     severity: .error
                 )
             }
@@ -12015,7 +12019,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         .init(name: "Root1Target", dependencies: [
                             .product(name: "FooProduct", package: "foo"),
-                            .product(name: "Root2Target", package: "Root2")
+                            .product(name: "Root2Product", package: "Root2")
                         ]),
                     ],
                     products: [
@@ -12111,15 +12115,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: .regex("cyclic dependency declaration found: root[1|2] -> *"),
-                    severity: .error
-                )
-                result.check(
-                    diagnostic: """
-                    exhausted attempts to resolve the dependencies graph, with the following dependencies unresolved:
-                    * 'bar' from http://scm.com/org/bar
-                    * 'foo' from http://scm.com/org/foo
-                    """,
+                    diagnostic: .regex("cyclic dependency declaration found: Root[1|2]Target -> *"),
                     severity: .error
                 )
             }
