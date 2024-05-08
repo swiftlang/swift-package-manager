@@ -12,6 +12,7 @@ add_library(SwiftSDKCommand
   Configuration/ResetConfiguration.swift
   Configuration/SetConfiguration.swift
   Configuration/ShowConfiguration.swift
+  ConfigureSwiftSDK.swift
   SwiftSDKSubcommand.swift
   InstallSwiftSDK.swift
   ListSwiftSDKs.swift
