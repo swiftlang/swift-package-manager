@@ -15,6 +15,9 @@ Swift 6.0
   `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
   `experimental` prefix.
 
+* [#7535] The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
+  [SE-0387 proposal text].
+
 * [#7202]
 
   Package manifests can now access information about the Git repository the given package is in via the context object's 
@@ -366,6 +369,7 @@ Swift 3.0
 [SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
 [SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
 [SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
+[SE-0387 proposal text]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
@@ -415,4 +419,5 @@ Swift 3.0
 [#7118]: https://github.com/apple/swift-package-manager/pull/7118
 [#7201]: https://github.com/apple/swift-package-manager/pull/7201
 [#7202]: https://github.com/apple/swift-package-manager/pull/7202
-[#7505]: https://github.com/apple/swift-package-manager/pull/7507
+[#7507]: https://github.com/apple/swift-package-manager/pull/7507
+[#7535]: https://github.com/apple/swift-package-manager/pull/7535

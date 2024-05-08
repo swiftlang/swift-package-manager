@@ -97,7 +97,7 @@ public final class SwiftSDKConfigurationStore {
 
         guard var swiftSDK = swiftSDKs.selectSwiftSDK(
             id: sdkID,
-            hostTriple: hostTriple,
+            hostTriple: nil,
             targetTriple: targetTriple
         ) else {
             return nil
