@@ -576,7 +576,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.7.0"),
+                    .package(url: "https://github.com/apple/swift-testing.git", from: "0.8.0"),
                 ],
                 targets: [
                     .testTarget(
@@ -593,7 +593,7 @@ class ManifestEditTests: XCTestCase {
                 @Suite
                 struct MyTestTests {
                     @Test("MyTest tests")
-                    func tests() {
+                    func example() {
                         #expect(42 == 17 + 25)
                     }
                 }

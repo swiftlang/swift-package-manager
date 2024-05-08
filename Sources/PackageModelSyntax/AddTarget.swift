@@ -268,7 +268,7 @@ public struct AddTarget {
                 @Suite
                 struct \(raw: target.name)Tests {
                     @Test("\(raw: target.name) tests")
-                    func tests() {
+                    func example() {
                         #expect(42 == 17 + 25)
                     }
                 }
