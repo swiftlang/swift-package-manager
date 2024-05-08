@@ -8,7 +8,7 @@
 
 add_library(SwiftSDKCommand
   Configuration/ConfigurationSubcommand.swift
-  Configuration/ConfigureSwiftSDK.swift
+  Configuration/DeprecatedSwiftSDKConfigurationCommand.swift
   Configuration/ResetConfiguration.swift
   Configuration/SetConfiguration.swift
   Configuration/ShowConfiguration.swift
