@@ -27,6 +27,9 @@ import struct PackageGraph.ModulesGraph
 public protocol BuildTarget {
     var sources: [URL] { get }
 
+    /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
+    var name: String { get }
+
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
 
@@ -46,6 +49,10 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         return (try? description.compilePaths().map { URL(fileURLWithPath: $0.source.pathString) }) ?? []
     }
 
+    public var name: String {
+        return description.clangTarget.name
+    }
+
     public func compileArguments(for fileURL: URL) throws -> [String] {
         let filePath = try resolveSymlinks(try AbsolutePath(validating: fileURL.path))
         let commandLine = try description.emitCommandLine(for: filePath)
@@ -61,6 +68,10 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
     init(description: SwiftTargetBuildDescription, isPartOfRootPackage: Bool) {
         self.description = description
         self.isPartOfRootPackage = isPartOfRootPackage
+    }
+
+    public var name: String {
+        return description.target.name
     }
 
     var sources: [URL] {
