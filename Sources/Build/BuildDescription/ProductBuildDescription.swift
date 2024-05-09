@@ -13,6 +13,7 @@
 import Basics
 import PackageGraph
 
+@_spi(SwiftPMInternal)
 import PackageModel
 
 import OrderedCollections
