@@ -233,7 +233,8 @@ public class Target: PolymorphicCodableProtocol {
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
 
-    package let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
+    @_spi(SwiftPMInternal)
+    public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
 
     /// The usages of package plugins by this target.
     public let pluginUsages: [PluginUsage]
