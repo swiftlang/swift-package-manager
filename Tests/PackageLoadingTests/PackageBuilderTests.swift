@@ -3303,7 +3303,7 @@ final class PackageBuilderTester {
             guard case let swiftTarget as SwiftTarget = target else {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
-            XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
+            XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.toolSwiftVersion, file: file, line: line)
         }
 
         func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
