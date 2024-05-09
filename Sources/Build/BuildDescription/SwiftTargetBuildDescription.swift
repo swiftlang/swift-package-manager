@@ -141,8 +141,8 @@ package final class SwiftTargetBuildDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
-    /// The swift version for this target.
-    var swiftVersion: SwiftLanguageVersion {
+    /// The swift language version that is computed for this target based on tools version of the manifest.
+    var toolsSwiftVersion: SwiftLanguageVersion {
         self.swiftTarget.toolSwiftVersion
     }
 
@@ -561,7 +561,7 @@ package final class SwiftTargetBuildDescription {
 
         // Fallback to package wide setting if there is no target specific version.
         if args.firstIndex(of: "-swift-version") == nil {
-            args += ["-swift-version", self.swiftVersion.rawValue]
+            args += ["-swift-version", self.toolsSwiftVersion.rawValue]
         }
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
