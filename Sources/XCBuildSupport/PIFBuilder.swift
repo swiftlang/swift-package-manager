@@ -1583,19 +1583,19 @@ extension SwiftTarget {
         })
         // If we were able to determine the list of versions supported by XCBuild, cross-reference with the package's
         // Swift versions in case the preferred version isn't available.
-        if !supportedSwiftVersions.isEmpty, !supportedSwiftVersions.contains(self.swiftVersion) {
+        if !supportedSwiftVersions.isEmpty, !supportedSwiftVersions.contains(self.toolSwiftVersion) {
             let declaredVersions = Array(normalizedDeclaredVersions.intersection(supportedSwiftVersions)).sorted(by: >)
             if let swiftVersion = declaredVersions.first {
                 return swiftVersion
             } else {
                 throw PIFGenerationError.unsupportedSwiftLanguageVersion(
                     targetName: self.name,
-                    version: self.swiftVersion,
+                    version: self.toolSwiftVersion,
                     supportedVersions: supportedSwiftVersions
                 )
             }
         }
-        return self.swiftVersion
+        return self.toolSwiftVersion
     }
 }
 

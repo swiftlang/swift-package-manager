@@ -982,7 +982,7 @@ public final class PackageBuilder {
                 others: others,
                 dependencies: dependencies,
                 packageAccess: potentialModule.packageAccess,
-                swiftVersion: self.swiftVersion(),
+                toolsSwiftVersion: self.toolsSwiftVersion(),
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
@@ -1222,7 +1222,7 @@ public final class PackageBuilder {
     }
 
     /// Computes the swift version to use for this manifest.
-    private func swiftVersion() throws -> SwiftLanguageVersion {
+    private func toolsSwiftVersion() throws -> SwiftLanguageVersion {
         if let swiftVersion = self.swiftVersionCache {
             return swiftVersion
         }
@@ -1723,7 +1723,7 @@ extension PackageBuilder {
                     sources: sources,
                     dependencies: dependencies,
                     packageAccess: false,
-                    swiftVersion: self.swiftVersion(),
+                    toolsSwiftVersion: self.toolsSwiftVersion(),
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false

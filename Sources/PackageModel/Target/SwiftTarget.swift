@@ -23,7 +23,7 @@ public final class SwiftTarget: Target {
     }
 
     public init(name: String, dependencies: [Target.Dependency], packageAccess: Bool, testDiscoverySrc: Sources) {
-        self.swiftVersion = .v5
+        self.toolSwiftVersion = .v5
         self.declaredSwiftVersions = []
 
         super.init(
@@ -40,8 +40,8 @@ public final class SwiftTarget: Target {
         )
     }
 
-    /// The swift version of this target.
-    public let swiftVersion: SwiftLanguageVersion
+    /// The swift language version that is computed for this target based on tools version of the manifest.
+    public let toolSwiftVersion: SwiftLanguageVersion
 
     /// The list of swift versions declared by the manifest.
     public let declaredSwiftVersions: [SwiftLanguageVersion]
@@ -57,14 +57,14 @@ public final class SwiftTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         packageAccess: Bool,
-        swiftVersion: SwiftLanguageVersion,
+        toolsSwiftVersion: SwiftLanguageVersion,
         declaredSwiftVersions: [SwiftLanguageVersion] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool
     ) {
-        self.swiftVersion = swiftVersion
+        self.toolSwiftVersion = toolsSwiftVersion
         self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
             name: name,
@@ -103,8 +103,8 @@ public final class SwiftTarget: Target {
         // We need to select the latest Swift language version that can
         // satisfy the current tools version but there is not a good way to
         // do that currently.
-        self.swiftVersion = swiftTestTarget?
-            .swiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
+        self.toolSwiftVersion = swiftTestTarget?
+            .toolSwiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
         self.declaredSwiftVersions = []
         let sources = Sources(paths: [testEntryPointPath], root: testEntryPointPath.parentDirectory)
 
@@ -129,14 +129,14 @@ public final class SwiftTarget: Target {
 
     override public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.swiftVersion, forKey: .swiftVersion)
+        try container.encode(self.toolSwiftVersion, forKey: .swiftVersion)
         try container.encode(self.declaredSwiftVersions, forKey: .declaredSwiftVersions)
         try super.encode(to: encoder)
     }
 
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.swiftVersion = try container.decode(SwiftLanguageVersion.self, forKey: .swiftVersion)
+        self.toolSwiftVersion = try container.decode(SwiftLanguageVersion.self, forKey: .swiftVersion)
         self.declaredSwiftVersions = try container.decode([SwiftLanguageVersion].self, forKey: .declaredSwiftVersions)
         try super.init(from: decoder)
     }

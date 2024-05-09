@@ -29,7 +29,7 @@ extension ResolvedTarget {
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
                 packageAccess: false,
-                swiftVersion: .v4,
+                toolsSwiftVersion: .v4,
                 usesUnsafeFlags: false
             ),
             dependencies: deps.map { .target($0, conditions: conditions) },
