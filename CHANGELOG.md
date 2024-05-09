@@ -1,5 +1,11 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+* [#7530]
+
+  Makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles. For example,
+  package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
+  targets from `B` and vice versa.
+
 Swift 6.0
 -----------
 
@@ -8,6 +14,9 @@ Swift 6.0
   `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and
   `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
   `experimental` prefix.
+
+* [#7535] The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
+  [SE-0387 proposal text].
 
 * [#7202]
 
@@ -360,6 +369,7 @@ Swift 3.0
 [SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
 [SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
 [SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
+[SE-0387 proposal text]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
@@ -409,4 +419,5 @@ Swift 3.0
 [#7118]: https://github.com/apple/swift-package-manager/pull/7118
 [#7201]: https://github.com/apple/swift-package-manager/pull/7201
 [#7202]: https://github.com/apple/swift-package-manager/pull/7202
-[#7505]: https://github.com/apple/swift-package-manager/pull/7507
+[#7507]: https://github.com/apple/swift-package-manager/pull/7507
+[#7535]: https://github.com/apple/swift-package-manager/pull/7535

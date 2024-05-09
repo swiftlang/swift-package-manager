@@ -11,11 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftSDKCommand
+import Foundation
 
 @main
 struct Entrypoint {
     static func main() async {
-        print("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.")
+        fputs("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.\n", stderr)
         await SwiftSDKCommand.main()
     }
 }

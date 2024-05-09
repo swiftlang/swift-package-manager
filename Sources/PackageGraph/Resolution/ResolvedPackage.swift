@@ -40,7 +40,7 @@ public struct ResolvedPackage {
     public let products: [ResolvedProduct]
 
     /// The dependencies of the package.
-    public let dependencies: [ResolvedPackage]
+    public let dependencies: [PackageIdentity]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -57,7 +57,7 @@ public struct ResolvedPackage {
         underlying: Package,
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
-        dependencies: [ResolvedPackage],
+        dependencies: [PackageIdentity],
         targets: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
         registryMetadata: RegistryReleaseMetadata?,

@@ -147,7 +147,7 @@ package final class PackageGraphResult {
     }
 
     package func find(package: PackageIdentity) -> ResolvedPackage? {
-        return graph.packages.first(where: { $0.identity == package })
+        return graph.package(for: package)
     }
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {

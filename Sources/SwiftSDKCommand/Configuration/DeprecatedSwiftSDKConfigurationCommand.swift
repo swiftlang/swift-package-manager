@@ -11,11 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
+import PackageModel
 
-package struct ConfigureSwiftSDK: ParsableCommand {
-    package static let configuration = CommandConfiguration(
+struct DeprecatedSwiftSDKConfigurationCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
         commandName: "configuration",
         abstract: """
+        Deprecated: use `swift sdk configure` instead.
+
         Manages configuration options for installed Swift SDKs.
         """,
         subcommands: [
@@ -24,6 +28,4 @@ package struct ConfigureSwiftSDK: ParsableCommand {
             ShowConfiguration.self,
         ]
     )
-
-    package init() {}
 }

@@ -30,12 +30,40 @@ public struct AddTarget {
         "cxxLanguageStandard"
     ]
 
+    /// The kind of test harness to use. This isn't part of the manifest
+    /// itself, but is used to guide the generation process.
+    public enum TestHarness: String, Codable {
+        /// Don't use any library
+        case none
+
+        /// Create a test using the XCTest library.
+        case xctest
+
+        /// Create a test using the swift-testing package.
+        case swiftTesting = "swift-testing"
+
+        /// The default testing library to use.
+        public static var `default`: TestHarness = .xctest
+    }
+
+    /// Additional configuration information to guide the package editing
+    /// process.
+    public struct Configuration {
+        /// The test harness to use.
+        public var testHarness: TestHarness
+
+        public init(testHarness: TestHarness = .default) {
+            self.testHarness = testHarness
+        }
+    }
+
     /// Add the given target to the manifest, producing a set of edit results
     /// that updates the manifest and adds some source files to stub out the
     /// new target.
     public static func addTarget(
         _ target: TargetDescription,
         to manifest: SourceFileSyntax,
+        configuration: Configuration = .init(),
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration = .default
     ) throws -> PackageEditResult {
         // Make sure we have a suitable tools version in the manifest.
@@ -49,10 +77,20 @@ public struct AddTarget {
         // content when needed.
         var target = target
 
-        // Macro targets need to depend on a couple of libraries from
-        // SwiftSyntax.
-        if target.type == .macro {
+        // Add dependencies needed for various targets.
+        switch target.type {
+        case .macro:
+            // Macro targets need to depend on a couple of libraries from
+            // SwiftSyntax.
             target.dependencies.append(contentsOf: macroTargetDependencies)
+
+        case .test where configuration.testHarness == .swiftTesting:
+            // Testing targets using swift-testing need to depend on
+            // SwiftTesting from the swift-testing package.
+            target.dependencies.append(contentsOf: swiftTestingTestTargetDependencies)
+
+        default:
+            break;
         }
 
         var newPackageCall = try packageCall.appendingToArrayArgument(
@@ -84,6 +122,7 @@ public struct AddTarget {
         addPrimarySourceFile(
             outerPath: outerPath,
             target: target,
+            configuration: configuration,
             to: &auxiliaryFiles
         )
 
@@ -124,6 +163,17 @@ public struct AddTarget {
                 }
             }
 
+        case .test where configuration.testHarness == .swiftTesting:
+            if !manifest.description.contains("swift-testing") {
+                newPackageCall = try AddPackageDependency
+                    .addPackageDependencyLocal(
+                        .swiftTesting(
+                          configuration: installedSwiftPMConfiguration
+                        ),
+                        to: newPackageCall
+                    )
+            }
+
         default: break;
         }
 
@@ -140,6 +190,7 @@ public struct AddTarget {
     fileprivate static func addPrimarySourceFile(
         outerPath: RelativePath,
         target: TargetDescription,
+        configuration: Configuration,
         to auxiliaryFiles: inout AuxiliaryFiles
     ) {
         let sourceFilePath = outerPath.appending(
@@ -153,7 +204,17 @@ public struct AddTarget {
 
         // Add appropriate test module dependencies.
         if target.type == .test {
-            importModuleNames.append("XCTest")
+            switch configuration.testHarness {
+            case .none: 
+                break
+
+            case .xctest:
+                importModuleNames.append("XCTest")
+
+            case .swiftTesting: 
+                // Import is handled by the added dependency.
+                break
+            }
         }
 
         let importDecls = importModuleNames.lazy.sorted().map { name in
@@ -184,14 +245,35 @@ public struct AddTarget {
             """
 
         case .test:
-            """
-            \(imports)
-            class \(raw: target.name): XCTestCase {
-                func test\(raw: target.name)() {
-                    XCTAssertEqual(42, 17 + 25)
+            switch configuration.testHarness {
+            case .none:
+                """
+                \(imports)
+                // Test code here
+                """
+
+            case .xctest:
+                """
+                \(imports)
+                class \(raw: target.name): XCTestCase {
+                    func test\(raw: target.name)() {
+                        XCTAssertEqual(42, 17 + 25)
+                    }
                 }
+                """
+
+            case .swiftTesting:
+                """
+                \(imports)
+                @Suite
+                struct \(raw: target.name)Tests {
+                    @Test("\(raw: target.name) tests")
+                    func example() {
+                        #expect(42 == 17 + 25)
+                    }
+                }
+                """
             }
-            """
 
         case .regular:
             """
@@ -294,6 +376,38 @@ fileprivate extension PackageDependency {
             nameForTargetDependencyResolutionOnly: nil,
             location: .remote(swiftSyntaxURL),
             requirement: .range(.upToNextMajor(from: swiftSyntaxVersion)),
+            productFilter: .everything
+        )
+    }
+}
+
+/// The set of dependencies we need to introduce to a newly-created macro
+/// target.
+fileprivate let swiftTestingTestTargetDependencies: [TargetDescription.Dependency] = [
+    .product(name: "Testing", package: "swift-testing"),
+]
+
+
+/// The package dependency for swift-testing, for use in test files.
+fileprivate extension PackageDependency {
+    /// Source control URL for the swift-syntax package.
+    static var swiftTestingURL: SourceControlURL {
+        "https://github.com/apple/swift-testing.git"
+    }
+
+    /// Package dependency on the swift-testing package.
+    static func swiftTesting(
+      configuration: InstalledSwiftPMConfiguration
+    ) -> PackageDependency {
+        let swiftTestingVersionDefault =
+            configuration.swiftTestingVersionForTestTemplate
+        let swiftTestingVersion = Version(swiftTestingVersionDefault.description)!
+
+        return .sourceControl(
+            identity: PackageIdentity(url: swiftTestingURL),
+            nameForTargetDependencyResolutionOnly: nil,
+            location: .remote(swiftTestingURL),
+            requirement: .range(.upToNextMajor(from: swiftTestingVersion)),
             productFilter: .everything
         )
     }
