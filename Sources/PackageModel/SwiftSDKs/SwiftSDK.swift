@@ -505,7 +505,7 @@ public struct SwiftSDK: Equatable {
     /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: AbsolutePath? = nil,
-        environment: [String: String],
+        environment: EnvironmentVariables = .process(),
         observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws -> SwiftSDK {
