@@ -21,6 +21,20 @@ import XCTest
 
 import struct TSCUtility.Version
 
+extension EnvironmentVariables {
+    package static var mockEnvironment: Self { ["PATH": "/usr/bin"] }
+}
+
+extension InMemoryFileSystem {
+    package func createMockToolchain() throws {
+        let files = ["/usr/bin/swiftc", "/usr/bin/ar"]
+        self.createEmptyFiles(at: AbsolutePath.root, files: files)
+        for toolPath in files {
+            try self.updatePermissions(.init(toolPath), isExecutable: true)
+        }
+    }
+}
+
 package final class MockWorkspace {
     let sandbox: AbsolutePath
     let fileSystem: InMemoryFileSystem
@@ -60,11 +74,7 @@ package final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none
     ) throws {
-        let files = ["/usr/bin/swiftc", "/usr/bin/ar"]
-        fileSystem.createEmptyFiles(at: AbsolutePath.root, files: files)
-        for toolPath in files {
-            try fileSystem.updatePermissions(.init(toolPath), isExecutable: true)
-        }
+        try fileSystem.createMockToolchain()
 
         self.sandbox = sandbox
         self.fileSystem = fileSystem
@@ -278,7 +288,7 @@ package final class MockWorkspace {
 
         let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
-            environment: .empty(),
+            environment: .mockEnvironment,
             location: .init(
                 scratchDirectory: self.sandbox.appending(".build"),
                 editsDirectory: self.sandbox.appending("edits"),

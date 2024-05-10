@@ -193,6 +193,7 @@ private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -222,7 +223,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         let provider = try Workspace._init(
             fileSystem: fs,
-            environment: .empty(),
+            environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
@@ -236,6 +237,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
     func testVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -276,7 +278,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
             return try Workspace._init(
                 fileSystem: fs,
-                environment: .empty(),
+                environment: .mockEnvironment,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
                 customToolsVersion: currentToolsVersion,
                 customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -330,6 +332,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
     func testPreReleaseVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -361,7 +364,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         let provider = try Workspace._init(
             fileSystem: fs,
-            environment: .empty(),
+            environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
@@ -375,6 +378,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
     func testSimultaneousVersions() async throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
         let repoPath = AbsolutePath.root
         let filePath = repoPath.appending("Package.swift")
@@ -411,7 +415,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         let provider = try Workspace._init(
             fileSystem: fs,
-            environment: .empty(),
+            environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
@@ -596,7 +600,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             )
             let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
-                environment: .empty(),
+                environment: .mockEnvironment,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]),
                 customRepositoryManager: repositoryManager

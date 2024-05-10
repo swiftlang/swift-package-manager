@@ -31,7 +31,6 @@ import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
-import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 
@@ -4334,6 +4333,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.c",
             "/Pkg/Sources/lib/include/lib.h"
         )
+        try fs.createMockToolchain()
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4369,7 +4369,7 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
-        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK, environment: .empty())
+        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK, environment: .mockEnvironment, fileSystem: fs)
         let extraBuildParameters = mockBuildParameters(
             toolchain: mockToolchain,
             flags: BuildFlags(
@@ -4635,6 +4635,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/cLib/cLib.c",
             "/Pkg/Sources/cLib/include/cLib.h"
         )
+        try fileSystem.createMockToolchain()
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4667,7 +4668,7 @@ final class BuildPlanTests: XCTestCase {
                 .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld"]),
             ])
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .empty())
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
         let buildParameters = mockBuildParameters(toolchain: toolchain)
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: buildParameters,

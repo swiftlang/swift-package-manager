@@ -7830,6 +7830,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testArtifactChecksum() throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
         let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
 
@@ -7837,7 +7838,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty()),
+            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment),
             checksumAlgorithm: checksumAlgorithm,
             cachePath: .none,
             customHTTPClient: .none,
@@ -9076,8 +9077,9 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
 
         let ariFiles = [
             """
@@ -9366,7 +9368,8 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
 
         let ari = """
         {
@@ -9485,7 +9488,8 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
 
         let ari = """
         {
@@ -9595,7 +9599,8 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileArchiveNotFound() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .empty()), environment: .empty())
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
 
         let ari = """
         {
@@ -12279,6 +12284,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
         let observability = ObservabilitySystem.makeForTesting()
 
         // write a manifest
@@ -12294,7 +12300,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
-                environment: .empty(),
+                environment: .mockEnvironment,
                 forRootPackage: .root,
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
@@ -12311,7 +12317,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
-                environment: .empty(),
+                environment: .mockEnvironment,
                 forRootPackage: .root,
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate
