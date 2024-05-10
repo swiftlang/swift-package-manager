@@ -4356,7 +4356,8 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let userSwiftSDK = try SwiftSDK(
-            hostTriple: hostTriple,
+            hostTriple: .arm64Linux,
+            targetTriple: .wasi,
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"]),
@@ -4391,11 +4392,7 @@ final class BuildPlanTests: XCTestCase {
 
         let lib = try result.target(for: "lib").clangTarget()
         var args: [StringPattern] = [.anySequence]
-        #if os(macOS)
-        args += ["-isysroot"]
-        #else
         args += ["--sysroot"]
-        #endif
         args += [
             "\(userSwiftSDK.pathsConfiguration.sdkRootPath!)",
             "-I/fake/sdk/sysroot",
