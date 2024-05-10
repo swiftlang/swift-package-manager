@@ -4362,7 +4362,7 @@ final class BuildPlanTests: XCTestCase {
                     .cCompiler: .init(extraCLIOptions: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"]),
                     .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld", "-swift-flag-from-json"]),
                 ],
-                rootPaths: UserToolchain.default.swiftSDK.toolset.rootPaths
+                rootPaths: UserToolchain.mockHostToolchain(fs).swiftSDK.toolset.rootPaths
             ),
             pathsConfiguration: .init(
                 sdkRootPath: "/fake/sdk",
@@ -4502,7 +4502,7 @@ final class BuildPlanTests: XCTestCase {
                 .librarian: .init(path: "/fake/toolchain/usr/bin/librarian"),
                 .linker: .init(path: "/fake/toolchain/usr/bin/linker", extraCLIOptions: [jsonFlag(tool: .linker)]),
             ],
-            rootPaths: UserToolchain.default.swiftSDK.toolset.rootPaths
+            rootPaths: UserToolchain.mockHostToolchain(fileSystem).swiftSDK.toolset.rootPaths
         )
         let targetTriple = try Triple("armv7em-unknown-none-macho")
         let swiftSDK = try SwiftSDK(
