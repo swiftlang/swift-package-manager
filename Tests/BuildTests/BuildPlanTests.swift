@@ -4502,13 +4502,14 @@ final class BuildPlanTests: XCTestCase {
             rootPaths: UserToolchain.mockHostToolchain(fileSystem).swiftSDK.toolset.rootPaths
         )
         let targetTriple = try Triple("armv7em-unknown-none-macho")
-        let swiftSDK = try SwiftSDK(
+        let swiftSDK = SwiftSDK(
+            hostTriple: .arm64Linux,
             targetTriple: targetTriple,
-            properties: .init(
+            toolset: toolset,
+            pathsConfiguration: .init(
                 sdkRootPath: "/fake/sdk",
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"
-            ),
-            toolset: toolset
+            )
         )
         let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment)
         let buildParameters = mockBuildParameters(
