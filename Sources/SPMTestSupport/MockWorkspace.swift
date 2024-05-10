@@ -60,8 +60,12 @@ package final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none
     ) throws {
-        fileSystem.createEmptyFiles(at: AbsolutePath.root, files: "/usr/bin/swiftc")
-        try fileSystem.updatePermissions("/usr/bin/swiftc", isExecutable: true)
+        let files = ["/usr/bin/swiftc", "/usr/bin/ar"]
+        fileSystem.createEmptyFiles(at: AbsolutePath.root, files: files)
+        for toolPath in files {
+            try fileSystem.updatePermissions(.init(toolPath), isExecutable: true)
+        }
+
         self.sandbox = sandbox
         self.fileSystem = fileSystem
         self.roots = roots
