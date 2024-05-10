@@ -4073,7 +4073,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
@@ -4139,7 +4139,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
         }
 
         // omit frame pointers explicitly set to false
@@ -4196,7 +4196,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
         }
 
         do {
@@ -4243,10 +4243,10 @@ final class BuildPlanTests: XCTestCase {
                 exe,
                 [
                     .anySequence,
+                    "-swift-version", "4",
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
-                    "-swift-version", "4",
                     "-g",
                     "-Xcc", "-g",
                     .end,
