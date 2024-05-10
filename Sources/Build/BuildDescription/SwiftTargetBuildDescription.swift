@@ -825,6 +825,9 @@ package final class SwiftTargetBuildDescription {
         let scope = self.defaultBuildParameters.createScope(for: self.target)
         var flags: [String] = []
 
+        // A custom swift version.
+        flags += scope.evaluate(.SWIFT_VERSION).flatMap { ["-swift-version", $0] }
+
         // Swift defines.
         let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         flags += swiftDefines.map { "-D" + $0 }

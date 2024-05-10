@@ -1176,10 +1176,10 @@ public final class PackageBuilder {
                     throw InternalError("only Swift supports swift language version")
 
                 case .swift:
-                    decl = .OTHER_SWIFT_FLAGS
+                    decl = .SWIFT_VERSION
                 }
 
-                values = ["-swift-version", version.rawValue]
+                values = [version.rawValue]
             }
 
             // Create an assignment for this setting.
