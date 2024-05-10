@@ -246,6 +246,7 @@ public class Workspace {
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
@@ -263,6 +264,7 @@ public class Workspace {
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,

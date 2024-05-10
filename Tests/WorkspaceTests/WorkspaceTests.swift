@@ -12296,6 +12296,8 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
+        let customHostToolchain = try UserToolchain.mockHostToolchain(fs)
+
         do {
             // no error
             let delegate = MockWorkspaceDelegate()
@@ -12303,6 +12305,7 @@ final class WorkspaceTests: XCTestCase {
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,
+                customHostToolchain: customHostToolchain,
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
             )
@@ -12320,6 +12323,7 @@ final class WorkspaceTests: XCTestCase {
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,
+                customHostToolchain: customHostToolchain,
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate
             )

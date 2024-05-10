@@ -21,6 +21,18 @@ import XCTest
 
 import struct TSCUtility.Version
 
+extension UserToolchain {
+    package static func mockHostToolchain(_ fileSystem: InMemoryFileSystem) throws -> UserToolchain {
+        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
+        hostSwiftSDK.targetTriple = hostTriple
+        return try UserToolchain(
+            swiftSDK: hostSwiftSDK,
+            environment: .mockEnvironment,
+            fileSystem: fileSystem
+        )
+    }
+}
+
 extension EnvironmentVariables {
     package static var mockEnvironment: Self { ["PATH": "/fake/path/to"] }
 }
@@ -108,13 +120,7 @@ package final class MockWorkspace {
             httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
-        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
-        hostSwiftSDK.targetTriple = hostTriple
-        self.customHostToolchain = try UserToolchain(
-            swiftSDK: hostSwiftSDK,
-            environment: .mockEnvironment,
-            fileSystem: fileSystem
-        )
+        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem)
         try self.create()
     }
 
