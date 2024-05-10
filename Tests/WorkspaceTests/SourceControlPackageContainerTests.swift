@@ -225,6 +225,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -281,6 +282,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
                 customToolsVersion: currentToolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRepositoryManager: repositoryManager
             )
@@ -366,6 +368,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -417,6 +420,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -600,7 +604,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             )
             let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
-                environment: .mockEnvironment,
+                environment: .process(),
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]),
                 customRepositoryManager: repositoryManager
