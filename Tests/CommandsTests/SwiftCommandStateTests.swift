@@ -322,6 +322,72 @@ final class SwiftCommandStateTests: CommandsTestCase {
         try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
                            [.anySequence, "-gnone", .anySequence])
     }
+
+    func testSeparateProductAndToolBuildParameters() throws {
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/helper/main.swift",
+            "/Pkg/Plugins/plugin/main.swift",
+        ])
+
+        let observer = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: []),
+                        TargetDescription(name: "helper", dependencies: []),
+                        TargetDescription(
+                            name: "plugin",
+                            dependencies: ["helper"],
+                            type: .plugin,
+                            pluginCapability: .command(
+                                intent: .sourceCodeFormatting,
+                                permissions: []
+                            )
+                        )
+                    ]
+                )
+            ],
+            observabilityScope: observer.topScope
+        )
+
+        var plan: BuildPlan
+
+        /* Set up flags which should only be used for product builds */
+        let staticExecutableOptions = try GlobalOptions.parse(["-Xswiftc", "-static-executable"])
+        let staticExecutable = try SwiftCommandState.makeMockState(options: staticExecutableOptions)
+
+        XCTAssert(try staticExecutable.productsBuildParameters.flags.swiftCompilerFlags.contains("-static-executable"))
+        XCTAssertFalse(try staticExecutable.toolsBuildParameters.flags.swiftCompilerFlags.contains("-static-executable"))
+
+        // Verify that the flags are used appropriately in the build plan
+        plan = try BuildPlan(
+            destinationBuildParameters: staticExecutable.productsBuildParameters,
+            toolsBuildParameters: staticExecutable.toolsBuildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observer.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        // exe should be built with -static-executable
+        let exe = try result.target(for: "exe")
+        XCTAssert(try exe.swiftTarget().compileArguments().contains("-static-executable"))
+
+        // helper should be built without -static-executable
+        // There are 2 helper targets in the plan:
+        // - one will yield a normal target,
+        // - the other is for the use of the command plugin
+        // We can find the correct one via the plugin's dependency chain.
+        let plugin = plan.graph.allTargets.first(where: { $0.name == "plugin" })!
+        let helper = (plugin.dependencies.first(where: { $0.name == "helper"})?.target)!
+        let helperTarget = plan.targetMap[helper.id]!
+        XCTAssertFalse(try helperTarget.swiftTarget().compileArguments().contains("-static-executable"))
+    }
 }
 
 extension SwiftCommandState {
