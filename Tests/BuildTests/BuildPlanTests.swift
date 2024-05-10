@@ -4468,6 +4468,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/cxxLib/cxxLib.c",
             "/Pkg/Sources/cxxLib/include/cxxLib.h"
         )
+        try fileSystem.createMockToolchain()
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4511,7 +4512,7 @@ final class BuildPlanTests: XCTestCase {
             ),
             toolset: toolset
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .empty())
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment)
         let buildParameters = mockBuildParameters(
             toolchain: toolchain,
             flags: BuildFlags(

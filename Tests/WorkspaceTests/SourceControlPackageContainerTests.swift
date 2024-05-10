@@ -653,7 +653,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
-                environment: .empty(),
+                environment: .process(),
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(
                     manifests: [
