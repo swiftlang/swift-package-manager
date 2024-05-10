@@ -4511,7 +4511,7 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"
             )
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
         let buildParameters = mockBuildParameters(
             toolchain: toolchain,
             flags: BuildFlags(
