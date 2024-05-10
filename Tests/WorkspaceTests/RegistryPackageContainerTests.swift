@@ -89,6 +89,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRegistryClient: registryClient
             )
@@ -156,6 +157,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRegistryClient: registryClient
             )
@@ -251,6 +253,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
+                customHostToolchain: .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(),
                 customRegistryClient: registryClient
             )
