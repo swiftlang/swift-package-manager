@@ -22,12 +22,12 @@ import XCTest
 import struct TSCUtility.Version
 
 extension EnvironmentVariables {
-    package static var mockEnvironment: Self { ["PATH": "/usr/bin"] }
+    package static var mockEnvironment: Self { ["PATH": "/fake/path/to"] }
 }
 
 extension InMemoryFileSystem {
     package func createMockToolchain() throws {
-        let files = ["/usr/bin/swiftc", "/usr/bin/ar"]
+        let files = ["/fake/path/to/swiftc", "/fake/path/to/ar"]
         self.createEmptyFiles(at: AbsolutePath.root, files: files)
         for toolPath in files {
             try self.updatePermissions(.init(toolPath), isExecutable: true)
@@ -41,6 +41,7 @@ package final class MockWorkspace {
     let roots: [MockPackage]
     let packages: [MockPackage]
     let customToolsVersion: ToolsVersion?
+    private let customHostToolchain: UserToolchain
     let fingerprints: MockPackageFingerprintStorage
     let signingEntities: MockPackageSigningEntityStorage
     let mirrors: DependencyMirrors
@@ -106,6 +107,13 @@ package final class MockWorkspace {
         self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
             httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
+        )
+        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
+        hostSwiftSDK.targetTriple = hostTriple
+        self.customHostToolchain = try UserToolchain(
+            swiftSDK: hostSwiftSDK,
+            environment: .mockEnvironment,
+            fileSystem: fileSystem
         )
         try self.create()
     }
@@ -315,6 +323,7 @@ package final class MockWorkspace {
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
             customToolsVersion: self.customToolsVersion,
+            customHostToolchain: self.customHostToolchain,
             customManifestLoader: self.manifestLoader,
             customPackageContainerProvider: self.customPackageContainerProvider,
             customRepositoryProvider: self.repositoryProvider,
