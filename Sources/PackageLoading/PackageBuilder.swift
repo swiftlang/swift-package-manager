@@ -308,7 +308,7 @@ public final class PackageBuilder {
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
 
-    private var platformRegistry: PlatformRegistry {
+    private static var platformRegistry: PlatformRegistry {
         PlatformRegistry.default
     }
 
@@ -1195,6 +1195,11 @@ public final class PackageBuilder {
     }
 
     func buildConditions(from condition: PackageConditionDescription?) -> [PackageCondition] {
+        Self.buildConditions(from: condition)
+    }
+
+    @_spi(SwiftPMInternal)
+    public static func buildConditions(from condition: PackageConditionDescription?) -> [PackageCondition] {
         var conditions: [PackageCondition] = []
 
         if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
