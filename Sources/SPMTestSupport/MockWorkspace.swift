@@ -19,8 +19,6 @@ import SourceControl
 import Workspace
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 import struct TSCUtility.Version
 
 package final class MockWorkspace {
@@ -62,6 +60,8 @@ package final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none
     ) throws {
+        fileSystem.createEmptyFiles(at: AbsolutePath.root, files: "/usr/bin/swiftc")
+        try fileSystem.updatePermissions("/usr/bin/swiftc", isExecutable: true)
         self.sandbox = sandbox
         self.fileSystem = fileSystem
         self.roots = roots

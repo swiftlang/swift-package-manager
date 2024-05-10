@@ -24,7 +24,6 @@ import SPMTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
-import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 

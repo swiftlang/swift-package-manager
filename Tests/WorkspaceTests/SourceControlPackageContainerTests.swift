@@ -20,8 +20,6 @@ import SPMTestSupport
 @testable import Workspace
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
 import enum TSCUtility.Git
 import struct TSCUtility.Version
 
