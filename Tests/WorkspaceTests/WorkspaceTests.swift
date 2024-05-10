@@ -7838,7 +7838,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment),
+            hostToolchain: UserToolchain.mockHostToolchain(fs),
             checksumAlgorithm: checksumAlgorithm,
             cachePath: .none,
             customHTTPClient: .none,
@@ -9079,7 +9079,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ariFiles = [
             """
@@ -9369,7 +9369,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9489,7 +9489,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9600,7 +9600,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9677,7 +9677,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK(environment: .mockEnvironment), environment: .mockEnvironment)
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
         let androidTriple = try Triple("x86_64-unknown-linux-android")
         let macTriple = try Triple("arm64-apple-macosx")
         let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
