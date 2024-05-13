@@ -146,11 +146,6 @@ package final class SwiftTargetBuildDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
-    /// The swift language version that is computed for this target based on tools version of the manifest.
-    var toolsSwiftVersion: SwiftLanguageVersion {
-        self.swiftTarget.toolSwiftVersion
-    }
-
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
     /// tests or serving as the manifest target which contains the main entry point.
     package enum TestTargetRole {
@@ -579,11 +574,6 @@ package final class SwiftTargetBuildDescription {
 
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
-
-        // Fallback to package wide setting if there is no target specific version.
-        if args.firstIndex(of: "-swift-version") == nil {
-            args += ["-swift-version", self.toolsSwiftVersion.rawValue]
-        }
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other
         // way.
