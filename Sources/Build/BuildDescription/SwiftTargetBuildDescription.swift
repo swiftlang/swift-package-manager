@@ -237,6 +237,12 @@ public final class SwiftTargetBuildDescription {
     /// Any macro products that this target requires to build.
     public let requiredMacroProducts: [ResolvedProduct]
 
+    /// Path to a generated source file containing a listing of all of the
+    /// modules that are available to this target when it builds,
+    /// based on other targets in its package manifest and the products of
+    /// every package on which its package depends.
+    private var availableModules: AbsolutePath?
+
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
@@ -260,6 +266,7 @@ public final class SwiftTargetBuildDescription {
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
         shouldDisableSandbox: Bool,
+        availableModules: AvailableModules?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -319,6 +326,7 @@ public final class SwiftTargetBuildDescription {
 
         try self.generateResourceEmbeddingCode()
         try self.generateTestObservation()
+        try self.generateAvailableModules(availableModules)
     }
 
     private func generateTestObservation() throws {
@@ -346,6 +354,22 @@ public final class SwiftTargetBuildDescription {
         // FIXME: We should generate this file during the actual build.
         self.derivedSources.relativePaths.append(subpath)
         try self.fileSystem.writeIfChanged(path: path, string: content)
+    }
+
+    private func generateAvailableModules(_ availableModules: AvailableModules?) throws {
+        guard defaultBuildParameters.driverParameters.isPackageAvailableModulesSupported else {
+            return
+        }
+
+        guard let availableModules else {
+            return
+        }
+
+        let path = self.tempsPath.appending(component: "available_modules.json")
+        let encoder = JSONEncoder.makeWithDefaults()
+        let data = try encoder.encode(availableModules)
+        try fileSystem.writeIfChanged(path: path, data: data)
+        self.availableModules = path
     }
 
     // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array
@@ -659,6 +683,16 @@ public final class SwiftTargetBuildDescription {
                 isPackageNameSupported: self.defaultBuildParameters.driverParameters.isPackageAccessModifierSupported
             )
         )
+
+        if let availableModules {
+            result.append("-package-manifest")
+            result.append(self.package.underlying.path.pathString)
+            result.append("-package-available-modules")
+            result.append(availableModules.pathString)
+            result.append("-package-target-name")
+            result.append(self.target.name)
+        }
+
         if !scanInvocation {
             result.append("-emit-dependencies")
 

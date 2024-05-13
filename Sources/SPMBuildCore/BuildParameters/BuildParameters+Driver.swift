@@ -26,7 +26,8 @@ extension BuildParameters {
             explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
             useIntegratedSwiftDriver: Bool = false,
             useExplicitModuleBuild: Bool = false,
-            isPackageAccessModifierSupported: Bool = false
+            isPackageAccessModifierSupported: Bool = false,
+            isPackageAvailableModulesSupported: Bool = false
         ) {
             self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
             self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
@@ -34,6 +35,7 @@ extension BuildParameters {
             self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
             self.useExplicitModuleBuild = useExplicitModuleBuild
             self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
+            self.isPackageAvailableModulesSupported = isPackageAvailableModulesSupported
         }
 
         /// Whether to enable the entry-point-function-name feature.
@@ -58,5 +60,10 @@ extension BuildParameters {
         /// supports `-package-name` options.
         @_spi(SwiftPMInternal)
         public var isPackageAccessModifierSupported: Bool
+
+        /// Whether the version of Swift Driver used in the currently selected
+        /// toolchain supports '-package-available-modules' options.
+        @_spi(SwiftPMInternal)
+        public var isPackageAvailableModulesSupported: Bool
     }
 }

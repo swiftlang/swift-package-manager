@@ -295,6 +295,10 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                         toolchain: targetToolchain,
                         fileSystem: self.fileSystem
+                    ),
+                    isPackageAvailableModulesSupported: DriverSupport.isPackageAvailableModulesSupported(
+                        toolchain: targetToolchain,
+                        fileSystem: self.fileSystem
                     )
                 ),
                 linkingParameters: .init(

@@ -17,7 +17,7 @@ import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
@@ -372,6 +372,20 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             // This can affect what flags to pass and other semantics.
             let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .v5_5
 
+            // Retrieve the available modules for a given package.
+            var availableModulesCache: [PackageIdentity: AvailableModules] = [:]
+            func getAvailableModules(
+                package: ResolvedPackage
+            ) -> AvailableModules? {
+                if let known = availableModulesCache[package.identity] {
+                    return known
+                }
+
+                let availableModules = graph.availableModules(in: package)
+                availableModulesCache[package.identity] = availableModules
+                return availableModules
+            }
+
             switch target.underlying {
             case is SwiftTarget:
                 guard let package = graph.package(for: target) else {
@@ -388,6 +402,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     shouldGenerateTestObservation = false // Only generate the code once.
                 }
 
+                // Determine the set of available modules for this target.
+                let availableModules: AvailableModules?
+                if buildParameters.driverParameters.isPackageAccessModifierSupported {
+                    availableModules = getAvailableModules(package: package)
+                } else {
+                    availableModules = nil
+                }
+
                 targetMap[target.id] = try .swift(
                     SwiftTargetBuildDescription(
                         package: package,
@@ -401,6 +423,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         requiredMacroProducts: requiredMacroProducts,
                         shouldGenerateTestObservation: generateTestObservation,
                         shouldDisableSandbox: self.shouldDisableSandbox,
+                        availableModules: availableModules,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )

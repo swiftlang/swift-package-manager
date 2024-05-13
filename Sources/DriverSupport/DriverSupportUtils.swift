@@ -88,4 +88,8 @@ public enum DriverSupport {
     public static func isPackageNameSupported(toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
         DriverSupport.checkToolchainDriverFlags(flags: ["-package-name"], toolchain: toolchain, fileSystem: fileSystem)
     }
+
+    package static func isPackageAvailableModulesSupported(toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
+        DriverSupport.checkToolchainDriverFlags(flags: ["-package-available-modules"], toolchain: toolchain, fileSystem: fileSystem)
+    }
 }
