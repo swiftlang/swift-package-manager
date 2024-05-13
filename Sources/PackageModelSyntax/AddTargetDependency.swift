@@ -19,17 +19,6 @@ import SwiftSyntaxBuilder
 
 /// Add a target dependency to a manifest's source code.
 public struct AddTargetDependency {
-      /// The set of argument labels that can occur after the "targets"
-      /// argument in the Package initializers.
-      ///
-      /// TODO: Could we generate this from the the PackageDescription module, so
-      /// we don't have keep it up-to-date manually?
-      private static let argumentLabelsAfterTargets: Set<String> = [
-          "swiftLanguageVersions",
-          "cLanguageStandard",
-          "cxxLanguageStandard"
-      ]
-
     /// The set of argument labels that can occur after the "dependencies"
     /// argument in the various target initializers.
     ///
