@@ -12,11 +12,11 @@
 
 /// Namespace for build settings.
 public enum BuildSettings {
-
     /// Build settings declarations.
     public struct Declaration: Hashable, Codable {
         // Swift.
-        public static let SWIFT_ACTIVE_COMPILATION_CONDITIONS: Declaration = .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
+        public static let SWIFT_ACTIVE_COMPILATION_CONDITIONS: Declaration =
+            .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
         public static let OTHER_SWIFT_FLAGS: Declaration = .init("OTHER_SWIFT_FLAGS")
         public static let SWIFT_VERSION: Declaration = .init("SWIFT_VERSION")
 
@@ -48,18 +48,23 @@ public enum BuildSettings {
         /// The condition associated with this assignment.
         public var conditions: [PackageCondition] {
             get {
-                return _conditions.map { $0.underlying }
+                self._conditions.map(\.underlying)
             }
             set {
-                _conditions = newValue.map { PackageConditionWrapper($0) }
+                self._conditions = newValue.map { PackageConditionWrapper($0) }
             }
         }
 
         private var _conditions: [PackageConditionWrapper]
 
-        public init() {
+        /// Indicates whether this assignment represents a default
+        /// that should be used only if no other assignments match.
+        public let `default`: Bool
+
+        public init(default: Bool = false) {
             self._conditions = []
             self.values = []
+            self.default = `default`
         }
     }
 
@@ -68,13 +73,13 @@ public enum BuildSettings {
         public private(set) var assignments: [Declaration: [Assignment]]
 
         public init() {
-            assignments = [:]
+            self.assignments = [:]
         }
 
         /// Add the given assignment to the table.
-        mutating public func add(_ assignment: Assignment, for decl: Declaration) {
+        public mutating func add(_ assignment: Assignment, for decl: Declaration) {
             // FIXME: We should check for duplicate assignments.
-            assignments[decl, default: []].append(assignment)
+            self.assignments[decl, default: []].append(assignment)
         }
     }
 
@@ -101,12 +106,18 @@ public enum BuildSettings {
             }
 
             // Add values from each assignment if it satisfies the build environment.
-            let values = assignments
+            let allViableAssignments = assignments
                 .lazy
                 .filter { $0.conditions.allSatisfy { $0.satisfies(self.environment) } }
-                .flatMap { $0.values }
 
-            return Array(values)
+            let nonDefaultAssignments = allViableAssignments.filter { !$0.default }
+
+            // If there are no non-default assignments, let's fallback to defaults.
+            if nonDefaultAssignments.isEmpty {
+                return allViableAssignments.filter(\.default).flatMap(\.values)
+            }
+
+            return nonDefaultAssignments.flatMap(\.values)
         }
     }
 }
