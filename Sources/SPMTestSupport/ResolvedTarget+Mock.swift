@@ -29,7 +29,6 @@ extension ResolvedModule {
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
                 packageAccess: false,
-                toolsSwiftVersion: .v4,
                 usesUnsafeFlags: false
             ),
             dependencies: deps.map { .target($0, conditions: conditions) },
