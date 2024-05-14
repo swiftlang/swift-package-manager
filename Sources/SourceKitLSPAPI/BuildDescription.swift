@@ -23,12 +23,17 @@ import class Build.ClangTargetBuildDescription
 import class Build.SwiftTargetBuildDescription
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ModulesGraph
+import enum PackageGraph.BuildTriple
+
+public typealias BuildTriple = PackageGraph.BuildTriple
 
 public protocol BuildTarget {
     var sources: [URL] { get }
 
     /// The name of the target. It should be possible to build a target by passing this name to `swift build --target`
     var name: String { get }
+
+    var buildTriple: BuildTriple { get }
 
     /// Whether the target is part of the root package that the user opened or if it's part of a package dependency.
     var isPartOfRootPackage: Bool { get }
@@ -53,6 +58,10 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
         return description.clangTarget.name
     }
 
+    public var buildTriple: BuildTriple {
+        return description.target.buildTriple
+    }
+
     public func compileArguments(for fileURL: URL) throws -> [String] {
         let filePath = try resolveSymlinks(try AbsolutePath(validating: fileURL.path))
         let commandLine = try description.emitCommandLine(for: filePath)
@@ -72,6 +81,10 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
 
     public var name: String {
         return description.target.name
+    }
+
+    public var buildTriple: BuildTriple {
+        return description.target.buildTriple
     }
 
     var sources: [URL] {

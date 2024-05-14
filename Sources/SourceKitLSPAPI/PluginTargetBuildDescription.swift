@@ -17,6 +17,7 @@ import struct PackageGraph.ResolvedModule
 private import class PackageLoading.ManifestLoader
 internal import struct PackageModel.ToolsVersion
 private import class PackageModel.UserToolchain
+import enum PackageGraph.BuildTriple
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule
@@ -36,6 +37,10 @@ struct PluginTargetBuildDescription: BuildTarget {
 
     var name: String {
         return target.name
+    }
+
+    var buildTriple: BuildTriple {
+        return target.buildTriple
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
