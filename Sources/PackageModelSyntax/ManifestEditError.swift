@@ -18,6 +18,8 @@ import SwiftSyntax
 /// package manifest programattically.
 package enum ManifestEditError: Error {
     case cannotFindPackage
+    case cannotFindTargets
+    case cannotFindTarget(targetName: String)
     case cannotFindArrayLiteralArgument(argumentName: String, node: Syntax)
     case oldManifest(ToolsVersion)
 }
@@ -33,6 +35,10 @@ extension ManifestEditError: CustomStringConvertible {
         switch self {
         case .cannotFindPackage:
             "invalid manifest: unable to find 'Package' declaration"
+        case .cannotFindTargets:
+            "unable to find package targets in manifest"
+        case .cannotFindTarget(targetName: let name):
+            "unable to find target named '\(name)' in package"
         case .cannotFindArrayLiteralArgument(argumentName: let name, node: _):
             "unable to find array literal for '\(name)' argument"
         case .oldManifest(let version):
