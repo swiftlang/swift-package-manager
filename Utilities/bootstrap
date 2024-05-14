@@ -744,8 +744,6 @@ def get_swiftpm_env_cmd(args):
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
-    # Disable Swift 6 mode in swift-syntax to work around rdar://126952308
-    env_cmd.append("SWIFTSYNTAX_DISABLE_SWIFT_6_MODE=1")
 
     if not '-macosx' in args.build_target and args.command == 'install':
         env_cmd.append("SWIFTCI_INSTALL_RPATH_OS=%s" % args.platform_path.group(2))
