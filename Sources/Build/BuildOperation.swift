@@ -12,18 +12,11 @@
 
 @_spi(SwiftPMInternal)
 import Basics
-
-@_spi(SwiftPMInternal)
-import Build
-
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
 import PackageModel
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
-
 import SPMLLBuild
 import Foundation
 
@@ -43,7 +36,6 @@ import DriverSupport
 import SwiftDriver
 #endif
 
-@_spi(SwiftPMInternal)
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?

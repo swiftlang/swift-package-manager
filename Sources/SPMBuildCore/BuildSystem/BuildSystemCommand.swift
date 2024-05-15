@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
 public struct BuildSystemCommand: Hashable {
     public let name: String
     public let description: String

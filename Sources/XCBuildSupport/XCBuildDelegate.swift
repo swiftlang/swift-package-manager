@@ -12,8 +12,6 @@
 
 import Basics
 import Foundation
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import class TSCBasic.ThreadSafeOutputByteStream
@@ -22,7 +20,6 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCUtility.Diagnostics
 import protocol TSCUtility.ProgressAnimationProtocol
 
-@_spi(SwiftPMInternal)
 public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem
     private var parser: XCBuildOutputParser!

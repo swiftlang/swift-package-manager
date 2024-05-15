@@ -30,7 +30,6 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
-@_spi(SwiftPMInternal)
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> ModulesGraph

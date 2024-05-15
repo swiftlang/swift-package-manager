@@ -11,23 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
 @_spi(SwiftPMInternal)
 import Basics
-
-@_spi(SwiftPMInternal)
 import CoreCommands
-
 import Dispatch
 import Foundation
 import PackageGraph
 
 @_spi(SwiftPMInternal)
 import PackageModel
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
-
 import func TSCLibc.exit
 import Workspace
 
@@ -202,7 +195,7 @@ public enum TestOutput: String, ExpressibleByArgument {
 }
 
 /// swift-test tool namespace
-@_spi(SwiftPMInternal)
+
 public struct SwiftTestCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "test",

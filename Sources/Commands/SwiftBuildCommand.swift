@@ -12,16 +12,9 @@
 
 import ArgumentParser
 import Basics
-
-@_spi(SwiftPMInternal)
 import Build
-
-@_spi(SwiftPMInternal)
 import CoreCommands
-
 import PackageGraph
-
-@_spi(SwiftPMInternal)
 import SPMBuildCore
 import XCBuildSupport
 
@@ -120,7 +113,6 @@ struct BuildCommandOptions: ParsableArguments {
 }
 
 /// swift-build command namespace
-@_spi(SwiftPMInternal)
 public struct SwiftBuildCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "build",

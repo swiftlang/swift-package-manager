@@ -12,13 +12,7 @@
 
 import ArgumentParser
 import Basics
-
-@_spi(SwiftPMInternal)
 import CoreCommands
-
-@_spi(SwiftPMInternal)
-import Commands
-
 import Foundation
 import PackageModel
 import PackageRegistry
