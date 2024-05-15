@@ -12,9 +12,14 @@
 
 import ArgumentParser
 import Basics
+
 import Build
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import PackageGraph
+
 import SPMBuildCore
 import XCBuildSupport
 
