@@ -14,11 +14,11 @@ import Basics
 import XCBuildSupport
 import XCTest
 
-package func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) throws -> Void) throws {
+public func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) throws -> Void) throws {
     try body(PIFWorkspaceTester(workspace: pif.workspace))
 }
 
-package final class PIFWorkspaceTester {
+public final class PIFWorkspaceTester {
     private let workspace: PIF.Workspace
     private let projectMap: [PIF.GUID: PIF.Project]
     private let targetMap: [PIF.GUID: PIF.BaseTarget]
@@ -32,7 +32,7 @@ package final class PIFWorkspaceTester {
         targetMap = Dictionary(uniqueKeysWithValues: targetsByGUID)
     }
 
-    package func checkProject(
+    public func checkProject(
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
@@ -46,16 +46,16 @@ package final class PIFWorkspaceTester {
     }
 }
 
-package final class PIFProjectTester {
+public final class PIFProjectTester {
     private let project: PIF.Project
     private let targetMap: [PIF.GUID: PIF.BaseTarget]
     private let fileMap: [PIF.GUID: String]
 
-    package var guid: PIF.GUID { project.guid }
-    package var path: AbsolutePath { project.path }
-    package var projectDirectory: AbsolutePath { project.projectDirectory }
-    package var name: String { project.name }
-    package var developmentRegion: String { project.developmentRegion }
+    public var guid: PIF.GUID { project.guid }
+    public var path: AbsolutePath { project.path }
+    public var projectDirectory: AbsolutePath { project.projectDirectory }
+    public var name: String { project.name }
+    public var developmentRegion: String { project.developmentRegion }
 
     fileprivate init(project: PIF.Project, targetMap: [PIF.GUID: PIF.BaseTarget]) throws {
         self.project = project
@@ -68,7 +68,7 @@ package final class PIFProjectTester {
         )
     }
 
-    package func checkTarget(
+    public func checkTarget(
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
@@ -86,7 +86,7 @@ package final class PIFProjectTester {
         body?(PIFTargetTester(target: target, targetMap: targetMap, fileMap: fileMap))
     }
 
-    package func checkNoTarget(
+    public func checkNoTarget(
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
@@ -97,7 +97,7 @@ package final class PIFProjectTester {
         }
     }
 
-    package func checkAggregateTarget(
+    public func checkAggregateTarget(
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
@@ -115,7 +115,7 @@ package final class PIFProjectTester {
         body?(PIFAggregateTargetTester(target: target, targetMap: targetMap, fileMap: fileMap))
     }
 
-    package func checkBuildConfiguration(
+    public func checkBuildConfiguration(
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
@@ -129,24 +129,24 @@ package final class PIFProjectTester {
         body(PIFBuildConfigurationTester(buildConfiguration: configuration))
     }
 
-    package func buildConfiguration(withName name: String) -> PIF.BuildConfiguration? {
+    public func buildConfiguration(withName name: String) -> PIF.BuildConfiguration? {
         return project.buildConfigurations.first { $0.name == name }
     }
 
-    package func baseTarget(withGUID guid: PIF.GUID) -> PIF.BaseTarget? {
+    public func baseTarget(withGUID guid: PIF.GUID) -> PIF.BaseTarget? {
         return project.targets.first { $0.guid == guid }
     }
 }
 
-package class PIFBaseTargetTester {
-    package let baseTarget: PIF.BaseTarget
+public class PIFBaseTargetTester {
+    public let baseTarget: PIF.BaseTarget
 
-    package var guid: PIF.GUID { baseTarget.guid }
-    package var name: String { baseTarget.name }
-    package let dependencies: Set<PIF.GUID>
-    package let sources: Set<String>
-    package let frameworks: Set<String>
-    package let resources: Set<String>
+    public var guid: PIF.GUID { baseTarget.guid }
+    public var name: String { baseTarget.name }
+    public let dependencies: Set<PIF.GUID>
+    public let sources: Set<String>
+    public let frameworks: Set<String>
+    public let resources: Set<String>
 
     fileprivate init(baseTarget: PIF.BaseTarget, targetMap: [PIF.GUID: PIF.BaseTarget], fileMap: [PIF.GUID: String]) {
         self.baseTarget = baseTarget
@@ -181,7 +181,7 @@ package class PIFBaseTargetTester {
         })
     }
 
-    package func checkBuildConfiguration(
+    public func checkBuildConfiguration(
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
@@ -194,11 +194,11 @@ package class PIFBaseTargetTester {
         body(PIFBuildConfigurationTester(buildConfiguration: configuration))
     }
 
-    package func buildConfiguration(withName name: String) -> PIF.BuildConfiguration? {
+    public func buildConfiguration(withName name: String) -> PIF.BuildConfiguration? {
         return baseTarget.buildConfigurations.first { $0.name == name }
     }
 
-    package func checkImpartedBuildSettings(
+    public func checkImpartedBuildSettings(
         file: StaticString = #file,
         line: UInt = #line,
         _ body: (PIFBuildSettingsTester) -> Void
@@ -209,7 +209,7 @@ package class PIFBaseTargetTester {
         body(buildSettingsTester)
     }
 
-    package func checkAllImpartedBuildSettings(
+    public func checkAllImpartedBuildSettings(
         file: StaticString = #file,
         line: UInt = #line,
         _ body: (PIFBuildSettingsTester) -> Void
@@ -221,7 +221,7 @@ package class PIFBaseTargetTester {
         buildSettingsTester.checkUncheckedSettings(file: file, line: line)
     }
 
-    package func checkNoImpartedBuildSettings(file: StaticString = #file, line: UInt = #line) {
+    public func checkNoImpartedBuildSettings(file: StaticString = #file, line: UInt = #line) {
         let buildSettingsTester = PIFBuildSettingsTester(
             buildSettings: baseTarget.buildConfigurations.first!.impartedBuildProperties.buildSettings
         )
@@ -229,10 +229,10 @@ package class PIFBaseTargetTester {
     }
 }
 
-package final class PIFTargetTester: PIFBaseTargetTester {
+public final class PIFTargetTester: PIFBaseTargetTester {
     private let target: PIF.Target
-    package var productType: PIF.Target.ProductType { target.productType }
-    package var productName: String { target.productName }
+    public var productType: PIF.Target.ProductType { target.productType }
+    public var productName: String { target.productName }
 
     fileprivate init(target: PIF.Target, targetMap: [PIF.GUID: PIF.BaseTarget], fileMap: [PIF.GUID: String]) {
         self.target = target
@@ -240,7 +240,7 @@ package final class PIFTargetTester: PIFBaseTargetTester {
     }
 }
 
-package final class PIFAggregateTargetTester: PIFBaseTargetTester {
+public final class PIFAggregateTargetTester: PIFBaseTargetTester {
     private let target: PIF.AggregateTarget
 
     fileprivate init(target: PIF.AggregateTarget, targetMap: [PIF.GUID: PIF.BaseTarget], fileMap: [PIF.GUID: String]) {
@@ -249,41 +249,41 @@ package final class PIFAggregateTargetTester: PIFBaseTargetTester {
     }
 }
 
-package final class PIFBuildConfigurationTester {
+public final class PIFBuildConfigurationTester {
     private let buildConfiguration: PIF.BuildConfiguration
 
-    package var guid: PIF.GUID { buildConfiguration.guid }
-    package var name: String { buildConfiguration.name }
+    public var guid: PIF.GUID { buildConfiguration.guid }
+    public var name: String { buildConfiguration.name }
 
     fileprivate init(buildConfiguration: PIF.BuildConfiguration) {
         self.buildConfiguration = buildConfiguration
     }
 
-    package func checkBuildSettings(file: StaticString = #file, line: UInt = #line, _ body: (PIFBuildSettingsTester) -> Void) {
+    public func checkBuildSettings(file: StaticString = #file, line: UInt = #line, _ body: (PIFBuildSettingsTester) -> Void) {
         let buildSettingsTester = PIFBuildSettingsTester(buildSettings: buildConfiguration.buildSettings)
         body(buildSettingsTester)
     }
 
-    package func checkAllBuildSettings(file: StaticString = #file, line: UInt = #line, _ body: (PIFBuildSettingsTester) -> Void) {
+    public func checkAllBuildSettings(file: StaticString = #file, line: UInt = #line, _ body: (PIFBuildSettingsTester) -> Void) {
         let buildSettingsTester = PIFBuildSettingsTester(buildSettings: buildConfiguration.buildSettings)
         body(buildSettingsTester)
         buildSettingsTester.checkUncheckedSettings(file: file, line: line)
     }
 
-    package func checkNoBuildSettings(file: StaticString = #file, line: UInt = #line) {
+    public func checkNoBuildSettings(file: StaticString = #file, line: UInt = #line) {
         let buildSettingsTester = PIFBuildSettingsTester(buildSettings: buildConfiguration.buildSettings)
         buildSettingsTester.checkUncheckedSettings(file: file, line: line)
     }
 }
 
-package final class PIFBuildSettingsTester {
+public final class PIFBuildSettingsTester {
     private var buildSettings: PIF.BuildSettings
 
     fileprivate init(buildSettings: PIF.BuildSettings) {
         self.buildSettings = buildSettings
     }
 
-    package subscript(_ key: PIF.BuildSettings.SingleValueSetting) -> String? {
+    public subscript(_ key: PIF.BuildSettings.SingleValueSetting) -> String? {
         if let value = buildSettings[key] {
             buildSettings[key] = nil
             return value
@@ -292,7 +292,7 @@ package final class PIFBuildSettingsTester {
         }
     }
 
-    package subscript(_ key: PIF.BuildSettings.SingleValueSetting, for platform: PIF.BuildSettings.Platform) -> String? {
+    public subscript(_ key: PIF.BuildSettings.SingleValueSetting, for platform: PIF.BuildSettings.Platform) -> String? {
         if let value = buildSettings[key, for: platform] {
             buildSettings[key, for: platform] = nil
             return value
@@ -301,7 +301,7 @@ package final class PIFBuildSettingsTester {
         }
     }
 
-    package subscript(_ key: PIF.BuildSettings.MultipleValueSetting) -> [String]? {
+    public subscript(_ key: PIF.BuildSettings.MultipleValueSetting) -> [String]? {
         if let value = buildSettings[key] {
             buildSettings[key] = nil
             return value
@@ -310,7 +310,7 @@ package final class PIFBuildSettingsTester {
         }
     }
 
-    package subscript(_ key: PIF.BuildSettings.MultipleValueSetting, for platform: PIF.BuildSettings.Platform) -> [String]? {
+    public subscript(_ key: PIF.BuildSettings.MultipleValueSetting, for platform: PIF.BuildSettings.Platform) -> [String]? {
         if let value = buildSettings[key, for: platform] {
             buildSettings[key, for: platform] = nil
             return value
@@ -319,7 +319,7 @@ package final class PIFBuildSettingsTester {
         }
     }
 
-    package func checkUncheckedSettings(file: StaticString = #file, line: UInt = #line) {
+    public func checkUncheckedSettings(file: StaticString = #file, line: UInt = #line) {
         let uncheckedKeys =
             Array(buildSettings.singleValueSettings.keys.map { $0.rawValue }) +
             Array(buildSettings.multipleValueSettings.keys.map { $0.rawValue })

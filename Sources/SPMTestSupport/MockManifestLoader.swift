@@ -21,7 +21,7 @@ import func XCTest.XCTFail
 import enum TSCBasic.ProcessEnv
 import struct TSCUtility.Version
 
-package enum MockManifestLoaderError: Swift.Error {
+public enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)
 }
 
@@ -34,24 +34,24 @@ package enum MockManifestLoaderError: Swift.Error {
 ///
 /// This implementation will throw an error if a request to load an unknown
 /// manifest is made.
-package final class MockManifestLoader: ManifestLoaderProtocol {
-    package struct Key: Hashable {
-        package let url: String
-        package let version: Version?
+public final class MockManifestLoader: ManifestLoaderProtocol {
+    public struct Key: Hashable {
+        public let url: String
+        public let version: Version?
 
-        package init(url: String, version: Version? = nil) {
+        public init(url: String, version: Version? = nil) {
             self.url = url
             self.version = version
         }
     }
 
-    package let manifests: ThreadSafeKeyValueStore<Key, Manifest>
+    public let manifests: ThreadSafeKeyValueStore<Key, Manifest>
 
-    package init(manifests: [Key: Manifest]) {
+    public init(manifests: [Key: Manifest]) {
         self.manifests = ThreadSafeKeyValueStore<Key, Manifest>(manifests)
     }
 
-    package func load(
+    public func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
@@ -76,12 +76,12 @@ package final class MockManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    package func resetCache(observabilityScope: ObservabilityScope) {}
-    package func purgeCache(observabilityScope: ObservabilityScope) {}
+    public func resetCache(observabilityScope: ObservabilityScope) {}
+    public func purgeCache(observabilityScope: ObservabilityScope) {}
 }
 
 extension ManifestLoader {
-    package func load(
+    public func load(
         manifestPath: AbsolutePath,
         packageKind: PackageReference.Kind,
         toolsVersion manifestToolsVersion: ToolsVersion,
@@ -128,7 +128,7 @@ extension ManifestLoader {
 }
 
 extension ManifestLoader {
-    package func load(
+    public func load(
         packagePath: AbsolutePath,
         packageKind: PackageReference.Kind,
         currentToolsVersion: ToolsVersion,
@@ -180,7 +180,7 @@ extension ManifestLoader {
 /// between threads. This means that when this method is called simultaneously
 /// from different threads, the environment will neither be setup nor restored
 /// correctly.
-package func withCustomEnv(_ env: [String: String], body: () async throws -> Void) async throws {
+public func withCustomEnv(_ env: [String: String], body: () async throws -> Void) async throws {
     let state = env.map { ($0, $1) }
     let restore = {
         for (key, value) in state {
