@@ -11,16 +11,22 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+
 @_spi(SwiftPMInternal)
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Dispatch
 import Foundation
 import PackageGraph
 
 @_spi(SwiftPMInternal)
 import PackageModel
+
 import SPMBuildCore
+
 import func TSCLibc.exit
 import Workspace
 

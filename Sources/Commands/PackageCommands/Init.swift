@@ -12,7 +12,10 @@
 
 import ArgumentParser
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Workspace
 import SPMBuildCore
 
