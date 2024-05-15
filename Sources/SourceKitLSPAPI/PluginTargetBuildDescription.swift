@@ -17,6 +17,7 @@ import struct PackageGraph.ResolvedTarget
 private import class PackageLoading.ManifestLoader
 internal import struct PackageModel.ToolsVersion
 private import class PackageModel.UserToolchain
+import enum PackageGraph.BuildTriple
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedTarget
@@ -32,6 +33,14 @@ struct PluginTargetBuildDescription: BuildTarget {
 
     var sources: [URL] {
         return target.sources.paths.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var name: String {
+        return target.name
+    }
+
+    var buildTriple: BuildTriple {
+        return target.buildTriple
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
