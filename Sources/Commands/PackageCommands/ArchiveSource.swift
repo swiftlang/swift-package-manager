@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 
+@_spi(SwiftPMInternal)
 import CoreCommands
 
 import SourceControl
@@ -61,7 +62,7 @@ extension SwiftPackageCommand {
         }
     }
 
-    package static func archiveSource(
+    public static func archiveSource(
         at packageDirectory: AbsolutePath,
         to archivePath: AbsolutePath,
         fileSystem: FileSystem,

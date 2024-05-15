@@ -23,11 +23,16 @@ import struct PackageModel.TargetDescription
 import enum PackageModel.ProductType
 import func SPMTestSupport.loadPackageGraph
 
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.embeddedCxxInteropPackageGraph
+
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.macrosPackageGraph
 import func SPMTestSupport.macrosTestsPackageGraph
 import func SPMTestSupport.mockBuildParameters
 import func SPMTestSupport.toolsExplicitLibrariesGraph
+
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.trivialPackageGraph
 
 import struct SPMTestSupport.BuildPlanResult

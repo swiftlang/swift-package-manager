@@ -14,6 +14,7 @@
 @testable import Build
 
 @testable
+@_spi(SwiftPMInternal)
 import DriverSupport
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)

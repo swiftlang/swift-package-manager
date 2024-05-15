@@ -13,8 +13,10 @@
 import ArgumentParser
 import Basics
 
+@_spi(SwiftPMInternal)
 import CoreCommands
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import Dispatch

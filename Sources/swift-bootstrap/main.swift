@@ -13,10 +13,12 @@
 import ArgumentParser
 import Basics
 
+@_spi(SwiftPMInternal)
 import Build
 
 import Dispatch
 
+@_spi(SwiftPMInternal)
 import DriverSupport
 
 import Foundation
@@ -25,8 +27,10 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
+@_spi(SwiftPMInternal)
 import XCBuildSupport
 
 import struct TSCBasic.KeyedPair
@@ -48,7 +52,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     @Option(name: .customLong("package-path"),
             help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation",
             completion: .directory)
-    package var packageDirectory: AbsolutePath?
+    public var packageDirectory: AbsolutePath?
 
     /// The custom .build directory, if provided.
     @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build)", completion: .directory)
@@ -62,7 +66,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     }
 
     @Option(name: .shortAndLong, help: "Build with configuration")
-    package var configuration: BuildConfiguration = .debug
+    public var configuration: BuildConfiguration = .debug
 
     @Option(name: .customLong("Xcc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
@@ -89,36 +93,36 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             help: ArgumentHelp(
                 "Pass flag through to the Xcode build system invocations",
                 visibility: .hidden))
-    package var xcbuildFlags: [String] = []
+    public var xcbuildFlags: [String] = []
 
     @Option(name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp("Pass flag to the manifest build invocation",
                                visibility: .hidden))
-    package var manifestFlags: [String] = []
+    public var manifestFlags: [String] = []
 
     @Option(
       name: .customLong("arch"),
       help: ArgumentHelp("Build the package for the these architectures", visibility: .hidden))
-    package var architectures: [String] = []
+    public var architectures: [String] = []
 
     /// The verbosity of informational output.
     @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
-    package var verbose: Bool = false
+    public var verbose: Bool = false
 
     /// The verbosity of informational output.
     @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
-    package var veryVerbose: Bool = false
+    public var veryVerbose: Bool = false
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    package var useIntegratedSwiftDriver: Bool = false
+    public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
     @Option()
-    package var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+    public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
         case none
@@ -127,7 +131,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
     @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
-    package var shouldDisableLocalRpath: Bool = false
+    public var shouldDisableLocalRpath: Bool = false
 
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
@@ -139,7 +143,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         #endif
     }
 
-    package var buildFlags: BuildFlags {
+    public var buildFlags: BuildFlags {
         BuildFlags(
             cCompilerFlags: self.cCompilerFlags,
             cxxCompilerFlags: self.cxxCompilerFlags,
@@ -159,9 +163,9 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         }
     }
 
-    package init() {}
+    public init() {}
 
-    package func run() throws {
+    public func run() throws {
         do {
             let fileSystem = localFileSystem
 
