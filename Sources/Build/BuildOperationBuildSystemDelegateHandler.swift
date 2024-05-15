@@ -87,6 +87,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 fileprivate extension \#(className) {
                     @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+                    @MainActor
                     static let __allTests__\#(className) = [
                         \#(testMethods.map { $0.allTestsEntry }.joined(separator: ",\n        "))
                     ]
@@ -98,6 +99,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         content +=
         #"""
         @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+        @MainActor
         func __\#(module)__allTests() -> [XCTestCaseEntry] {
             return [
                 \#(testsByClassNames.map { "testCase(\($0.key).__allTests__\($0.key))" }
@@ -166,6 +168,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 import XCTest
 
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+                @MainActor
                 public func __allDiscoveredTests() -> [XCTestCaseEntry] {
                     \#(testsKeyword) tests = [XCTestCaseEntry]()
 
@@ -264,18 +267,15 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 @main
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
                 struct Runner {
-                    #if os(WASI)
-                    /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                     static func main() async {
                         \#(testObservabilitySetup)
+                #if os(WASI)
+                        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                         await XCTMain(__allDiscoveredTests()) as Never
-                    }
-                    #else
-                    static func main() {
-                        \#(testObservabilitySetup)
+                #else
                         XCTMain(__allDiscoveredTests()) as Never
+                #endif
                     }
-                    #endif
                 }
                 """#
             )
