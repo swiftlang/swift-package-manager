@@ -27,7 +27,7 @@ import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
-package class LLBuildManifestBuilder {
+public class LLBuildManifestBuilder {
     enum Error: Swift.Error {
         case ldPathDriverOptionUnavailable(option: String)
 
@@ -39,11 +39,11 @@ package class LLBuildManifestBuilder {
         }
     }
 
-    package enum TargetKind {
+    public enum TargetKind {
         case main
         case test
 
-        package var targetName: String {
+        public var targetName: String {
             switch self {
             case .main: return "main"
             case .test: return "test"
@@ -52,24 +52,24 @@ package class LLBuildManifestBuilder {
     }
 
     /// The build plan to work on.
-    package let plan: BuildPlan
+    public let plan: BuildPlan
 
     /// Whether to sandbox commands from build tool plugins.
-    package let disableSandboxForPluginCommands: Bool
+    public let disableSandboxForPluginCommands: Bool
 
     /// File system reference.
     let fileSystem: any FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
-    package let observabilityScope: ObservabilityScope
+    public let observabilityScope: ObservabilityScope
 
-    package internal(set) var manifest: LLBuildManifest = .init()
+    public internal(set) var manifest: LLBuildManifest = .init()
 
     /// Mapping from Swift compiler path to Swift get version files.
     var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 
     /// Create a new builder with a build plan.
-    package init(
+    public init(
         _ plan: BuildPlan,
         disableSandboxForPluginCommands: Bool = false,
         fileSystem: any FileSystem,
@@ -85,7 +85,7 @@ package class LLBuildManifestBuilder {
 
     /// Generate build manifest at the given path.
     @discardableResult
-    package func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
+    public func generateManifest(at path: AbsolutePath) throws -> LLBuildManifest {
         self.swiftGetVersionFiles.removeAll()
 
         self.manifest.createTarget(TargetKind.main.targetName)
@@ -317,21 +317,21 @@ extension TargetBuildDescription {
 }
 
 extension ResolvedModule {
-    package func getCommandName(buildParameters: BuildParameters) -> String {
+    public func getCommandName(buildParameters: BuildParameters) -> String {
         "C." + self.getLLBuildTargetName(buildParameters: buildParameters)
     }
 
-    package func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
         "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
     }
 
-    package func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
+    public func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
         "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
     }
 }
 
 extension ResolvedProduct {
-    package func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
         let config = buildParameters.buildConfig
         let suffix = buildParameters.suffix(triple: self.buildTriple)
         let potentialExecutableTargetName = "\(name)-\(config)\(suffix).exe"
