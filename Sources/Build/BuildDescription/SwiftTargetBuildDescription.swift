@@ -17,6 +17,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS

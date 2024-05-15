@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 
+@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Foundation
@@ -27,8 +28,8 @@ import XCBuildSupport
 import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
-package struct SwiftPackageCommand: AsyncParsableCommand {
-    package static var configuration = CommandConfiguration(
+public struct SwiftPackageCommand: AsyncParsableCommand {
+    public static var configuration = CommandConfiguration(
         commandName: "package",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
@@ -79,9 +80,9 @@ package struct SwiftPackageCommand: AsyncParsableCommand {
     @OptionGroup()
     var globalOptions: GlobalOptions
 
-    package static var _errorLabel: String { "error" }
+    public static var _errorLabel: String { "error" }
 
-    package init() {}
+    public init() {}
 }
 
 extension SwiftPackageCommand {

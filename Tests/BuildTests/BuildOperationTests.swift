@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 @testable
 import Build
 
@@ -19,6 +20,7 @@ import PackageModel
 import Basics
 import SPMTestSupport
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import XCTest

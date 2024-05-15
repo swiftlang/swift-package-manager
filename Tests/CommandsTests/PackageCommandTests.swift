@@ -12,6 +12,7 @@
 
 import Basics
 
+@_spi(SwiftPMInternal)
 @testable 
 import CoreCommands
 

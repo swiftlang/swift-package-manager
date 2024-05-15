@@ -14,6 +14,7 @@
 import ArgumentParser
 import Basics
 
+@_spi(SwiftPMInternal)
 import CoreCommands
 
 import PackageGraph
@@ -68,7 +69,7 @@ extension SwiftPackageCommand {
         enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument {
             case text, dot, json, flatlist
 
-            package init?(rawValue: String) {
+            public init?(rawValue: String) {
                 switch rawValue.lowercased() {
                 case "text":
                     self = .text
@@ -83,7 +84,7 @@ extension SwiftPackageCommand {
                 }
             }
 
-            package var description: String {
+            public var description: String {
                 switch self {
                 case .text: return "text"
                 case .dot: return "dot"

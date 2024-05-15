@@ -10,12 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import Foundation
 import LLBuildManifest
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import SPMLLBuild
