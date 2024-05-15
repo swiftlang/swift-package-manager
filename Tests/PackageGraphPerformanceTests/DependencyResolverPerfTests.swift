@@ -95,7 +95,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
 // MARK: - JSON
 
-extension MockDependencyGraph {
+public extension MockDependencyGraph {
     init(_ json: JSON) {
         guard case .dictionary(let dict) = json else { fatalError() }
         guard case .string(let name)? = dict["name"] else { fatalError() }

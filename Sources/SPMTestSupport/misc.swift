@@ -37,7 +37,7 @@ import enum TSCUtility.Git
 @_exported import enum TSCTestSupport.StringPattern
 
 /// Test helper utility for executing a block with a temporary directory.
-package func testWithTemporaryDirectory(
+public func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: (AbsolutePath) throws -> Void
 ) throws {
@@ -52,7 +52,7 @@ package func testWithTemporaryDirectory(
 }
 
 @discardableResult
-package func testWithTemporaryDirectory<Result>(
+public func testWithTemporaryDirectory<Result>(
     function: StaticString = #function,
     body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
@@ -77,7 +77,7 @@ package func testWithTemporaryDirectory<Result>(
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-@discardableResult package func fixture<T>(
+@discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
@@ -115,7 +115,7 @@ package func testWithTemporaryDirectory<Result>(
     }
 }
 
-@discardableResult package func fixture<T>(
+@discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
@@ -200,7 +200,7 @@ fileprivate func setup(fixtureDir: AbsolutePath, in tmpDirPath: AbsolutePath, co
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain
 /// exactly one empty file unless `addFile` is `false`, and if a tag name is provided, a tag with that name will be
 /// created.
-package func initGitRepo(
+public func initGitRepo(
     _ dir: AbsolutePath,
     tag: String? = nil,
     addFile: Bool = true,
@@ -210,7 +210,7 @@ package func initGitRepo(
     initGitRepo(dir, tags: tag.flatMap { [$0] } ?? [], addFile: addFile, file: file, line: line)
 }
 
-package func initGitRepo(
+public func initGitRepo(
     _ dir: AbsolutePath,
     tags: [String],
     addFile: Bool = true,
@@ -240,7 +240,7 @@ package func initGitRepo(
 }
 
 @discardableResult
-package func executeSwiftBuild(
+public func executeSwiftBuild(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -254,7 +254,7 @@ package func executeSwiftBuild(
 }
 
 @discardableResult
-package func executeSwiftRun(
+public func executeSwiftRun(
     _ packagePath: AbsolutePath,
     _ executable: String,
     configuration: Configuration = .Debug,
@@ -270,7 +270,7 @@ package func executeSwiftRun(
 }
 
 @discardableResult
-package func executeSwiftPackage(
+public func executeSwiftPackage(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -284,7 +284,7 @@ package func executeSwiftPackage(
 }
 
 @discardableResult
-package func executeSwiftTest(
+public func executeSwiftTest(
     _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     extraArgs: [String] = [],
@@ -324,7 +324,7 @@ private func swiftArgs(
     renamed: "loadModulesGraph",
     message: "Renamed for consistency: the type of this functions return value is named `ModulesGraph`."
 )
-package func loadPackageGraph(
+public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fileSystem: FileSystem,
     manifests: [Manifest],
@@ -350,22 +350,22 @@ package func loadPackageGraph(
     )
 }
 
-package let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
+public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
 extension FileSystem {
     @_disfavoredOverload
-    package func createEmptyFiles(at root: AbsolutePath, files: String...) {
+    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
         self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
     }
 
     @_disfavoredOverload
-    package func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
         self.createEmptyFiles(at: TSCAbsolutePath(root), files: files)
     }
 }
 
 extension URL {
-    package init(_ value: StringLiteralType) {
+    public init(_ value: StringLiteralType) {
         self.init(string: value)!
     }
 }
@@ -383,13 +383,13 @@ extension PackageIdentity {
 }
 
 extension PackageIdentity {
-    package static func registry(_ value: String) -> RegistryIdentity {
+    public static func registry(_ value: String) -> RegistryIdentity {
         Self.plain(value).registry!
     }
 }
 
 extension AbsolutePath {
-    package init(_ value: StringLiteralType) {
+    public init(_ value: StringLiteralType) {
         try! self.init(validating: value)
     }
 }
@@ -401,14 +401,14 @@ extension AbsolutePath {
 }
 
 extension AbsolutePath {
-    package init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
+    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
         try! self.init(validating: path, relativeTo: basePath)
     }
 }
 
 extension RelativePath {
     @available(*, deprecated, message: "use direct string instead")
-    package init(static path: StaticString) {
+    public init(static path: StaticString) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
@@ -417,7 +417,7 @@ extension RelativePath {
 }
 
 extension RelativePath {
-    package init(_ value: StringLiteralType) {
+    public init(_ value: StringLiteralType) {
         try! self.init(validating: value)
     }
 }
@@ -429,7 +429,7 @@ extension RelativePath {
 }
 
 extension InitPackage {
-    package convenience init(
+    public convenience init(
         name: String,
         packageType: PackageType,
         supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
