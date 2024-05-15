@@ -34,7 +34,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
             "/A/Sources/ATarget/main.swift",
             "/A/Tests/ATargetTests/TestCases.swift"
         )
-        let graph = try loadModulesGraph(
+        let graph = try loadPackageGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -79,7 +79,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(
+        let graph = try loadPackageGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -138,7 +138,7 @@ final class MermaidPackageSerializerTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(
+        let graph = try loadPackageGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(

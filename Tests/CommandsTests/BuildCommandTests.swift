@@ -12,11 +12,7 @@
 
 import Basics
 @testable import Commands
-
-@_spi(SwiftPMInternal)
-@testable 
-import CoreCommands
-
+@testable import CoreCommands
 import PackageGraph
 import PackageLoading
 import PackageModel

@@ -12,17 +12,11 @@
 
 import ArgumentParser
 import Basics
-
-@_spi(SwiftPMInternal)
 import CoreCommands
-
 import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
-
-@_spi(SwiftPMInternal)
-import SPMBuildCore
 
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",

@@ -12,10 +12,7 @@
 
 import ArgumentParser
 import Basics
-
-@_spi(SwiftPMInternal)
 import CoreCommands
-
 import Workspace
 
 import var TSCBasic.stderrStream

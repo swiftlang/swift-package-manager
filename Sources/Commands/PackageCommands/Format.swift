@@ -12,10 +12,7 @@
 
 import ArgumentParser
 import Basics
-
-@_spi(SwiftPMInternal)
 import CoreCommands
-
 import PackageModel
 
 import class TSCBasic.Process

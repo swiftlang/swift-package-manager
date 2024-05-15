@@ -322,7 +322,7 @@ private func swiftArgs(
 @available(*, 
     deprecated,
     renamed: "loadModulesGraph",
-    message: "Renamed for consistency: the type of this functions return value is named `ModulesGraph`."
+    message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
 )
 public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),

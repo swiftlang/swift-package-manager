@@ -12,8 +12,7 @@
 
 import Foundation
 
-/// ``BuildSystem`` delegate
-@_spi(SwiftPMInternal)
+/// BuildSystem delegate
 public protocol BuildSystemDelegate: AnyObject {
     ///Called when build command is about to start.
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand)

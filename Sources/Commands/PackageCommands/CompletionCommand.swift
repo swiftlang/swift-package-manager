@@ -11,8 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
-@_spi(SwiftPMInternal)
 import CoreCommands
 
 import var TSCBasic.stdoutStream
