@@ -91,7 +91,7 @@ extension [String] {
 
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    package var moduleCache: AbsolutePath {
+    public var moduleCache: AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
@@ -128,7 +128,7 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    package func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
+    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
 
         // Compute the triple string for Darwin platform using the platform version.
@@ -164,11 +164,11 @@ extension BuildParameters {
 
 /// A build plan for a package graph.
 public class BuildPlan: SPMBuildCore.BuildPlan {
-    package enum Error: Swift.Error, CustomStringConvertible, Equatable {
+    public enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
         case noBuildableTarget
 
-        package var description: String {
+        public var description: String {
             switch self {
             case .noBuildableTarget:
                 return """
@@ -196,20 +196,20 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The package graph.
-    package let graph: ModulesGraph
+    public let graph: ModulesGraph
 
     /// The target build description map.
-    package let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
+    public let targetMap: [ResolvedTarget.ID: TargetBuildDescription]
 
     /// The product build description map.
-    package let productMap: [ResolvedProduct.ID: ProductBuildDescription]
+    public let productMap: [ResolvedProduct.ID: ProductBuildDescription]
 
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
-    package let pluginDescriptions: [PluginDescription]
+    public let pluginDescriptions: [PluginDescription]
 
     /// The build targets.
-    package var targets: AnySequence<TargetBuildDescription> {
+    public var targets: AnySequence<TargetBuildDescription> {
         AnySequence(self.targetMap.values)
     }
 
@@ -219,11 +219,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
-    package let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
+    public let buildToolPluginInvocationResults: [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
-    package let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+    public let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
 
     package private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedTarget]] = [:]
 

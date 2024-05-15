@@ -28,19 +28,19 @@ import DriverSupport
 import struct TSCBasic.ByteString
 
 /// Target description for a Swift target.
-package final class SwiftTargetBuildDescription {
+public final class SwiftTargetBuildDescription {
     /// The package this target belongs to.
-    package let package: ResolvedPackage
+    public let package: ResolvedPackage
 
     /// The target described by this target.
-    package let target: ResolvedTarget
+    public let target: ResolvedTarget
 
     private let swiftTarget: SwiftTarget
 
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
-    package let toolsVersion: ToolsVersion
+    public let toolsVersion: ToolsVersion
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -77,22 +77,22 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// The list of all source files in the target, including the derived ones.
-    package var sources: [AbsolutePath] {
+    public var sources: [AbsolutePath] {
         self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
     }
 
-    package var sourcesFileListPath: AbsolutePath {
+    public var sourcesFileListPath: AbsolutePath {
         self.tempsPath.appending(component: "sources")
     }
 
     /// The list of all resource files in the target, including the derived ones.
-    package var resources: [Resource] {
+    public var resources: [Resource] {
         self.target.underlying.resources + self.pluginDerivedResources
     }
 
     /// The objects in this target, containing either machine code or bitcode
     /// depending on the build parameters used.
-    package var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         get throws {
             let relativeSources = self.target.sources.relativePaths
                 + self.derivedSources.relativePaths
@@ -112,7 +112,7 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// The path to the swiftmodule file after compilation.
-    public var moduleOutputPath: AbsolutePath { // note: needs to be `public` because of sourcekit-lsp
+    public var moduleOutputPath: AbsolutePath { // note: needs to be public because of sourcekit-lsp
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) && self.toolsVersion >= .v5_5
@@ -133,7 +133,7 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// Path to the resource Info.plist file, if generated.
-    package private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
     /// Paths to the binary libraries the target depends on.
     var libraryBinaryPaths: Set<AbsolutePath> = []
@@ -148,7 +148,7 @@ package final class SwiftTargetBuildDescription {
 
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
     /// tests or serving as the manifest target which contains the main entry point.
-    package enum TestTargetRole {
+    public enum TestTargetRole {
         /// An ordinary test target, defined explicitly in a package, containing test code.
         case `default`
 
@@ -163,10 +163,10 @@ package final class SwiftTargetBuildDescription {
         case entryPoint(isSynthesized: Bool)
     }
 
-    package let testTargetRole: TestTargetRole?
+    public let testTargetRole: TestTargetRole?
 
     /// If this target is a test target.
-    package var isTestTarget: Bool {
+    public var isTestTarget: Bool {
         self.testTargetRole != nil
     }
 
@@ -228,13 +228,13 @@ package final class SwiftTargetBuildDescription {
     private(set) var moduleMap: AbsolutePath?
 
     /// The results of applying any build tool plugins to this target.
-    package let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// The results of running any prebuild commands for this target.
-    package let prebuildCommandResults: [PrebuildCommandResult]
+    public let prebuildCommandResults: [PrebuildCommandResult]
 
     /// Any macro products that this target requires to build.
-    package let requiredMacroProducts: [ResolvedProduct]
+    public let requiredMacroProducts: [ResolvedProduct]
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
@@ -455,7 +455,7 @@ package final class SwiftTargetBuildDescription {
     }
 
     /// The arguments needed to compile this target.
-    package func compileArguments() throws -> [String] {
+    public func compileArguments() throws -> [String] {
         var args = [String]()
         args += try self.buildParameters.targetTripleArgs(for: self.target)
         args += ["-swift-version", self.swiftVersion.rawValue]
@@ -631,7 +631,7 @@ package final class SwiftTargetBuildDescription {
 
     /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
     /// such as emitting a module or supplementary outputs.
-    package func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
+    public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
         var result: [String] = []
         result.append(self.buildParameters.toolchain.swiftCompilerPath.pathString)
 
