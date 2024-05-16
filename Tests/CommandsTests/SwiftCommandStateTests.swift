@@ -362,13 +362,16 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 "--triple", "x86_64-unknown-linux-gnu",
             ]
         )
+
+        var env: EnvironmentVariables = .process()
+        env.appendPath("SWIFTPM_CUSTOM_BIN_DIR", value: hostBinDir.pathString)
+
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
             fileSystem: fs,
-            environment: [
-                "SWIFTPM_CUSTOM_BIN_DIR": hostBinDir.pathString
-            ]
+            environment: env
         )
+
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(
             try swiftCommandState.getTargetToolchain().swiftCompilerPath,
