@@ -12,14 +12,9 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import Foundation
 import PackageModel
-
-import SPMBuildCore
-
 import XCBuildSupport
 
 struct DumpSymbolGraph: SwiftCommand {

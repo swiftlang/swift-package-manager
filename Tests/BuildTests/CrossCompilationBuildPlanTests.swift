@@ -20,12 +20,15 @@ import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 import func SPMTestSupport.loadPackageGraph
 
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.embeddedCxxInteropPackageGraph
 
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.macrosPackageGraph
 
 import func SPMTestSupport.mockBuildParameters
 
+@_spi(SwiftPMInternal)
 import func SPMTestSupport.trivialPackageGraph
 
 import struct SPMTestSupport.BuildPlanResult

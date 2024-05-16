@@ -12,6 +12,7 @@
 
 import Basics
 
+@_spi(SwiftPMInternal)
 import Build
 
 import PackageModel
@@ -19,29 +20,29 @@ import SPMBuildCore
 import TSCUtility
 import XCTest
 
-package struct MockToolchain: PackageModel.Toolchain {
+public struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
-    package let librarianPath = AbsolutePath("/fake/path/to/link.exe")
+    public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-    package let librarianPath = AbsolutePath("/fake/path/to/libtool")
+    public let librarianPath = AbsolutePath("/fake/path/to/libtool")
     #else
-    package let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
+    public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
     #endif
-    package let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
-    package let includeSearchPaths = [AbsolutePath]()
-    package let librarySearchPaths = [AbsolutePath]()
-    package let swiftResourcesPath: AbsolutePath? = nil
-    package let swiftStaticResourcesPath: AbsolutePath? = nil
-    package let sdkRootPath: AbsolutePath? = nil
-    package let extraFlags = PackageModel.BuildFlags()
-    package let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
-    package let providedLibraries = [LibraryMetadata]()
+    public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
+    public let includeSearchPaths = [AbsolutePath]()
+    public let librarySearchPaths = [AbsolutePath]()
+    public let swiftResourcesPath: AbsolutePath? = nil
+    public let swiftStaticResourcesPath: AbsolutePath? = nil
+    public let sdkRootPath: AbsolutePath? = nil
+    public let extraFlags = PackageModel.BuildFlags()
+    public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
+    public let providedLibraries = [LibraryMetadata]()
 
-    package func getClangCompiler() throws -> AbsolutePath {
+    public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
     }
 
-    package func _isClangCompilerVendorApple() throws -> Bool? {
+    public func _isClangCompilerVendorApple() throws -> Bool? {
         #if os(macOS)
         return true
         #else
@@ -49,27 +50,27 @@ package struct MockToolchain: PackageModel.Toolchain {
         #endif
     }
 
-    package init() {}
+    public init() {}
 }
 
 extension Basics.Triple {
-    package static let x86_64MacOS = try! Self("x86_64-apple-macosx")
-    package static let x86_64Linux = try! Self("x86_64-unknown-linux-gnu")
-    package static let arm64Linux = try! Self("aarch64-unknown-linux-gnu")
-    package static let arm64Android = try! Self("aarch64-unknown-linux-android")
-    package static let windows = try! Self("x86_64-unknown-windows-msvc")
-    package static let wasi = try! Self("wasm32-unknown-wasi")
-    package static let arm64iOS = try! Self("arm64-apple-ios")
+    public static let x86_64MacOS = try! Self("x86_64-apple-macosx")
+    public static let x86_64Linux = try! Self("x86_64-unknown-linux-gnu")
+    public static let arm64Linux = try! Self("aarch64-unknown-linux-gnu")
+    public static let arm64Android = try! Self("aarch64-unknown-linux-android")
+    public static let windows = try! Self("x86_64-unknown-windows-msvc")
+    public static let wasi = try! Self("wasm32-unknown-wasi")
+    public static let arm64iOS = try! Self("arm64-apple-ios")
 }
 
-package let hostTriple = try! UserToolchain.default.targetTriple
+public let hostTriple = try! UserToolchain.default.targetTriple
 #if os(macOS)
-package let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
+public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
 #else
-package let defaultTargetTriple: String = hostTriple.tripleString
+public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-package func mockBuildParameters(
+public func mockBuildParameters(
     buildPath: AbsolutePath = "/path/to/build",
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
@@ -111,7 +112,7 @@ package func mockBuildParameters(
     )
 }
 
-package func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
+public func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
     case .macOS:
@@ -133,12 +134,12 @@ enum BuildError: Swift.Error {
     case error(String)
 }
 
-package struct BuildPlanResult {
-    package let plan: Build.BuildPlan
-    package let targetMap: [String: TargetBuildDescription]
-    package let productMap: [String: Build.ProductBuildDescription]
+public struct BuildPlanResult {
+    public let plan: Build.BuildPlan
+    public let targetMap: [String: TargetBuildDescription]
+    public let productMap: [String: Build.ProductBuildDescription]
 
-    package init(plan: Build.BuildPlan) throws {
+    public init(plan: Build.BuildPlan) throws {
         self.plan = plan
         self.productMap = try Dictionary(
             throwingUniqueKeysWithValues: plan.buildProducts
@@ -158,22 +159,22 @@ package struct BuildPlanResult {
         )
     }
 
-    package func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
+    public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(self.plan.targetMap.count, count, file: file, line: line)
     }
 
-    package func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
+    public func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(self.plan.productMap.count, count, file: file, line: line)
     }
 
-    package func target(for name: String) throws -> TargetBuildDescription {
+    public func target(for name: String) throws -> TargetBuildDescription {
         guard let target = targetMap[name] else {
             throw BuildError.error("Target \(name) not found.")
         }
         return target
     }
 
-    package func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
+    public func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
         guard let product = productMap[name] else {
             // <rdar://problem/30162871> Display the thrown error on macOS
             throw BuildError.error("Product \(name) not found.")
@@ -183,7 +184,7 @@ package struct BuildPlanResult {
 }
 
 extension TargetBuildDescription {
-    package func swiftTarget() throws -> SwiftTargetBuildDescription {
+    public func swiftTarget() throws -> SwiftTargetBuildDescription {
         switch self {
         case .swift(let target):
             return target
@@ -192,7 +193,7 @@ extension TargetBuildDescription {
         }
     }
 
-    package func clangTarget() throws -> ClangTargetBuildDescription {
+    public func clangTarget() throws -> ClangTargetBuildDescription {
         switch self {
         case .clang(let target):
             return target

@@ -12,10 +12,7 @@
 
 @testable import Basics
 @testable import Build
-
-@testable 
-import CoreCommands
-
+@testable import CoreCommands
 @testable import Commands
 @testable import PackageModel
 import SPMTestSupport
@@ -245,7 +242,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         ])
 
         let observer = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(fileSystem: fs, manifests: [
+        let graph = try loadPackageGraph(fileSystem: fs, manifests: [
                 Manifest.createRootManifest(displayName: "Pkg",
                                             path: "/Pkg",
                                             targets: [TargetDescription(name: "exe")])

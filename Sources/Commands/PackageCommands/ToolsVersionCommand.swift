@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
 import CoreCommands
-
 import PackageLoading
 import PackageModel
 import Workspace

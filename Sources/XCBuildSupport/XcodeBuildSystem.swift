@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import class Foundation.JSONEncoder
@@ -18,6 +19,7 @@ import class Foundation.NSDictionary
 import PackageGraph
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.memoize
@@ -28,7 +30,7 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
-package final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
+public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> ModulesGraph
     private let logLevel: Basics.Diagnostic.Severity

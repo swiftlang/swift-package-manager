@@ -23,7 +23,7 @@ import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
-package final class MockWorkspace {
+public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fileSystem: InMemoryFileSystem
     let roots: [MockPackage]
@@ -32,20 +32,20 @@ package final class MockWorkspace {
     let fingerprints: MockPackageFingerprintStorage
     let signingEntities: MockPackageSigningEntityStorage
     let mirrors: DependencyMirrors
-    package var registryClient: RegistryClient
+    public var registryClient: RegistryClient
     let registry: MockRegistry
     let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
-    package var checksumAlgorithm: MockHashAlgorithm
-    package private(set) var manifestLoader: MockManifestLoader
-    package let repositoryProvider: InMemoryGitRepositoryProvider
+    public var checksumAlgorithm: MockHashAlgorithm
+    public private(set) var manifestLoader: MockManifestLoader
+    public let repositoryProvider: InMemoryGitRepositoryProvider
     let identityResolver: IdentityResolver
     let customPackageContainerProvider: MockPackageContainerProvider?
-    package let delegate = MockWorkspaceDelegate()
+    public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
-    package var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
+    public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
 
-    package init(
+    public init(
         sandbox: AbsolutePath,
         fileSystem: InMemoryFileSystem,
         roots: [MockPackage],
@@ -96,23 +96,23 @@ package final class MockWorkspace {
         try self.create()
     }
 
-    package var rootsDir: AbsolutePath {
+    public var rootsDir: AbsolutePath {
         return self.sandbox.appending("roots")
     }
 
-    package var packagesDir: AbsolutePath {
+    public var packagesDir: AbsolutePath {
         return self.sandbox.appending("pkgs")
     }
 
-    package var artifactsDir: AbsolutePath {
+    public var artifactsDir: AbsolutePath {
         return self.sandbox.appending(components: ".build", "artifacts")
     }
 
-    package func pathToRoot(withName name: String) throws -> AbsolutePath {
+    public func pathToRoot(withName name: String) throws -> AbsolutePath {
         return try AbsolutePath(validating: name, relativeTo: self.rootsDir)
     }
 
-    package func pathToPackage(withName name: String) throws -> AbsolutePath {
+    public func pathToPackage(withName name: String) throws -> AbsolutePath {
         return try AbsolutePath(validating: name, relativeTo: self.packagesDir)
     }
 
@@ -267,7 +267,7 @@ package final class MockWorkspace {
         self.manifestLoader = MockManifestLoader(manifests: manifests)
     }
 
-    package func getOrCreateWorkspace() throws -> Workspace {
+    public func getOrCreateWorkspace() throws -> Workspace {
         if let workspace = self._workspace {
             return workspace
         }
@@ -317,7 +317,7 @@ package final class MockWorkspace {
 
     private var _workspace: Workspace?
 
-    package func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) throws {
+    public func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) throws {
         if resetState {
             try self._workspace?.resetState()
         }
@@ -329,11 +329,11 @@ package final class MockWorkspace {
         self._workspace = nil
     }
 
-    package func rootPaths(for packages: [String]) throws -> [AbsolutePath] {
+    public func rootPaths(for packages: [String]) throws -> [AbsolutePath] {
         return try packages.map { try AbsolutePath(validating: $0, relativeTo: rootsDir) }
     }
 
-    package func checkEdit(
+    public func checkEdit(
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
@@ -354,7 +354,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkUnedit(
+    public func checkUnedit(
         packageName: String,
         roots: [String],
         forceRemove: Bool = false,
@@ -375,7 +375,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: ([Basics.Diagnostic]) -> Void) {
+    public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
         observability.topScope.trap {
             let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
@@ -385,7 +385,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkClean(_ result: ([Basics.Diagnostic]) -> Void) {
+    public func checkClean(_ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
         observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
@@ -394,7 +394,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkReset(_ result: ([Basics.Diagnostic]) -> Void) {
+    public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
         observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
@@ -403,7 +403,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkUpdate(
+    public func checkUpdate(
         roots: [String] = [],
         deps: [MockDependency] = [],
         packages: [String] = [],
@@ -423,7 +423,7 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package func checkUpdateDryRun(
+    public func checkUpdateDryRun(
         roots: [String] = [],
         deps: [MockDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
@@ -442,7 +442,7 @@ package final class MockWorkspace {
         result(changes, observability.diagnostics)
     }
 
-    package func checkPackageGraph(
+    public func checkPackageGraph(
         roots: [String] = [],
         deps: [MockDependency],
         _ result: (ModulesGraph, [Basics.Diagnostic]) -> Void
@@ -451,7 +451,7 @@ package final class MockWorkspace {
         try self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
-    package func checkPackageGraph(
+    public func checkPackageGraph(
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
@@ -481,7 +481,7 @@ package final class MockWorkspace {
         }
     }
 
-    package func checkPackageGraphFailure(
+    public func checkPackageGraphFailure(
         roots: [String] = [],
         deps: [MockDependency],
         _ result: ([Basics.Diagnostic]) -> Void
@@ -490,7 +490,7 @@ package final class MockWorkspace {
         self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
     }
 
-    package func checkPackageGraphFailure(
+    public func checkPackageGraphFailure(
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
@@ -513,12 +513,12 @@ package final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    package struct ResolutionPrecomputationResult {
-        package let result: Workspace.ResolutionPrecomputationResult
-        package let diagnostics: [Basics.Diagnostic]
+    public struct ResolutionPrecomputationResult {
+        public let result: Workspace.ResolutionPrecomputationResult
+        public let diagnostics: [Basics.Diagnostic]
     }
 
-    package func checkPrecomputeResolution() async throws -> ResolutionPrecomputationResult {
+    public func checkPrecomputeResolution() async throws -> ResolutionPrecomputationResult {
         let observability = ObservabilitySystem.makeForTesting()
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
@@ -548,7 +548,7 @@ package final class MockWorkspace {
         return ResolutionPrecomputationResult(result: result, diagnostics: observability.diagnostics)
     }
 
-    package func set(
+    public func set(
         pins: [PackageReference: CheckoutState] = [:],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
@@ -566,7 +566,7 @@ package final class MockWorkspace {
         try self.set(pins: pins, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
     }
 
-    package func set(
+    public func set(
         pins: [PackageReference: PinsStore.PinState],
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
@@ -599,13 +599,13 @@ package final class MockWorkspace {
         try workspace.state.save()
     }
 
-    package func resetState() throws {
+    public func resetState() throws {
         let workspace = try self.getOrCreateWorkspace()
         try workspace.resetState()
     }
 
-    package enum State {
-        package enum CheckoutState {
+    public enum State {
+        public enum CheckoutState {
             case version(TSCUtility.Version)
             case revision(String)
             case branch(String)
@@ -618,31 +618,31 @@ package final class MockWorkspace {
         case custom(TSCUtility.Version, AbsolutePath)
     }
 
-    package struct ManagedDependencyResult {
-        package let managedDependencies: Workspace.ManagedDependencies
+    public struct ManagedDependencyResult {
+        public let managedDependencies: Workspace.ManagedDependencies
 
-        package init(_ managedDependencies: Workspace.ManagedDependencies) {
+        public init(_ managedDependencies: Workspace.ManagedDependencies) {
             self.managedDependencies = managedDependencies
         }
 
-        package func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
+        public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
             self.check(notPresent: .plain(name), file: file, line: line)
         }
 
-        package func check(notPresent dependencyId: PackageIdentity, file: StaticString = #file, line: UInt = #line) {
+        public func check(notPresent dependencyId: PackageIdentity, file: StaticString = #file, line: UInt = #line) {
             let dependency = self.managedDependencies[dependencyId]
             XCTAssertNil(dependency, "Unexpectedly found \(dependencyId) in managed dependencies", file: file, line: line)
         }
 
-        package func checkEmpty(file: StaticString = #file, line: UInt = #line) {
+        public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(self.managedDependencies.count, 0, file: file, line: line)
         }
 
-        package func check(dependency name: String, at state: State, file: StaticString = #file, line: UInt = #line) {
+        public func check(dependency name: String, at state: State, file: StaticString = #file, line: UInt = #line) {
             self.check(dependency: .plain(name), at: state, file: file, line: line)
         }
 
-        package func check(dependency dependencyId: PackageIdentity, at state: State, file: StaticString = #file, line: UInt = #line) {
+        public func check(dependency dependencyId: PackageIdentity, at state: State, file: StaticString = #file, line: UInt = #line) {
             guard let dependency = managedDependencies[dependencyId] else {
                 return XCTFail("\(dependencyId) does not exists", file: file, line: line)
             }
@@ -683,18 +683,18 @@ package final class MockWorkspace {
         }
     }
 
-    package struct ManagedArtifactResult {
-        package let managedArtifacts: Workspace.ManagedArtifacts
+    public struct ManagedArtifactResult {
+        public let managedArtifacts: Workspace.ManagedArtifacts
 
-        package init(_ managedArtifacts: Workspace.ManagedArtifacts) {
+        public init(_ managedArtifacts: Workspace.ManagedArtifacts) {
             self.managedArtifacts = managedArtifacts
         }
 
-        package func checkNotPresent(packageName: String, targetName: String, file: StaticString = #file, line: UInt = #line) {
+        public func checkNotPresent(packageName: String, targetName: String, file: StaticString = #file, line: UInt = #line) {
             self.checkNotPresent(packageIdentity: .plain(packageName), targetName: targetName, file : file, line: line)
         }
 
-        package func checkNotPresent(
+        public func checkNotPresent(
             packageIdentity: PackageIdentity,
             targetName: String,
             file: StaticString = #file,
@@ -704,15 +704,15 @@ package final class MockWorkspace {
             XCTAssert(artifact == nil, "Unexpectedly found \(packageIdentity).\(targetName) in managed artifacts", file: file, line: line)
         }
 
-        package func checkEmpty(file: StaticString = #file, line: UInt = #line) {
+        public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(self.managedArtifacts.count, 0, file: file, line: line)
         }
 
-        package func check(packageName: String, targetName: String, source: Workspace.ManagedArtifact.Source, path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+        public func check(packageName: String, targetName: String, source: Workspace.ManagedArtifact.Source, path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
             self.check(packageIdentity: .plain(packageName), targetName: targetName, source: source, path: path, file: file, line: line)
         }
 
-        package func check(
+        public func check(
             packageIdentity: PackageIdentity,
             targetName: String,
             source: Workspace.ManagedArtifact.Source,
@@ -737,7 +737,7 @@ package final class MockWorkspace {
         }
     }
 
-    package func loadDependencyManifests(
+    public func loadDependencyManifests(
         roots: [String] = [],
         deps: [MockDependency] = [],
         _ result: (Workspace.DependencyManifests,  [Basics.Diagnostic]) -> Void
@@ -758,7 +758,7 @@ package final class MockWorkspace {
         result(manifests, observability.diagnostics)
     }
 
-    package func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {
+    public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {
         do {
             let workspace = try self.getOrCreateWorkspace()
             try result(ManagedDependencyResult(workspace.state.dependencies))
@@ -767,7 +767,7 @@ package final class MockWorkspace {
         }
     }
 
-    package func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> Void) {
+    public func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> Void) {
         do {
             let workspace = try self.getOrCreateWorkspace()
             try result(ManagedArtifactResult(workspace.state.artifacts))
@@ -776,18 +776,18 @@ package final class MockWorkspace {
         }
     }
 
-    package struct ResolvedResult {
-        package let store: PinsStore
+    public struct ResolvedResult {
+        public let store: PinsStore
 
-        package init(_ store: PinsStore) {
+        public init(_ store: PinsStore) {
             self.store = store
         }
 
-        package func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
+        public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
             XCTAssertFalse(self.store.pins.keys.contains(where: { $0.description == name }), "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
         }
 
-        package func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
+        public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
             guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
@@ -814,7 +814,7 @@ package final class MockWorkspace {
             }
         }
 
-        package func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
+        public func check(dependency package: String, url: String, file: StaticString = #file, line: UInt = #line) {
             guard let pin = store.pins.first(where: { $0.key.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
@@ -824,7 +824,7 @@ package final class MockWorkspace {
         }
     }
 
-    package func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> Void) {
+    public func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> Void) {
         do {
             let workspace = try self.getOrCreateWorkspace()
             try result(ResolvedResult(workspace.pinsStore.load()))
@@ -834,66 +834,66 @@ package final class MockWorkspace {
     }
 }
 
-package final class MockWorkspaceDelegate: WorkspaceDelegate {
+public final class MockWorkspaceDelegate: WorkspaceDelegate {
     private let lock = NSLock()
     private var _events = [String]()
     private var _manifest: Manifest?
     private var _manifestLoadingDiagnostics: [Basics.Diagnostic]?
 
-    package init() {}
+    public init() {}
 
-    package func willUpdateRepository(package: PackageIdentity, repository url: String) {
+    public func willUpdateRepository(package: PackageIdentity, repository url: String) {
         self.append("updating repo: \(url)")
     }
 
-    package func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+    public func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
         self.append("finished updating repo: \(url)")
     }
 
-    package func dependenciesUpToDate() {
+    public func dependenciesUpToDate() {
         self.append("Everything is already up-to-date")
     }
 
-    package func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
+    public func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         self.append("fetching package: \(packageLocation ?? package.description)")
     }
 
-    package func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
+    public func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
     }
 
-    package func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+    public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         self.append("finished fetching package: \(packageLocation ?? package.description)")
     }
 
-    package func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
+    public func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.append("creating working copy for: \(url)")
     }
 
-    package func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.append("finished creating working copy for: \(url)")
     }
 
-    package func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
+    public func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         self.append("checking out repo: \(url)")
     }
 
-    package func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.append("finished checking out repo: \(url)")
     }
 
-    package func removing(package: PackageIdentity, packageLocation: String?) {
+    public func removing(package: PackageIdentity, packageLocation: String?) {
         self.append("removing repo: \(packageLocation ?? package.description)")
     }
 
-    package func willResolveDependencies(reason: WorkspaceResolveReason) {
+    public func willResolveDependencies(reason: WorkspaceResolveReason) {
         self.append("will resolve dependencies")
     }
 
-    package func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
+    public func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
         self.append("will load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
     }
 
-    package func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
+    public func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
         self.append("did load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
         self.lock.withLock {
             self._manifest = manifest
@@ -901,71 +901,71 @@ package final class MockWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    package func willComputeVersion(package: PackageIdentity, location: String) {
+    public func willComputeVersion(package: PackageIdentity, location: String) {
         // noop
     }
 
-    package func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+    public func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
         // noop
     }
 
-    package func resolvedFileChanged() {
+    public func resolvedFileChanged() {
         // noop
     }
 
-    package func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
+    public func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
         self.append("downloading binary artifact package: \(url)")
     }
 
-    package func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+    public func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
         self.append("finished downloading binary artifact package: \(url)")
     }
 
-    package func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    public func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         // noop
     }
 
-    package func didDownloadAllBinaryArtifacts() {
+    public func didDownloadAllBinaryArtifacts() {
         // noop
     }
 
-    package func willUpdateDependencies() {
+    public func willUpdateDependencies() {
         // noop
     }
 
-    package func didUpdateDependencies(duration: DispatchTimeInterval) {
+    public func didUpdateDependencies(duration: DispatchTimeInterval) {
         // noop
     }
 
-    package func willResolveDependencies() {
+    public func willResolveDependencies() {
         // noop
     }
 
-    package func didResolveDependencies(duration: DispatchTimeInterval) {
+    public func didResolveDependencies(duration: DispatchTimeInterval) {
         // noop
     }
 
-    package func willLoadGraph() {
+    public func willLoadGraph() {
         // noop
     }
 
-    package func didLoadGraph(duration: DispatchTimeInterval) {
+    public func didLoadGraph(duration: DispatchTimeInterval) {
         // noop
     }
 
-    package func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+    public func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {
         // noop
     }
 
-    package func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    public func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         // noop
     }
 
-    package func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+    public func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {
         // noop
     }
 
-    package func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    public func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         // noop
     }
 
@@ -975,25 +975,25 @@ package final class MockWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    package var events: [String] {
+    public var events: [String] {
         self.lock.withLock {
             self._events
         }
     }
 
-    package func clear() {
+    public func clear() {
         self.lock.withLock {
             self._events = []
         }
     }
 
-    package var manifest: Manifest? {
+    public var manifest: Manifest? {
         self.lock.withLock {
             self._manifest
         }
     }
 
-    package var manifestLoadingDiagnostics: [Basics.Diagnostic]? {
+    public var manifestLoadingDiagnostics: [Basics.Diagnostic]? {
         self.lock.withLock {
             self._manifestLoadingDiagnostics
         }
@@ -1001,7 +1001,7 @@ package final class MockWorkspaceDelegate: WorkspaceDelegate {
 }
 
 extension CheckoutState {
-    package var version: Version? {
+    public var version: Version? {
         get {
             switch self {
             case .revision:
@@ -1014,7 +1014,7 @@ extension CheckoutState {
         }
     }
 
-    package var branch: String? {
+    public var branch: String? {
         get {
             switch self {
             case .revision:
@@ -1061,11 +1061,11 @@ extension CheckoutState {
 }
 
 extension Array where Element == Basics.Diagnostic {
-    package var hasErrors: Bool {
+    public var hasErrors: Bool {
         self.contains(where: {  $0.severity == .error })
     }
 
-    package var hasWarnings: Bool {
+    public var hasWarnings: Bool {
         self.contains(where: {  $0.severity == .warning })
     }
 }

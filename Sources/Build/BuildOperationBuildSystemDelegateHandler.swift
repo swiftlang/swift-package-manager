@@ -10,14 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import Foundation
 import LLBuildManifest
 import PackageModel
-
 import SPMBuildCore
-
 import SPMLLBuild
 
 import struct TSCBasic.ByteString
@@ -205,7 +204,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 extension TestEntryPointTool {
-    package static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
+    public static func mainFileName(for library: BuildParameters.Testing.Library) -> String {
         "runner-\(library).swift"
     }
 }
@@ -322,10 +321,10 @@ private final class InProcessTool: Tool {
 }
 
 /// Contains the description of the build that is needed during the execution.
-package struct BuildDescription: Codable {
-    package typealias CommandName = String
-    package typealias TargetName = String
-    package typealias CommandLineFlag = String
+public struct BuildDescription: Codable {
+    public typealias CommandName = String
+    public typealias TargetName = String
+    public typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
     let swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool]
@@ -359,12 +358,12 @@ package struct BuildDescription: Codable {
     let generatedSourceTargetSet: Set<TargetName>
 
     /// The built test products.
-    package let builtTestProducts: [BuiltTestProduct]
+    public let builtTestProducts: [BuiltTestProduct]
 
     /// Distilled information about any plugins defined in the package.
     let pluginDescriptions: [PluginDescription]
 
-    package init(
+    public init(
         plan: BuildPlan,
         swiftCommands: [LLBuildManifest.CmdName: SwiftCompilerTool],
         swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
@@ -421,13 +420,13 @@ package struct BuildDescription: Codable {
         self.pluginDescriptions = pluginDescriptions
     }
 
-    package func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
+    public func write(fileSystem: Basics.FileSystem, path: AbsolutePath) throws {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
         try fileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
-    package static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
+    public static func load(fileSystem: Basics.FileSystem, path: AbsolutePath) throws -> BuildDescription {
         let contents: Data = try fileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
         return try decoder.decode(BuildDescription.self, from: contents)
@@ -435,14 +434,14 @@ package struct BuildDescription: Codable {
 }
 
 /// A provider of advice about build errors.
-package protocol BuildErrorAdviceProvider {
+public protocol BuildErrorAdviceProvider {
     /// Invoked after a command fails and an error message is detected in the output. Should return a string containing
     /// advice or additional information, if any, based on the build plan.
     func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String?
 }
 
 /// The context available during build execution.
-package final class BuildExecutionContext {
+public final class BuildExecutionContext {
     /// Build parameters for products.
     let productsBuildParameters: BuildParameters
 
@@ -465,7 +464,7 @@ package final class BuildExecutionContext {
 
     let observabilityScope: ObservabilityScope
 
-    package init(
+    public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
@@ -591,7 +590,7 @@ final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
     }
 }
 
-package protocol PackageStructureDelegate {
+public protocol PackageStructureDelegate {
     func packageStructureChanged() -> Bool
 }
 

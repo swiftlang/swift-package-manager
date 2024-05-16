@@ -11,12 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
 import CoreCommands
-
-
-import SPMBuildCore
-
 import PackageModel
 
 import enum TSCBasic.ProcessEnv

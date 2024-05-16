@@ -13,21 +13,21 @@
 import PackageGraph
 import PackageModel
 
-package struct MockTarget {
-    package enum `Type` {
+public struct MockTarget {
+    public enum `Type` {
         case regular, test, binary
     }
 
-    package let name: String
-    package let dependencies: [TargetDescription.Dependency]
-    package let path: String?
-    package let url: String?
-    package let checksum: String?
-    package let packageAccess: Bool
-    package let settings: [TargetBuildSettingDescription.Setting]
-    package let type: Type
+    public let name: String
+    public let dependencies: [TargetDescription.Dependency]
+    public let path: String?
+    public let url: String?
+    public let checksum: String?
+    public let packageAccess: Bool
+    public let settings: [TargetBuildSettingDescription.Setting]
+    public let type: Type
 
-    package init(
+    public init(
         name: String,
         dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,

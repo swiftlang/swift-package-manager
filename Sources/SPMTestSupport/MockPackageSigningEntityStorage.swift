@@ -18,15 +18,15 @@ import PackageSigning
 
 import struct TSCUtility.Version
 
-package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
+public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     private var packageSigners: [PackageIdentity: PackageSigners]
     private let lock = NSLock()
 
-    package init(_ packageSigners: [PackageIdentity: PackageSigners] = [:]) {
+    public init(_ packageSigners: [PackageIdentity: PackageSigners] = [:]) {
         self.packageSigners = packageSigners
     }
     
-    package func get(
+    public func get(
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue
@@ -42,7 +42,7 @@ package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     }
 
     @available(*, noasync, message: "Use the async alternative")
-    package func get(
+    public func get(
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -59,7 +59,7 @@ package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         }
     }
 
-    package func put(
+    public func put(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
@@ -100,7 +100,7 @@ package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         }
     }
 
-    package func add(
+    public func add(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
@@ -126,7 +126,7 @@ package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         }
     }
 
-    package func changeSigningEntityFromVersion(
+    public func changeSigningEntityFromVersion(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
@@ -157,7 +157,7 @@ package class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         }
     }
 
-    package func changeSigningEntityForAllVersions(
+    public func changeSigningEntityForAllVersions(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,

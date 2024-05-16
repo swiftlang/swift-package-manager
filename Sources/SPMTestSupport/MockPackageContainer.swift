@@ -19,12 +19,12 @@ import XCTest
 
 import struct TSCUtility.Version
 
-package class MockPackageContainer: CustomPackageContainer {
-    package typealias Constraint = PackageContainerConstraint
+public class MockPackageContainer: CustomPackageContainer {
+    public typealias Constraint = PackageContainerConstraint
 
-    package typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
+    public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
 
-    package let package: PackageReference
+    public let package: PackageReference
 
     let dependencies: [String: [Dependency]]
     let filteredMode: Bool
@@ -32,26 +32,26 @@ package class MockPackageContainer: CustomPackageContainer {
     let fileSystem: FileSystem?
     let customRetrievalPath: AbsolutePath?
 
-    package var unversionedDeps: [MockPackageContainer.Constraint] = []
+    public var unversionedDeps: [MockPackageContainer.Constraint] = []
 
     /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
-    package var requestedVersions: Set<Version> = []
+    public var requestedVersions: Set<Version> = []
 
-    package let _versions: [Version]
-    package func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
+    public let _versions: [Version]
+    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         return try self.versionsDescending()
     }
 
-    package func versionsAscending() throws -> [Version] {
+    public func versionsAscending() throws -> [Version] {
         return _versions
     }
 
-    package func getDependencies(at version: Version, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
         requestedVersions.insert(version)
         return getDependencies(at: version.description, productFilter: productFilter)
     }
 
-    package func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
         let dependencies: [Dependency]
         if filteredMode {
             dependencies = filteredDependencies[productFilter]!
@@ -64,27 +64,27 @@ package class MockPackageContainer: CustomPackageContainer {
         }
     }
 
-    package func getUnversionedDependencies(productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
         return unversionedDeps
     }
 
-    package func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         return self.package
     }
 
-    package func isToolsVersionCompatible(at version: Version) -> Bool {
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
         return true
     }
 
-    package func toolsVersion(for version: Version) throws -> ToolsVersion {
+    public func toolsVersion(for version: Version) throws -> ToolsVersion {
         return ToolsVersion.current
     }
 
-    package var isRemoteContainer: Bool? {
+    public var isRemoteContainer: Bool? {
         return true
     }
 
-    package func retrieve(at version: Version, progressHandler: ((Int64, Int64?) -> Void)?, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+    public func retrieve(at version: Version, progressHandler: ((Int64, Int64?) -> Void)?, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
         if let customRetrievalPath {
             return customRetrievalPath
         } else {
@@ -92,11 +92,11 @@ package class MockPackageContainer: CustomPackageContainer {
         }
     }
 
-    package func getFileSystem() throws -> FileSystem? {
+    public func getFileSystem() throws -> FileSystem? {
         return fileSystem
     }
 
-    package convenience init(
+    public convenience init(
         name: String,
         dependenciesByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]]
     ) throws {
@@ -113,7 +113,7 @@ package class MockPackageContainer: CustomPackageContainer {
         self.init(package: ref, dependencies: dependencies)
     }
 
-    package init(
+    public init(
         package: PackageReference,
         dependencies: [String: [Dependency]] = [:],
         fileSystem: FileSystem? = nil,
@@ -129,7 +129,7 @@ package class MockPackageContainer: CustomPackageContainer {
         self.customRetrievalPath = customRetrievalPath
     }
 
-    package init(
+    public init(
         name: String,
         dependenciesByProductFilter: [ProductFilter: [(container: String, versionRequirement: VersionSetSpecifier)]]
     ) throws {
@@ -154,16 +154,16 @@ package class MockPackageContainer: CustomPackageContainer {
     }
 }
 
-package struct MockPackageContainerProvider: PackageContainerProvider {
-    package let containers: [MockPackageContainer]
-    package let containersByIdentifier: [PackageReference: MockPackageContainer]
+public struct MockPackageContainerProvider: PackageContainerProvider {
+    public let containers: [MockPackageContainer]
+    public let containersByIdentifier: [PackageReference: MockPackageContainer]
 
-    package init(containers: [MockPackageContainer]) {
+    public init(containers: [MockPackageContainer]) {
         self.containers = containers
         self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map { ($0.package, $0) })
     }
 
-    package func getContainer(
+    public func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
