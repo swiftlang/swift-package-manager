@@ -141,11 +141,6 @@ package final class SwiftTargetBuildDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
-    /// The swift version for this target.
-    var swiftVersion: SwiftLanguageVersion {
-        self.swiftTarget.swiftVersion
-    }
-
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
     /// tests or serving as the manifest target which contains the main entry point.
     package enum TestTargetRole {
@@ -458,7 +453,6 @@ package final class SwiftTargetBuildDescription {
     package func compileArguments() throws -> [String] {
         var args = [String]()
         args += try self.buildParameters.targetTripleArgs(for: self.target)
-        args += ["-swift-version", self.swiftVersion.rawValue]
 
         // pass `-v` during verbose builds.
         if self.buildParameters.outputParameters.isVerbose {
@@ -799,6 +793,9 @@ package final class SwiftTargetBuildDescription {
     private func buildSettingsFlags() throws -> [String] {
         let scope = self.buildParameters.createScope(for: self.target)
         var flags: [String] = []
+
+        // A custom swift version.
+        flags += scope.evaluate(.SWIFT_VERSION).flatMap { ["-swift-version", $0] }
 
         // Swift defines.
         let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)

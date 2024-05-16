@@ -891,7 +891,8 @@ public final class PackageBuilder {
         let buildSettings = try self.buildSettings(
             for: manifestTarget,
             targetRoot: potentialModule.path,
-            cxxLanguageStandard: self.manifest.cxxLanguageStandard
+            cxxLanguageStandard: self.manifest.cxxLanguageStandard,
+            toolsSwiftVersion: self.toolsSwiftVersion()
         )
 
         // Compute the path to public headers directory.
@@ -982,7 +983,6 @@ public final class PackageBuilder {
                 others: others,
                 dependencies: dependencies,
                 packageAccess: potentialModule.packageAccess,
-                swiftVersion: self.swiftVersion(),
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
@@ -1040,10 +1040,17 @@ public final class PackageBuilder {
     func buildSettings(
         for target: TargetDescription?,
         targetRoot: AbsolutePath,
-        cxxLanguageStandard: String? = nil
+        cxxLanguageStandard: String? = nil,
+        toolsSwiftVersion: SwiftLanguageVersion
     ) throws -> BuildSettings.AssignmentTable {
         var table = BuildSettings.AssignmentTable()
         guard let target else { return table }
+
+        // First let's add a default assignments for tools swift version.
+        var versionAssignment = BuildSettings.Assignment(default: true)
+        versionAssignment.values = [toolsSwiftVersion.rawValue]
+
+        table.add(versionAssignment, for: .SWIFT_VERSION)
 
         // Process each setting.
         for setting in target.settings {
@@ -1154,6 +1161,17 @@ public final class PackageBuilder {
                 }
 
                 values = ["-enable-experimental-feature", value]
+
+            case .swiftLanguageVersion(let version):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports swift language version")
+
+                case .swift:
+                    decl = .SWIFT_VERSION
+                }
+
+                values = [version.rawValue]
             }
 
             // Create an assignment for this setting.
@@ -1211,7 +1229,7 @@ public final class PackageBuilder {
     }
 
     /// Computes the swift version to use for this manifest.
-    private func swiftVersion() throws -> SwiftLanguageVersion {
+    private func toolsSwiftVersion() throws -> SwiftLanguageVersion {
         if let swiftVersion = self.swiftVersionCache {
             return swiftVersion
         }
@@ -1702,17 +1720,17 @@ extension PackageBuilder {
                 )
                 buildSettings = try self.buildSettings(
                     for: targetDescription,
-                    targetRoot: sourceFile.parentDirectory
+                    targetRoot: sourceFile.parentDirectory,
+                    toolsSwiftVersion: self.toolsSwiftVersion()
                 )
 
-                return try SwiftTarget(
+                return SwiftTarget(
                     name: name,
                     type: .snippet,
                     path: .root,
                     sources: sources,
                     dependencies: dependencies,
                     packageAccess: false,
-                    swiftVersion: self.swiftVersion(),
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false
