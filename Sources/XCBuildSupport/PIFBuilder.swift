@@ -16,6 +16,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import func TSCBasic.memoize

@@ -12,8 +12,8 @@
 
 import Foundation
 
-/// ``BuildSystem`` delegate
-package protocol BuildSystemDelegate: AnyObject {
+/// BuildSystem delegate
+public protocol BuildSystemDelegate: AnyObject {
     ///Called when build command is about to start.
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand)
 
@@ -35,7 +35,7 @@ package protocol BuildSystemDelegate: AnyObject {
     func buildSystemDidCancel(_ buildSystem: BuildSystem)
 }
 
-extension BuildSystemDelegate {
+public extension BuildSystemDelegate {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
     func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) { }
     func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String) { }

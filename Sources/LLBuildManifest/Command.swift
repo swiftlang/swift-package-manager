@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-package struct Command {
+public struct Command {
     /// The name of the command.
-    package var name: String
+    public var name: String
 
     /// The tool used for this command.
-    package var tool: ToolProtocol
+    public var tool: ToolProtocol
 
     init(name: String, tool: ToolProtocol) {
         self.name = name

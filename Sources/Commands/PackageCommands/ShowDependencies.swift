@@ -13,9 +13,7 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import PackageGraph
 
 import class TSCBasic.LocalFileOutputByteStream
@@ -74,7 +72,7 @@ extension SwiftPackageCommand {
         enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument {
             case text, dot, json, flatlist
 
-            package init?(rawValue: String) {
+            public init?(rawValue: String) {
                 switch rawValue.lowercased() {
                 case "text":
                     self = .text
@@ -89,7 +87,7 @@ extension SwiftPackageCommand {
                 }
             }
 
-            package var description: String {
+            public var description: String {
                 switch self {
                 case .text: return "text"
                 case .dot: return "dot"

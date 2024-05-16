@@ -12,9 +12,7 @@
 
 import ArgumentParser
 import Basics
-
 import CoreCommands
-
 import Workspace
 
 import var TSCBasic.stderrStream
