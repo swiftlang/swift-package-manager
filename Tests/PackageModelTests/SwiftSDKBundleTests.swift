@@ -424,7 +424,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 fileSystem: fileSystem
             )
             // With toolset in the target SDK, it should contain the host toolset roots at the end.
-            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths + [toolsetRootPath])
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, [toolsetRootPath] + hostSwiftSDK.toolset.rootPaths)
         }
 
         do {

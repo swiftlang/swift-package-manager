@@ -698,7 +698,8 @@ public struct SwiftSDK: Equatable {
                 )
             }
 
-            swiftSDK.append(toolsetRootPath: binDir.appending(components: "usr", "bin"))
+            // `--tooolchain` should override existing anything in the SDK and search paths.
+            swiftSDK.prepend(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = customCompileSDK {
             swiftSDK.pathsConfiguration.sdkRootPath = sdk
@@ -727,7 +728,20 @@ public struct SwiftSDK: Equatable {
         self.toolset.knownTools[.swiftCompiler] = properties
     }
 
+    /// Prepends a path to the array of toolset root paths.
+    ///
+    /// Note: Use this operation if you want new root path to take priority over existing paths.
+    ///
+    /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
+    public mutating func prepend(toolsetRootPath path: AbsolutePath) {
+        self.toolset.rootPaths.insert(path, at: 0)
+    }
+
     /// Appends a path to the array of toolset root paths.
+    ///
+    /// Note: The paths are evaluated in insertion order which means that newly added path would
+    /// have a lower priority vs. existing paths.
+    ///
     /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
     public mutating func append(toolsetRootPath: AbsolutePath) {
         self.toolset.rootPaths.append(toolsetRootPath)
