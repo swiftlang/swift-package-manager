@@ -350,8 +350,7 @@ extension PackageGraphError: CustomStringConvertible {
                 }
                 return description
             }
-
-            return "multiple products named '\(product)' in: \(packagesDescriptions.joined(separator: ", "))"
+            return "multiple packages (\(packagesDescriptions.joined(separator: ", "))) declare products with a conflicting name: '\(product)’; product names need to be unique across the package graph"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
