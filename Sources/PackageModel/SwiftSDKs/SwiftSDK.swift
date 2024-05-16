@@ -698,7 +698,7 @@ public struct SwiftSDK: Equatable {
                 )
             }
 
-            swiftSDK.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
+            swiftSDK.append(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = customCompileSDK {
             swiftSDK.pathsConfiguration.sdkRootPath = sdk
@@ -709,7 +709,7 @@ public struct SwiftSDK: Equatable {
             // Append the host toolchain's toolset paths at the end for the case the target Swift SDK
             // doesn't have some of the tools (e.g. swift-frontend might be shared between the host and
             // target Swift SDKs).
-            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.add(toolsetRootPath: $0) }
+            hostSwiftSDK.toolset.rootPaths.forEach { swiftSDK.append(toolsetRootPath: $0) }
         }
 
         return swiftSDK
@@ -729,7 +729,7 @@ public struct SwiftSDK: Equatable {
 
     /// Appends a path to the array of toolset root paths.
     /// - Parameter toolsetRootPath: new path to add to Swift SDK's toolset.
-    public mutating func add(toolsetRootPath: AbsolutePath) {
+    public mutating func append(toolsetRootPath: AbsolutePath) {
         self.toolset.rootPaths.append(toolsetRootPath)
     }
 }
