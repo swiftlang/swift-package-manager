@@ -28,20 +28,20 @@ package final class MockArchiver: Archiver {
     package typealias ValidationHandler = (MockArchiver, AbsolutePath, (Result<Bool, Error>) -> Void) throws -> Void
 
     package struct Extraction: Equatable {
-        package let archivePath: AbsolutePath
-        package let destinationPath: AbsolutePath
+        public let archivePath: AbsolutePath
+        public let destinationPath: AbsolutePath
 
-        package init(archivePath: AbsolutePath, destinationPath: AbsolutePath) {
+        public init(archivePath: AbsolutePath, destinationPath: AbsolutePath) {
             self.archivePath = archivePath
             self.destinationPath = destinationPath
         }
     }
 
     package struct Compression: Equatable {
-        package let directory: AbsolutePath
-        package let destinationPath: AbsolutePath
+        public let directory: AbsolutePath
+        public let destinationPath: AbsolutePath
 
-        package init(directory: AbsolutePath, destinationPath: AbsolutePath) {
+        public init(directory: AbsolutePath, destinationPath: AbsolutePath) {
             self.directory = directory
             self.destinationPath = destinationPath
         }

@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-
 import CoreCommands
 
 extension SwiftPackageCommand {

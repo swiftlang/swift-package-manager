@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -154,7 +154,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testInterpreterFlags() throws {
+    func testInterpreterFlags() async throws {
         let fs = localFileSystem
 
         try testWithTemporaryDirectory { path in
@@ -213,7 +213,7 @@ final class WorkspaceTests: XCTestCase {
                     """
                 )
 
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("5")])
+                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("6")])
             }
         }
     }
@@ -5251,6 +5251,8 @@ final class WorkspaceTests: XCTestCase {
 
     // This verifies that the simplest possible loading APIs are available for package clients.
     func testSimpleAPI() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try await testWithTemporaryDirectory { path in
             // Create a temporary package as a test case.
             let packagePath = path.appending("MyPkg")

@@ -16,20 +16,20 @@ import PackageModel
 
 import struct TSCUtility.Version
 
-package struct MockDependencyGraph {
-    package let name: String
-    package let constraints: [MockPackageContainer.Constraint]
-    package let containers: [MockPackageContainer]
-    package let result: [PackageReference: Version]
+public struct MockDependencyGraph {
+    public let name: String
+    public let constraints: [MockPackageContainer.Constraint]
+    public let containers: [MockPackageContainer]
+    public let result: [PackageReference: Version]
 
-    package init(name: String, constraints: [MockPackageContainer.Constraint], containers: [MockPackageContainer], result: [PackageReference : Version]) {
+    public init(name: String, constraints: [MockPackageContainer.Constraint], containers: [MockPackageContainer], result: [PackageReference : Version]) {
         self.name = name
         self.constraints = constraints
         self.containers = containers
         self.result = result
     }
 
-    package func checkResult(
+    public func checkResult(
         _ output: [(container: PackageReference, version: Version)],
         file: StaticString = #file,
         line: UInt = #line

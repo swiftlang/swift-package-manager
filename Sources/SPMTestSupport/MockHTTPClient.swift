@@ -13,7 +13,7 @@
 import Basics
 
 extension LegacyHTTPClient {
-    package static func mock(fileSystem: FileSystem) -> LegacyHTTPClient {
+    public static func mock(fileSystem: FileSystem) -> LegacyHTTPClient {
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch request.kind {
             case.generic:

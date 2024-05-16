@@ -84,7 +84,8 @@ public enum DriverSupport {
         }
     }
 
-    package static func isPackageNameSupported(toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
+    @_spi(SwiftPMInternal)
+    public static func isPackageNameSupported(toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
         DriverSupport.checkToolchainDriverFlags(flags: ["-package-name"], toolchain: toolchain, fileSystem: fileSystem)
     }
 }

@@ -14,6 +14,7 @@
 @testable import Build
 
 @testable
+@_spi(SwiftPMInternal)
 import DriverSupport
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -4067,13 +4068,13 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DLINUX",
                     "-Isfoo",
                     "-L", "sbar",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4082,7 +4083,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
             XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", "-g", .end])
@@ -4132,6 +4133,7 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DLINUX",
                     "-Isfoo",
                     "-L", "sbar",
@@ -4139,7 +4141,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fomit-frame-pointer",
@@ -4148,7 +4149,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fomit-frame-pointer", .end])
         }
 
         // omit frame pointers explicitly set to false
@@ -4189,6 +4190,7 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DLINUX",
                     "-Isfoo",
                     "-L", "sbar",
@@ -4196,7 +4198,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature",
                     "BestFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     "-Xcc", "-fno-omit-frame-pointer",
@@ -4205,7 +4206,7 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-swift-version", "5", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
+            XCTAssertMatch(exe, [.anySequence, "-swift-version", "5", "-DFOO", "-g", "-Xcc", "-g", "-Xcc", "-fno-omit-frame-pointer", .end])
         }
 
         do {
@@ -4233,6 +4234,7 @@ final class BuildPlanTests: XCTestCase {
                 bar,
                 [
                     .anySequence,
+                    "-swift-version", "5",
                     "-DDMACOS",
                     "-Isfoo",
                     "-L", "sbar",
@@ -4240,7 +4242,6 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-std=c++17",
                     "-enable-upcoming-feature", "BestFeature",
                     "-enable-upcoming-feature", "WorstFeature",
-                    "-swift-version", "5",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -4252,10 +4253,10 @@ final class BuildPlanTests: XCTestCase {
                 exe,
                 [
                     .anySequence,
+                    "-swift-version", "4",
                     "-DFOO",
                     "-cxx-interoperability-mode=default",
                     "-Xcc", "-std=c++17",
-                    "-swift-version", "4",
                     "-g",
                     "-Xcc", "-g",
                     .end,
@@ -6368,5 +6369,52 @@ final class BuildPlanTests: XCTestCase {
                 .anySequence
             ]
         )
+    }
+
+    func testDefaultVersions() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/foo/foo.swift"
+        )
+
+        let expectedVersions = [
+          ToolsVersion.v4: "4",
+          ToolsVersion.v4_2: "4.2",
+          ToolsVersion.v5: "5",
+          ToolsVersion.v6_0: "6",
+          ToolsVersion.vNext: "6"
+        ]
+        for (toolsVersion, expectedVersionString) in expectedVersions {
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+              fileSystem: fs,
+              manifests: [
+                Manifest.createRootManifest(
+                  displayName: "Pkg",
+                  path: "/Pkg",
+                  toolsVersion: toolsVersion,
+                  targets: [
+                    TargetDescription(
+                      name: "foo"
+                    ),
+                  ]
+                ),
+              ],
+              observabilityScope: observability.topScope
+            )
+
+            let result = try BuildPlanResult(plan: BuildPlan(
+              buildParameters: mockBuildParameters(),
+              graph: graph,
+              fileSystem: fs,
+              observabilityScope: observability.topScope
+            ))
+
+            XCTAssertMatch(
+              try result.target(for: "foo").swiftTarget().compileArguments(),
+              [
+                "-swift-version", .equal(expectedVersionString)
+              ]
+            )
+        }
     }
 }

@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-
 import CoreCommands
-
 import Dispatch
 import class Foundation.NSLock
 import struct Foundation.URL
@@ -214,22 +212,22 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    package func willUpdateDependencies() {
+    public func willUpdateDependencies() {
         self.observabilityScope.emit(debug: "Updating dependencies")
         os_signpost(.begin, name: SignpostName.updatingDependencies)
     }
 
-    package func didUpdateDependencies(duration: DispatchTimeInterval) {
+    public func didUpdateDependencies(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Dependencies updated in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.updatingDependencies)
     }
 
-    package func willResolveDependencies() {
+    public func willResolveDependencies() {
         self.observabilityScope.emit(debug: "Resolving dependencies")
         os_signpost(.begin, name: SignpostName.resolvingDependencies)
     }
 
-    package func didResolveDependencies(duration: DispatchTimeInterval) {
+    public func didResolveDependencies(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Dependencies resolved in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.resolvingDependencies)
     }
@@ -266,7 +264,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
 }
 
-package extension _SwiftCommand {
+public extension _SwiftCommand {
     var workspaceDelegateProvider: WorkspaceDelegateProvider {
         return {
             CommandWorkspaceDelegate(

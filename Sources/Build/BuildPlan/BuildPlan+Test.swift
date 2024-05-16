@@ -268,7 +268,6 @@ private extension PackageModel.SwiftTarget {
             sources: sources,
             dependencies: dependencies,
             packageAccess: packageAccess,
-            swiftVersion: .v5,
             usesUnsafeFlags: false
         )
     }

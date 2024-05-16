@@ -17,36 +17,36 @@ import struct Basics.IdentifiableSet
 import PackageModel
 import PackageGraph
 
-package func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) throws -> Void) rethrows {
+public func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) throws -> Void) rethrows {
     try result(PackageGraphResult(graph))
 }
 
-package final class PackageGraphResult {
-    package let graph: ModulesGraph
+public final class PackageGraphResult {
+    public let graph: ModulesGraph
 
-    package init(_ graph: ModulesGraph) {
+    public init(_ graph: ModulesGraph) {
         self.graph = graph
     }
 
     // TODO: deprecate / transition to PackageIdentity
-    package func check(roots: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(roots: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(graph.rootPackages.map{$0.manifest.displayName }.sorted(), roots.sorted(), file: file, line: line)
     }
 
-    package func check(roots: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
+    public func check(roots: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(graph.rootPackages.map{$0.identity }.sorted(), roots.sorted(), file: file, line: line)
     }
 
     // TODO: deprecate / transition to PackageIdentity
-    package func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(graph.packages.map {$0.manifest.displayName }.sorted(), packages.sorted(), file: file, line: line)
     }
 
-    package func check(packages: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
+    public func check(packages: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(graph.packages.map {$0.identity }.sorted(), packages.sorted(), file: file, line: line)
     }
 
-    package func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.allTargets
                 .filter { $0.type != .test }
@@ -54,19 +54,19 @@ package final class PackageGraphResult {
                 .sorted(), targets.sorted(), file: file, line: line)
     }
 
-    package func check(products: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(products: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(Set(graph.allProducts.map { $0.name }), Set(products), file: file, line: line)
     }
 
-    package func check(reachableTargets: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(reachableTargets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(Set(graph.reachableTargets.map { $0.name }), Set(reachableTargets), file: file, line: line)
     }
 
-    package func check(reachableProducts: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(reachableProducts: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(Set(graph.reachableProducts.map { $0.name }), Set(reachableProducts), file: file, line: line)
     }
 
-    package func check(
+    public func check(
         reachableBuildTargets: String...,
         in environment: BuildEnvironment,
         file: StaticString = #file,
@@ -76,7 +76,7 @@ package final class PackageGraphResult {
         XCTAssertEqual(targets, Set(reachableBuildTargets), file: file, line: line)
     }
 
-    package func check(
+    public func check(
         reachableBuildProducts: String...,
         in environment: BuildEnvironment,
         file: StaticString = #file,
@@ -86,7 +86,7 @@ package final class PackageGraphResult {
         XCTAssertEqual(products, Set(reachableBuildProducts), file: file, line: line)
     }
 
-    package func checkTarget(
+    public func checkTarget(
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
@@ -112,7 +112,7 @@ package final class PackageGraphResult {
         try body(graph.allTargets.filter { $0.name == name }.map(ResolvedTargetResult.init))
     }
 
-    package func checkProduct(
+    public func checkProduct(
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
@@ -130,7 +130,7 @@ package final class PackageGraphResult {
         body(ResolvedProductResult(products[0]))
     }
 
-    package func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.allTargets
                 .filter{ $0.type == .test }
@@ -138,15 +138,15 @@ package final class PackageGraphResult {
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
-    package func find(target: String) -> [ResolvedModule] {
+    public func find(target: String) -> [ResolvedModule] {
         return graph.allTargets.filter { $0.name == target }
     }
 
-    package func find(product: String) -> [ResolvedProduct] {
+    public func find(product: String) -> [ResolvedProduct] {
         return graph.allProducts.filter { $0.name == product }
     }
 
-    package func find(package: PackageIdentity) -> ResolvedPackage? {
+    public func find(package: PackageIdentity) -> ResolvedPackage? {
         return graph.package(for: package)
     }
 
@@ -168,22 +168,22 @@ package final class PackageGraphResult {
     }
 }
 
-package final class ResolvedTargetResult {
-    let target: ResolvedModule
+public final class ResolvedTargetResult {
+    public let target: ResolvedModule
 
     init(_ target: ResolvedModule) {
         self.target = target
     }
 
-    package func check(dependencies: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(dependencies: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(Set(dependencies), Set(target.dependencies.map({ $0.name })), file: file, line: line)
     }
 
-    package func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
+    public func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(Set(dependencies), Set(target.dependencies.map({ $0.name })), file: file, line: line)
     }
 
-    package func checkDependency(
+    public func checkDependency(
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
@@ -195,18 +195,18 @@ package final class ResolvedTargetResult {
         body(ResolvedTargetDependencyResult(dependency))
     }
 
-    package func check(type: Target.Kind, file: StaticString = #file, line: UInt = #line) {
+    public func check(type: Target.Kind, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(type, target.type, file: file, line: line)
     }
 
-    package func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+    public func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
         let targetPlatforms = Dictionary(
             uniqueKeysWithValues: target.supportedPlatforms.map { ($0.platform.name, $0.version.versionString) }
         )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
-    package func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+    public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
         let derived = platforms.map {
             let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform
                 .custom(name: $0.key, oldestSupportedVersion: $0.value)
@@ -218,7 +218,7 @@ package final class ResolvedTargetResult {
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
-    package func checkDerivedPlatformOptions(
+    public func checkDerivedPlatformOptions(
         _ platform: PackageModel.Platform,
         options: [String],
         file: StaticString = #file,
@@ -233,18 +233,18 @@ package final class ResolvedTargetResult {
     }
 }
 
-package final class ResolvedTargetDependencyResult {
+public final class ResolvedTargetDependencyResult {
     private let dependency: ResolvedModule.Dependency
 
     init(_ dependency: ResolvedModule.Dependency) {
         self.dependency = dependency
     }
 
-    package func checkConditions(satisfy environment: BuildEnvironment, file: StaticString = #file, line: UInt = #line) {
+    public func checkConditions(satisfy environment: BuildEnvironment, file: StaticString = #file, line: UInt = #line) {
         XCTAssert(dependency.conditions.allSatisfy({ $0.satisfies(environment) }), file: file, line: line)
     }
 
-    package func checkConditions(
+    public func checkConditions(
         dontSatisfy environment: BuildEnvironment,
         file: StaticString = #file,
         line: UInt = #line
@@ -275,27 +275,27 @@ package final class ResolvedTargetDependencyResult {
     }
 }
 
-package final class ResolvedProductResult {
+public final class ResolvedProductResult {
     private let product: ResolvedProduct
 
     init(_ product: ResolvedProduct) {
         self.product = product
     }
 
-    package func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
+    public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(Set(targets), Set(product.targets.map({ $0.name })), file: file, line: line)
     }
 
-    package func check(type: ProductType, file: StaticString = #file, line: UInt = #line) {
+    public func check(type: ProductType, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(type, product.type, file: file, line: line)
     }
 
-    package func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+    public func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
         let targetPlatforms = Dictionary(uniqueKeysWithValues: product.supportedPlatforms.map({ ($0.platform.name, $0.version.versionString) }))
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
-    package func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+    public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
         let derived = platforms.map {
             let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform.custom(name: $0.key, oldestSupportedVersion: $0.value)
             return product.getSupportedPlatform(for: platform, usingXCTest: product.isLinkingXCTest)
@@ -304,7 +304,7 @@ package final class ResolvedProductResult {
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
-    package func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
+    public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
         let platform = product.getSupportedPlatform(for: platform, usingXCTest: product.isLinkingXCTest)
         XCTAssertEqual(platform.options, options, file: file, line: line)
     }
@@ -327,7 +327,7 @@ package final class ResolvedProductResult {
 }
 
 extension ResolvedModule.Dependency {
-    package var name: String {
+    public var name: String {
         switch self {
         case .target(let target, _):
             return target.name

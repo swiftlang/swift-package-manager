@@ -12,8 +12,10 @@
 
 import ArgumentParser
 
+@_spi(SwiftPMInternal)
 import Basics
 
+@_spi(SwiftPMInternal)
 import CoreCommands
 
 import Dispatch
@@ -149,7 +151,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// Configure test output.
     @Option(help: ArgumentHelp("", visibility: .hidden))
-    package var testOutput: TestOutput = .default
+    public var testOutput: TestOutput = .default
 
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
@@ -164,10 +166,15 @@ struct TestCommandOptions: ParsableArguments {
     @Option(name: .customLong("experimental-event-stream-output"),
             help: .hidden)
     var eventStreamOutputPath: AbsolutePath?
+
+    /// The schema version of swift-testing's JSON input/output.
+    @Option(name: .customLong("experimental-event-stream-version"),
+            help: .hidden)
+    var eventStreamVersion: Int?
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
-package enum TestCaseSpecifier {
+public enum TestCaseSpecifier {
     /// No filtering
     case none
     
@@ -182,7 +189,7 @@ package enum TestCaseSpecifier {
 }
 
 /// Different styles of test output.
-package enum TestOutput: String, ExpressibleByArgument {
+public enum TestOutput: String, ExpressibleByArgument {
     /// Whatever `xctest` emits to the console.
     case `default`
 
@@ -194,8 +201,8 @@ package enum TestOutput: String, ExpressibleByArgument {
 }
 
 /// swift-test tool namespace
-package struct SwiftTestCommand: AsyncSwiftCommand {
-    package static var configuration = CommandConfiguration(
+public struct SwiftTestCommand: AsyncSwiftCommand {
+    public static var configuration = CommandConfiguration(
         commandName: "test",
         _superCommandName: "swift",
         abstract: "Build and run tests",
@@ -206,7 +213,7 @@ package struct SwiftTestCommand: AsyncSwiftCommand {
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    package var globalOptions: GlobalOptions {
+    public var globalOptions: GlobalOptions {
         options.globalOptions
     }
 
@@ -372,7 +379,7 @@ package struct SwiftTestCommand: AsyncSwiftCommand {
 
     // MARK: - Common implementation
 
-    package func run(_ swiftCommandState: SwiftCommandState) async throws {
+    public func run(_ swiftCommandState: SwiftCommandState) async throws {
         do {
             // Validate commands arguments
             try self.validateArguments(observabilityScope: swiftCommandState.observabilityScope)
@@ -595,7 +602,7 @@ package struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    package init() {}
+    public init() {}
 }
 
 extension SwiftTestCommand {
@@ -828,7 +835,7 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-    package func test(outputHandler: @escaping (String) -> Void) -> Bool {
+    public func test(outputHandler: @escaping (String) -> Void) -> Bool {
         var success = true
         for path in self.bundlePaths {
             let testSuccess = self.test(at: path, outputHandler: outputHandler)

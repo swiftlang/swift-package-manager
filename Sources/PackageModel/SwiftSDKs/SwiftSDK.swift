@@ -640,7 +640,8 @@ public struct SwiftSDK: Equatable {
     }
 
     /// Computes the target Swift SDK for the given options.
-    package static func deriveTargetSwiftSDK(
+    @_spi(SwiftPMInternal)
+    public static func deriveTargetSwiftSDK(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
       customCompileDestination: AbsolutePath? = nil,

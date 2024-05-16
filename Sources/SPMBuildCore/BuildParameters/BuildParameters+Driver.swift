@@ -56,6 +56,7 @@ extension BuildParameters {
 
         /// Whether the version of Swift Driver used in the currently selected toolchain
         /// supports `-package-name` options.
-        package var isPackageAccessModifierSupported: Bool
+        @_spi(SwiftPMInternal)
+        public var isPackageAccessModifierSupported: Bool
     }
 }

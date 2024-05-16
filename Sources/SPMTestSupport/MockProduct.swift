@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-package struct MockProduct {
-    package let name: String
-    package let targets: [String]
+public struct MockProduct {
+    public let name: String
+    public let targets: [String]
 
-    package init(name: String, targets: [String]) {
+    public init(name: String, targets: [String]) {
         self.name = name
         self.targets = targets
     }

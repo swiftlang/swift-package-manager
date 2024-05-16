@@ -19,6 +19,7 @@ final class BasicTests: XCTestCase {
 
     func testExamplePackageDealer() throws {
         try XCTSkipIf(isSelfHosted, "These packages don't use the latest runtime library, which doesn't work with self-hosted builds.")
+        try skipUnlessAtLeastSwift6()
 
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
@@ -93,9 +94,7 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftPackageInitExec() throws {
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        try skipUnlessAtLeastSwift6()
 
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
@@ -122,9 +121,7 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftPackageInitExecTests() throws {
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        try skipUnlessAtLeastSwift6()
 
         try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
 
@@ -149,6 +146,8 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftPackageInitLib() throws {
+        try skipUnlessAtLeastSwift6()
+
         try withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
@@ -167,6 +166,8 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftPackageLibsTests() throws {
+        try skipUnlessAtLeastSwift6()
+
         try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
 
         try withTemporaryDirectory { tempDir in
@@ -225,9 +226,7 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftRun() throws {
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        try skipUnlessAtLeastSwift6()
 
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "secho")
@@ -256,6 +255,8 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftTest() throws {
+        try skipUnlessAtLeastSwift6()
+
         try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
 
         try withTemporaryDirectory { tempDir in
@@ -376,4 +377,10 @@ private extension Character {
             return false
         }
     }
+}
+
+private func skipUnlessAtLeastSwift6() throws {
+    #if compiler(<6.0)
+    try XCTSkipIf(true, "Skipping because test requires at least Swift 6.0")
+    #endif
 }

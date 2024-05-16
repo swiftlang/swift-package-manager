@@ -15,7 +15,8 @@ import protocol TSCBasic.WritableByteStream
 
 extension ProgressAnimation {
     /// A ninja-like progress animation that adapts to the provided output stream.
-    package static func ninja(
+    @_spi(SwiftPMInternal)
+    public static func ninja(
         stream: WritableByteStream,
         verbose: Bool
     ) -> any ProgressAnimationProtocol {
