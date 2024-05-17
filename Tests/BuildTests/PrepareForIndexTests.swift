@@ -12,6 +12,7 @@ import Foundation
 import LLBuildManifest
 @_spi(SwiftPMInternal)
 import SPMTestSupport
+import TSCBasic
 import XCTest
 
 class PrepareForIndexTests: XCTestCase {
@@ -34,27 +35,30 @@ class PrepareForIndexTests: XCTestCase {
         // Make sure we're not building things that link
         XCTAssertNil(manifest.commands["C.Core-debug.exe"])
 
-        let outputs = manifest.commands.flatMap(\.value.tool.outputs).map(\.name)
+        let outputs = try manifest.commands.flatMap(\.value.tool.outputs).map(\.name)
+            .filter({ $0.hasPrefix("/path/to/") })
+            .map({ try AbsolutePath(validating: $0).components.suffix(3).joined(separator: "/") })
 
         // Make sure we're building the swift modules
         let swiftModules = Set(outputs.filter({ $0.hasSuffix(".swiftmodule")}))
         XCTAssertEqual(swiftModules, Set([
-            "/path/to/build/arm64-apple-macosx15.0/debug/Core.build/Core.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules/CoreTests.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules/HAL.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules/HALTests.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules/MMIO.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules/SwiftSyntax.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules-tool/MMIOMacros.swiftmodule",
-            "/path/to/build/arm64-apple-macosx15.0/debug/Modules-tool/SwiftSyntax.swiftmodule",
+            "debug/Core.build/Core.swiftmodule",
+            "debug/Modules/CoreTests.swiftmodule",
+            "debug/Modules/HAL.swiftmodule",
+            "debug/Modules/HALTests.swiftmodule",
+            "debug/Modules/MMIO.swiftmodule",
+            "debug/Modules/SwiftSyntax.swiftmodule",
+            "debug/Modules-tool/MMIOMacros.swiftmodule",
+            "debug/Modules-tool/SwiftSyntax.swiftmodule",
         ]))
 
         // Ensure swiftmodules built with correct arguments
         let coreCommands = manifest.commands.values.filter({
             $0.tool.outputs.contains(where: {
-                $0.name == "/path/to/build/arm64-apple-macosx15.0/debug/Core.build/Core.swiftmodule"
+                $0.name.hasSuffix("debug/Core.build/Core.swiftmodule")
             })
         })
+
         XCTAssertEqual(coreCommands.count, 1)
         let coreSwiftc = try XCTUnwrap(coreCommands.first?.tool as? SwiftCompilerTool)
         XCTAssertTrue(coreSwiftc.otherArguments.contains("-experimental-skip-all-function-bodies"))
@@ -62,7 +66,7 @@ class PrepareForIndexTests: XCTestCase {
         // Ensure tools are built normally
         let toolCommands = manifest.commands.values.filter({
             $0.tool.outputs.contains(where: {
-                $0.name == "/path/to/build/arm64-apple-macosx15.0/debug/Modules-tool/SwiftSyntax.swiftmodule"
+                $0.name.hasSuffix("debug/Modules-tool/SwiftSyntax.swiftmodule")
             })
         })
         XCTAssertEqual(toolCommands.count, 1)
@@ -72,8 +76,8 @@ class PrepareForIndexTests: XCTestCase {
         // Make sure only object files for tools are built
         let objectFiles = Set(outputs.filter({ $0.hasSuffix(".o") }))
         XCTAssertEqual(objectFiles, Set([
-            "/path/to/build/arm64-apple-macosx15.0/debug/MMIOMacros-tool.build/source.swift.o",
-            "/path/to/build/arm64-apple-macosx15.0/debug/SwiftSyntax-tool.build/source.swift.o"
+            "debug/MMIOMacros-tool.build/source.swift.o",
+            "debug/SwiftSyntax-tool.build/source.swift.o"
         ]))
 
         // Check diff with regular build plan
@@ -90,14 +94,16 @@ class PrepareForIndexTests: XCTestCase {
         let outputs0 = manifest0.commands.flatMap(\.value.tool.outputs).map(\.name)
 
         // The prepare shouldn't create any other object files.
-        let objectFiles0 = Set(outputs0.filter({ $0.hasSuffix(".o") })).subtracting(objectFiles)
+        let objectFiles0 = try Set(outputs0.filter({ $0.hasSuffix(".o") })
+            .map({ try AbsolutePath(validating: $0).components.suffix(3).joined(separator: "/") })
+        ).subtracting(objectFiles)
         XCTAssertEqual(objectFiles0, Set([
-            "/path/to/build/arm64-apple-macosx15.0/debug/Core.build/source.swift.o",
-            "/path/to/build/arm64-apple-macosx15.0/debug/CoreTests.build/source.swift.o",
-            "/path/to/build/arm64-apple-macosx15.0/debug/HAL.build/source.swift.o",
-            "/path/to/build/arm64-apple-macosx15.0/debug/HALTests.build/source.swift.o",
-            "/path/to/build/arm64-apple-macosx15.0/debug/MMIO.build/source.swift.o",
-            "/path/to/build/arm64-apple-macosx15.0/debug/SwiftSyntax.build/source.swift.o",
+            "debug/Core.build/source.swift.o",
+            "debug/CoreTests.build/source.swift.o",
+            "debug/HAL.build/source.swift.o",
+            "debug/HALTests.build/source.swift.o",
+            "debug/MMIO.build/source.swift.o",
+            "debug/SwiftSyntax.build/source.swift.o",
         ]))
     }
 }
