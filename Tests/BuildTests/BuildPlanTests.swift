@@ -128,7 +128,7 @@ final class BuildPlanTests: XCTestCase {
         )) { error in
             XCTAssertEqual(
                 (error as? PackageGraphError)?.description,
-                "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')"
+                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph"
             )
         }
     }
@@ -550,7 +550,7 @@ final class BuildPlanTests: XCTestCase {
         )) { error in
             XCTAssertEqual(
                 (error as? PackageGraphError)?.description,
-                "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')"
+                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph"
             )
         }
     }
