@@ -21,7 +21,8 @@ private import SPMBuildCore
 import class Build.BuildPlan
 import class Build.ClangTargetBuildDescription
 import class Build.SwiftTargetBuildDescription
-import struct PackageGraph.ResolvedTarget
+
+import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ModulesGraph
 import enum PackageGraph.BuildTriple
 
@@ -109,7 +110,7 @@ public struct BuildDescription {
     }
 
     // FIXME: should not use `ResolvedTarget` in the public interface
-    public func getBuildTarget(for target: ResolvedTarget, in modulesGraph: ModulesGraph) -> BuildTarget? {
+    public func getBuildTarget(for target: ResolvedModule, in modulesGraph: ModulesGraph) -> BuildTarget? {
         if let description = buildPlan.targetMap[target.id] {
             switch description {
             case .clang(let description):

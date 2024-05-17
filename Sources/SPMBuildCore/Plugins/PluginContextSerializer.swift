@@ -28,7 +28,7 @@ internal struct PluginContextSerializer {
     var paths: [WireInput.URL] = []
     var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
-    var targetsToWireIDs: [ResolvedTarget.ID: WireInput.Target.Id] = [:]
+    var targetsToWireIDs: [ResolvedModule.ID: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
     var productsToWireIDs: [ResolvedProduct.ID: WireInput.Product.Id] = [:]
     var packages: [WireInput.Package] = []

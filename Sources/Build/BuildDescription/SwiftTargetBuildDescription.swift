@@ -34,7 +34,7 @@ public final class SwiftTargetBuildDescription {
     public let package: ResolvedPackage
 
     /// The target described by this target.
-    public let target: ResolvedTarget
+    public let target: ResolvedModule
 
     private let swiftTarget: SwiftTarget
 
@@ -244,7 +244,7 @@ public final class SwiftTargetBuildDescription {
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,

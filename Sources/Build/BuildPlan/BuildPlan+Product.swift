@@ -14,7 +14,7 @@ import struct Basics.AbsolutePath
 import struct Basics.Triple
 import struct Basics.InternalError
 import struct PackageGraph.ResolvedProduct
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
 
@@ -125,8 +125,8 @@ extension BuildPlan {
         buildParameters: BuildParameters
     ) throws -> (
         dylibs: [ResolvedProduct],
-        staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget],
+        staticTargets: [ResolvedModule],
+        systemModules: [ResolvedModule],
         libraryBinaryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
@@ -161,7 +161,7 @@ extension BuildPlan {
         }
 
         // Sort the product targets in topological order.
-        let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
+        let nodes: [ResolvedModule.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the dependencies of a target.
@@ -186,7 +186,7 @@ extension BuildPlan {
                     return []
                 }
 
-                let productDependencies: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
+                let productDependencies: [ResolvedModule.Dependency] = product.targets.map { .target($0, conditions: []) }
                 switch product.type {
                 case .library(.automatic), .library(.static):
                     return productDependencies
@@ -202,8 +202,8 @@ extension BuildPlan {
 
         // Create empty arrays to collect our results.
         var linkLibraries = [ResolvedProduct]()
-        var staticTargets = [ResolvedTarget]()
-        var systemModules = [ResolvedTarget]()
+        var staticTargets = [ResolvedModule]()
+        var systemModules = [ResolvedModule]()
         var libraryBinaryPaths: Set<AbsolutePath> = []
         var availableTools = [String: AbsolutePath]()
 

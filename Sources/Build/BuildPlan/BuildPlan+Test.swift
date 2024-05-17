@@ -17,7 +17,7 @@ import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
 import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedProduct
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import struct PackageModel.Sources
 import class PackageModel.SwiftTarget
 import class PackageModel.Target
@@ -66,7 +66,7 @@ extension BuildPlan {
             }
 
             /// Generates test discovery targets, which contain derived sources listing the discovered tests.
-            func generateDiscoveryTargets() throws -> (target: SwiftTarget, resolved: ResolvedTarget, buildDescription: SwiftTargetBuildDescription) {
+            func generateDiscoveryTargets() throws -> (target: SwiftTarget, resolved: ResolvedModule, buildDescription: SwiftTargetBuildDescription) {
                 let discoveryTargetName = "\(package.manifest.displayName)PackageDiscoveredTests"
                 let discoveryDerivedDir = buildParameters.buildPath.appending(components: "\(discoveryTargetName).derived")
                 let discoveryMainFile = discoveryDerivedDir.appending(component: TestDiscoveryTool.mainFileName)
@@ -84,7 +84,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
-                let discoveryResolvedTarget = ResolvedTarget(
+                let discoveryResolvedTarget = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: discoveryTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) },
@@ -110,7 +110,7 @@ extension BuildPlan {
             /// point API and leverages the test discovery target to reference which tests to run.
             func generateSynthesizedEntryPointTarget(
                 swiftTargetDependencies: [Target.Dependency],
-                resolvedTargetDependencies: [ResolvedTarget.Dependency]
+                resolvedTargetDependencies: [ResolvedModule.Dependency]
             ) throws -> SwiftTargetBuildDescription {
                 let entryPointDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
                 let entryPointMainFileName = TestEntryPointTool.mainFileName(for: buildParameters.testingParameters.library)
@@ -124,7 +124,7 @@ extension BuildPlan {
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
-                let entryPointResolvedTarget = ResolvedTarget(
+                let entryPointResolvedTarget = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + resolvedTargetDependencies,
@@ -144,9 +144,9 @@ extension BuildPlan {
                 )
             }
 
-            let discoveryTargets: (target: SwiftTarget, resolved: ResolvedTarget, buildDescription: SwiftTargetBuildDescription)?
+            let discoveryTargets: (target: SwiftTarget, resolved: ResolvedModule, buildDescription: SwiftTargetBuildDescription)?
             let swiftTargetDependencies: [Target.Dependency]
-            let resolvedTargetDependencies: [ResolvedTarget.Dependency]
+            let resolvedTargetDependencies: [ResolvedModule.Dependency]
 
             switch buildParameters.testingParameters.library {
             case .xctest:
@@ -169,7 +169,7 @@ extension BuildPlan {
                             packageAccess: entryPointResolvedTarget.packageAccess,
                             testEntryPointSources: entryPointResolvedTarget.underlying.sources
                         )
-                        let entryPointResolvedTarget = ResolvedTarget(
+                        let entryPointResolvedTarget = ResolvedModule(
                             packageIdentity: testProduct.packageIdentity,
                             underlying: entryPointTarget,
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,

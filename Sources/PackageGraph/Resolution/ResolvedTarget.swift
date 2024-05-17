@@ -12,17 +12,20 @@
 
 import PackageModel
 
-/// Represents a fully resolved target. All the dependencies for this target are also stored as resolved.
-public struct ResolvedTarget {
+@available(*, deprecated, renamed: "ResolvedModule")
+public typealias ResolvedTarget = ResolvedModule
+
+/// Represents a fully resolved module. All the dependencies for this module are also stored as resolved.
+public struct ResolvedModule {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
-        case target(_ target: ResolvedTarget, conditions: [PackageCondition])
+        case target(_ target: ResolvedModule, conditions: [PackageCondition])
 
         /// The target depends on this product.
         case product(_ product: ResolvedProduct, conditions: [PackageCondition])
 
-        public var target: ResolvedTarget? {
+        public var target: ResolvedModule? {
             switch self {
             case .target(let target, _): return target
             case .product: return nil
@@ -44,7 +47,7 @@ public struct ResolvedTarget {
         }
 
         /// Returns the direct dependencies of the underlying dependency, across the package graph.
-        public var dependencies: [ResolvedTarget.Dependency] {
+        public var dependencies: [ResolvedModule.Dependency] {
             switch self {
             case .target(let target, _):
                 return target.dependencies
@@ -54,7 +57,7 @@ public struct ResolvedTarget {
         }
 
         /// Returns the direct dependencies of the underlying dependency, limited to the target's package.
-        public var packageDependencies: [ResolvedTarget.Dependency] {
+        public var packageDependencies: [ResolvedModule.Dependency] {
             switch self {
             case .target(let target, _):
                 return target.dependencies
@@ -86,7 +89,7 @@ public struct ResolvedTarget {
     }
 
     /// Returns the recursive target dependencies, across the whole package-graph.
-    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
+    public func recursiveTargetDependencies() throws -> [ResolvedModule] {
         try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
     }
 
@@ -150,7 +153,7 @@ public struct ResolvedTarget {
     public init(
         packageIdentity: PackageIdentity,
         underlying: Target,
-        dependencies: [ResolvedTarget.Dependency],
+        dependencies: [ResolvedModule.Dependency],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
         platformVersionProvider: PlatformVersionProvider
@@ -173,13 +176,13 @@ public struct ResolvedTarget {
     }
 }
 
-extension ResolvedTarget: CustomStringConvertible {
+extension ResolvedModule: CustomStringConvertible {
     public var description: String {
         return "<ResolvedTarget: \(name)>"
     }
 }
 
-extension ResolvedTarget.Dependency: CustomStringConvertible {
+extension ResolvedModule.Dependency: CustomStringConvertible {
     public var description: String {
         var str = "<ResolvedTarget.Dependency: "
         switch self {
@@ -193,11 +196,14 @@ extension ResolvedTarget.Dependency: CustomStringConvertible {
     }
 }
 
-extension ResolvedTarget.Dependency: Identifiable {
+extension ResolvedModule.Dependency: Identifiable {
     public struct ID: Hashable {
         enum Kind: Hashable {
-            case target
+            case module
             case product
+
+            @available(*, deprecated, renamed: "module")
+            public static let target: Kind = .module
         }
 
         let kind: Kind
@@ -208,15 +214,15 @@ extension ResolvedTarget.Dependency: Identifiable {
     public var id: ID {
         switch self {
         case .target(let target, _):
-            return .init(kind: .target, packageIdentity: target.packageIdentity, name: target.name)
+            return .init(kind: .module, packageIdentity: target.packageIdentity, name: target.name)
         case .product(let product, _):
             return .init(kind: .product, packageIdentity: product.packageIdentity, name: product.name)
         }
     }
 }
 
-extension ResolvedTarget.Dependency: Equatable {
-    public static func == (lhs: ResolvedTarget.Dependency, rhs: ResolvedTarget.Dependency) -> Bool {
+extension ResolvedModule.Dependency: Equatable {
+    public static func == (lhs: ResolvedModule.Dependency, rhs: ResolvedModule.Dependency) -> Bool {
         switch (lhs, rhs) {
         case (.target(let lhsTarget, _), .target(let rhsTarget, _)):
             return lhsTarget.id == rhsTarget.id
@@ -228,7 +234,7 @@ extension ResolvedTarget.Dependency: Equatable {
     }
 }
 
-extension ResolvedTarget.Dependency: Hashable {
+extension ResolvedModule.Dependency: Hashable {
     public func hash(into hasher: inout Hasher) {
         switch self {
         case .target(let target, _):
@@ -239,7 +245,7 @@ extension ResolvedTarget.Dependency: Hashable {
     }
 }
 
-extension ResolvedTarget: Identifiable {
+extension ResolvedModule: Identifiable {
     /// Resolved target identity that uniquely identifies it in a resolution graph.
     public struct ID: Hashable {
         public let targetName: String

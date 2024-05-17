@@ -15,7 +15,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import struct PackageGraph.ModulesGraph
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
@@ -28,7 +28,7 @@ public final class ClangTargetBuildDescription {
     public let package: ResolvedPackage
 
     /// The target described by this target.
-    public let target: ResolvedTarget
+    public let target: ResolvedModule
 
     /// The underlying clang target.
     public let clangTarget: ClangTarget
@@ -114,7 +114,7 @@ public final class ClangTargetBuildDescription {
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
