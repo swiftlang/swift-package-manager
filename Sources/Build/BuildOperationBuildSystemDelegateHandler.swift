@@ -386,29 +386,29 @@ public struct BuildDescription: Codable {
             .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
             let deps = try targetBuildDescription.target.recursiveDependencies(
-                satisfying: plan.buildParameters(for: targetBuildDescription.target).buildEnvironment
+                satisfying: targetBuildDescription.buildParameters.buildEnvironment
             )
                 .compactMap(\.target).map(\.c99name)
             partial[targetBuildDescription.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
-        for (targetID, description) in plan.targetMap {
-            guard case .swift(let desc) = description, let target = plan.graph.allTargets[targetID] else {
+        for description in plan.targets {
+            guard case .swift(let desc) = description else {
                 continue
             }
-            let buildParameters = plan.buildParameters(for: target)
-            targetCommandLines[target.c99name] =
+            let buildParameters = description.buildParameters
+            targetCommandLines[desc.target.c99name] =
                 try desc.emitCommandLine(scanInvocation: true) + [
                     "-driver-use-frontend-path", buildParameters.toolchain.swiftCompilerPath.pathString
                 ]
             if case .discovery = desc.testTargetRole {
-                generatedSourceTargets.append(target.c99name)
+                generatedSourceTargets.append(desc.target.c99name)
             }
         }
         generatedSourceTargets.append(
-            contentsOf: plan.graph.allTargets.filter { $0.type == .plugin }
-                .map(\.c99name)
+            contentsOf: plan.pluginDescriptions
+                .map(\.targetC99Name)
         )
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)

@@ -92,6 +92,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
             target: target,
             toolsVersion: .current,
             buildParameters: buildParameters ?? mockBuildParameters(
+                destination: .target,
                 toolchain: try UserToolchain.default,
                 indexStoreMode: .on
             ),

@@ -88,19 +88,18 @@ public final class PackageGraphResult {
 
     package func checkTarget(
         _ name: String,
+        destination: BuildTriple = .destination,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
     ) {
-        let targets = find(target: name)
+        let target = graph.target(for: name, destination: destination)
 
-        guard targets.count > 0 else {
+        guard let target else {
             return XCTFail("Target \(name) not found", file: file, line: line)
         }
-        guard targets.count == 1 else {
-            return XCTFail("More than a single target with name \(name) found", file: file, line: line)
-        }
-        body(ResolvedTargetResult(targets[0]))
+
+        body(ResolvedTargetResult(target))
     }
 
     package func checkTargets(
@@ -114,20 +113,18 @@ public final class PackageGraphResult {
 
     public func checkProduct(
         _ name: String,
+        destination: BuildTriple = .destination,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedProductResult) -> Void
     ) {
-        let products = find(product: name)
+        let product = graph.product(for: name, destination: destination)
 
-        guard products.count > 0 else {
+        guard let product else {
             return XCTFail("Product \(name) not found", file: file, line: line)
         }
 
-        guard products.count == 1 else {
-            return XCTFail("More than a single product with name \(name) found", file: file, line: line)
-        }
-        body(ResolvedProductResult(products[0]))
+        body(ResolvedProductResult(product))
     }
 
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
@@ -136,14 +133,6 @@ public final class PackageGraphResult {
                 .filter{ $0.type == .test }
                 .map{ $0.name }
                 .sorted(), testModules.sorted(), file: file, line: line)
-    }
-
-    package func find(target: String) -> [ResolvedModule] {
-        return graph.allTargets.filter { $0.name == target }
-    }
-
-    package func find(product: String) -> [ResolvedProduct] {
-        return graph.allProducts.filter { $0.name == product }
     }
 
     public func find(package: PackageIdentity) -> ResolvedPackage? {

@@ -11,11 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import struct Basics.InternalError
 import struct LLBuildManifest.Node
+import struct SPMBuildCore.BuildParameters
+import struct PackageGraph.ResolvedProduct
 
 extension LLBuildManifestBuilder {
     func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
-        let cmdName = try buildProduct.product.getCommandName(buildParameters: buildProduct.buildParameters)
+        let cmdName = try buildProduct.commandName
 
         // Add dependency on Info.plist generation on Darwin platforms.
         let testInputs: [AbsolutePath]
@@ -34,7 +37,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Create a phony node to represent the entire target.
-        let targetName = try buildProduct.product.getLLBuildTargetName(buildParameters: buildProduct.buildParameters)
+        let targetName = try buildProduct.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         let finalProductNode: Node
@@ -85,7 +88,7 @@ extension LLBuildManifestBuilder {
                     outputPath: plistPath
                 )
 
-                let cmdName = try buildProduct.product.getCommandName(buildParameters: buildProduct.buildParameters)
+                let cmdName = try buildProduct.commandName
                 let codeSigningOutput = Node.virtual(targetName + "-CodeSigning")
                 try self.manifest.addShellCmd(
                     name: "\(cmdName)-entitlements",
@@ -118,5 +121,50 @@ extension LLBuildManifestBuilder {
             objects: Array(buildProduct.objects),
             linkFileListPath: buildProduct.linkFileListPath
         )
+    }
+}
+
+extension ProductBuildDescription {
+    package var llbuildTargetName: String {
+        get throws {
+            try self.product.getLLBuildTargetName(buildParameters: self.buildParameters)
+        }
+    }
+
+    package var commandName: String {
+        get throws {
+            try "C.\(self.llbuildTargetName)\(self.buildParameters.suffix)"
+        }
+    }
+}
+
+extension ResolvedProduct {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
+        let triple = buildParameters.triple.tripleString
+        let config = buildParameters.buildConfig
+        let suffix = buildParameters.suffix
+        let potentialExecutableTargetName = "\(name)-\(triple)-\(config)\(suffix).exe"
+        let potentialLibraryTargetName = "\(name)-\(triple)-\(config)\(suffix).dylib"
+
+        switch type {
+        case .library(.dynamic):
+            return potentialLibraryTargetName
+        case .test:
+            return "\(name)-\(triple)-\(config)\(suffix).test"
+        case .library(.static):
+            return "\(name)-\(triple)-\(config)\(suffix).a"
+        case .library(.automatic):
+            throw InternalError("automatic library not supported")
+        case .executable, .snippet:
+            return potentialExecutableTargetName
+        case .macro:
+            #if BUILD_MACROS_AS_DYLIBS
+            return potentialLibraryTargetName
+            #else
+            return potentialExecutableTargetName
+            #endif
+        case .plugin:
+            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
+        }
     }
 }
