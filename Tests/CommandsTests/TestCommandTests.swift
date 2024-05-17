@@ -304,12 +304,9 @@ final class TestCommandTests: CommandsTestCase {
     }
 #endif
 
-#if false
-    // DISABLED: This test cannot be enabled until the hosting copy of SwiftPM
-    // has started setting this environment variable.
-    func testLibraryEnvironmentVariable() {
-        let envvar = ProcessInfo.processInfo.environment["SWIFT_PM_TEST_LIBRARY"]
-        XCTAssertEqual(envvar, "XCTest")
+    func testLibraryEnvironmentVariable() throws {
+      try fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
+        XCTAssertNoThrow(try SwiftPM.Test.execute(packagePath: fixturePath))
+      }
     }
-#endif
 }
