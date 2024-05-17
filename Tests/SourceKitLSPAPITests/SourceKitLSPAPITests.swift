@@ -87,7 +87,7 @@ extension SourceKitLSPAPI.BuildDescription {
         partialArguments: [String],
         isPartOfRootPackage: Bool
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
+        let target = try XCTUnwrap(graph.target(for: targetName))
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
 
         guard let file = buildTarget.sources.first else {

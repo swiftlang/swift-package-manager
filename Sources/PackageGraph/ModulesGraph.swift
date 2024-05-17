@@ -166,6 +166,16 @@ public struct ModulesGraph {
         package.dependencies.compactMap { self.package(for: $0) }
     }
 
+    public func product(for name: String) -> ResolvedProduct? {
+        // FIXME: This is wrong since graph can contain products with the same name but different triples.
+        self.allProducts.first { $0.name == name }
+    }
+
+    public func target(for name: String) -> ResolvedModule? {
+        // FIXME: This is wrong since graph can contain products with the same name but different triples.
+        self.allTargets.first { $0.name == name }
+    }
+
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
