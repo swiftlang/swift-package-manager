@@ -236,7 +236,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             buildParameters: toolsBuildParameters,
-            sanitizers: swiftCommandState.options.build.sanitizers
+            sanitizers: swiftCommandState.options.build.sanitizers,
+            library: .xctest // FIXME: support both libraries
         )
 
         // Iterate over the tests and run those that match the filter.
