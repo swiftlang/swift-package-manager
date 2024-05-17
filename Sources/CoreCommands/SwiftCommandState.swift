@@ -868,10 +868,10 @@ public final class SwiftCommandState {
         return Result(catching: {
             try UserToolchain(
                 swiftSDK: SwiftSDK.hostSwiftSDK(
-                    environment: environment,
+                    environment: .process(),
                     observabilityScope: self.observabilityScope
                 ),
-                environment: environment,
+                environment: .process(),
                 fileSystem: localFileSystem
             )
         })
