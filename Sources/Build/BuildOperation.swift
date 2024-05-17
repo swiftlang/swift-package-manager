@@ -894,13 +894,13 @@ extension BuildSubset {
         case .allExcludingTests:
             return graph.reachableTargets.filter { $0.type != .test }
         case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+            guard let product = graph.product(for: productName) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveTargetDependencies()
         case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+            guard let target = graph.target(for: targetName) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
@@ -920,7 +920,7 @@ extension BuildSubset {
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
         case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+            guard let product = graph.product(for: productName) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
@@ -937,7 +937,7 @@ extension BuildSubset {
                 try product.getLLBuildTargetName(buildParameters: buildParameters)
             }
         case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+            guard let target = graph.target(for: targetName) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }

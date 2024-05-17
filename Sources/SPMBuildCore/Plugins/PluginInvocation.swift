@@ -677,7 +677,7 @@ public extension PluginTarget {
                 executableOrBinaryTarget = target
             case .product(let productRef, _):
                 guard
-                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let product = packageGraph.product(for: productRef.name),
                     let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
                 else {
                     throw StringError("no product named \(productRef.name)")
