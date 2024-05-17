@@ -447,6 +447,10 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
             XCTAssertEqual(targetSwiftSDK.architectures, archs)
             XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath, customCompileSDK)
+            XCTAssertEqual(
+                targetSwiftSDK.toolset.rootPaths,
+                [customCompileToolchain.appending(components: ["usr", "bin"])] + hostSwiftSDK.toolset.rootPaths
+            )
         }
     }
 }

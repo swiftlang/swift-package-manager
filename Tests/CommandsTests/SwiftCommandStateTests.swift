@@ -321,22 +321,16 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testToolchainArgument() throws {
-        let hostBinDir = AbsolutePath("/swiftpm/bin")
-        let hostSwiftcPath = hostBinDir.appending(components: ["swiftc"])
-
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
         let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
         let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
 
         let fs = InMemoryFileSystem(emptyFiles: [
             "/Pkg/Sources/exe/main.swift",
-            hostSwiftcPath.pathString,
             targetSwiftcPath.pathString,
             targetArPath.pathString
         ])
 
-
-        try fs.updatePermissions(hostSwiftcPath, isExecutable: true)
         try fs.updatePermissions(targetSwiftcPath, isExecutable: true)
         try fs.updatePermissions(targetArPath, isExecutable: true)
 
@@ -361,10 +355,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         )
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
-            fileSystem: fs,
-            environment: [
-                "SWIFTPM_CUSTOM_BIN_DIR": hostBinDir.pathString
-            ]
+            fileSystem: fs
         )
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(
