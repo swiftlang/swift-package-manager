@@ -20,7 +20,7 @@ enum PackageGraphError: Swift.Error {
     case noModules(Package)
 
     /// The package dependency declaration has cycle in it.
-    case cycleDetected((path: [Manifest], cycle: [Manifest]))
+    case dependencyCycleDetected(path: [Manifest], cycle: Manifest)
 
     /// The product dependency not found.
     case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool, similarProductName: String?, packageContainingSimilarProduct: String?)
@@ -226,10 +226,10 @@ extension PackageGraphError: CustomStringConvertible {
         case .noModules(let package):
             return "package '\(package)' contains no products"
 
-        case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-            (cycle.path + cycle.cycle).map({ $0.displayName }).joined(separator: " -> ") +
-            " -> " + cycle.cycle[0].displayName
+        case .dependencyCycleDetected(let path, let package):
+            return "cyclic dependency between packages " +
+            (path.map({ $0.displayName }).joined(separator: " -> ")) +
+            " -> \(package.displayName) requires tools-version 6.0 or later"
 
         case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl, let similarProductName, let packageContainingSimilarProduct):
             if dependencyProductInDecl {

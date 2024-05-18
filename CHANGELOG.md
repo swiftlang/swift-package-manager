@@ -5,8 +5,8 @@ Swift 6.0
 
 * [#7530]
 
-  Makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles. For example,
-  package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
+  Starting from tools-version 6.0 makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles.
+  For example, package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
   targets from `B` and vice versa.
 
 * [#7507] 
