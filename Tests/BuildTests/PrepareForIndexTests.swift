@@ -61,6 +61,8 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertFalse(toolSwiftc.otherArguments.contains("-experimental-skip-all-function-bodies"))
 
         // Make sure only object files for tools are built
-        XCTAssertTrue(outputs.filter({ $0.hasSuffix(".o") }).allSatisfy({ $0.contains("-tool.build/")}))
+        XCTAssertTrue(outputs.filter({ $0.hasSuffix(".o") }).allSatisfy({ $0.contains("-tool.build/")}),
+                      "outputs:\n\t\(outputs.filter({ $0.hasSuffix(".o") }).joined(separator: "\n\t"))"
+        )
     }
 }
