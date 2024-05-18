@@ -25,9 +25,9 @@ public final class LegacyHTTPClient: Cancellable {
     public typealias Configuration = LegacyHTTPClientConfiguration
     public typealias Request = LegacyHTTPClientRequest
     public typealias Response = HTTPClientResponse
-    public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
-    public typealias ProgressHandler = (_ bytesReceived: Int64, _ totalBytes: Int64?) throws -> Void
-    public typealias CompletionHandler = (Result<HTTPClientResponse, Error>) -> Void
+    public typealias Handler = (Request, ProgressHandler?, @escaping @Sendable (Result<Response, Error>) -> Void) -> Void
+    public typealias ProgressHandler = @Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) throws -> Void
+    public typealias CompletionHandler = @Sendable (Result<HTTPClientResponse, Error>) -> Void
 
     public var configuration: LegacyHTTPClientConfiguration
     private let underlying: Handler
@@ -121,7 +121,7 @@ public final class LegacyHTTPClient: Cancellable {
             requestNumber: 0,
             observabilityScope: observabilityScope,
             progress: progress.map { handler in
-                { received, expected in
+                { @Sendable received, expected in
                     // call back on the requested queue
                     callbackQueue.async {
                         do {
@@ -312,7 +312,7 @@ extension LegacyHTTPClient {
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
-        completion: @escaping (Result<Response, Error>) -> Void
+        completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
         self.execute(
             Request(method: .head, url: url, headers: headers, body: nil, options: options),
@@ -326,7 +326,7 @@ extension LegacyHTTPClient {
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
-        completion: @escaping (Result<Response, Error>) -> Void
+        completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
         self.execute(
             Request(method: .get, url: url, headers: headers, body: nil, options: options),
@@ -341,7 +341,7 @@ extension LegacyHTTPClient {
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
-        completion: @escaping (Result<Response, Error>) -> Void
+        completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
         self.execute(
             Request(method: .put, url: url, headers: headers, body: body, options: options),
@@ -356,7 +356,7 @@ extension LegacyHTTPClient {
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
-        completion: @escaping (Result<Response, Error>) -> Void
+        completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
         self.execute(
             Request(method: .post, url: url, headers: headers, body: body, options: options),
@@ -370,7 +370,7 @@ extension LegacyHTTPClient {
         headers: HTTPClientHeaders = .init(),
         options: Request.Options = .init(),
         observabilityScope: ObservabilityScope? = .none,
-        completion: @escaping (Result<Response, Error>) -> Void
+        completion: @Sendable @escaping (Result<Response, Error>) -> Void
     ) {
         self.execute(
             Request(method: .delete, url: url, headers: headers, body: nil, options: options),
@@ -383,7 +383,7 @@ extension LegacyHTTPClient {
 // MARK: - LegacyHTTPClientConfiguration
 
 public struct LegacyHTTPClientConfiguration {
-    public typealias AuthorizationProvider = (URL) -> String?
+    public typealias AuthorizationProvider = @Sendable (URL) -> String?
 
     public var requestHeaders: HTTPClientHeaders?
     public var requestTimeout: DispatchTimeInterval?

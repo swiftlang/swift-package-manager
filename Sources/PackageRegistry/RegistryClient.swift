@@ -983,7 +983,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1009,7 +1009,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1063,7 +1063,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         destinationPath: AbsolutePath,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1651,7 +1651,7 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response in
                     observabilityScope
                         .emit(
-                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                            debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
                         )
                     switch response.statusCode {
                     case 201:

@@ -450,8 +450,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.EXECUTABLE_NAME] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.DEFINES_MODULE] = "YES"
-        settings[.SWIFT_FORCE_STATIC_LINK_STDLIB] = "NO"
-        settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB] = "YES"
 
         if product.type == .executable || product.type == .test {
             settings[.LIBRARY_SEARCH_PATHS] = [
@@ -1710,6 +1708,9 @@ extension [PackageCondition] {
             case .watchOS:
                 result += PIF.PlatformFilter.watchOSFilters
 
+            case .visionOS:
+                result += PIF.PlatformFilter.visionOSFilters
+
             case .linux:
                 result += PIF.PlatformFilter.linuxFilters
 
@@ -1793,6 +1794,14 @@ extension PIF.PlatformFilter {
     /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
         .init(platform: "wasi"),
+    ]
+
+    /// VisionOS platform filters.
+    public static let visionOSFilters: [PIF.PlatformFilter] = [
+        .init(platform: "xros"),
+        .init(platform: "xros", environment: "simulator"),
+        .init(platform: "visionos"),
+        .init(platform: "visionos", environment: "simulator")
     ]
 }
 

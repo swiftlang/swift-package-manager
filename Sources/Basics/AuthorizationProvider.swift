@@ -17,8 +17,7 @@ import struct Foundation.URL
 import Security
 #endif
 
-public protocol AuthorizationProvider {
-    @Sendable
+public protocol AuthorizationProvider: Sendable {
     func authentication(for url: URL) -> (user: String, password: String)?
 }
 
@@ -80,7 +79,7 @@ extension AuthorizationProvider {
 
 // MARK: - netrc
 
-public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
+public final class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     // marked internal for testing
     internal let path: AbsolutePath
     private let fileSystem: FileSystem
@@ -202,7 +201,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
 // MARK: - Keychain
 
 #if canImport(Security)
-public class KeychainAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
+public final class KeychainAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     private let observabilityScope: ObservabilityScope
 
     private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
