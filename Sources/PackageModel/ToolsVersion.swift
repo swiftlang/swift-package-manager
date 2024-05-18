@@ -182,10 +182,11 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
 
             // Otherwise, use 4.2
             return .v4_2
-
-        default:
-            // Anything above 4 major version uses version 5.
+        case 5:
             return .v5
+        default:
+            // Anything above 5 major version uses version 6.
+            return .v6
         }
     }
 }

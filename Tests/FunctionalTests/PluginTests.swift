@@ -177,7 +177,9 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testBuildToolWithoutOutputs() throws {
+    func testBuildToolWithoutOutputs() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1158,7 +1160,9 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testURLBasedPluginAPI() throws {
+    func testURLBasedPluginAPI() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1168,7 +1172,9 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testDependentPlugins() throws {
+    func testDependentPlugins() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in

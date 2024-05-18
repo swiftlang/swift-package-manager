@@ -882,23 +882,6 @@ public final class SwiftCommandState {
             }
 
             var extraManifestFlags = self.options.build.manifestFlags
-            // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if DriverSupport.checkSupportedFrontendFlags(
-                flags: ["disable-implicit-concurrency-module-import"],
-                toolchain: try self.toolsBuildParameters.toolchain,
-                fileSystem: self.fileSystem
-            ) {
-                extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
-            }
-            // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
-            if DriverSupport.checkSupportedFrontendFlags(
-                flags: ["disable-implicit-string-processing-module-import"],
-                toolchain: try self.toolsBuildParameters.toolchain,
-                fileSystem: self.fileSystem
-            ) {
-                extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
-            }
-
             if self.logLevel <= .info {
                 extraManifestFlags.append("-v")
             }

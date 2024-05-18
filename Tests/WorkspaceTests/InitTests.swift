@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,7 +16,7 @@ import PackageModel
 import Workspace
 import XCTest
 
-class InitTests: XCTestCase {
+final class InitTests: XCTestCase {
 
     // MARK: TSCBasic package creation for each package type.
     
@@ -53,8 +53,10 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .contains(packageWithNameOnly(named: name)))
         }
     }
-    
-    func testInitPackageExecutable() throws {
+
+    func testInitPackageExecutable() async throws  {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -98,7 +100,9 @@ class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibraryWithXCTestOnly() throws {
+    func testInitPackageLibraryWithXCTestOnly() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -148,7 +152,7 @@ class InitTests: XCTestCase {
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
     }
-        
+
     func testInitPackageLibraryWithSwiftTestingOnly() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
@@ -235,7 +239,9 @@ class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageLibraryWithNoTests() throws {
+    func testInitPackageLibraryWithNoTests() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -339,8 +345,9 @@ class InitTests: XCTestCase {
     }
 
     // MARK: Special case testing
-    
-    func testInitPackageNonc99Directory() throws {
+
+    func testInitPackageNonc99Directory() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
@@ -367,7 +374,9 @@ class InitTests: XCTestCase {
         }
     }
     
-    func testNonC99NameExecutablePackage() throws {
+    func testNonC99NameExecutablePackage() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
