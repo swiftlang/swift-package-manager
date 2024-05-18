@@ -262,7 +262,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph")
         }
     }
 
@@ -324,7 +324,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )) { error in
-            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple products named 'Logging' in: 'barpkg' (at '\(barPkg)'), 'foopkg' (at '\(fooPkg)')")
+            XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph")
         }
     }
 
@@ -4692,7 +4692,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
             XCTFail("unexpectedly resolved the package graph successfully")
         } catch {
-            XCTAssertEqual(error.interpolationDescription, "multiple products named 'SomeProduct' in: 'other' (at '\(AbsolutePath("/Other"))'), 'some' (at '\(AbsolutePath("/Some"))')")
+            XCTAssertEqual(error.interpolationDescription, "multiple packages ('other' (at '\(AbsolutePath("/Other"))'), 'some' (at '\(AbsolutePath("/Some"))')) declare products with a conflicting name: 'SomeProduct’; product names need to be unique across the package graph")
         }
         XCTAssertEqual(observability.diagnostics.map { $0.description }.sorted(), ["[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'other\'", "[warning]: product aliasing requires tools-version 5.2 or later, so it is not supported by \'some\'"])
     }
