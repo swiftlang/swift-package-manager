@@ -218,8 +218,11 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
     /// Returns the path to the correct executable based on options.
     private func findProductName(in graph: ModulesGraph) throws -> String {
         if let executable = options.executable {
-            let executableExists = graph.allProducts.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
-            guard executableExists else {
+            // There should be only one product with the given name in the graph
+            // and it should be executable or snippet.
+            guard let product = graph.product(for: executable),
+                  product.type == .executable || product.type == .snippet
+            else {
                 throw RunError.executableNotFound(executable)
             }
             return executable
