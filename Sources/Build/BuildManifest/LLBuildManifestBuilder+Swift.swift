@@ -375,7 +375,7 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(buildParameters: target.defaultBuildParameters)
+        let cmdName = target.getCommandName()
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
@@ -495,7 +495,7 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(buildParameters: target.defaultBuildParameters)
+        let targetName = target.getLLBuildTargetName()
         let targetOutput: Node = .virtual(targetName)
 
         self.manifest.addNode(targetOutput, toTarget: targetName)
@@ -599,5 +599,15 @@ extension Driver {
            !self.supportedFrontendFeatures.contains("ld-path-driver-option") {
             throw LLBuildManifestBuilder.Error.ldPathDriverOptionUnavailable(option: option)
         }
+    }
+}
+
+extension SwiftTargetBuildDescription {
+    public func getCommandName() -> String {
+        "C." + self.getLLBuildTargetName()
+    }
+
+    public func getLLBuildTargetName() -> String {
+        self.target.getLLBuildTargetName(buildParameters: self.defaultBuildParameters)
     }
 }

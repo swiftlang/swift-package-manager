@@ -316,52 +316,21 @@ extension TargetBuildDescription {
     }
 }
 
-extension ResolvedModule {
-    public func getCommandName(buildParameters: BuildParameters) -> String {
-        "C." + self.getLLBuildTargetName(buildParameters: buildParameters)
-    }
-
-    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
-        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
-    }
-
-    public func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
-        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
+extension TargetBuildDescription {
+    public func getLLBuildResourcesCmdName() -> String {
+        "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
-extension ResolvedProduct {
-    public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
-        let triple = buildParameters.triple.tripleString
-        let config = buildParameters.buildConfig
-        let suffix = buildParameters.suffix(triple: self.buildTriple)
-        let potentialExecutableTargetName = "\(name)-\(triple)-\(config)\(suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(triple)-\(config)\(suffix).dylib"
-
-        switch type {
-        case .library(.dynamic):
-            return potentialLibraryTargetName
-        case .test:
-            return "\(name)-\(triple)-\(config)\(suffix).test"
-        case .library(.static):
-            return "\(name)-\(triple)-\(config)\(suffix).a"
-        case .library(.automatic):
-            throw InternalError("automatic library not supported")
-        case .executable, .snippet:
-            return potentialExecutableTargetName
-        case .macro:
-            #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryTargetName
-            #else
-            return potentialExecutableTargetName
-            #endif
-        case .plugin:
-            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
-        }
+extension ClangTargetBuildDescription {
+    public func getLLBuildTargetName() -> String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
+}
 
-    public func getCommandName(buildParameters: BuildParameters) throws -> String {
-        try "C.\(self.getLLBuildTargetName(buildParameters: buildParameters))\(buildParameters.suffix(triple: self.buildTriple))"
+extension ResolvedModule {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix).module"
     }
 }
 
