@@ -191,11 +191,8 @@ extension LLBuildManifestBuilder {
     public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedModule.Dependency] = try self.plan.targetMap.keys.compactMap {
-            guard let target = self.plan.graph.allTargets[$0] else {
-                throw InternalError("unknown target \($0)")
-            }
-            return ResolvedModule.Dependency.target(target, conditions: [])
+        let nodes = self.plan.targets.compactMap {
+            ResolvedModule.Dependency.target($0.target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -430,14 +427,10 @@ extension LLBuildManifestBuilder {
             // Depend on the binary for executable targets.
             if target.type == .executable {
                 // FIXME: Optimize.
-                let product = try plan.graph.allProducts.first {
-                    try $0.type == .executable && $0.executableTarget.id == target.id
-                }
-                if let product {
-                    guard let planProduct = plan.productMap[product.id] else {
-                        throw InternalError("unknown product \(product)")
-                    }
-                    try inputs.append(file: planProduct.binaryPath)
+                if let productDescription = try plan.productMap.values.first(where: {
+                    try $0.product.type == .executable && $0.product.executableTarget.id == target.id
+                }) {
+                    try inputs.append(file: productDescription.binaryPath)
                 }
                 return
             }
