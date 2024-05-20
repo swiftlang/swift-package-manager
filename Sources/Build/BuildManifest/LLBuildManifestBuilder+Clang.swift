@@ -93,7 +93,7 @@ extension LLBuildManifestBuilder {
         let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(buildParameters: target.buildParameters)
+        let targetName = target.getLLBuildTargetName()
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
