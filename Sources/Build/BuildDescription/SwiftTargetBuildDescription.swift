@@ -46,9 +46,6 @@ public final class SwiftTargetBuildDescription {
     /// The build parameters for this target.
     let defaultBuildParameters: BuildParameters
 
-    /// The build parameters for build tools.
-    let toolsBuildParameters: BuildParameters
-
     /// Path to the temporary directory for this target.
     let tempsPath: AbsolutePath
 
@@ -235,7 +232,7 @@ public final class SwiftTargetBuildDescription {
     public let prebuildCommandResults: [PrebuildCommandResult]
 
     /// Any macro products that this target requires to build.
-    public let requiredMacroProducts: [ResolvedProduct]
+    public let requiredMacroProducts: [ProductBuildDescription]
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
@@ -253,10 +250,9 @@ public final class SwiftTargetBuildDescription {
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         destinationBuildParameters: BuildParameters,
-        toolsBuildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
-        requiredMacroProducts: [ResolvedProduct] = [],
+        requiredMacroProducts: [ProductBuildDescription] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
         shouldDisableSandbox: Bool,
@@ -272,7 +268,6 @@ public final class SwiftTargetBuildDescription {
         self.target = target
         self.toolsVersion = toolsVersion
         self.defaultBuildParameters = destinationBuildParameters
-        self.toolsBuildParameters = toolsBuildParameters
 
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         if let testTargetRole {
@@ -439,15 +434,15 @@ public final class SwiftTargetBuildDescription {
 
         #if BUILD_MACROS_AS_DYLIBS
         self.requiredMacroProducts.forEach { macro in
-            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", self.toolsBuildParameters.binaryPath(for: macro).pathString]
+            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", macro.binaryPath.pathString]
         }
         #else
         try self.requiredMacroProducts.forEach { macro in
-            if let macroTarget = macro.targets.first {
-                let executablePath = try self.toolsBuildParameters.binaryPath(for: macro).pathString
+            if let macroTarget = macro.product.targets.first {
+                let executablePath = try macro.binaryPath.pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
-                throw InternalError("macro product \(macro.name) has no targets") // earlier validation should normally catch this
+                throw InternalError("macro product \(macro.product.name) has no targets") // earlier validation should normally catch this
             }
         }
         #endif
