@@ -537,7 +537,7 @@ extension LLBuildManifestBuilder {
 
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
-        guard target.defaultBuildParameters.debuggingStrategy == .modulewrap else { return }
+        guard target.defaultBuildParameters.debuggingStrategy == .modulewrap, !target.prepareForIndexing else { return }
         var moduleWrapArgs = [
             target.defaultBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,
