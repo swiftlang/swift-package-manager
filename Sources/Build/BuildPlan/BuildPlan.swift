@@ -380,7 +380,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         target: target,
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
-                        destinationBuildParameters: buildParameters,
+                        buildParameters: buildParameters,
                         buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
                         prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
                         requiredMacroProducts: requiredMacroProducts,
