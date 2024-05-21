@@ -66,7 +66,7 @@ public final class SwiftTargetBuildDescription {
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         if let bundleName = target.underlying.potentialBundleName, needsResourceBundle {
-            let suffix = self.defaultBuildParameters.suffix(triple: self.target.buildTriple)
+            let suffix = self.defaultBuildParameters.suffix
             return self.defaultBuildParameters.bundlePath(named: bundleName + suffix)
         } else {
             return nil
@@ -113,7 +113,7 @@ public final class SwiftTargetBuildDescription {
     }
 
     var modulesPath: AbsolutePath {
-        let suffix = self.defaultBuildParameters.suffix(triple: self.target.buildTriple)
+        let suffix = self.defaultBuildParameters.suffix
         return self.defaultBuildParameters.buildPath.appending(component: "Modules\(suffix)")
     }
 
