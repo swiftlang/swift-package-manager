@@ -358,7 +358,15 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let requiredMacroProducts = try target.recursiveTargetDependencies()
                     .filter { $0.underlying.type == .macro }
-                    .compactMap { macroProductsByTarget[$0.id] }
+                    .compactMap {
+                        guard let product = macroProductsByTarget[$0.id],
+                              let description = productMap[product.id] else
+                        {
+                            throw InternalError("macro product not found for \($0)")
+                        }
+
+                        return description.buildDescription
+                    }
 
                 var generateTestObservation = false
                 if target.type == .test && shouldGenerateTestObservation {
@@ -373,7 +381,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
                         destinationBuildParameters: buildParameters,
-                        toolsBuildParameters: toolsBuildParameters,
                         buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
                         prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
                         requiredMacroProducts: requiredMacroProducts,
