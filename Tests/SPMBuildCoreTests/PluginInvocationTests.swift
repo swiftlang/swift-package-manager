@@ -199,6 +199,7 @@ final class PluginInvocationTests: XCTestCase {
         let outputDir = AbsolutePath("/Foo/.build")
         let pluginRunner = MockPluginScriptRunner()
         let buildParameters = mockBuildParameters(
+            destination: .host,
             environment: BuildEnvironment(platform: .macOS, configuration: .debug)
         )
         let results = try graph.invokeBuildToolPlugins(
@@ -898,6 +899,7 @@ final class PluginInvocationTests: XCTestCase {
                 let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
                     buildParameters: mockBuildParameters(
+                        destination: .host,
                         environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                     ),
                     additionalFileRules: [],
@@ -1240,6 +1242,7 @@ final class PluginInvocationTests: XCTestCase {
             return try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 buildParameters: mockBuildParameters(
+                    destination: .host,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 ),
                 additionalFileRules: [],
