@@ -44,7 +44,7 @@ extension LLBuildManifestBuilder {
         let objectNodes = try target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs: [Node]
-        if target.prepareForIndexing {
+        if target.defaultBuildParameters.prepareForIndexing {
             // Don't include the object nodes on prepare builds
             cmdOutputs = [moduleNode]
         } else {
@@ -404,7 +404,7 @@ extension LLBuildManifestBuilder {
             isLibrary: isLibrary,
             wholeModuleOptimization: target.defaultBuildParameters.configuration == .release,
             outputFileMapPath: try target.writeOutputFileMap(), // FIXME: Eliminate side effect.
-            prepareForIndexing: target.prepareForIndexing
+            prepareForIndexing: target.defaultBuildParameters.prepareForIndexing
         )
     }
 
@@ -424,7 +424,7 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        let prepareForIndexing = target.prepareForIndexing
+        let prepareForIndexing = target.defaultBuildParameters.prepareForIndexing
 
         func addStaticTargetInputs(_ target: ResolvedModule) throws {
             // Ignore C Modules.
@@ -456,9 +456,10 @@ extension LLBuildManifestBuilder {
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
                 if prepareForIndexing {
-                    // In preparation, we're only building swiftmodules, need to depend on sources
-                    for source in target.clangTarget.sources.paths {
-                        inputs.append(file: source)
+                    // In preparation, we're only building swiftmodules
+                    // propagate the dependency to the header files in this target
+                    for header in target.clangTarget.headers {
+                        inputs.append(file: header)
                     }
                 } else {
                     for object in try target.objects {
@@ -537,7 +538,7 @@ extension LLBuildManifestBuilder {
 
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
-        guard target.defaultBuildParameters.debuggingStrategy == .modulewrap, !target.prepareForIndexing else { return }
+        guard target.defaultBuildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
             target.defaultBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,

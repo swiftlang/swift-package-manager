@@ -246,12 +246,6 @@ public final class SwiftTargetBuildDescription {
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 
-    /// Whether to build preparing for indexing
-    public var prepareForIndexing: Bool {
-        // Do full build for tools
-        defaultBuildParameters.prepareForIndexing && target.buildTriple != .tools
-    }
-
     /// Create a new target description with target and build parameters.
     init(
         package: ResolvedPackage,
@@ -588,9 +582,12 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-module-interface-path", self.parseableModuleInterfaceOutputPath.pathString]
         }
 
-        if self.prepareForIndexing {
+        if self.defaultBuildParameters.prepareForIndexing {
             args += [
+                "-Xfrontend", "-enable-library-evolution",
                 "-Xfrontend", "-experimental-skip-all-function-bodies",
+                "-Xfrontend", "-experimental-lazy-typecheck",
+                "-Xfrontend", "-experimental-skip-non-exportable-decls",
                 "-Xfrontend", "-experimental-allow-module-with-compiler-errors",
                 "-Xfrontend", "-empty-abi-descriptor"
             ]

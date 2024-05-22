@@ -725,7 +725,7 @@ public final class SwiftCommandState {
     when building on macOS.
     """
 
-    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+    private func _buildParams(toolchain: UserToolchain, prepareForIndexing: Bool? = nil) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
@@ -748,7 +748,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-            prepareForIndexing: options.build.prepareForIndexing,
+            prepareForIndexing: prepareForIndexing ?? options.build.prepareForIndexing,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
@@ -797,7 +797,8 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getHostToolchain())
+            // Ensure prepare for indexing is disable for tools
+            try _buildParams(toolchain: self.getHostToolchain(), prepareForIndexing: false)
         })
     }()
 

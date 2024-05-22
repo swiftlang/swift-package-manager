@@ -63,7 +63,7 @@ extension BuildParameters {
 
     /// The debugging strategy according to the current build parameters.
     public var debuggingStrategy: DebuggingStrategy? {
-        guard configuration == .debug else {
+        guard configuration == .debug, !prepareForIndexing else {
             return nil
         }
 

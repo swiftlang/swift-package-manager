@@ -21,7 +21,7 @@ class PrepareForIndexTests: XCTestCase {
 
         let plan = try BuildPlan(
             destinationBuildParameters: mockBuildParameters(prepareForIndexing: true),
-            toolsBuildParameters: mockBuildParameters(prepareForIndexing: true),
+            toolsBuildParameters: mockBuildParameters(prepareForIndexing: false),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope

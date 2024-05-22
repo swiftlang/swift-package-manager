@@ -150,8 +150,11 @@ public class LLBuildManifestBuilder {
 
         for (_, description) in self.plan.productMap {
             // Need to generate macro products
-            if description.product.type == .macro {
+            switch description.product.type {
+            case .macro, .plugin:
                 try self.createProductCommand(description)
+            default:
+                break
             }
         }
 
