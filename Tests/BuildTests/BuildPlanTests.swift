@@ -654,6 +654,23 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testPackageAvailableModulesFlag() throws {
+        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
+            flags: ["package-available-modules"],
+            toolchain: UserToolchain.default,
+            fileSystem: localFileSystem
+        )
+
+        try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-vv"])
+
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(stdout, .contains("-package-target-name App"))
+                XCTAssertMatch(stdout, .contains("-package-available-modules"))
+            }
+        }
+    }
+
     #if os(macOS)
     func testPackageNameFlagXCBuild() throws {
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(

@@ -110,6 +110,7 @@ extension BuildPlan {
                     toolsBuildParameters: toolsBuildParameters,
                     testTargetRole: .discovery,
                     shouldDisableSandbox: shouldDisableSandbox,
+                    availableModules: nil,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -160,6 +161,7 @@ extension BuildPlan {
                     toolsBuildParameters: toolsBuildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
                     shouldDisableSandbox: shouldDisableSandbox,
+                    availableModules: nil,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -206,6 +208,7 @@ extension BuildPlan {
                             toolsBuildParameters: toolsBuildParameters,
                             testTargetRole: .entryPoint(isSynthesized: false),
                             shouldDisableSandbox: shouldDisableSandbox,
+                            availableModules: nil,
                             fileSystem: fileSystem,
                             observabilityScope: observabilityScope
                         )
@@ -229,6 +232,7 @@ extension BuildPlan {
                         toolsBuildParameters: toolsBuildParameters,
                         testTargetRole: .entryPoint(isSynthesized: false),
                         shouldDisableSandbox: shouldDisableSandbox,
+                        availableModules: nil,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )

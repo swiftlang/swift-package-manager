@@ -15,6 +15,7 @@ import Basics
 import Dispatch
 import Foundation
 import LLBuildManifest
+import PackageGraph
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
