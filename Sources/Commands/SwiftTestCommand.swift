@@ -601,6 +601,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         if options._deprecated_shouldListTests {
             observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
         }
+
+        if globalOptions.build.swiftSDKSelector != nil {
+            throw StringError("Testing is not currently supported while cross-compiling")
+        }
     }
 
     public init() {}
