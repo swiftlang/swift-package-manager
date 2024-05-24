@@ -222,6 +222,38 @@ public struct ModulesGraph {
                         }
                     }
                 }
+
+                // Create a new executable product if plugin depends on an executable target.
+                // This is necessary, even though PackageBuilder creates one already, because
+                // that product is going to be built for `destination`, and this one has to
+                // be built for `tools`.
+                if target.underlying is PluginTarget {
+                    for dependency in target.dependencies {
+                        switch dependency {
+                        case .product(_, conditions: _):
+                            break
+
+                        case .target(let target, conditions: _):
+                            if target.type != .executable {
+                                continue
+                            }
+
+                            var product = try ResolvedProduct(
+                                packageIdentity: target.packageIdentity,
+                                product: .init(
+                                    package: target.packageIdentity,
+                                    name: target.name,
+                                    type: .executable,
+                                    targets: [target.underlying]
+                                ),
+                                targets: IdentifiableSet([target])
+                            )
+                            product.buildTriple = .tools
+
+                            allProducts.insert(product)
+                        }
+                    }
+                }
             }
 
             if rootPackages.contains(id: package.id) {
