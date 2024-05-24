@@ -220,7 +220,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         if let executable = options.executable {
             // There should be only one product with the given name in the graph
             // and it should be executable or snippet.
-            guard let product = graph.product(for: executable),
+            guard let product = graph.product(for: executable, destination: .destination),
                   product.type == .executable || product.type == .snippet
             else {
                 throw RunError.executableNotFound(executable)

@@ -119,7 +119,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             result.checkTargets("MMIOMacros") { results in
                 XCTAssertEqual(results.count, 1)
             }
-            result.checkTarget("MMIOMacrosTests") { result in
+            result.checkTarget("MMIOMacrosTests", destination: .tools) { result in
                 result.check(buildTriple: .tools)
                 result.checkDependency("MMIOMacros") { result in
                     result.checkTarget { result in
