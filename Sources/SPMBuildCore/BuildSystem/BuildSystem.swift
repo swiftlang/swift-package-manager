@@ -25,10 +25,10 @@ public enum BuildSubset {
     case allIncludingTests
 
     /// Represents a specific product.
-    case product(String)
+    case product(String, for: BuildParameters.Destination = .target)
 
     /// Represents a specific target.
-    case target(String)
+    case target(String, for: BuildParameters.Destination = .target)
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
