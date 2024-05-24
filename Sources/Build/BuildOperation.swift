@@ -378,9 +378,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let subsetDescriptor: String?
         switch subset {
-        case .product(let productName):
+        case .product(let productName, _):
             subsetDescriptor = "product '\(productName)'"
-        case .target(let targetName):
+        case .target(let targetName, _):
             subsetDescriptor = "target: '\(targetName)'"
         case .allExcludingTests, .allIncludingTests:
             subsetDescriptor = nil
@@ -433,10 +433,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         case .allExcludingTests, .allIncludingTests:
             pluginsToCompile = allPlugins
             continueBuilding = true
-        case .product(let productName):
+        case .product(let productName, _):
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
-        case .target(let targetName):
+        case .target(let targetName, _):
             pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
@@ -522,12 +522,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return LLBuildManifestBuilder.TargetKind.main.targetName
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
-        default:
+        case .product(_, let destination), .target(_, let destination):
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                buildParameters: self.productsBuildParameters,
+                using: destination == .host
+                            ? self.toolsBuildParameters
+                            : self.productsBuildParameters,
                 observabilityScope: self.observabilityScope
             ) {
                 return result
@@ -550,15 +552,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
-            var buildToolsGraph = graph
-            try buildToolsGraph.updateBuildTripleRecursively(.tools)
+
+            var targetBuildParameters = pluginsBuildParameters
+            targetBuildParameters.destination = .target
 
             let buildOperationForPluginDependencies = BuildOperation(
-                // FIXME: this doesn't maintain the products/tools split cleanly
-                productsBuildParameters: pluginsBuildParameters,
+                productsBuildParameters: targetBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { buildToolsGraph },
+                packageGraphLoader: { graph },
                 scratchDirectory: pluginsBuildParameters.dataPath,
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
@@ -569,7 +571,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
+
+            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
@@ -579,8 +582,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
             ) { name, path in
-                try buildOperationForPluginDependencies.build(subset: .product(name))
-                if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
+                try buildOperationForPluginDependencies.build(subset: .product(name, for: .host))
+                if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: {
+                    $0.product.name == name && $0.product.buildTriple == .tools
+                }) {
                     return try builtTool.binaryPath
                 } else {
                     return nil
@@ -893,13 +898,13 @@ extension BuildSubset {
             return Array(graph.reachableTargets)
         case .allExcludingTests:
             return graph.reachableTargets.filter { $0.type != .test }
-        case .product(let productName):
+        case .product(let productName, _):
             guard let product = graph.product(for: productName) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveTargetDependencies()
-        case .target(let targetName):
+        case .target(let targetName, _):
             guard let target = graph.target(for: targetName) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
@@ -911,7 +916,7 @@ extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
     func llbuildTargetName(
         for graph: ModulesGraph,
-        buildParameters: BuildParameters,
+        using buildParameters: BuildParameters,
         observabilityScope: ObservabilityScope
     ) -> String? {
         switch self {
@@ -919,7 +924,9 @@ extension BuildSubset {
             return LLBuildManifestBuilder.TargetKind.main.targetName
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(let productName):
+        case .product(let productName, let destination):
+            precondition(buildParameters.destination == destination)
+
             guard let product = graph.product(for: productName) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
@@ -936,7 +943,9 @@ extension BuildSubset {
             return observabilityScope.trap {
                 try product.getLLBuildTargetName(buildParameters: buildParameters)
             }
-        case .target(let targetName):
+        case .target(let targetName, let destination):
+            precondition(buildParameters.destination == destination)
+
             guard let target = graph.target(for: targetName) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil

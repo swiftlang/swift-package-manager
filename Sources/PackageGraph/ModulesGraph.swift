@@ -277,30 +277,6 @@ public struct ModulesGraph {
         self.allProducts = allProducts
     }
 
-    package mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
-        self.reachableTargets = IdentifiableSet(self.reachableTargets.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return target
-        })
-        self.reachableProducts = IdentifiableSet(self.reachableProducts.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return product
-        })
-
-        self.allTargets = IdentifiableSet(self.allTargets.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return target
-        })
-        self.allProducts = IdentifiableSet(self.allProducts.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return product
-        })
-    }
-
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
     @_spi(SwiftPMInternal)
     public func computeTestTargetsForExecutableTargets() throws -> [ResolvedModule.ID: [ResolvedModule]] {

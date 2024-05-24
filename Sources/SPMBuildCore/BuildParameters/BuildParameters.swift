@@ -36,7 +36,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// The destination these parameters are going to be used for.
-    public let destination: Destination
+    public var destination: Destination
 
     /// The path to the data directory.
     public var dataPath: AbsolutePath
