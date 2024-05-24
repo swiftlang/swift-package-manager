@@ -593,42 +593,8 @@ public struct TestLibraryOptions: ParsableArguments {
             return callerSuppliedValue
         }
 
-        // If the active package has a dependency on swift-testing, automatically enable support for it so that extra steps are not needed.
-        let workspace = try swiftCommandState.getActiveWorkspace()
-        let root = try swiftCommandState.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope,
-                completion: $0
-            )
-        }
-
-        // Is swift-testing among the dependencies of the package being built?
-        // If so, enable support.
-        let isEnabledByDependency = rootManifests.values.lazy
-            .flatMap(\.dependencies)
-            .map(\.identity)
-            .map(String.init(describing:))
-            .contains("swift-testing")
-        if isEnabledByDependency {
-            swiftCommandState.observabilityScope.emit(debug: "Enabling swift-testing support due to its presence as a package dependency.")
-            return true
-        }
-
-        // Is swift-testing the package being built itself (unlikely)? If so,
-        // enable support.
-        let isEnabledByName = root.packages.lazy
-            .map(PackageIdentity.init(path:))
-            .map(String.init(describing:))
-            .contains("swift-testing")
-        if isEnabledByName {
-            swiftCommandState.observabilityScope.emit(debug: "Enabling swift-testing support because it is a root package.")
-            return true
-        }
-
-        // Default to disabled since swift-testing is experimental (opt-in.)
-        return false
+        // Default to enabled.
+        return true
     }
 
     /// Get the set of enabled testing libraries.
