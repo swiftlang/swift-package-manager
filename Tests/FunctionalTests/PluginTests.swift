@@ -226,7 +226,7 @@ final class PluginTests: XCTestCase {
 
         try testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "MyPackage")
-            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "Plugin", "best.txt"])
+            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
 
             try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
             let (_, stderr) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
