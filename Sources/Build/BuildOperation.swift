@@ -522,19 +522,48 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return LLBuildManifestBuilder.TargetKind.main.targetName
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(_, let destination), .target(_, let destination):
+        case .product(let productName, let destination):
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
-            if let result = subset.llbuildTargetName(
-                for: graph,
-                using: destination == .host
-                            ? self.toolsBuildParameters
-                            : self.productsBuildParameters,
-                observabilityScope: self.observabilityScope
-            ) {
-                return result
+
+            guard let product = graph.product(
+                for: productName,
+                destination: destination == .host ? .tools : .destination
+            ) else {
+                observabilityScope.emit(error: "no product named '\(productName)'")
+                throw Diagnostics.fatalError
             }
-            throw Diagnostics.fatalError
+            // If the product is automatic, we build the main target because automatic products
+            // do not produce a binary right now.
+            if product.type == .library(.automatic) {
+                observabilityScope.emit(
+                    warning:
+                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
+                )
+                return LLBuildManifestBuilder.TargetKind.main.targetName
+            }
+            return try product.getLLBuildTargetName(
+                    buildParameters: destination == .host
+                                        ? self.toolsBuildParameters
+                                        : self.productsBuildParameters
+            )
+        case .target(let targetName, let destination):
+            // FIXME: This is super unfortunate that we might need to load the package graph.
+            let graph = try getPackageGraph()
+
+            guard let target = graph.target(
+                for: targetName,
+                destination: destination == .host ? .tools : .destination
+            ) else {
+                observabilityScope.emit(error: "no target named '\(targetName)'")
+                throw Diagnostics.fatalError
+            }
+
+            return target.getLLBuildTargetName(
+                buildParameters: destination == .host
+                                            ? self.toolsBuildParameters
+                                            : self.productsBuildParameters
+            )
         }
     }
 
@@ -898,59 +927,24 @@ extension BuildSubset {
             return Array(graph.reachableTargets)
         case .allExcludingTests:
             return graph.reachableTargets.filter { $0.type != .test }
-        case .product(let productName, _):
-            guard let product = graph.product(for: productName) else {
+        case .product(let productName, let destination):
+            guard let product = graph.product(
+                for: productName,
+                destination: destination == .host ? .tools : .destination
+            ) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveTargetDependencies()
-        case .target(let targetName, _):
-            guard let target = graph.target(for: targetName) else {
+        case .target(let targetName, let destination):
+            guard let target = graph.target(
+                for: targetName,
+                destination: destination == .host ? .tools : .destination
+            ) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
             return try target.recursiveTargetDependencies()
-        }
-    }
-
-    /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(
-        for graph: ModulesGraph,
-        using buildParameters: BuildParameters,
-        observabilityScope: ObservabilityScope
-    ) -> String? {
-        switch self {
-        case .allExcludingTests:
-            return LLBuildManifestBuilder.TargetKind.main.targetName
-        case .allIncludingTests:
-            return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(let productName, let destination):
-            precondition(buildParameters.destination == destination)
-
-            guard let product = graph.product(for: productName) else {
-                observabilityScope.emit(error: "no product named '\(productName)'")
-                return nil
-            }
-            // If the product is automatic, we build the main target because automatic products
-            // do not produce a binary right now.
-            if product.type == .library(.automatic) {
-                observabilityScope.emit(
-                    warning:
-                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
-                )
-                return LLBuildManifestBuilder.TargetKind.main.targetName
-            }
-            return observabilityScope.trap {
-                try product.getLLBuildTargetName(buildParameters: buildParameters)
-            }
-        case .target(let targetName, let destination):
-            precondition(buildParameters.destination == destination)
-
-            guard let target = graph.target(for: targetName) else {
-                observabilityScope.emit(error: "no target named '\(targetName)'")
-                return nil
-            }
-            return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 }
