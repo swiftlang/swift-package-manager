@@ -452,7 +452,7 @@ extension ModulesGraph {
                 let toolPaths = accessibleTools.values.map { $0.path }.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
-                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
+                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, target.buildTriple.rawValue, pluginTarget.name)
 
                 // Determine the set of directories under which plugins are allowed to write. We always include just the output directory, and for now there is no possibility of opting into others.
                 let writableDirectories = [outputDir]
@@ -597,9 +597,7 @@ extension ModulesGraph {
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            var targetID = target.id
-            targetID.buildTriple = .destination
-            pluginResultsByTarget[targetID] = (target, buildToolPluginResults)
+            pluginResultsByTarget[target.id] = (target, buildToolPluginResults)
         }
         return pluginResultsByTarget
     }
