@@ -526,13 +526,33 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
 
-            guard let product = graph.product(
+            var product = graph.product(
                 for: productName,
                 destination: destination == .host ? .tools : .destination
-            ) else {
+            )
+
+            var buildParameters = if destination == .host {
+                self.toolsBuildParameters
+            } else {
+                self.productsBuildParameters
+            }
+
+            // It's possible to request a build of a macro or a plugin via `swift build`
+            // which won't have the right destination set because it's impossible to indicate it.
+            if product == nil && destination == .target {
+                if let toolsProduct = graph.product(for: productName, destination: .tools),
+                   toolsProduct.type == .macro || toolsProduct.type == .plugin
+                {
+                    product = toolsProduct
+                    buildParameters = self.toolsBuildParameters
+                }
+            }
+
+            guard let product else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 throw Diagnostics.fatalError
             }
+
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
             if product.type == .library(.automatic) {
@@ -542,28 +562,39 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
-            return try product.getLLBuildTargetName(
-                    buildParameters: destination == .host
-                                        ? self.toolsBuildParameters
-                                        : self.productsBuildParameters
-            )
+            return try product.getLLBuildTargetName(buildParameters: buildParameters)
         case .target(let targetName, let destination):
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
 
-            guard let target = graph.target(
+            var target = graph.target(
                 for: targetName,
                 destination: destination == .host ? .tools : .destination
-            ) else {
+            )
+
+            var buildParameters = if destination == .host {
+                self.toolsBuildParameters
+            } else {
+                self.productsBuildParameters
+            }
+
+            // It's possible to request a build of a macro or a plugin via `swift build`
+            // which won't have the right destination because it's impossible to indicate it.
+            if target == nil && destination == .target {
+                if let toolsTarget = graph.target(for: targetName, destination: .tools),
+                   toolsTarget.type == .macro || toolsTarget.type == .plugin
+                {
+                    target = toolsTarget
+                    buildParameters = self.toolsBuildParameters
+                }
+            }
+
+            guard let target else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 throw Diagnostics.fatalError
             }
 
-            return target.getLLBuildTargetName(
-                buildParameters: destination == .host
-                                            ? self.toolsBuildParameters
-                                            : self.productsBuildParameters
-            )
+            return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 
