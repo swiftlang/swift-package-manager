@@ -25,6 +25,7 @@ import struct PackageModel.EnabledSanitizers
 import struct PackageModel.PackageIdentity
 import class PackageModel.Manifest
 import enum PackageModel.Sanitizer
+import struct PackageModel.SupportedPlatform
 
 import struct SPMBuildCore.BuildParameters
 
@@ -592,6 +593,32 @@ public struct TestLibraryOptions: ParsableArguments {
         // Honor the user's explicit command-line selection, if any.
         if let callerSuppliedValue = explicitlyEnableSwiftTestingLibrarySupport {
             return callerSuppliedValue
+        }
+
+        let root = try swiftCommandState.getWorkspaceRoot()
+        let workspace = try swiftCommandState.getActiveWorkspace()
+        let rootManifests = try temp_await {
+            workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: swiftCommandState.observabilityScope,
+                completion: $0
+            )
+        }
+
+        let minimumPlatformsWithAsync: [String: SupportedPlatform] = [
+            "macos": SupportedPlatform(platform: .macOS, version: "10.15"),
+            "ios": SupportedPlatform(platform: .iOS, version: "13.0"),
+            "watchOS": SupportedPlatform(platform: .watchOS, version: "6.0"),
+            "tvOS": SupportedPlatform(platform: .tvOS, version: "13.0"),
+        ]
+        for platformReq in rootManifests.values.lazy.flatMap(\.platforms) {
+            if let minimumPlatform = minimumPlatformsWithAsync[platformReq.platformName],
+               minimumPlatform.version > .init(platformReq.version) {
+                // The minimum platform version specified by the package does
+                // not support Swift Concurrency, so it cannot use swift-testing
+                // automatically.
+                return false
+            }
         }
 
         // Default to enabled.
