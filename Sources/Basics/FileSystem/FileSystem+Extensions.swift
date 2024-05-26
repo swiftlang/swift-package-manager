@@ -25,7 +25,7 @@ import var TSCBasic.localFileSystem
 import protocol TSCBasic.WritableByteStream
 
 public typealias FileSystem = TSCBasic.FileSystem
-public let localFileSystem = TSCBasic.localFileSystem
+public var localFileSystem = TSCBasic.localFileSystem
 
 // MARK: - Custom path
 

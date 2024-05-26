@@ -13,7 +13,7 @@
 import _Concurrency
 
 /// The `Archiver` protocol abstracts away the different operations surrounding archives.
-public protocol Archiver: Sendable {
+public protocol Archiver {
     /// A set of extensions the current archiver supports.
     var supportedExtensions: Set<String> { get }
 
@@ -27,7 +27,7 @@ public protocol Archiver: Sendable {
     func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+        completion: @escaping (Result<Void, Error>) -> Void
     )
 
     /// Asynchronously compress the contents of a directory to a destination archive.
@@ -40,7 +40,7 @@ public protocol Archiver: Sendable {
     func compress(
         directory: AbsolutePath,
         to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+        completion: @escaping (Result<Void, Error>) -> Void
     )
 
     /// Asynchronously validates if a file is an archive.
@@ -51,7 +51,7 @@ public protocol Archiver: Sendable {
     @available(*, noasync, message: "Use the async alternative")
     func validate(
         path: AbsolutePath,
-        completion: @escaping @Sendable (Result<Bool, Error>) -> Void
+        completion: @escaping (Result<Bool, Error>) -> Void
     )
 }
 
@@ -65,8 +65,8 @@ extension Archiver {
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            self.extract(from: archivePath, to: destinationPath, completion: { continuation.resume(with: $0) })
+        try await withCheckedThrowingContinuation {
+            self.extract(from: archivePath, to: destinationPath, completion: $0.resume(with:))
         }
     }
 
@@ -79,8 +79,8 @@ extension Archiver {
         directory: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            self.compress(directory: directory, to: destinationPath, completion: { continuation.resume(with: $0) })
+        try await withCheckedThrowingContinuation {
+            self.compress(directory: directory, to: destinationPath, completion: $0.resume(with:))
         }
     }
 
@@ -91,8 +91,8 @@ extension Archiver {
     public func validate(
         path: AbsolutePath
     ) async throws -> Bool {
-        try await withCheckedThrowingContinuation { continuation in
-            self.validate(path: path, completion: { continuation.resume(with: $0) })
+        try await withCheckedThrowingContinuation {
+            self.validate(path: path, completion: $0.resume(with:))
         }
     }
 }

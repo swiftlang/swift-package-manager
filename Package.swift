@@ -74,6 +74,7 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
+
 let packageModelResourcesSettings: [SwiftSetting]
 let packageModelResources: [Resource]
 if ProcessInfo.processInfo.environment["SWIFTPM_USE_LIBRARIES_METADATA"] == nil {
@@ -185,10 +186,7 @@ let package = Package(
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: ["CMakeLists.txt", "Vendor/README.md"],
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency"),
-            ]
+            exclude: ["CMakeLists.txt", "Vendor/README.md"]
         ),
 
         .target(
@@ -719,7 +717,7 @@ package.targets.append(contentsOf: [
         name: "FunctionalPerformanceTests",
         dependencies: [
             "swift-package-manager",
-            "SPMTestSupport",
+            "SPMTestSupport"
         ]
     ),
 ])
