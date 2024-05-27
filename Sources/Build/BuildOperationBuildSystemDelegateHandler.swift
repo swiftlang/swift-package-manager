@@ -383,7 +383,7 @@ public struct BuildDescription: Codable {
             .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) { partial, targetBuildDescription in
             let deps = try targetBuildDescription.target.recursiveDependencies(
-                satisfying: plan.buildParameters(for: targetBuildDescription.target).buildEnvironment
+                satisfying: targetBuildDescription.buildParameters.buildEnvironment
             )
                 .compactMap(\.target).map(\.c99name)
             partial[targetBuildDescription.target.c99name] = deps

@@ -92,28 +92,6 @@ public protocol BuildPlan {
     func createREPLArguments() throws -> [String]
 }
 
-extension BuildPlan {
-    /// Parameters used for building a given target.
-    public func buildParameters(for target: ResolvedModule) -> BuildParameters {
-        switch target.buildTriple {
-        case .tools:
-            return self.toolsBuildParameters
-        case .destination:
-            return self.destinationBuildParameters
-        }
-    }
-
-    /// Parameters used for building a given product.
-    public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
-        switch product.buildTriple {
-        case .tools:
-            return self.toolsBuildParameters
-        case .destination:
-            return self.destinationBuildParameters
-        }
-    }
-}
-
 public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
