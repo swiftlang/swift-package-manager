@@ -16,6 +16,7 @@ import struct Basics.AbsolutePath
 import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
 import struct PackageGraph.ModulesGraph
+import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedModule
 import struct PackageModel.Sources
@@ -26,9 +27,9 @@ import protocol TSCBasic.FileSystem
 
 extension BuildPlan {
     static func makeDerivedTestTargets(
+        testProducts: [(product: ResolvedProduct, buildDescription: ProductBuildDescription)],
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
-        _ graph: ModulesGraph,
         shouldDisableSandbox: Bool,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
@@ -44,15 +45,14 @@ extension BuildPlan {
 
         var isDiscoveryEnabledRedundantly = explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly
         var result: [(ResolvedProduct, SwiftTargetBuildDescription?, SwiftTargetBuildDescription)] = []
-        for testProduct in graph.allProducts where testProduct.type == .test {
-            guard let package = graph.package(for: testProduct) else {
-                throw InternalError("package not found for \(testProduct)")
-            }
+        for (testProduct, testBuildDescription) in testProducts {
+            let package = testBuildDescription.package
+
             isDiscoveryEnabledRedundantly = isDiscoveryEnabledRedundantly && nil == testProduct.testEntryPointTarget
             // If a non-explicitly specified test entry point file exists, prefer that over test discovery.
             // This is designed as an escape hatch when test discovery is not appropriate and for backwards
             // compatibility for projects that have existing test entry point files (e.g. XCTMain.swift, LinuxMain.swift).
-            let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
+            let toolsVersion = package.manifest.toolsVersion
 
             // If `testProduct.testEntryPointTarget` is non-nil, it may either represent an `XCTMain.swift` (formerly `LinuxMain.swift`) file
             // if such a file is located in the package, or it may represent a test entry point file at a path specified by the option
@@ -93,20 +93,13 @@ extension BuildPlan {
                     supportedPlatforms: testProduct.supportedPlatforms,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
-
                 discoveryResolvedTarget.buildTriple = testProduct.buildTriple
-                let discoveryTargetBuildParameters: BuildParameters
-                switch discoveryResolvedTarget.buildTriple {
-                case .tools:
-                    discoveryTargetBuildParameters = toolsBuildParameters
-                case .destination:
-                    discoveryTargetBuildParameters = destinationBuildParameters
-                }
+
                 let discoveryTargetBuildDescription = try SwiftTargetBuildDescription(
                     package: package,
                     target: discoveryResolvedTarget,
                     toolsVersion: toolsVersion,
-                    buildParameters: discoveryTargetBuildParameters,
+                    buildParameters: testBuildDescription.buildParameters,
                     testTargetRole: .discovery,
                     shouldDisableSandbox: shouldDisableSandbox,
                     fileSystem: fileSystem,
@@ -143,19 +136,12 @@ extension BuildPlan {
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
                 entryPointResolvedTarget.buildTriple = testProduct.buildTriple
-                let entryPointBuildParameters: BuildParameters
-                switch entryPointResolvedTarget.buildTriple {
-                case .tools:
-                    entryPointBuildParameters = toolsBuildParameters
-                case .destination:
-                    entryPointBuildParameters = destinationBuildParameters
-                }
 
                 return try SwiftTargetBuildDescription(
                     package: package,
                     target: entryPointResolvedTarget,
                     toolsVersion: toolsVersion,
-                    buildParameters: entryPointBuildParameters,
+                    buildParameters: testBuildDescription.buildParameters,
                     testTargetRole: .entryPoint(isSynthesized: true),
                     shouldDisableSandbox: shouldDisableSandbox,
                     fileSystem: fileSystem,

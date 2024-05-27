@@ -439,9 +439,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Plan the derived test targets, if necessary.
         if destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
             let derivedTestTargets = try Self.makeDerivedTestTargets(
+                testProducts: productMap.values.filter {
+                    $0.product.type == .test
+                },
                 destinationBuildParameters: destinationBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
-                graph,
                 shouldDisableSandbox: self.shouldDisableSandbox,
                 self.fileSystem,
                 self.observabilityScope
