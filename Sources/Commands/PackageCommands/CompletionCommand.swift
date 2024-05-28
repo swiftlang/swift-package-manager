@@ -18,6 +18,7 @@ import var TSCBasic.stdoutStream
 extension SwiftPackageCommand {
     struct CompletionCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
+            commandName: "completion-tool",
             abstract: "Completion command (for shell completions)"
         )
 
