@@ -67,6 +67,11 @@ final class PackageCommandTests: CommandsTestCase {
         XCTAssertMatch(stdout, .contains("Swift Package Manager"))
     }
 	
+    func testCompletionTool() throws {
+        let stdout = try execute(["completion-tool", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("OVERVIEW: Completion command (for shell completions)"))
+    }
+
 	func testInitOverview() throws {
 		let stdout = try execute(["init", "--help"]).stdout
 		XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
