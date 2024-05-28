@@ -41,15 +41,9 @@ extension LLBuildManifestBuilder {
         let inputs = try self.computeSwiftCompileCmdInputs(target)
 
         // Outputs.
-        let objectNodes = try target.objects.map(Node.file)
+        let objectNodes = target.defaultBuildParameters.prepareForIndexing ? [] : try target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
-        let cmdOutputs: [Node]
-        if target.defaultBuildParameters.prepareForIndexing {
-            // Don't include the object nodes on prepare builds
-            cmdOutputs = [moduleNode]
-        } else {
-            cmdOutputs = objectNodes + [moduleNode]
-        }
+        let cmdOutputs = objectNodes + [moduleNode]
 
         if target.defaultBuildParameters.driverParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
