@@ -25,7 +25,8 @@ import class TSCBasic.BufferedOutputByteStream
 import class TSCBasic.InMemoryFileSystem
 
 private func mockBuildOperation(
-    buildParameters: BuildParameters,
+    productsBuildParameters: BuildParameters,
+    toolsBuildParameters: BuildParameters,
     cacheBuildManifest: Bool = false,
     packageGraphLoader: @escaping () -> ModulesGraph = { fatalError() },
     scratchDirectory: AbsolutePath,
@@ -33,8 +34,8 @@ private func mockBuildOperation(
     observabilityScope: ObservabilityScope
 ) -> BuildOperation {
     return BuildOperation(
-        productsBuildParameters: buildParameters,
-        toolsBuildParameters: buildParameters,
+        productsBuildParameters: productsBuildParameters,
+        toolsBuildParameters: toolsBuildParameters,
         cacheBuildManifest: cacheBuildManifest,
         packageGraphLoader: packageGraphLoader,
         scratchDirectory: scratchDirectory,
@@ -65,7 +66,8 @@ final class BuildOperationTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let buildOp = mockBuildOperation(
-            buildParameters: buildParameters,
+            productsBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             scratchDirectory: scratchDirectory,
             fs: fs, observabilityScope: observability.topScope
         )
@@ -124,7 +126,8 @@ final class BuildOperationTests: XCTestCase {
                     triple: triple
                 )
                 let buildOp = mockBuildOperation(
-                    buildParameters: buildParameters,
+                    productsBuildParameters: buildParameters,
+                    toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: { packageGraph },
                     scratchDirectory: scratchDirectory,
@@ -155,7 +158,8 @@ final class BuildOperationTests: XCTestCase {
                         triple: triple
                     )
                     let buildOp = mockBuildOperation(
-                        buildParameters: buildParameters,
+                        productsBuildParameters: buildParameters,
+                        toolsBuildParameters: buildParameters,
                         cacheBuildManifest: true,
                         packageGraphLoader: { packageGraph },
                         scratchDirectory: scratchDirectory,
