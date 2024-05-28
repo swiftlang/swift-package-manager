@@ -326,24 +326,25 @@ extension ResolvedModule {
     }
 
     public func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
-        "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
     }
 }
 
 extension ResolvedProduct {
     public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
+        let triple = buildParameters.triple.tripleString
         let config = buildParameters.buildConfig
         let suffix = buildParameters.suffix(triple: self.buildTriple)
-        let potentialExecutableTargetName = "\(name)-\(config)\(suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(config)\(suffix).dylib"
+        let potentialExecutableTargetName = "\(name)-\(triple)-\(config)\(suffix).exe"
+        let potentialLibraryTargetName = "\(name)-\(triple)-\(config)\(suffix).dylib"
 
         switch type {
         case .library(.dynamic):
             return potentialLibraryTargetName
         case .test:
-            return "\(name)-\(config)\(suffix).test"
+            return "\(name)-\(triple)-\(config)\(suffix).test"
         case .library(.static):
-            return "\(name)-\(config)\(suffix).a"
+            return "\(name)-\(triple)-\(config)\(suffix).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
