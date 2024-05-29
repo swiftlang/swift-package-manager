@@ -13,7 +13,7 @@
 import ArgumentParser
 import Basics
 import PackageGraph
-import PackageModel
+@_spi(SwiftPMInternal) import PackageModel
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -82,7 +82,22 @@ public struct SymbolGraphExtract {
         if includeSPISymbols {
             commandLine += ["-include-spi-symbols"]
         }
-        
+
+        // If this target or any dependencies is is built with C++ interop
+        // enabled then swift-symbolgraph-extract must also enable C++ interop.
+        var cxxInterop = module.cxxInterop()
+        if !cxxInterop {
+            for module in try module.recursiveTargetDependencies() {
+                if module.cxxInterop() {
+                    cxxInterop = true
+                    break
+                }
+            }
+        }
+        if cxxInterop {
+            commandLine += ["-cxx-interoperability-mode=default"]
+        }
+
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
         if DriverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
             commandLine += [extensionBlockSymbolsFlag]
@@ -105,5 +120,16 @@ public struct SymbolGraphExtract {
         )
         try process.launch()
         return try process.waitUntilExit()
+    }
+}
+
+extension ResolvedModule {
+    func cxxInterop() -> Bool {
+        for setting in self.underlying.buildSettingsDescription {
+            if case .interoperabilityMode(.Cxx) = setting.kind {
+                return true
+            }
+        }
+        return false
     }
 }
