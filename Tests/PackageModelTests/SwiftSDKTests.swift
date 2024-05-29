@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
+
+@_spi(SwiftPMInternal)
 @testable import PackageModel
+
 @testable import SPMBuildCore
 import XCTest
 
@@ -21,6 +24,7 @@ private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain
 private let toolchainBinDir = RelativePath("swift.xctoolchain/usr/bin")
 private let sdkRootDir = RelativePath("ubuntu-jammy.sdk")
 private let hostTriple = try! Triple("arm64-apple-darwin22.1.0")
+private let olderHostTriple = try! Triple("arm64-apple-darwin20.1.0")
 private let linuxGNUTargetTriple = try! Triple("x86_64-unknown-linux-gnu")
 private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
 private let extraFlags = BuildFlags(
@@ -291,6 +295,12 @@ private let parsedDestinationV2Musl = SwiftSDK(
     pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
+private let parsedDestinationForOlderHost = SwiftSDK(
+    targetTriple: linuxMuslTargetTriple,
+    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
+    pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
+)
+
 private let parsedToolsetNoRootDestination = SwiftSDK(
     targetTriple: linuxGNUTargetTriple,
     toolset: .init(
@@ -520,6 +530,24 @@ final class DestinationTests: XCTestCase {
                             swiftSDKs: [parsedDestinationV2Musl]
                         ),
                     ],
+                    "id4": [
+                        .init(
+                            metadata: .init(
+                                path: "id4",
+                                supportedTriples: [olderHostTriple]
+                            ),
+                            swiftSDKs: [parsedDestinationForOlderHost]
+                        ),
+                    ],
+                    "id5": [
+                        .init(
+                            metadata: .init(
+                                path: "id5",
+                                supportedTriples: nil
+                            ),
+                            swiftSDKs: [parsedDestinationV2GNU]
+                        ),
+                    ],
                 ]
             ),
         ]
@@ -552,6 +580,42 @@ final class DestinationTests: XCTestCase {
                 observabilityScope: system.topScope
             ),
             parsedDestinationV2Musl
+        )
+
+        // Newer hostTriple should match with older supportedTriples
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                id: "id4",
+                hostTriple: hostTriple,
+                targetTriple: linuxMuslTargetTriple
+            ),
+            parsedDestinationForOlderHost
+        )
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                matching: "id4",
+                hostTriple: hostTriple,
+                observabilityScope: system.topScope
+            ),
+            parsedDestinationForOlderHost
+        )
+
+        // nil supportedTriples should match with any hostTriple
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                id: "id5",
+                hostTriple: hostTriple,
+                targetTriple: linuxGNUTargetTriple
+            ),
+            parsedDestinationV2GNU
+        )
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                matching: "id5",
+                hostTriple: hostTriple,
+                observabilityScope: system.topScope
+            ),
+            parsedDestinationV2GNU
         )
     }
 }

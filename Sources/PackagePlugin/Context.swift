@@ -31,7 +31,7 @@ public struct PluginContext {
     /// write its outputs to that directory. The plugin may also create other
     /// directories for cache files and other file system content that either
     /// it or the command will need.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     public let pluginWorkDirectory: Path
 
     /// The path of a writable directory into which the plugin or the build
@@ -46,7 +46,7 @@ public struct PluginContext {
     /// write its outputs to that directory. The plugin may also create other
     /// directories for cache files and other file system content that either
     /// it or the command will need.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     public let pluginWorkDirectoryURL: URL
 
     /// Looks up and returns the path of a named command line executable tool.
@@ -86,12 +86,12 @@ public struct PluginContext {
 
     /// The paths of directories of in which to search for tools that aren't in
     /// the `toolNamesToPaths` map.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     let toolSearchDirectories: [Path]
 
     /// The paths of directories of in which to search for tools that aren't in
     /// the `toolNamesToPaths` map.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     let toolSearchDirectoryURLs: [URL]
 
     /// Information about a particular tool that is available to a plugin.
@@ -100,11 +100,11 @@ public struct PluginContext {
         public let name: String
 
         /// Full path of the built or provided tool in the file system.
-        @available(_PackageDescription, deprecated: 5.11)
+        @available(_PackageDescription, deprecated: 6.0)
         public let path: Path
 
         /// Full path of the built or provided tool in the file system.
-        @available(_PackageDescription, introduced: 5.11)
+        @available(_PackageDescription, introduced: 6.0)
         public let url: URL
     }
 }

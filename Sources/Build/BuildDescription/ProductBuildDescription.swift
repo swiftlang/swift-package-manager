@@ -12,7 +12,10 @@
 
 import Basics
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import PackageModel
+
 import OrderedCollections
 import SPMBuildCore
 
@@ -43,11 +46,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     // Computed during build planning.
     var dylibs: [ProductBuildDescription] = []
 
+    /// The list of provided libraries that are going to be used by this product.
+    var providedLibraries: [String: AbsolutePath] = [:]
+
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
     /// The list of targets that are going to be linked statically in this product.
-    var staticTargets: [ResolvedTarget] = []
+    var staticTargets: [ResolvedModule] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     var swiftASTs: SortedArray<AbsolutePath> = .init()
@@ -119,15 +125,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 return ["-Xlinker", "-dead_strip"]
             } else if triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
-            } else if triple.arch == .wasm32 {
-                // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
-                // during GC, and it removes Swift metadata sections like swift5_protocols
-                // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
-                // to LLVM and wasm-ld
-                // This workaround is required for not only WASI but also all WebAssembly triples
-                // using wasm-ld (e.g. wasm32-unknown-unknown). So this branch is conditioned by
-                // arch == .wasm32
-                return []
             } else {
                 return ["-Xlinker", "--gc-sections"]
             }
@@ -163,6 +160,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             args += ["-F", self.buildParameters.buildPath.pathString]
         }
 
+        self.providedLibraries.forEach { args += ["-L", $1.pathString, "-l", $0] }
+
         args += ["-L", self.buildParameters.buildPath.pathString]
         args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
@@ -189,6 +188,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         var isLinkingStaticStdlib = false
         let triple = self.buildParameters.triple
+
+        // radar://112671586 supress unnecessary warnings
+        if triple.isMacOSX {
+            args += ["-Xlinker", "-no_warn_duplicate_libraries"]
+        }
+
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached
@@ -198,7 +203,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when using objectiveC, executable when using test entry point.
+            // Test products are bundle when using Objective-C, executable when using test entry point.
             switch self.buildParameters.testingParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
@@ -271,8 +276,21 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
-        // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+            // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
+            // duplicates with `OrderedSet`.
+            var experimentalFeatures = OrderedSet<String>()
+            for target in self.product.targets {
+                let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
+                for case let .enableExperimentalFeature(feature) in swiftSettings.map(\.kind)  {
+                    experimentalFeatures.append(feature)
+                }
+            }
+            for feature in experimentalFeatures {
+                args += ["-enable-experimental-feature", feature]
+            }
+
+            // Embed the swift stdlib library path inside tests and executables on Darwin.
             let useStdlibRpath: Bool
             switch self.product.type {
             case .library(let type):
@@ -297,11 +315,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                     args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
                 }
             }
-        }
-
-        // Don't link runtime compatibility patch libraries if there are no
-        // Swift sources in the target.
-        if !containsSwiftTargets {
+        } else {
+            // Don't link runtime compatibility patch libraries if there are no
+            // Swift sources in the target.
             args += ["-runtime-compatibility-version", "none"]
         }
 
@@ -311,7 +327,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[self.product.targets.startIndex])
+        args += try self.buildParameters.tripleArgs(for: self.product.targets[self.product.targets.startIndex])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags
@@ -346,7 +362,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
-            args += try ["-L", buildParameters.toolchain.hostLibDir.pathString]
+            args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 

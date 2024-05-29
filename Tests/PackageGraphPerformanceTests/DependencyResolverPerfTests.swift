@@ -69,7 +69,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
                 switch resolver.solve(constraints: graph.constraints) {
                 case .success(let result):
                     let result: [(container: PackageReference, version: Version)] = result.compactMap {
-                        guard case .version(let version) = $0.boundVersion else {
+                        guard case .version(let version, _) = $0.boundVersion else {
                             XCTFail("Unexpected result")
                             return nil
                         }
@@ -201,7 +201,7 @@ extension ProductFilter {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension ProductFilter: JSONSerializable, JSONMappable {}
 #else
 extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}

@@ -42,7 +42,7 @@ public protocol BuildSystem: Cancellable {
     var builtTestProducts: [BuiltTestProduct] { get }
 
     /// Returns the package graph used by the build system.
-    func getPackageGraph() throws -> PackageGraph
+    func getPackageGraph() throws -> ModulesGraph
 
     /// Builds a subset of the package graph.
     /// - Parameters:
@@ -74,7 +74,7 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            return try self.buildParameters.binaryPath(for: product)
+            try self.buildParameters.binaryPath(for: product)
         }
     }
 }
@@ -94,7 +94,7 @@ public protocol BuildPlan {
 
 extension BuildPlan {
     /// Parameters used for building a given target.
-    public func buildParameters(for target: ResolvedTarget) -> BuildParameters {
+    public func buildParameters(for target: ResolvedModule) -> BuildParameters {
         switch target.buildTriple {
         case .tools:
             return self.toolsBuildParameters
@@ -120,7 +120,7 @@ public protocol BuildSystemFactory {
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
@@ -146,7 +146,7 @@ public struct BuildSystemProvider {
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
-        packageGraphLoader: (() throws -> PackageGraph)? = .none,
+        packageGraphLoader: (() throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
@@ -175,8 +175,8 @@ public enum BuildSystemUtilities {
     /// Returns the build path from the environment, if present.
     public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
         // Don't rely on build path from env for SwiftPM's own tests.
-        guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-        guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
+        guard ProcessEnv.block["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+        guard let env = ProcessEnv.block["SWIFTPM_BUILD_DIR"] else { return nil }
         return try AbsolutePath(validating: env, relativeTo: workingDir)
     }
 }

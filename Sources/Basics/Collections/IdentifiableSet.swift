@@ -45,11 +45,20 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     }
 
     public subscript(id: Element.ID) -> Element? {
-        self.storage[id]
+        get {
+            self.storage[id]
+        }
+        set {
+            self.storage[id] = newValue
+        }
     }
 
     public func index(after i: Index) -> Index {
         Index(storageIndex: self.storage.index(after: i.storageIndex))
+    }
+
+    public mutating func insert(_ element: Element) {
+        self.storage[element.id] = element
     }
 
     public func union(_ otherSequence: some Sequence<Element>) -> Self {
@@ -67,7 +76,7 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     }
 
     public func intersection(_ otherSequence: some Sequence<Element>) -> Self {
-        var keysToRemove = Set(self.storage.keys).subtracting(otherSequence.map(\.id))
+        let keysToRemove = Set(self.storage.keys).subtracting(otherSequence.map(\.id))
         var result = Self()
         for key in keysToRemove {
             result.storage.removeValue(forKey: key)

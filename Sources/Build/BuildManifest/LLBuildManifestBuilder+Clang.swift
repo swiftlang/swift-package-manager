@@ -14,7 +14,7 @@ import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import PackageModel
 
 extension LLBuildManifestBuilder {
@@ -32,7 +32,7 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) {
+        func addStaticTargetInputs(_ target: ResolvedModule) {
             if case .swift(let desc)? = self.plan.targetMap[target.id], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
@@ -93,7 +93,7 @@ extension LLBuildManifestBuilder {
         let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
+        let targetName = target.target.getLLBuildTargetName(buildParameters: target.buildParameters)
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)

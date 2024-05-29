@@ -12,7 +12,6 @@
 
 /// A namespace for target-specific build settings.
 public enum TargetBuildSettingDescription {
-
     /// The tool for which a build setting is declared.
     public enum Tool: String, Codable, Hashable, CaseIterable, Sendable {
         case c
@@ -40,12 +39,15 @@ public enum TargetBuildSettingDescription {
 
         case unsafeFlags([String])
 
+        case swiftLanguageVersion(SwiftLanguageVersion)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode, .enableUpcomingFeature, .enableExperimentalFeature:
+            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
+                 .enableUpcomingFeature, .enableExperimentalFeature, .swiftLanguageVersion:
                 return false
             }
         }

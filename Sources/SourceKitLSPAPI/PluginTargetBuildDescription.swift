@@ -10,27 +10,37 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Foundation.URL
 
-// FIXME: should be an internal import
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 
-/*private*/ import class PackageLoading.ManifestLoader
-/*private*/ import struct PackageModel.ToolsVersion
-/*private*/ import class PackageModel.UserToolchain
+private import class PackageLoading.ManifestLoader
+internal import struct PackageModel.ToolsVersion
+private import class PackageModel.UserToolchain
+import enum PackageGraph.BuildTriple
 
 struct PluginTargetBuildDescription: BuildTarget {
-    private let target: ResolvedTarget
+    private let target: ResolvedModule
     private let toolsVersion: ToolsVersion
+    let isPartOfRootPackage: Bool
 
-    init(target: ResolvedTarget, toolsVersion: ToolsVersion) {
+    init(target: ResolvedModule, toolsVersion: ToolsVersion, isPartOfRootPackage: Bool) {
         assert(target.type == .plugin)
         self.target = target
         self.toolsVersion = toolsVersion
+        self.isPartOfRootPackage = isPartOfRootPackage
     }
 
     var sources: [URL] {
         return target.sources.paths.map { URL(fileURLWithPath: $0.pathString) }
+    }
+
+    var name: String {
+        return target.name
+    }
+
+    var buildTriple: BuildTriple {
+        return target.buildTriple
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {

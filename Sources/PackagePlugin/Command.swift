@@ -17,7 +17,7 @@ import Foundation
 /// based on the ones passed to the plugin in the target build context.
 public enum Command {
 
-    /// Returns a command that runs when any of its ouput files are needed by
+    /// Returns a command that runs when any of its output files are needed by
     /// the build, but out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input files
@@ -43,7 +43,7 @@ public enum Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     case buildCommand(
         displayName: String?,
         executable: URL,
@@ -76,7 +76,7 @@ public enum Command {
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
-    @available(_PackageDescription, introduced: 5.11)
+    @available(_PackageDescription, introduced: 6.0)
     case prebuildCommand(
         displayName: String?,
         executable: URL,
@@ -88,7 +88,7 @@ public enum Command {
 
 public extension Command {
 
-    /// Returns a command that runs when any of its ouput files are needed by
+    /// Returns a command that runs when any of its output files are needed by
     /// the build, but out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input files
@@ -114,7 +114,7 @@ public extension Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     static func buildCommand(
         displayName: String?,
         executable: Path,
@@ -133,7 +133,7 @@ public extension Command {
         )
     }
 
-    /// Returns a command that runs when any of its ouput files are needed
+    /// Returns a command that runs when any of its output files are needed
     /// by the build, but out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input
@@ -204,7 +204,7 @@ public extension Command {
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
-    @available(_PackageDescription, deprecated: 5.11)
+    @available(_PackageDescription, deprecated: 6.0)
     static func prebuildCommand(
         displayName: String?,
         executable: Path,

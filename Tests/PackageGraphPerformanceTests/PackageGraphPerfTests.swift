@@ -12,7 +12,10 @@
 
 import Basics
 import OrderedCollections
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SPMTestSupport
@@ -85,7 +88,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
 
         measure {
             let observability = ObservabilitySystem.makeForTesting()
-            let g = try! PackageGraph.load(
+            let g = try! ModulesGraph.load(
                 root: PackageGraphRoot(
                     input: PackageGraphRootInput(packages: [rootManifest.path]),
                     manifests: [rootManifest.path: rootManifest],
@@ -150,7 +153,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try loadPackageGraph(
+                    _ = try loadModulesGraph(
                         fileSystem: fs,
                         manifests: [root] + packageSequence,
                         observabilityScope: observability.topScope
@@ -163,9 +166,9 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     }
 
     func testRecursiveDependencies() throws {
-        var resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t0")
+        var resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
         for i in 1..<1000 {
-            resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
+            resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
         }        
 
         let N = 10

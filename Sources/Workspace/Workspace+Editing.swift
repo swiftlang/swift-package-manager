@@ -15,6 +15,7 @@ import class Basics.ObservabilityScope
 import struct Basics.RelativePath
 import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
+import struct PackageModel.ProvidedLibrary
 import struct SourceControl.Revision
 import class TSCBasic.InMemoryFileSystem
 
@@ -50,6 +51,9 @@ extension Workspace {
             return
         case .registryDownload:
             observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity)' can't be edited")
+            return
+        case .providedLibrary:
+            observabilityScope.emit(error: "library dependency '\(dependency.packageRef.identity)' can't be edited")
             return
         case .custom:
             observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")
@@ -189,11 +193,11 @@ extension Workspace {
 
         // Form the edit working repo path.
         let path = self.location.editSubdirectory(for: dependency)
-        // Check for uncommited and unpushed changes if force removal is off.
+        // Check for uncommitted and unpushed changes if force removal is off.
         if !forceRemove {
             let workingCopy = try repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
-                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
+                throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: path)
             }
             guard try !workingCopy.hasUnpushedCommits() else {
                 throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)

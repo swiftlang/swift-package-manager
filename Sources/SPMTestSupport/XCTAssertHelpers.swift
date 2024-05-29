@@ -170,6 +170,16 @@ public func XCTAssertAsyncFalse(
     XCTAssertFalse(result, message(), file: file, line: line)
 }
 
+package func XCTAssertAsyncNil(
+    _ expression: @autoclosure () async throws -> Any?,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async rethrows {
+    let result = try await expression()
+    XCTAssertNil(result, message(), file: file, line: line)
+}
+
 public func XCTAssertThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () throws -> T,
     _ message: @autoclosure () -> String = "",
@@ -186,6 +196,35 @@ public func XCTAssertThrowsCommandExecutionError<T>(
         errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
     }
 }
+
+public func XCTAssertAsyncEqual<T: Equatable>(
+    _ expression1: @autoclosure () async throws -> T,
+    _ expression2: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #file,
+    line: UInt = #line
+) async rethrows {
+    let value1 = try await expression1()
+    let value2 = try await expression2()
+
+    XCTAssertEqual(value1, value2, message(), file: file, line: line)
+}
+
+struct XCAsyncTestErrorWhileUnwrappingOptional: Error {}
+
+public func XCTAsyncUnwrap<T>(
+    _ expression: @autoclosure () async throws -> T?,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async throws -> T {
+    guard let result = try await expression() else {
+        throw XCAsyncTestErrorWhileUnwrappingOptional()
+    }
+
+    return result
+}
+
 
 public struct CommandExecutionError: Error {
     public let result: ProcessResult

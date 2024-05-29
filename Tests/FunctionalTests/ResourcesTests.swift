@@ -101,8 +101,6 @@ class ResourcesTests: XCTestCase {
     }
 
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
-        try XCTSkipIf(!UserToolchain.default.supportsWarningsAsErrors(), "skipping because test environment doesn't support warnings as errors")
-
         try fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
@@ -129,7 +127,9 @@ class ResourcesTests: XCTestCase {
         }
     }
 
-    func testResourcesOutsideOfTargetCanBeIncluded() throws {
+    func testResourcesOutsideOfTargetCanBeIncluded() async throws {
+        try await UserToolchain.default.skipUnlessAtLeastSwift6()
+
         try testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "MyPackage")
 
@@ -138,7 +138,7 @@ class ResourcesTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: 5.11
+                // swift-tools-version: 6.0
                 import PackageDescription
                 let package = Package(name: "MyPackage",
                     targets: [
@@ -160,7 +160,7 @@ class ResourcesTests: XCTestCase {
             try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(resource, string: "best")
 
-            let (_, stderr) = try executeSwiftBuild(packageDir)
+            let (_, stderr) = try executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }.joined(separator: "\n")
             XCTAssertEqual(filteredStderr, "", "unexpectedly received error output: \(stderr)")

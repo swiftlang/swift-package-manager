@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,6 +14,10 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
+
+@_spi(SwiftPMInternal)
+import DriverSupport
+
 import Foundation
 import OrderedCollections
 import PackageGraph
@@ -287,7 +291,11 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 isXcodeBuildSystemEnabled: buildSystem == .xcode,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
-                    useIntegratedSwiftDriver: useIntegratedSwiftDriver
+                    useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+                    isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
+                        toolchain: targetToolchain,
+                        fileSystem: self.fileSystem
+                    )
                 ),
                 linkingParameters: .init(
                     shouldDisableLocalRpath: shouldDisableLocalRpath
@@ -301,7 +309,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
             let packageGraphLoader = {
                 try self.loadPackageGraph(packagePath: packagePath, manifestLoader: manifestLoader)
-
             }
 
             switch buildSystem {
@@ -312,8 +319,11 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     toolsBuildParameters: buildParameters,
                     cacheBuildManifest: false,
                     packageGraphLoader: packageGraphLoader,
+                    scratchDirectory: scratchDirectory,
                     additionalFileRules: [],
                     pkgConfigDirectories: [],
+                    dependenciesByRootPackageIdentity: [:],
+                    targetsByRootPackageIdentity: [:],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
@@ -344,7 +354,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             )
         }
 
-        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> PackageGraph {
+        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> ModulesGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
             let rootPackageManifest =  try temp_await { self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0) }
 
@@ -371,7 +381,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 observabilityScope: observabilityScope
             )
 
-            return try PackageGraph.load(
+            return try ModulesGraph.load(
                 root: packageGraphRoot,
                 identityResolver: identityResolver,
                 externalManifests: loadedManifests.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
@@ -471,7 +481,7 @@ extension BuildConfiguration {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension AbsolutePath: ExpressibleByArgument {}
 extension BuildConfiguration: ExpressibleByArgument {}
 #else

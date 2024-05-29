@@ -12,7 +12,10 @@
 
 import Basics
 import Build
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageModel
 import SourceKitLSPAPI
 import SPMTestSupport
@@ -27,7 +30,7 @@ class SourceKitLSPAPITests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -42,24 +45,50 @@ class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
+        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let plan = try BuildPlan(
-            productsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
-            toolsBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            destinationBuildParameters: buildParameters,
+            toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let description = BuildDescription(buildPlan: plan)
 
-        try description.checkArguments(for: "exe", graph: graph, partialArguments: ["/fake/path/to/swiftc", "-module-name", "exe", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/exe.build/exe.swiftmodule"])
-        try description.checkArguments(for: "lib", graph: graph, partialArguments: ["/fake/path/to/swiftc", "-module-name", "lib", "-emit-dependencies", "-emit-module", "-emit-module-path", "/path/to/build/debug/Modules/lib.swiftmodule"])
+        try description.checkArguments(
+            for: "exe",
+            graph: graph,
+            partialArguments: [
+                "-module-name", "exe",
+                "-emit-dependencies",
+                "-emit-module",
+                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule"
+            ],
+            isPartOfRootPackage: true
+        )
+        try description.checkArguments(
+            for: "lib",
+            graph: graph,
+            partialArguments: [
+                "-module-name", "lib",
+                "-emit-dependencies",
+                "-emit-module",
+                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/Modules/lib.swiftmodule"
+            ],
+            isPartOfRootPackage: true
+        )
     }
 }
 
 extension SourceKitLSPAPI.BuildDescription {
-    @discardableResult func checkArguments(for targetName: String, graph: PackageGraph, partialArguments: [String]) throws -> Bool {
+    @discardableResult func checkArguments(
+        for targetName: String,
+        graph: ModulesGraph,
+        partialArguments: [String],
+        isPartOfRootPackage: Bool
+    ) throws -> Bool {
         let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target))
+        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
 
         guard let file = buildTarget.sources.first else {
             XCTFail("build target \(targetName) contains no files")
@@ -67,27 +96,10 @@ extension SourceKitLSPAPI.BuildDescription {
         }
 
         let arguments = try buildTarget.compileArguments(for: file)
-        let result = arguments.firstIndex(of: partialArguments) != nil
+        let result = arguments.contains(partialArguments)
 
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
+        XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
         return result
-    }
-}
-
-// Since 'contains' is only available in macOS SDKs 13.0 or newer, we need our own little implementation.
-extension RandomAccessCollection where Element: Equatable {
-    fileprivate func firstIndex(of pattern: some RandomAccessCollection<Element>) -> Index? {
-        guard !pattern.isEmpty && count >= pattern.count else {
-            return nil
-        }
-
-        var i = startIndex
-        for _ in 0..<(count - pattern.count + 1) {
-            if self[i...].starts(with: pattern) {
-                return i
-            }
-            i = self.index(after: i)
-        }
-        return nil
     }
 }

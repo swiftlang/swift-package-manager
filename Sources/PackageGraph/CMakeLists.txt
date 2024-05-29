@@ -13,9 +13,9 @@ add_library(PackageGraph
   Diagnostics.swift
   GraphLoadingNode.swift
   ModuleAliasTracker.swift
+  ModulesGraph.swift
+  ModulesGraph+Loading.swift
   PackageContainer.swift
-  PackageGraph.swift
-  PackageGraph+Loading.swift
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PackageRequirement.swift
@@ -35,7 +35,7 @@ add_library(PackageGraph
   Resolution/PlatformVersionProvider.swift
   Resolution/ResolvedPackage.swift
   Resolution/ResolvedProduct.swift
-  Resolution/ResolvedTarget.swift
+  Resolution/ResolvedModule.swift
   Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC

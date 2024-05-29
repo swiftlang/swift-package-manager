@@ -15,6 +15,7 @@ add_library(PackageModel
   DependencyMapper.swift
   Diagnostics.swift
   IdentityResolver.swift
+  InstalledLibrariesSupport/LibraryMetadata.swift
   InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
   Manifest/PackageConditionDescription.swift
@@ -50,6 +51,7 @@ add_library(PackageModel
   Target/BinaryTarget.swift
   Target/ClangTarget.swift
   Target/PluginTarget.swift
+  Target/ProvidedLibraryTarget.swift
   Target/SwiftTarget.swift
   Target/SystemLibraryTarget.swift
   Target/Target.swift

@@ -16,7 +16,10 @@ import struct Foundation.URL
 import class Foundation.Bundle
 #endif
 import OrderedCollections
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
 import SourceControl
@@ -316,6 +319,11 @@ private func swiftArgs(
     return args
 }
 
+@available(*, 
+    deprecated,
+    renamed: "loadModulesGraph",
+    message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
+)
 public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fileSystem: FileSystem,
@@ -327,36 +335,17 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope
-) throws -> PackageGraph {
-    let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
-    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
-        .reduce(
-            into: OrderedCollections
-                .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
-        ) { partial, item in
-            partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
-        }
-
-    let packages = Array(rootManifests.keys)
-    let input = PackageGraphRootInput(packages: packages)
-    let graphRoot = PackageGraphRoot(
-        input: input,
-        manifests: rootManifests,
-        explicitProduct: explicitProduct,
-        observabilityScope: observabilityScope
-    )
-
-    return try PackageGraph.load(
-        root: graphRoot,
+) throws -> ModulesGraph {
+    try loadModulesGraph(
         identityResolver: identityResolver,
-        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription
-            .swiftpmFileTypes,
-        externalManifests: externalManifests,
+        fileSystem: fileSystem,
+        manifests: manifests,
         binaryArtifacts: binaryArtifacts,
+        explicitProduct: explicitProduct,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
+        useXCBuildFileRules: useXCBuildFileRules,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )
 }
@@ -457,7 +446,7 @@ extension InitPackage {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension RelativePath: ExpressibleByStringLiteral {}
 extension RelativePath: ExpressibleByStringInterpolation {}
 extension URL: ExpressibleByStringLiteral {}

@@ -941,8 +941,6 @@ public enum PIF {
             case INSTALL_PATH
             case SUPPORTS_MACCATALYST
             case SWIFT_SERIALIZE_DEBUGGING_OPTIONS
-            case SWIFT_FORCE_STATIC_LINK_STDLIB
-            case SWIFT_FORCE_DYNAMIC_LINK_STDLIB
             case SWIFT_INSTALL_OBJC_HEADER
             case SWIFT_OBJC_INTERFACE_HEADER_NAME
             case SWIFT_OBJC_INTERFACE_HEADER_DIR

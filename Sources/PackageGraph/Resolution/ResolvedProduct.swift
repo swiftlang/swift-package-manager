@@ -30,10 +30,10 @@ public struct ResolvedProduct {
     public let underlying: Product
 
     /// The top level targets contained in this product.
-    public let targets: IdentifiableSet<ResolvedTarget>
+    public internal(set) var targets: IdentifiableSet<ResolvedModule>
 
     /// Executable target for test entry point file.
-    public let testEntryPointTarget: ResolvedTarget?
+    public let testEntryPointTarget: ResolvedModule?
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -44,12 +44,16 @@ public struct ResolvedProduct {
     public let platformVersionProvider: PlatformVersionProvider
 
     /// Triple for which this resolved product should be compiled for.
-    public let buildTriple: BuildTriple
+    public internal(set) var buildTriple: BuildTriple {
+        didSet {
+            self.updateBuildTriplesOfDependencies()
+        }
+    }
 
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
-    public var executableTarget: ResolvedTarget {
+    public var executableTarget: ResolvedModule {
         get throws {
             guard self.type == .executable || self.type == .snippet || self.type == .macro else {
                 throw InternalError("`executableTarget` should only be called for executable targets")
@@ -63,7 +67,11 @@ public struct ResolvedProduct {
         }
     }
 
-    public init(packageIdentity: PackageIdentity, product: Product, targets: IdentifiableSet<ResolvedTarget>) {
+    public init(
+        packageIdentity: PackageIdentity,
+        product: Product,
+        targets: IdentifiableSet<ResolvedModule>
+    ) {
         assert(product.targets.count == targets.count && product.targets.map(\.name).sorted() == targets.map(\.name).sorted())
         self.packageIdentity = packageIdentity
         self.underlying = product
@@ -87,7 +95,7 @@ public struct ResolvedProduct {
                 packageAccess: true, // entry point target so treated as a part of the package
                 testEntryPointPath: testEntryPointPath
             )
-            return ResolvedTarget(
+            return ResolvedModule(
                 packageIdentity: packageIdentity,
                 underlying: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },
@@ -97,7 +105,41 @@ public struct ResolvedProduct {
             )
         }
         
-        self.buildTriple = .destination
+        if product.type == .test {
+            // Make sure that test products are built for the tools triple if it has tools as direct dependencies.
+            // Without this workaround, `assertMacroExpansion` in tests can't be built, as it requires macros
+            // and SwiftSyntax to be built for the same triple as the tests.
+            // See https://github.com/apple/swift-package-manager/pull/7349 for more context.
+            var inferredBuildTriple = BuildTriple.destination
+            targetsLoop: for target in targets {
+                for dependency in target.dependencies {
+                    switch dependency {
+                    case .target(let targetDependency, _):
+                        if targetDependency.type == .macro {
+                            inferredBuildTriple = .tools
+                            break targetsLoop
+                        }
+                    case .product(let productDependency, _):
+                        if productDependency.type == .macro {
+                            inferredBuildTriple = .tools
+                            break targetsLoop
+                        }
+                    }
+                }
+            }
+            self.buildTriple = inferredBuildTriple
+        } else {
+            self.buildTriple = product.buildTriple
+        }
+        self.updateBuildTriplesOfDependencies()
+    }
+
+    mutating func updateBuildTriplesOfDependencies() {
+        self.targets = IdentifiableSet(self.targets.map {
+            var target = $0
+            target.buildTriple = self.buildTriple
+            return target
+        })
     }
 
     /// True if this product contains Swift targets.
@@ -113,13 +155,13 @@ public struct ResolvedProduct {
     }
 
     /// Returns the recursive target dependencies.
-    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
+    public func recursiveTargetDependencies() throws -> [ResolvedModule] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(IdentifiableSet(self.targets).union(recursiveDependencies))
     }
 
     private static func computePlatforms(
-        targets: IdentifiableSet<ResolvedTarget>
+        targets: IdentifiableSet<ResolvedModule>
     ) -> ([SupportedPlatform], PlatformVersionProvider) {
         let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
             merge(into: &partial, platforms: item.supportedPlatforms)
@@ -151,7 +193,7 @@ public struct ResolvedProduct {
 
 extension ResolvedProduct: CustomStringConvertible {
     public var description: String {
-        "<ResolvedProduct: \(self.name)>"
+        "<ResolvedProduct: \(self.name), \(self.type), \(self.buildTriple)>"
     }
 }
 
@@ -166,13 +208,13 @@ extension ResolvedProduct {
 extension ResolvedProduct: Identifiable {
     /// Resolved target identity that uniquely identifies it in a resolution graph.
     public struct ID: Hashable {
-        public let targetName: String
+        public let productName: String
         let packageIdentity: PackageIdentity
-        public let buildTriple: BuildTriple
+        public var buildTriple: BuildTriple
     }
 
     public var id: ID {
-        ID(targetName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
+        ID(productName: self.name, packageIdentity: self.packageIdentity, buildTriple: self.buildTriple)
     }
 }
 

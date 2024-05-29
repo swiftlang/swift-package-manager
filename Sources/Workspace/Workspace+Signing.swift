@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import enum PackageFingerprint.FingerprintCheckingMode
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageModel.PackageIdentity
 import struct PackageModel.RegistryReleaseMetadata
 import enum PackageSigning.SigningEntityCheckingMode
@@ -42,11 +42,11 @@ extension SigningEntityCheckingMode {
 
 extension Workspace {
     func validateSignatures(
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity]
     ) throws {
         try expectedSigningEntities.forEach { identity, expectedSigningEntity in
-            if let package = packageGraph.packages.first(where: { $0.identity == identity }) {
+            if let package = packageGraph.package(for: identity) {
                 guard let actualSigningEntity = package.registryMetadata?.signature?.signedBy else {
                     throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
                 }
@@ -68,7 +68,7 @@ extension Workspace {
                         expected: expectedSigningEntity
                     )
                 }
-                guard let package = packageGraph.packages.first(where: { $0.identity == mirroredIdentity }) else {
+                guard let package = packageGraph.package(for: mirroredIdentity) else {
                     // Unsure if this case is reachable in practice.
                     throw SigningError.expectedIdentityNotFound(package: identity)
                 }

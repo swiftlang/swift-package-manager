@@ -73,7 +73,7 @@ struct APIDigesterBaselineDumper {
         at baselineDir: AbsolutePath?,
         force: Bool,
         logLevel: Basics.Diagnostic.Severity,
-        swiftTool: SwiftTool
+        swiftCommandState: SwiftCommandState
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = productsBuildParameters.apiDiff
@@ -85,7 +85,7 @@ struct APIDigesterBaselineDumper {
         if !force {
             // Baselines which already exist don't need to be regenerated.
             modulesToDiff = modulesToDiff.filter {
-                !swiftTool.fileSystem.exists(baselinePath($0))
+                !swiftCommandState.fileSystem.exists(baselinePath($0))
             }
         }
 
@@ -96,8 +96,8 @@ struct APIDigesterBaselineDumper {
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
         let baselinePackageRoot = apiDiffDir.appending("\(baselineRevision.identifier)-checkout")
-        if swiftTool.fileSystem.exists(baselinePackageRoot) {
-            try swiftTool.fileSystem.removeFileTree(baselinePackageRoot)
+        if swiftCommandState.fileSystem.exists(baselinePackageRoot) {
+            try swiftCommandState.fileSystem.removeFileTree(baselinePackageRoot)
         }
 
         // Clone the current package in a sandbox and checkout the baseline revision.
@@ -115,7 +115,7 @@ struct APIDigesterBaselineDumper {
         // Create the workspace for this package.
         let workspace = try Workspace(
             forRootPackage: baselinePackageRoot,
-            cancellator: swiftTool.cancellator
+            cancellator: swiftCommandState.cancellator
         )
 
         let graph = try workspace.loadPackageGraph(
@@ -137,7 +137,7 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildSystem = try swiftTool.createBuildSystem(
+        let buildSystem = try swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
@@ -147,7 +147,7 @@ struct APIDigesterBaselineDumper {
         try buildSystem.build()
 
         // Dump the SDK JSON.
-        try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
+        try swiftCommandState.fileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: Int(productsBuildParameters.workers))
         let errors = ThreadSafeArrayStore<Swift.Error>()
@@ -310,7 +310,7 @@ extension BuildParameters {
     }
 }
 
-extension PackageGraph {
+extension ModulesGraph {
     /// The list of modules that should be used as an input to the API digester.
     var apiDigesterModules: [String] {
         self.rootPackages
@@ -328,7 +328,7 @@ extension SerializedDiagnostics.SourceLocation {
     }
 }
 
-#if swift(<5.11)
+#if swift(<6.0)
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {}
 #else
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}

@@ -4,7 +4,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,26 +12,34 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageDescription
 import class Foundation.ProcessInfo
+import PackageDescription
 
 // When building the toolchain on the CI for ELF platforms, remove the CI's
 // stdlib absolute runpath and add ELF's $ORIGIN relative paths before installing.
-let swiftpmLinkSettings : [LinkerSetting]
-let packageLibraryLinkSettings : [LinkerSetting]
+let swiftpmLinkSettings: [LinkerSetting]
+let packageLibraryLinkSettings: [LinkerSetting]
 if let resourceDirPath = ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] {
-  swiftpmLinkSettings = [ .unsafeFlags(["-no-toolchain-stdlib-rpath", "-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../lib/swift/\(resourceDirPath)"]) ]
-  packageLibraryLinkSettings = [ .unsafeFlags(["-no-toolchain-stdlib-rpath", "-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../../\(resourceDirPath)"]) ]
+    swiftpmLinkSettings = [.unsafeFlags([
+        "-no-toolchain-stdlib-rpath",
+        "-Xlinker", "-rpath",
+        "-Xlinker", "$ORIGIN/../lib/swift/\(resourceDirPath)",
+    ])]
+    packageLibraryLinkSettings = [.unsafeFlags([
+        "-no-toolchain-stdlib-rpath",
+        "-Xlinker", "-rpath",
+        "-Xlinker", "$ORIGIN/../../\(resourceDirPath)",
+    ])]
 } else {
-  swiftpmLinkSettings = []
-  packageLibraryLinkSettings = []
+    swiftpmLinkSettings = []
+    packageLibraryLinkSettings = []
 }
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
-This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
-to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
-though that could break some clients.
-*/
+ This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
+ to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
+ though that could break some clients.
+ */
 let swiftPMDataModelProduct = (
     name: "SwiftPMDataModel",
     targets: [
@@ -41,6 +49,7 @@ let swiftPMDataModelProduct = (
         "PackageLoading",
         "PackageMetadata",
         "PackageModel",
+        "PackageModelSyntax",
         "SourceControl",
         "Workspace",
     ]
@@ -51,7 +60,7 @@ let swiftPMDataModelProduct = (
  command line tools, while `libSwiftPMDataModel` includes only the data model.
 
  NOTE: This API is *unstable* and may change at any time.
-*/
+ */
 let swiftPMProduct = (
     name: "SwiftPM",
     targets: swiftPMDataModelProduct.targets + [
@@ -69,19 +78,31 @@ let systemSQLitePkgConfig: String? = "sqlite3"
 #endif
 
 /** An array of products which have two versions listed: one dynamically linked, the other with the
-automatic linking type with `-auto` suffix appended to product's name.
-*/
+ automatic linking type with `-auto` suffix appended to product's name.
+ */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
+
+let packageModelResourcesSettings: [SwiftSetting]
+let packageModelResources: [Resource]
+if ProcessInfo.processInfo.environment["SWIFTPM_USE_LIBRARIES_METADATA"] == nil {
+    packageModelResources = []
+    packageModelResourcesSettings = [.define("SKIP_RESOURCE_SUPPORT")]
+} else {
+    packageModelResources = [
+        .copy("InstalledLibrariesSupport/provided-libraries.json"),
+    ]
+    packageModelResourcesSettings = []
+}
 
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v12),
-        .iOS(.v15)
+        .macOS(.v13),
+        .iOS(.v16),
     ],
     products:
-        autoProducts.flatMap {
-          [
+    autoProducts.flatMap {
+        [
             .library(
                 name: $0.name,
                 type: .dynamic,
@@ -90,9 +111,9 @@ let package = Package(
             .library(
                 name: "\($0.name)-auto",
                 targets: $0.targets
-            )
-          ]
-        } + [
+            ),
+        ]
+    } + [
         .library(
             name: "XCBuildSupport",
             targets: ["XCBuildSupport"]
@@ -153,8 +174,10 @@ let package = Package(
             name: "SourceKitLSPAPI",
             dependencies: [
                 "Build",
-                "SPMBuildCore"
-            ]
+                "SPMBuildCore",
+            ],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [.enableExperimentalFeature("AccessLevelOnImport")]
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -170,7 +193,10 @@ let package = Package(
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
-            exclude: ["CMakeLists.txt", "Vendor/README.md"]
+            exclude: ["CMakeLists.txt", "Vendor/README.md"],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
         ),
 
         .target(
@@ -198,7 +224,7 @@ let package = Package(
             name: "SourceControl",
             dependencies: [
                 "Basics",
-                "PackageModel"
+                "PackageModel",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -216,7 +242,26 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basics"],
-            exclude: ["CMakeLists.txt", "README.md"]
+            exclude: ["CMakeLists.txt", "README.md"],
+            resources: packageModelResources,
+            swiftSettings: packageModelResourcesSettings
+        ),
+
+        .target(
+            /** Primary Package model objects relationship to SwiftSyntax */
+            name: "PackageModelSyntax",
+            dependencies: [
+                "Basics",
+                "PackageLoading",
+                "PackageModel",
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         .target(
@@ -238,7 +283,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageLoading",
-                "PackageModel"
+                "PackageModel",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -250,7 +295,7 @@ let package = Package(
             name: "PackageCollectionsModel",
             dependencies: [],
             exclude: [
-                "Formats/v1.md"
+                "Formats/v1.md",
             ]
         ),
 
@@ -284,7 +329,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
-        
+
         .target(
             name: "PackageSigning",
             dependencies: [
@@ -303,7 +348,7 @@ let package = Package(
             name: "SPMBuildCore",
             dependencies: [
                 "Basics",
-                "PackageGraph"
+                "PackageGraph",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -333,8 +378,8 @@ let package = Package(
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt", "CODEOWNERS"]
+            dependencies: ["DriverSupport", "SPMBuildCore", "PackageGraph"],
+            exclude: ["CMakeLists.txt"]
         ),
         .target(
             /** High level functionality */
@@ -386,10 +431,13 @@ let package = Package(
             name: "Commands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
                 "Basics",
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
+                "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
@@ -399,7 +447,7 @@ let package = Package(
 
         .target(
             /** Interacts with Swift SDKs used for cross-compilation */
-            name: "SwiftSDKTool",
+            name: "SwiftSDKCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -412,7 +460,7 @@ let package = Package(
 
         .target(
             /** Interacts with package collections */
-            name: "PackageCollectionsTool",
+            name: "PackageCollectionsCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -425,7 +473,7 @@ let package = Package(
 
         .target(
             /** Interact with package registry */
-            name: "PackageRegistryTool",
+            name: "PackageRegistryCommand",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -439,6 +487,17 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 "Workspace",
+            ]
+        ),
+
+        .target(
+            name: "QueryEngine",
+            dependencies: [
+                "Basics",
+                .product(name: "Crypto", package: "swift-crypto"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency=complete"),
             ]
         ),
 
@@ -470,8 +529,14 @@ let package = Package(
         ),
         .executableTarget(
             /** Interacts with Swift SDKs used for cross-compilation */
+            name: "swift-sdk",
+            dependencies: ["Commands", "SwiftSDKCommand"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Deprecated command superseded by `swift-sdk` */
             name: "swift-experimental-sdk",
-            dependencies: ["Commands", "SwiftSDKTool"],
+            dependencies: ["Commands", "SwiftSDKCommand"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
@@ -489,24 +554,24 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands", "PackageCollectionsTool"]
+            dependencies: ["Commands", "PackageCollectionsCommand"]
         ),
         .executableTarget(
-            /** Multi-tool entry point for SwiftPM. */
+            /** Multi-command entry point for SwiftPM. */
             name: "swift-package-manager",
             dependencies: [
                 "Basics",
                 "Commands",
-                "SwiftSDKTool",
-                "PackageCollectionsTool",
-                "PackageRegistryTool"
+                "SwiftSDKCommand",
+                "PackageCollectionsCommand",
+                "PackageRegistryCommand",
             ],
             linkerSettings: swiftpmLinkSettings
         ),
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands", "PackageRegistryTool"]
+            dependencies: ["Commands", "PackageRegistryCommand"]
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
@@ -544,7 +609,8 @@ let package = Package(
         .target(
             /** Test for thread-santizer. */
             name: "tsan_utils",
-            dependencies: []),
+            dependencies: []
+        ),
 
         // MARK: SwiftPM tests
 
@@ -592,12 +658,16 @@ let package = Package(
             exclude: ["Inputs", "pkgconfigInputs"]
         ),
         .testTarget(
-            name: "PackageLoadingPerformanceTests",
-            dependencies: ["PackageLoading", "SPMTestSupport"]
-        ),
-        .testTarget(
             name: "PackageModelTests",
             dependencies: ["PackageModel", "SPMTestSupport"]
+        ),
+        .testTarget(
+            name: "PackageModelSyntaxTests",
+            dependencies: [
+                "PackageModelSyntax",
+                "SPMTestSupport",
+                .product(name: "SwiftIDEUtils", package: "swift-syntax"),
+            ]
         ),
         .testTarget(
             name: "PackageGraphTests",
@@ -642,6 +712,10 @@ let package = Package(
             dependencies: ["SPMTestSupport", "PackageSigning"]
         ),
         .testTarget(
+            name: "QueryEngineTests",
+            dependencies: ["QueryEngine", "SPMTestSupport"]
+        ),
+        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
@@ -668,25 +742,22 @@ package.targets.append(contentsOf: [
     .testTarget(
         name: "FunctionalPerformanceTests",
         dependencies: [
-            "swift-build",
-            "swift-package",
-            "swift-test",
-            "SPMTestSupport"
+            "swift-package-manager",
+            "SPMTestSupport",
         ]
     ),
 ])
 
-// rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
+// rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out
+// disable them all until we know what is going on
 if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil {
     package.targets.append(contentsOf: [
         .testTarget(
             name: "FunctionalTests",
             dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
+                "swift-package-manager",
                 "PackageModel",
-                "SPMTestSupport"
+                "SPMTestSupport",
             ]
         ),
 
@@ -700,15 +771,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         .testTarget(
             name: "CommandsTests",
             dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
-                "swift-run",
+                "swift-package-manager",
                 "Basics",
                 "Build",
                 "Commands",
                 "PackageModel",
-                "PackageRegistryTool",
+                "PackageRegistryCommand",
                 "SourceControl",
                 "SPMTestSupport",
                 "Workspace",
@@ -757,6 +825,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
+        .package(url: "https://github.com/apple/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "1.0.1")),
@@ -767,6 +836,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
+        .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),

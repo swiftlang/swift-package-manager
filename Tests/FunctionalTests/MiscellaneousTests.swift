@@ -89,7 +89,8 @@ class MiscellaneousTestCase: XCTestCase {
                     return XCTFail("failed in an unexpected manner: \(error)")
                 }
                 XCTAssertMatch(error.stdout + error.stderr, .contains("Compiling CompileFails Foo.swift"))
-                XCTAssertMatch(error.stdout + error.stderr, .regex("error: .*\n.*compile_failure"))
+                XCTAssertMatch(error.stdout + error.stderr, .regex(".*compile_failure.*"))
+                XCTAssertMatch(error.stdout + error.stderr, .regex(".*error:.*"))
             }
         }
     }
@@ -630,8 +631,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependencies() throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSuppressWarnings(), "skipping because test environment doesn't support suppressing warnings")
-
         try fixture(name: "Miscellaneous/DependenciesWarnings") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
@@ -649,8 +648,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependenciesWithWarningsAsErrors() throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSuppressWarnings(), "skipping because test environment doesn't support suppressing warnings")
-
         try fixture(name: "Miscellaneous/DependenciesWarnings2") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
@@ -668,8 +665,8 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testRootPackageWithConditionals() throws {
         try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
-            let (_, stderr) = try SwiftPM.Build.execute(packagePath: path)
-            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.contains("annotation implies no releases") && !$0.contains("note: add explicit") && !$0.isEmpty }
+            let (_, stderr) = try SwiftPM.Build.execute(packagePath: path, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
             XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
         }
     }

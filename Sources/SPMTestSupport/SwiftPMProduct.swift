@@ -25,11 +25,13 @@ public enum SwiftPM {
     case Registry
     case Test
     case Run
+    case experimentalSDK
+    case sdk
 }
 
 extension SwiftPM {
     /// Executable name.
-    private var executableName: RelativePath {
+    private var executableName: String {
         switch self {
         case .Build:
             return "swift-build"
@@ -41,11 +43,15 @@ extension SwiftPM {
             return "swift-test"
         case .Run:
             return "swift-run"
+        case .experimentalSDK:
+            return "swift-experimental-sdk"
+        case .sdk:
+            return "swift-sdk"
         }
     }
 
     public var xctestBinaryPath: AbsolutePath {
-        Self.xctestBinaryPath(for: executableName)
+        Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
     }
 
     public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
@@ -114,11 +120,12 @@ extension SwiftPM {
 #endif
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
-        environment["SWIFTPM_TESTS_MODULECACHE"] = xctestBinaryPath.parentDirectory.pathString
-        
+        environment["SWIFTPM_TESTS_MODULECACHE"] = self.xctestBinaryPath.parentDirectory.pathString
+
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
-        
+        environment["SWIFTPM_EXEC_NAME"] = self.executableName
+
         for (key, value) in env ?? [:] {
             environment[key] = value
         }
@@ -128,7 +135,7 @@ extension SwiftPM {
             completeArgs += ["--package-path", packagePath.pathString]
         }
         completeArgs += args
-        
+
         return try Process.popen(arguments: completeArgs, environment: environment)
     }
 }

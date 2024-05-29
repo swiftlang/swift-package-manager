@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 // FIXME: can't write `import actor Basics.HTTPClient`, importing the whole module because of that :(
+@_spi(SwiftPMInternal)
 import Basics
 import struct Foundation.URL
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class SwiftSDKBundleStore {
     public enum Output: Equatable, CustomStringConvertible {
@@ -45,7 +47,7 @@ public final class SwiftSDKBundleStore {
             case let .noMatchingSwiftSDK(selector, hostTriple):
                 return """
                 No Swift SDK found matching query `\(selector)` and host triple \
-                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
+                `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
                 available Swift SDKs.
                 """
             }
@@ -64,16 +66,21 @@ public final class SwiftSDKBundleStore {
     /// Closure invoked for output produced by this store during its operation.
     private let outputHandler: (Output) -> Void
 
+    /// Progress animation used for downloading SDK bundles.
+    private let downloadProgressAnimation: ProgressAnimationProtocol?
+
     public init(
         swiftSDKsDirectory: AbsolutePath,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
-        outputHandler: @escaping (Output) -> Void
+        outputHandler: @escaping (Output) -> Void,
+        downloadProgressAnimation: ProgressAnimationProtocol? = nil
     ) {
         self.swiftSDKsDirectory = swiftSDKsDirectory
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
+        self.downloadProgressAnimation = downloadProgressAnimation
     }
 
     /// An array of valid Swift SDK bundles stored in ``SwiftSDKBundleStore//swiftSDKsDirectory``.
@@ -151,9 +158,10 @@ public final class SwiftSDKBundleStore {
             {
                 let bundleName: String
                 let fileNameComponent = bundleURL.lastPathComponent
-                if fileNameComponent.hasSuffix(".tar.gz") {
+                if archiver.supportedExtensions.contains(where: { fileNameComponent.hasSuffix($0) }) {
                     bundleName = fileNameComponent
                 } else {
+                    // Assume that the bundle is a tarball if it doesn't have a recognized extension.
                     bundleName = "bundle.tar.gz"
                 }
                 let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
@@ -170,8 +178,20 @@ public final class SwiftSDKBundleStore {
                 _ = try await httpClient.execute(
                     request,
                     observabilityScope: self.observabilityScope,
-                    progress: nil
+                    progress: { step, total in
+                        guard let progressAnimation = self.downloadProgressAnimation else {
+                            return
+                        }
+                        let step = step > Int.max ? Int.max : Int(step)
+                        let total = total.map { $0 > Int.max ? Int.max : Int($0) } ?? step
+                        progressAnimation.update(
+                          step: step,
+                          total: total,
+                          text: "Downloading \(bundleURL.lastPathComponent)"
+                        )
+                    }
                 )
+                self.downloadProgressAnimation?.complete(success: true)
 
                 bundlePath = downloadedBundlePath
 
@@ -220,9 +240,10 @@ public final class SwiftSDKBundleStore {
 
         try await archiver.extract(from: bundlePath, to: extractionResultsDirectory)
 
-        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first,
-                bundleName.hasSuffix(".\(artifactBundleExtension)")
-        else {
+        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first(where: {
+            $0.hasSuffix(".\(artifactBundleExtension)") &&
+                fileSystem.isDirectory(extractionResultsDirectory.appending($0))
+        }) else {
             throw SwiftSDKError.invalidBundleArchive(bundlePath)
         }
 

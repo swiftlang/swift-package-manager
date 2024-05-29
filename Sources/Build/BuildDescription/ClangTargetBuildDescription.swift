@@ -11,10 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageGraph
 import PackageLoading
 import PackageModel
-import struct PackageGraph.PackageGraph
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ModulesGraph
+import struct PackageGraph.ResolvedModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.PrebuildCommandResult
@@ -23,8 +24,11 @@ import enum TSCBasic.ProcessEnv
 
 /// Target description for a Clang target i.e. C language family target.
 public final class ClangTargetBuildDescription {
+    /// The package this target belongs to.
+    public let package: ResolvedPackage
+
     /// The target described by this target.
-    public let target: ResolvedTarget
+    public let target: ResolvedModule
 
     /// The underlying clang target.
     public let clangTarget: ClangTarget
@@ -49,7 +53,7 @@ public final class ClangTargetBuildDescription {
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        guard !resources.isEmpty else {
+        guard !self.resources.isEmpty else {
             return .none
         }
 
@@ -109,7 +113,8 @@ public final class ClangTargetBuildDescription {
 
     /// Create a new target description with target and build parameters.
     init(
-        target: ResolvedTarget,
+        package: ResolvedPackage,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
@@ -122,19 +127,20 @@ public final class ClangTargetBuildDescription {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        self.package = package
         self.clangTarget = clangTarget
         self.fileSystem = fileSystem
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.tempsPath = target.tempsPath(buildParameters)
         self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
 
         // We did not use to apply package plugins to C-family targets in prior tools-versions, this preserves the behavior.
         if toolsVersion >= .v5_9 {
             self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
 
-            (self.pluginDerivedSources, self.pluginDerivedResources) = PackageGraph.computePluginGeneratedFiles(
+            (self.pluginDerivedSources, self.pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                 target: target,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -181,7 +187,7 @@ public final class ClangTargetBuildDescription {
         }
     }
 
-    /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
+    /// An array of tuples containing filename, source, object and dependency path for each of the source in this target.
     public func compilePaths()
         throws -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
@@ -219,22 +225,17 @@ public final class ClangTargetBuildDescription {
         if self.buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try buildParameters.targetTripleArgs(for: target)
+        args += try self.buildParameters.tripleArgs(for: target)
 
         args += optimizationArguments
         args += activeCompilationConditions
         args += ["-fblocks"]
 
-        let buildTriple = self.buildParameters.triple
         // Enable index store, if appropriate.
-        //
-        // This feature is not widely available in OSS clang. So, we only enable
-        // index store for Apple's clang or if explicitly asked to.
-        if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += self.buildParameters.indexStoreArguments(for: target)
-        } else if buildTriple.isDarwin(),
-                  (try? self.buildParameters.toolchain._isClangCompilerVendorApple()) == true
-        {
+        if let supported = try? ClangSupport.supportsFeature(
+            name: "index-unit-output-path",
+            toolchain: self.buildParameters.toolchain
+        ), supported {
             args += self.buildParameters.indexStoreArguments(for: target)
         }
 
@@ -243,10 +244,10 @@ public final class ClangTargetBuildDescription {
         // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
         // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't
         // support clang modules.
-        // Note that if modules get enabled for other platforms later, we'll need to verify that
-        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed, or don't
-        // enable modules in the affected modes.
-        let enableModules = triple.isDarwin()
+        // Note that if modules get enabled for other platforms later, they can't be used with C++ until
+        // https://github.com/llvm/llvm-project/issues/55980 (crash on C++17 and later) is fixed.
+        // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
+        let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
@@ -308,6 +309,27 @@ public final class ClangTargetBuildDescription {
         // Pass default include paths from the toolchain.
         for includeSearchPath in self.buildParameters.toolchain.includeSearchPaths {
             args += ["-I", includeSearchPath.pathString]
+        }
+
+        // FIXME: Remove this once it becomes possible to express this dependency in a package manifest.
+        //
+        // On Linux/Android swift-corelibs-foundation depends on dispatch library which is
+        // currently shipped with the Swift toolchain.
+        if (triple.isLinux() || triple.isAndroid()) && self.package.id == .plain("swift-corelibs-foundation") {
+            let swiftCompilerPath = self.buildParameters.toolchain.swiftCompilerPath
+            let toolchainResourcesPath = swiftCompilerPath.parentDirectory
+                                                          .parentDirectory
+                                                          .appending(components: ["lib", "swift"])
+            args += ["-I", toolchainResourcesPath.pathString]
+        }
+
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-w"]
+            // `-w` (suppress warnings) and `-Werror` (warnings as errors) flags are mutually exclusive
+            if let index = args.firstIndex(of: "-Werror") {
+                args.remove(at: index)
+            }
         }
 
         return args

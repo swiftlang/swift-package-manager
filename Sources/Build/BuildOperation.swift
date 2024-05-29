@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import LLBuildManifest
 import PackageGraph
@@ -26,9 +27,6 @@ import enum TSCBasic.ProcessEnv
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
@@ -49,10 +47,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let toolsBuildParameters: BuildParameters
 
     /// The closure for loading the package graph.
-    let packageGraphLoader: () throws -> PackageGraph
+    let packageGraphLoader: () throws -> ModulesGraph
 
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
+
+    /// The path to scratch space (.build) directory.
+    let scratchDirectory: AbsolutePath
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -80,7 +81,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let buildDescription = ThreadSafeBox<BuildDescription>()
 
     /// The loaded package graph.
-    private let packageGraph = ThreadSafeBox<PackageGraph>()
+    private let packageGraph = ThreadSafeBox<ModulesGraph>()
 
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
@@ -104,14 +105,23 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    /// Map of dependency package identities by root packages that depend on them.
+    private let dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]]
+
+    /// Map of  root package identities by target names which are declared in them.
+    private let rootPackageIdentityByTargetName: [String: PackageIdentity]
+
     public init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         cacheBuildManifest: Bool,
-        packageGraphLoader: @escaping () throws -> PackageGraph,
+        packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
+        scratchDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
+        dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
+        targetsByRootPackageIdentity: [PackageIdentity: [String]],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
@@ -130,14 +140,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.packageGraphLoader = packageGraphLoader
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
+        self.scratchDirectory = scratchDirectory
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
+        self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
-    public func getPackageGraph() throws -> PackageGraph {
+    public func getPackageGraph() throws -> ModulesGraph {
         try self.packageGraph.memoize {
             try self.packageGraphLoader()
         }
@@ -147,7 +160,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ///
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
-    public func getBuildDescription() throws -> BuildDescription {
+    public func getBuildDescription(subset: BuildSubset? = nil) throws -> BuildDescription {
         return try self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
@@ -171,7 +184,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
             // We need to perform actual planning if we reach here.
-            return try self.plan().description
+            return try self.plan(subset: subset).description
         }
     }
 
@@ -250,6 +263,81 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
 
+    private static var didEmitUnexpressedDependencies = false
+
+    private func detectUnexpressedDependencies() {
+        return self.detectUnexpressedDependencies(
+            // Note: once we switch from the toolchain global metadata, we will have to ensure we can match the right metadata used during the build.
+            availableLibraries: self.productsBuildParameters.toolchain.providedLibraries,
+            targetDependencyMap: self.buildDescription.targetDependencyMap
+        )
+    }
+
+    // TODO: Currently this function will only match frameworks.
+    func detectUnexpressedDependencies(
+        availableLibraries: [ProvidedLibrary],
+        targetDependencyMap: [String: [String]]?
+    ) {
+        // Ensure we only emit these once, regardless of how many builds are being done.
+        guard !Self.didEmitUnexpressedDependencies else {
+            return
+        }
+        Self.didEmitUnexpressedDependencies = true
+
+        let availableFrameworks = Dictionary<String, PackageIdentity>(uniqueKeysWithValues: availableLibraries.compactMap {
+            if let identity = Set($0.metadata.identities.map(\.identity)).spm_only {
+                return ("\($0.metadata.productName).framework", identity)
+            } else {
+                return nil
+            }
+        })
+
+        targetDependencyMap?.keys.forEach { targetName in
+            let c99name = targetName.spm_mangledToC99ExtendedIdentifier()
+            // Since we're analysing post-facto, we don't know which parameters are the correct ones.
+            let possibleTempsPaths = [productsBuildParameters, toolsBuildParameters].map {
+                $0.buildPath.appending(component: "\(c99name).build")
+            }
+
+            let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
+                guard let contents = try? self.fileSystem.readFileContents(
+                    possibleTempsPath.appending(component: "\(c99name).d")
+                ) else {
+                    return [String]()
+                }
+
+                // FIXME: We need a real makefile deps parser here...
+                let deps = contents.description.split(whereSeparator: { $0.isWhitespace })
+                return deps.filter {
+                    !$0.hasPrefix(possibleTempsPath.parentDirectory.pathString)
+                }.compactMap {
+                    try? AbsolutePath(validating: String($0))
+                }.compactMap {
+                    return $0.components.first(where: { $0.hasSuffix(".framework") })
+                }
+            }
+
+            let dependencies: [PackageIdentity]
+            if let rootPackageIdentity = self.rootPackageIdentityByTargetName[targetName] {
+                dependencies = self.dependenciesByRootPackageIdentity[rootPackageIdentity] ?? []
+            } else {
+                dependencies = []
+            }
+
+            Set(usedSDKDependencies).forEach {
+                if availableFrameworks.keys.contains($0) {
+                    if let availableFrameworkPackageIdentity = availableFrameworks[$0], !dependencies.contains(
+                        availableFrameworkPackageIdentity
+                    ) {
+                        observabilityScope.emit(
+                            warning: "target '\(targetName)' has an unexpressed depedency on '\(availableFrameworkPackageIdentity)'"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
         guard !self.productsBuildParameters.shouldSkipBuilding else {
@@ -261,7 +349,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Get the build description (either a cached one or newly created).
 
         // Get the build description
-        let buildDescription = try getBuildDescription()
+        let buildDescription = try getBuildDescription(subset: subset)
 
         // Verify dependency imports on the described targets
         try verifyTargetImports(in: buildDescription)
@@ -285,6 +373,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let success = buildSystem.build(target: llbuildTarget)
 
         let duration = buildStartTime.distance(to: .now())
+
+        self.detectUnexpressedDependencies()
 
         let subsetDescriptor: String?
         switch subset {
@@ -437,7 +527,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                config: self.productsBuildParameters.configuration.dirname,
+                buildParameters: self.productsBuildParameters,
                 observabilityScope: self.observabilityScope
             ) {
                 return result
@@ -447,29 +537,41 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest) {
+    private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
-
-        let buildToolPluginInvocationResults: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])]
-        let prebuildCommandResults: [ResolvedTarget.ID: [PrebuildCommandResult]]
+        let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
+        let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
+            // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
+            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
+            // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
+            // done, which makes it hard to realign them all at once.
+            var pluginsBuildParameters = self.toolsBuildParameters
+            pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
+            var buildToolsGraph = graph
+            try buildToolsGraph.updateBuildTripleRecursively(.tools)
+
             let buildOperationForPluginDependencies = BuildOperation(
-                productsBuildParameters: self.productsBuildParameters,
-                toolsBuildParameters: self.toolsBuildParameters,
+                // FIXME: this doesn't maintain the products/tools split cleanly
+                productsBuildParameters: pluginsBuildParameters,
+                toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { return graph },
+                packageGraphLoader: { buildToolsGraph },
+                scratchDirectory: pluginsBuildParameters.dataPath,
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
+                dependenciesByRootPackageIdentity: [:],
+                targetsByRootPackageIdentity: [:],
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
-            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            buildToolPluginInvocationResults = try buildToolsGraph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
-                buildParameters: self.toolsBuildParameters,
+                buildParameters: pluginsBuildParameters,
                 additionalFileRules: self.additionalFileRules,
                 toolSearchDirectories: [self.toolsBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 pkgConfigDirectories: self.pkgConfigDirectories,
@@ -485,7 +587,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
 
-
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
             for (_, (target, results)) in buildToolPluginInvocationResults {
@@ -497,7 +598,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
-                    for line in result.textOutput.split(separator: "\n") {
+                    for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
                         diagnosticsEmitter.emit(info: line)
                     }
                     for diag in result.diagnostics {
@@ -523,38 +624,49 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
-        for package in graph.rootPackages where package.manifest.toolsVersion >= .v5_3 {
-            for target in package.targets {
-                // Get the set of unhandled files in targets.
-                var unhandledFiles = Set(target.underlying.others)
-                if unhandledFiles.isEmpty { continue }
+        // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
+        let targetsToConsider: [ResolvedModule]
+        if let subset = subset, let recursiveDependencies = try 
+            subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
+            targetsToConsider = recursiveDependencies
+        } else {
+            targetsToConsider = Array(graph.reachableTargets)
+        }
 
-                // Subtract out any that were inputs to any commands generated by plugins.
-                if let result = buildToolPluginInvocationResults[target.id]?.results {
-                    let handledFiles = result.flatMap { $0.buildCommands.flatMap { $0.inputFiles } }
-                    unhandledFiles.subtract(handledFiles)
-                }
-                if unhandledFiles.isEmpty { continue }
-
-                // Emit a diagnostic if any remain. This is kept the same as the previous message for now, but this could be improved.
-                let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
-                    var metadata = ObservabilityMetadata()
-                    metadata.packageIdentity = package.identity
-                    metadata.packageKind = package.manifest.packageKind
-                    metadata.targetName = target.name
-                    return metadata
-                }
-                var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
-                for file in unhandledFiles {
-                    warning += "    " + file.pathString + "\n"
-                }
-                diagnosticsEmitter.emit(warning: warning)
+        for target in targetsToConsider {
+            guard let package = graph.package(for: target), package.manifest.toolsVersion >= .v5_3 else {
+                continue
             }
+
+            // Get the set of unhandled files in targets.
+            var unhandledFiles = Set(target.underlying.others)
+            if unhandledFiles.isEmpty { continue }
+
+            // Subtract out any that were inputs to any commands generated by plugins.
+            if let result = buildToolPluginInvocationResults[target.id]?.results {
+                let handledFiles = result.flatMap{ $0.buildCommands.flatMap{ $0.inputFiles } }
+                unhandledFiles.subtract(handledFiles)
+            }
+            if unhandledFiles.isEmpty { continue }
+
+            // Emit a diagnostic if any remain. This is kept the same as the previous message for now, but this could be improved.
+            let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+                var metadata = ObservabilityMetadata()
+                metadata.packageIdentity = package.identity
+                metadata.packageKind = package.manifest.packageKind
+                metadata.targetName = target.name
+                return metadata
+            }
+            var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+            for file in unhandledFiles {
+                warning += "    " + file.pathString + "\n"
+            }
+            diagnosticsEmitter.emit(warning: warning)
         }
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            productsBuildParameters: self.productsBuildParameters,
+            destinationBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -592,10 +704,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// building the package structure target.
     private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
-        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
-            : NinjaProgressAnimation(stream: self.outputStream)
-
+        let progressAnimation = ProgressAnimation.ninja(
+            stream: self.outputStream,
+            verbose: self.logLevel.isVerbose
+        )
         let buildExecutionContext = BuildExecutionContext(
             productsBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
@@ -618,7 +730,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         self.buildSystemDelegate = buildSystemDelegate
 
-        let databasePath = self.productsBuildParameters.dataPath.appending("build.db").pathString
+        let databasePath = self.scratchDirectory.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
@@ -649,7 +761,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             var derivedFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
+                self.observabilityScope.emit(info: "Running " + (command.configuration.displayName ?? command.configuration.executable.basename))
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
@@ -775,10 +887,33 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
+    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
+        switch self {
+        case .allIncludingTests:
+            return Array(graph.reachableTargets)
+        case .allExcludingTests:
+            return graph.reachableTargets.filter { $0.type != .test }
+        case .product(let productName):
+            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+                observabilityScope.emit(error: "no product named '\(productName)'")
+                return nil
+            }
+            return try product.recursiveTargetDependencies()
+        case .target(let targetName):
+            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+                observabilityScope.emit(error: "no target named '\(targetName)'")
+                return nil
+            }
+            return try target.recursiveTargetDependencies()
+        }
+    }
+
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
-        -> String?
-    {
+    func llbuildTargetName(
+        for graph: ModulesGraph,
+        buildParameters: BuildParameters,
+        observabilityScope: ObservabilityScope
+    ) -> String? {
         switch self {
         case .allExcludingTests:
             return LLBuildManifestBuilder.TargetKind.main.targetName
@@ -799,14 +934,14 @@ extension BuildSubset {
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
             return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
+                try product.getLLBuildTargetName(buildParameters: buildParameters)
             }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return target.getLLBuildTargetName(config: config)
+            return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 }

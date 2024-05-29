@@ -22,13 +22,14 @@ typealias WireInput = HostToPluginMessage.InputContext
 /// the input information to a plugin.
 internal struct PluginContextSerializer {
     let fileSystem: FileSystem
+    let modulesGraph: ModulesGraph
     let buildEnvironment: BuildEnvironment
     let pkgConfigDirectories: [AbsolutePath]
     let sdkRootPath: AbsolutePath?
     var paths: [WireInput.URL] = []
     var pathsToIds: [AbsolutePath: WireInput.URL.Id] = [:]
     var targets: [WireInput.Target] = []
-    var targetsToWireIDs: [ResolvedTarget.ID: WireInput.Target.Id] = [:]
+    var targetsToWireIDs: [ResolvedModule.ID: WireInput.Target.Id] = [:]
     var products: [WireInput.Product] = []
     var productsToWireIDs: [ResolvedProduct.ID: WireInput.Product.Id] = [:]
     var packages: [WireInput.Package] = []
@@ -55,7 +56,7 @@ internal struct PluginContextSerializer {
     // Adds a target to the serialized structure, if it isn't already there and
     // if it is of a kind that should be passed to the plugin. If so, this func-
     // tion returns the target's wire ID. If not, it returns nil.
-    mutating func serialize(target: ResolvedTarget) throws -> WireInput.Target.Id? {
+    mutating func serialize(target: ResolvedModule) throws -> WireInput.Target.Id? {
         // If we've already seen the target, just return the wire ID we already assigned to it.
         if let id = targetsToWireIDs[target.id] { return id }
 
@@ -244,7 +245,7 @@ internal struct PluginContextSerializer {
         }
 
         // Serialize the dependencies. It is important to do this before the `let id = package.count` below so the correct wire ID gets assigned.
-        let dependencies = try package.dependencies.map {
+        let dependencies = try modulesGraph.directDependencies(for: package).map {
             WireInput.Package.Dependency(packageId: try serialize(package: $0))
         }
 
@@ -280,7 +281,7 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .test
         case .macro:
             self = .macro
-        case .binary, .plugin, .systemModule:
+        case .binary, .plugin, .systemModule, .providedLibrary:
             throw StringError("unexpected target kind \(kind) for source module")
         }
     }

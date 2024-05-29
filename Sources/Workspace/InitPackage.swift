@@ -186,8 +186,8 @@ public final class InitPackage {
 
             var platforms = options.platforms
 
-            // Macros require macOS 10.15, iOS 13, etc.
-            if packageType == .macro {
+            // Macros and swift-testing require macOS 10.15, iOS 13, etc.
+            if packageType == .macro || options.supportedTestingLibraries.contains(.swiftTesting) {
                 func addIfMissing(_ newPlatform: SupportedPlatform) {
                   if platforms.contains(where: { platform in
                       platform.platform == newPlatform.platform
@@ -550,7 +550,7 @@ public final class InitPackage {
                 #if canImport(XcodeProjectPlugin)
                 import XcodeProjectPlugin
 
-                extension MyCommandPlugin: XcodeCommandPlugin {
+                extension \(typeName): XcodeCommandPlugin {
                     // Entry point for command plugins applied to Xcode projects.
                     func performCommand(context: XcodePluginContext, arguments: [String]) throws {
                         print("Hello, World!")
@@ -737,6 +737,7 @@ public final class InitPackage {
             import SwiftSyntaxBuilder
             import SwiftSyntaxMacros
             import SwiftSyntaxMacrosTestSupport
+
             """##
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
@@ -835,7 +836,7 @@ public final class InitPackage {
                         of node: some FreestandingMacroExpansionSyntax,
                         in context: some MacroExpansionContext
                     ) -> ExprSyntax {
-                        guard let argument = node.argumentList.first?.expression else {
+                        guard let argument = node.arguments.first?.expression else {
                             fatalError("compiler bug: the macro does not have any arguments")
                         }
 

@@ -14,10 +14,13 @@ import struct Basics.AbsolutePath
 import struct Basics.Triple
 import struct Basics.InternalError
 import struct PackageGraph.ResolvedProduct
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import class PackageModel.BinaryTarget
 import class PackageModel.ClangTarget
+
+@_spi(SwiftPMInternal)
 import class PackageModel.Target
+
 import class PackageModel.SwiftTarget
 import class PackageModel.SystemLibraryTarget
 import struct SPMBuildCore.BuildParameters
@@ -28,7 +31,10 @@ extension BuildPlan {
     /// Plan a product.
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product, buildParameters: buildProduct.buildParameters)
+        let dependencies = try computeDependencies(
+            of: buildProduct.product,
+            buildParameters: buildProduct.buildParameters
+        )
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -50,19 +56,24 @@ extension BuildPlan {
             }
         }
 
-        // Link C++ if needed.
-        // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlying, target.isCXX {
-                let triple = buildProduct.buildParameters.triple
-                if triple.isDarwin() {
-                    buildProduct.additionalFlags += ["-lc++"]
-                } else if triple.isWindows() {
-                    // Don't link any C++ library.
-                } else {
-                    buildProduct.additionalFlags += ["-lstdc++"]
+        // Don't link libc++ or libstd++ when building for Embedded Swift.
+        // Users can still link it manually for embedded platforms when needed,
+        // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
+        if !buildProduct.product.targets.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+            // Link C++ if needed.
+            // Note: This will come from build settings in future.
+            for target in dependencies.staticTargets {
+                if case let target as ClangTarget = target.underlying, target.isCXX {
+                    let triple = buildProduct.buildParameters.triple
+                    if triple.isDarwin() {
+                        buildProduct.additionalFlags += ["-lc++"]
+                    } else if triple.isWindows() {
+                        // Don't link any C++ library.
+                    } else {
+                        buildProduct.additionalFlags += ["-lstdc++"]
+                    }
+                    break
                 }
-                break
             }
         }
 
@@ -70,7 +81,7 @@ extension BuildPlan {
             switch target.underlying {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = targetMap[target.id] else {
+                guard case .swift(let description) = self.targetMap[target.id] else {
                     throw InternalError("unknown target \(target)")
                 }
 
@@ -92,18 +103,20 @@ extension BuildPlan {
 
         buildProduct.staticTargets = dependencies.staticTargets
         buildProduct.dylibs = try dependencies.dylibs.map {
-            guard let product = productMap[$0.id] else {
+            guard let product = self.productMap[$0.id] else {
                 throw InternalError("unknown product \($0)")
             }
             return product
         }
         buildProduct.objects += try dependencies.staticTargets.flatMap { targetName -> [AbsolutePath] in
-            guard let target = targetMap[targetName.id] else {
+            guard let target = self.targetMap[targetName.id] else {
                 throw InternalError("unknown target \(targetName)")
             }
             return try target.objects
         }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
+
+        buildProduct.providedLibraries = dependencies.providedLibraries
 
         buildProduct.availableTools = dependencies.availableTools
     }
@@ -114,9 +127,10 @@ extension BuildPlan {
         buildParameters: BuildParameters
     ) throws -> (
         dylibs: [ResolvedProduct],
-        staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget],
+        staticTargets: [ResolvedModule],
+        systemModules: [ResolvedModule],
         libraryBinaryPaths: Set<AbsolutePath>,
+        providedLibraries: [String: AbsolutePath],
         availableTools: [String: AbsolutePath]
     ) {
         /* Prior to tools-version 5.9, we used to erroneously recursively traverse executable/plugin dependencies and statically include their
@@ -143,8 +157,14 @@ extension BuildPlan {
             topLevelDependencies = []
         }
 
+        // get the dynamic libraries for explicitly linking rdar://108561857
+        func recursiveDynamicLibraries(for product: ResolvedProduct) throws -> [ResolvedProduct] {
+            let dylibs = try computeDependencies(of: product, buildParameters: buildParameters).dylibs
+            return try dylibs + dylibs.flatMap { try recursiveDynamicLibraries(for: $0) }
+        }
+
         // Sort the product targets in topological order.
-        let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
+        let nodes: [ResolvedModule.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the dependencies of a target.
@@ -169,13 +189,15 @@ extension BuildPlan {
                     return []
                 }
 
-                let productDependencies: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
+                let productDependencies: [ResolvedModule.Dependency] = product.targets.map { .target($0, conditions: []) }
                 switch product.type {
                 case .library(.automatic), .library(.static):
                     return productDependencies
                 case .plugin:
                     return shouldExcludePlugins ? [] : productDependencies
-                case .library(.dynamic), .test, .executable, .snippet, .macro:
+                case .library(.dynamic):
+                    return try recursiveDynamicLibraries(for: product).map { .product($0, conditions: []) }
+                case .test, .executable, .snippet, .macro:
                     return []
                 }
             }
@@ -183,9 +205,10 @@ extension BuildPlan {
 
         // Create empty arrays to collect our results.
         var linkLibraries = [ResolvedProduct]()
-        var staticTargets = [ResolvedTarget]()
-        var systemModules = [ResolvedTarget]()
+        var staticTargets = [ResolvedModule]()
+        var systemModules = [ResolvedModule]()
         var libraryBinaryPaths: Set<AbsolutePath> = []
+        var providedLibraries = [String: AbsolutePath]()
         var availableTools = [String: AbsolutePath]()
 
         for dependency in allTargets {
@@ -212,9 +235,11 @@ extension BuildPlan {
                     if product.targets.contains(id: target.id) {
                         staticTargets.append(target)
                     }
-                // Library targets should always be included.
+                // Library targets should always be included for the same build triple.
                 case .library:
-                    staticTargets.append(target)
+                    if target.buildTriple == product.buildTriple {
+                        staticTargets.append(target)
+                    }
                 // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(target)
@@ -237,6 +262,8 @@ extension BuildPlan {
                     }
                 case .plugin:
                     continue
+                case .providedLibrary:
+                    providedLibraries[target.name] = target.underlying.path
                 }
 
             case .product(let product, _):
@@ -254,7 +281,7 @@ extension BuildPlan {
             }
         }
 
-        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)
+        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, providedLibraries, availableTools)
     }
 
     /// Extracts the artifacts  from an artifactsArchive

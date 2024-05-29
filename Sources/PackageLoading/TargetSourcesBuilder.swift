@@ -185,7 +185,7 @@ public struct TargetSourcesBuilder {
         }
 
         let additionalResources: [Resource]
-        if toolsVersion >= .v5_11 {
+        if toolsVersion >= .v6_0 {
             additionalResources = declaredResources.compactMap { resource in
                 if handledResources.contains(resource.path) {
                     return nil
@@ -563,11 +563,11 @@ public struct TargetSourcesBuilder {
 }
 
 /// Describes a rule for including a source or resource file in a target.
-public struct FileRuleDescription {
+public struct FileRuleDescription: Sendable {
     /// A rule semantically describes a file/directory in a target.
     ///
     /// It is up to the build system to translate a rule into a build command.
-    public enum Rule: Equatable {
+    public enum Rule: Equatable, Sendable {
         /// The compile rule for `sources` in a package.
         case compile
 

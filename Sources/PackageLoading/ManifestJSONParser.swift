@@ -150,6 +150,7 @@ enum ManifestJSONParser {
             case .v4: languageVersionString = "4"
             case .v4_2: languageVersionString = "4.2"
             case .v5: languageVersionString = "5"
+            case .v6: languageVersionString = "6"
             case .version(let version): languageVersionString = version
             }
             guard let languageVersion = SwiftLanguageVersion(string: languageVersionString) else {
@@ -533,6 +534,21 @@ extension TargetBuildSettingDescription.Kind {
             return .enableExperimentalFeature(value)
         case "unsafeFlags":
             return .unsafeFlags(values)
+
+        case "swiftLanguageVersion":
+            guard let rawVersion = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+
+            if values.count > 1 {
+                throw InternalError("invalid build settings value")
+            }
+
+            guard let version = SwiftLanguageVersion(string: rawVersion) else {
+                throw InternalError("unknown swift language version: \(rawVersion)")
+            }
+
+            return .swiftLanguageVersion(version)
         default:
             throw InternalError("invalid build setting \(name)")
         }

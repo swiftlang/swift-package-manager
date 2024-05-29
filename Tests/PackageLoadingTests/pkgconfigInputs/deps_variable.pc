@@ -2,6 +2,9 @@ prefix=/usr/local/bin
 exec_prefix=${prefix}
 my_dep=atk
 #some comment
+Name: deps_variable
+Version: 1
+Description: Demonstrate use of a locally-defined variable
 
 Requires: gdk-3.0 >= 1.0.0 ${my_dep}
 Libs: -L${prefix} -lgtk-3 

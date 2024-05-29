@@ -88,6 +88,10 @@ def add_build_args(parser):
     """Configures the parser with the arguments necessary for build-related actions."""
     add_global_args(parser)
     parser.add_argument(
+        "--swift-build-path",
+        help="path to the prebuilt SwiftPM `swift-build` binary",
+        metavar="PATH")
+    parser.add_argument(
         "--swiftc-path",
         help="path to the swift compiler",
         metavar="PATH")
@@ -154,7 +158,7 @@ def add_build_args(parser):
         default=[])
     parser.add_argument(
         "--cross-compile-config",
-        help="Swift flags to cross-compile SPM with itself")
+        help="Swift flags to cross-compile SwiftPM with itself")
 
 def add_test_args(parser):
     """Configures the parser with the arguments necessary for the test action."""
@@ -198,6 +202,7 @@ def parse_global_args(args):
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
     args.source_dirs["swift-certificates"]    = os.path.join(args.project_root, "..", "swift-certificates")
     args.source_dirs["swift-asn1"]            = os.path.join(args.project_root, "..", "swift-asn1")
+    args.source_dirs["swift-syntax"]          = os.path.join(args.project_root, "..", "swift-syntax")
     args.source_root                          = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
@@ -220,8 +225,9 @@ def parse_build_args(args):
 
     args.swiftc_path = get_swiftc_path(args)
     args.clang_path = get_tool_path(args, "clang")
-    args.cmake_path = get_tool_path(args, "cmake")
-    args.ninja_path = get_tool_path(args, "ninja")
+    if not args.skip_cmake_bootstrap:
+        args.cmake_path = get_tool_path(args, "cmake")
+        args.ninja_path = get_tool_path(args, "ninja")
     args.ar_path = get_tool_path(args, "ar")
     args.ranlib_path = get_tool_path(args, "ranlib")
     if args.cross_compile_hosts:
@@ -398,6 +404,9 @@ def install(args):
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
         install_file(args, config_path, os.path.join(os.path.join(prefix, "share"), "pm"))
 
+        libs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "provided-libraries.json")
+        install_file(args, config_path, os.path.join(os.path.join(prefix, "share"), "pm"))
+
     # Install libSwiftPM if an install directory was provided.
     if args.libswiftpm_install_dir:
         libswiftpm_modules = [
@@ -426,7 +435,7 @@ def install_swiftpm(prefix, args):
     # Install the swift-package-manager tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
     install_binary(args, "swift-package-manager", os.path.join(cli_tool_dest, "swift-package"), destination_is_directory=False)
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-experimental-sdk"]:
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         note("Creating tool symlink from %s to %s" % (src, dest))
@@ -600,6 +609,7 @@ def build_swiftpm_with_cmake(args):
         "-DSwiftCrypto_DIR="       + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
         "-DSwiftASN1_DIR="         + os.path.join(args.build_dirs["swift-asn1"],            "cmake/modules"),
         "-DSwiftCertificates_DIR=" + os.path.join(args.build_dirs["swift-certificates"],    "cmake/modules"),
+        "-DSWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE=" + args.source_dirs["swift-syntax"],
     ]
 
     if platform.system() == 'Darwin':
@@ -640,7 +650,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
         swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-bootstrap"))
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")
-        swiftpm_args.append(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
+        swiftpm_args.append(args.swift_build_path or os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
         swiftpm_args.append("--disable-sandbox")
 
         # Enforce resolved versions to avoid stray dependencies that aren't local.
@@ -701,17 +711,17 @@ def call_swiftpm(args, cmd, cwd=None):
 # -----------------------------------------------------------
 
 def get_dispatch_cmake_arg(args):
-    """Returns the CMake argument to the Dispatch configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Dispatch configuration to use for building SwiftPM."""
     dispatch_dir = os.path.join(args.dispatch_build_dir, "cmake/modules")
     return "-Ddispatch_DIR=" + dispatch_dir
 
 def get_foundation_cmake_arg(args):
-    """Returns the CMake argument to the Foundation configuration to use for bulding SwiftPM."""
+    """Returns the CMake argument to the Foundation configuration to use for building SwiftPM."""
     foundation_dir = os.path.join(args.foundation_build_dir, "cmake/modules")
     return "-DFoundation_DIR=" + foundation_dir
 
 def get_llbuild_cmake_arg(args):
-    """Returns the CMake argument to the LLBuild framework/binary to use for bulding SwiftPM."""
+    """Returns the CMake argument to the LLBuild framework/binary to use for building SwiftPM."""
     if args.llbuild_link_framework:
         return "-DCMAKE_FIND_FRAMEWORK_EXTRA_LOCATIONS=%s" % args.build_dirs["llbuild"]
     else:

@@ -13,10 +13,16 @@
 import Basics
 @testable import Build
 import LLBuildManifest
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageModel
 import struct SPMBuildCore.BuildParameters
+
+@_spi(SwiftPMInternal)
 import SPMTestSupport
+
 import class TSCBasic.InMemoryFileSystem
 import XCTest
 
@@ -29,7 +35,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -50,7 +56,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .release
         ))
         var plan = try BuildPlan(
-            productsBuildParameters: buildParameters,
+            destinationBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
@@ -67,10 +73,10 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         )
         try llbuild.createProductCommand(buildProduct)
 
-        let basicReleaseCommandNames = [
-            AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList").pathString,
-            "<exe-release.exe>",
-            "C.exe-release.exe",
+        var basicReleaseCommandNames = [
+            AbsolutePath("/path/to/build/\(buildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(buildParameters.triple)-release.exe>",
+            "C.exe-\(buildParameters.triple)-release.exe",
         ]
 
         XCTAssertEqual(
@@ -85,7 +91,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .debug
         ))
         plan = try BuildPlan(
-            productsBuildParameters: buildParameters,
+            destinationBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
@@ -95,20 +101,20 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         result = try BuildPlanResult(plan: plan)
         buildProduct = try result.buildProduct(for: "exe")
 
-        llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
 
-        let entitlementsCommandName = "C.exe-debug.exe-entitlements"
-        let basicDebugCommandNames = [
-            AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList").pathString,
-            "<exe-debug.exe>",
-            "C.exe-debug.exe",
+        let entitlementsCommandName = "C.exe-\(buildParameters.triple)-debug.exe-entitlements"
+        var basicDebugCommandNames = [
+            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(buildParameters.triple)-debug.exe>",
+            "C.exe-\(buildParameters.triple)-debug.exe",
         ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
             (basicDebugCommandNames + [
-                AbsolutePath("/path/to/build/debug/exe-entitlement.plist").pathString,
+                AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe-entitlement.plist").pathString,
                 entitlementsCommandName,
             ]).sorted()
         )
@@ -121,14 +127,14 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         XCTAssertEqual(
             entitlementsCommand.inputs,
             [
-                .file("/path/to/build/debug/exe", isMutated: true),
-                .file("/path/to/build/debug/exe-entitlement.plist"),
+                .file("/path/to/build/\(buildParameters.triple)/debug/exe", isMutated: true),
+                .file("/path/to/build/\(buildParameters.triple)/debug/exe-entitlement.plist"),
             ]
         )
         XCTAssertEqual(
             entitlementsCommand.outputs,
             [
-                .virtual("exe-debug.exe-CodeSigning"),
+                .virtual("exe-\(buildParameters.triple)-debug.exe-CodeSigning"),
             ]
         )
 
@@ -139,7 +145,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .release
         ))
         plan = try BuildPlan(
-            productsBuildParameters: buildParameters,
+            destinationBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
@@ -151,6 +157,12 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
+
+        basicReleaseCommandNames = [
+            AbsolutePath("/path/to/build/\(buildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(buildParameters.triple)-release.exe>",
+            "C.exe-\(buildParameters.triple)-release.exe",
+        ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
@@ -164,7 +176,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             configuration: .debug
         ))
         plan = try BuildPlan(
-            productsBuildParameters: buildParameters,
+            destinationBuildParameters: buildParameters,
             toolsBuildParameters: buildParameters,
             graph: graph,
             fileSystem: fs,
@@ -174,12 +186,38 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         result = try BuildPlanResult(plan: plan)
         buildProduct = try result.buildProduct(for: "exe")
 
-        llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
+        llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
+
+        basicDebugCommandNames = [
+            AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
+            "<exe-\(buildParameters.triple)-debug.exe>",
+            "C.exe-\(buildParameters.triple)-debug.exe",
+        ]
 
         XCTAssertEqual(
             llbuild.manifest.commands.map(\.key).sorted(),
             basicDebugCommandNames.sorted()
         )
+    }
+    
+    /// Verifies that two targets with the same name but different triples don't share same build manifest keys.
+    func testToolsBuildTriple() throws {
+        let (graph, fs, scope) = try macrosPackageGraph()
+        let productsTriple = Triple.x86_64MacOS
+        let toolsTriple = Triple.arm64Linux
+
+        let plan = try BuildPlan(
+            destinationBuildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, triple: productsTriple),
+            toolsBuildParameters: mockBuildParameters(triple: toolsTriple),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
+        let manifest = try builder.generateManifest(at: "/manifest")
+
+        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
     }
 }

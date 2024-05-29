@@ -21,8 +21,7 @@ public struct InternalError: Error {
     private let description: String
     public init(_ description: String) {
         assertionFailure(description)
-        self
-            .description =
+        self.description =
             "Internal error. Please file a bug at https://github.com/apple/swift-package-manager/issues with this info. \(description)"
     }
 }

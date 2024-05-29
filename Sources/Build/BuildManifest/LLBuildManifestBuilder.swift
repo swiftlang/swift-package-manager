@@ -220,12 +220,12 @@ extension LLBuildManifestBuilder {
                 }
                 let additionalOutputs: [Node]
                 if command.outputFiles.isEmpty {
-                    if target.toolsVersion >= .v5_11 {
+                    if target.toolsVersion >= .v6_0 {
                         additionalOutputs = [.virtual("\(target.target.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
                         phonyOutputs += additionalOutputs
                     } else {
                         additionalOutputs = []
-                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 5.11 (or higher) which would run such a build tool command even without declared outputs.")
+                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 6.0 (or higher) which would run such a build tool command even without declared outputs.")
                     }
                     pluginNumber += 1
                 } else {
@@ -316,32 +316,35 @@ extension TargetBuildDescription {
     }
 }
 
-extension ResolvedTarget {
-    public func getCommandName(config: String) -> String {
-        "C." + self.getLLBuildTargetName(config: config)
+extension ResolvedModule {
+    public func getCommandName(buildParameters: BuildParameters) -> String {
+        "C." + self.getLLBuildTargetName(buildParameters: buildParameters)
     }
 
-    public func getLLBuildTargetName(config: String) -> String {
-        "\(name)-\(config).module"
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
     }
 
-    public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(name)-\(config).module-resources"
+    public func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
     }
 }
 
 extension ResolvedProduct {
-    public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config).exe"
-        let potentialLibraryTargetName = "\(name)-\(config).dylib"
+    public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
+        let triple = buildParameters.triple.tripleString
+        let config = buildParameters.buildConfig
+        let suffix = buildParameters.suffix(triple: self.buildTriple)
+        let potentialExecutableTargetName = "\(name)-\(triple)-\(config)\(suffix).exe"
+        let potentialLibraryTargetName = "\(name)-\(triple)-\(config)\(suffix).dylib"
 
         switch type {
         case .library(.dynamic):
             return potentialLibraryTargetName
         case .test:
-            return "\(name)-\(config).test"
+            return "\(name)-\(triple)-\(config)\(suffix).test"
         case .library(.static):
-            return "\(name)-\(config).a"
+            return "\(name)-\(triple)-\(config)\(suffix).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
@@ -357,8 +360,8 @@ extension ResolvedProduct {
         }
     }
 
-    public func getCommandName(config: String) throws -> String {
-        try "C." + self.getLLBuildTargetName(config: config)
+    public func getCommandName(buildParameters: BuildParameters) throws -> String {
+        try "C.\(self.getLLBuildTargetName(buildParameters: buildParameters))\(buildParameters.suffix(triple: self.buildTriple))"
     }
 }
 

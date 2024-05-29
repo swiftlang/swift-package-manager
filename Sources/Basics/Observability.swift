@@ -46,8 +46,7 @@ public class ObservabilitySystem {
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
-        let underlying: @Sendable (ObservabilityScope, Diagnostic)
-            -> Void
+        let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
 
         init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
             self.underlying = underlying
@@ -56,6 +55,10 @@ public class ObservabilitySystem {
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self.underlying(scope, diagnostic)
         }
+    }
+
+    public static var NOOP: ObservabilityScope {
+        ObservabilitySystem { _, _ in }.topScope
     }
 }
 

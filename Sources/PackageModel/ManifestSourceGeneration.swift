@@ -57,13 +57,13 @@ extension Manifest {
     }
 }
 
-/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifer and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
+/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifier and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
 public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription) throws -> SourceCodeFragment?
 
 
 /// Convenience initializers for package manifest structures.
 fileprivate extension SourceCodeFragment {
-    
+
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
     init(
         from manifest: Manifest,
@@ -317,6 +317,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "plugin", subnodes: params, multiline: true)
         case .macro:
             self.init(enum: "macro", subnodes: params, multiline: true)
+        case .providedLibrary:
+            self.init(enum: "providedLibrary", subnodes: params, multiline: true)
         }
     }
 
@@ -525,6 +527,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .swiftLanguageVersion(let version):
+            params.append(SourceCodeFragment(from: version))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -677,6 +685,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
+        case .swiftLanguageVersion:
+            return "swiftLanguageVersion"
         }
     }
 }

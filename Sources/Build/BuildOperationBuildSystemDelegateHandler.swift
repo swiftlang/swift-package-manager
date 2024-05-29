@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
 import Dispatch
 import Foundation
@@ -28,7 +29,6 @@ import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStore
 import class TSCUtility.IndexStoreAPI
-import protocol TSCUtility.ProgressAnimationProtocol
 
 #if canImport(llbuildSwift)
 typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
@@ -86,6 +86,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 fileprivate extension \#(className) {
                     @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+                    @MainActor
                     static let __allTests__\#(className) = [
                         \#(testMethods.map { $0.allTestsEntry }.joined(separator: ",\n        "))
                     ]
@@ -97,6 +98,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         content +=
         #"""
         @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+        @MainActor
         func __\#(module)__allTests() -> [XCTestCaseEntry] {
             return [
                 \#(testsByClassNames.map { "testCase(\($0.key).__allTests__\($0.key))" }
@@ -165,6 +167,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
                 import XCTest
 
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+                @MainActor
                 public func __allDiscoveredTests() -> [XCTestCaseEntry] {
                     \#(testsKeyword) tests = [XCTestCaseEntry]()
 
@@ -263,9 +266,14 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 @main
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
                 struct Runner {
-                    static func main() {
+                    static func main() async {
                         \#(testObservabilitySetup)
+                #if os(WASI)
+                        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
+                        await XCTMain(__allDiscoveredTests()) as Never
+                #else
                         XCTMain(__allDiscoveredTests()) as Never
+                #endif
                     }
                 }
                 """#
@@ -826,8 +834,10 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
+        // FIXME: This should really happen at the command-level and is just a stopgap measure.
+        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result.result != .failed
         queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[command.name] {
+            if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
                 self.outputStream.flush()
