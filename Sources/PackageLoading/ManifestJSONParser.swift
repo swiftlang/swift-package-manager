@@ -427,8 +427,8 @@ extension TargetDescription.PluginNetworkPermissionScope {
 extension TargetDescription.PluginUsage {
     init(_ usage: Serialization.PluginUsage) {
         switch usage {
-        case .plugin(let name, let package):
-            self = .plugin(name: name, package: package)
+        case .plugin(let name, let package, let arguments):
+            self = .plugin(name: name, package: package, arguments: arguments)
         }
     }
 }

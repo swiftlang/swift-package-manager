@@ -274,7 +274,7 @@ extension Serialization.PluginNetworkPermissionScope {
 extension Serialization.PluginUsage {
     init(_ usage: PackageDescription.Target.PluginUsage) {
         switch usage {
-        case .plugin(let name, let package): self = .plugin(name: name, package: package)
+        case .plugin(let name, let package, let arguments): self = .plugin(name: name, package: package, arguments: arguments)
         }
     }
 }

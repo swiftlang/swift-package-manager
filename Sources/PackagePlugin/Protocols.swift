@@ -36,7 +36,8 @@ public protocol BuildToolPlugin: Plugin {
     /// that it does not directly run those commands.
     func createBuildCommands(
         context: PluginContext,
-        target: Target
+        target: Target,
+        arguments: [String]
     ) async throws -> [Command]
 }
 

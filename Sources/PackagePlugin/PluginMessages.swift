@@ -21,7 +21,8 @@ enum HostToPluginMessage: Codable {
         rootPackageId: InputContext.Package.Id,
         targetId: InputContext.Target.Id,
         pluginGeneratedSources: [InputContext.URL.Id],
-        pluginGeneratedResources: [InputContext.URL.Id]
+        pluginGeneratedResources: [InputContext.URL.Id],
+        arguments: [String]
     )
 
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.

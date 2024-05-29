@@ -23,7 +23,8 @@ public enum PluginAction {
         package: ResolvedPackage,
         target: ResolvedModule,
         pluginGeneratedSources: [AbsolutePath],
-        pluginGeneratedResources: [AbsolutePath]
+        pluginGeneratedResources: [AbsolutePath],
+		arguments: [String]
     )
     case performCommand(package: ResolvedPackage, arguments: [String])
 }
@@ -46,7 +47,8 @@ extension PluginTarget {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate
+        delegate: PluginInvocationDelegate,
+        arguments: [String]
     ) async throws -> Bool {
         try await safe_async {
             self.invoke(
@@ -142,7 +144,7 @@ extension PluginTarget {
             let actionMessage: HostToPluginMessage
             switch action {
                 
-            case .createBuildToolCommands(let package, let target, let pluginGeneratedSources, let pluginGeneratedResources):
+            case .createBuildToolCommands(let package, let target, let pluginGeneratedSources, let pluginGeneratedResources, let arguments):
                 let rootPackageId = try serializer.serialize(package: package)
                 guard let targetId = try serializer.serialize(target: target) else {
                     throw StringError("unexpectedly was unable to serialize target \(target)")
@@ -162,7 +164,8 @@ extension PluginTarget {
                     rootPackageId: rootPackageId,
                     targetId: targetId,
                     pluginGeneratedSources: generatedSources,
-                    pluginGeneratedResources: generatedResources
+                    pluginGeneratedResources: generatedResources,
+					arguments: arguments
                 )
             case .performCommand(let package, let arguments):
                 let rootPackageId = try serializer.serialize(package: package)
@@ -561,7 +564,8 @@ extension ModulesGraph {
                         package: package,
                         target: target,
                         pluginGeneratedSources: pluginDerivedSources.paths,
-                        pluginGeneratedResources: pluginDerivedResources.map { $0.path }
+                        pluginGeneratedResources: pluginDerivedResources.map { $0.path }, 
+                        arguments: pluginTarget.arguments
                     ),
                     buildEnvironment: buildParameters.buildEnvironment,
                     scriptRunner: pluginScriptRunner,

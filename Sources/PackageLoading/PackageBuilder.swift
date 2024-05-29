@@ -672,7 +672,7 @@ public final class PackageBuilder {
         let potentialModuleMap = Dictionary(potentialModules.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
-            guard let target = self.manifest.targetMap[$0.name] else { return [] }
+            guard let target: TargetDescription = self.manifest.targetMap[$0.name] else { return [] }
             // Collect the successors from declared dependencies.
             var successors: [PotentialModule] = target.dependencies.compactMap {
                 switch $0 {
@@ -692,9 +692,9 @@ public final class PackageBuilder {
             if let pluginUsages = target.pluginUsages {
                 successors += pluginUsages.compactMap {
                     switch $0 {
-                    case .plugin(_, .some(_)):
+                    case .plugin(_, .some(_), _):
                         nil
-                    case .plugin(let name, nil):
+                    case .plugin(let name, nil, _):
                         if let potentialModule = potentialModuleMap[name] {
                             potentialModule
                         } else if let targetName = pluginTargetName(for: name),
@@ -766,13 +766,17 @@ public final class PackageBuilder {
             let pluginUsages: [Target.PluginUsage] = manifestTarget?.pluginUsages.map {
                 $0.compactMap { usage in
                     switch usage {
-                    case .plugin(let name, let package):
+                    case .plugin(let name, let package, let arguments):
                         if let package {
                             return .product(Target.ProductReference(name: name, package: package), conditions: [])
                         } else {
                             if let target = targets[name] {
+                                if let arguments {
+                                    (target as? PluginTarget)?.arguments = arguments
+                                }
                                 return .target(target, conditions: [])
                             } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
+                                // TODO: Check
                                 return .target(target, conditions: [])
                             } else {
                                 self.observabilityScope.emit(.pluginNotFound(name: name))
@@ -960,7 +964,8 @@ public final class PackageBuilder {
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
                 dependencies: dependencies,
-                packageAccess: potentialModule.packageAccess
+                packageAccess: potentialModule.packageAccess,
+                arguments: []
             )
         }
 

@@ -18,16 +18,20 @@ public final class PluginTarget: Target {
     /// API version to use for PackagePlugin API availability.
     public let apiVersion: ToolsVersion
 
+    public var arguments: [String]
+
     public init(
         name: String,
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
         dependencies: [Target.Dependency] = [],
-        packageAccess: Bool
+        packageAccess: Bool,
+        arguments: [String]
     ) {
         self.capability = pluginCapability
         self.apiVersion = apiVersion
+        self.arguments = arguments
         super.init(
             name: name,
             type: .plugin,
@@ -45,12 +49,14 @@ public final class PluginTarget: Target {
     private enum CodingKeys: String, CodingKey {
         case capability
         case apiVersion
+        case arguments
     }
 
     public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.capability, forKey: .capability)
         try container.encode(self.apiVersion, forKey: .apiVersion)
+        try container.encode(self.arguments, forKey: .arguments)
         try super.encode(to: encoder)
     }
 
@@ -58,6 +64,7 @@ public final class PluginTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.capability = try container.decode(PluginCapability.self, forKey: .capability)
         self.apiVersion = try container.decode(ToolsVersion.self, forKey: .apiVersion)
+        self.arguments = try container.decode([String].self, forKey: .arguments)
         try super.init(from: decoder)
     }
 }

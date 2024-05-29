@@ -141,7 +141,7 @@ extension Plugin {
     fileprivate static func handleMessage(_ message: HostToPluginMessage) async throws {
         switch message {
             
-        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId, let generatedSources, let generatedResources):
+        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId, let generatedSources, let generatedResources, let arguments):
             // Deserialize the context from the wire input structures. The root
             // package is the one we'll set the context's `package` property to.
             let context: PluginContext
@@ -195,7 +195,7 @@ extension Plugin {
             }
             
             // Invoke the plugin to create build commands for the target.
-            let generatedCommands = try await plugin.createBuildCommands(context: context, target: target)
+            let generatedCommands = try await plugin.createBuildCommands(context: context, target: target, arguments: arguments)
             
             // Send each of the generated commands to the host.
             for command in generatedCommands {
