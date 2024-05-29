@@ -18,7 +18,7 @@ import struct PackageGraph.ResolvedProduct
 
 extension LLBuildManifestBuilder {
     func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
-        let cmdName = try buildProduct.getCommandName()
+        let cmdName = try buildProduct.commandName
 
         // Add dependency on Info.plist generation on Darwin platforms.
         let testInputs: [AbsolutePath]
@@ -37,7 +37,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Create a phony node to represent the entire target.
-        let targetName = try buildProduct.getLLBuildTargetName()
+        let targetName = try buildProduct.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         let finalProductNode: Node
@@ -88,7 +88,7 @@ extension LLBuildManifestBuilder {
                     outputPath: plistPath
                 )
 
-                let cmdName = try buildProduct.getCommandName()
+                let cmdName = try buildProduct.commandName
                 let codeSigningOutput = Node.virtual(targetName + "-CodeSigning")
                 try self.manifest.addShellCmd(
                     name: "\(cmdName)-entitlements",
@@ -125,12 +125,16 @@ extension LLBuildManifestBuilder {
 }
 
 extension ProductBuildDescription {
-    public func getLLBuildTargetName() throws -> String {
-        try self.product.getLLBuildTargetName(buildParameters: self.buildParameters)
+    package var llbuildTargetName: String {
+        get throws {
+            try self.product.getLLBuildTargetName(buildParameters: self.buildParameters)
+        }
     }
 
-    public func getCommandName() throws -> String {
-        try "C.\(self.getLLBuildTargetName())\(self.buildParameters.suffix)"
+    package var commandName: String {
+        get throws {
+            try "C.\(self.llbuildTargetName)\(self.buildParameters.suffix)"
+        }
     }
 }
 

@@ -45,7 +45,7 @@ extension LLBuildManifestBuilder {
             outputs.append(output)
         }
 
-        let cmdName = target.getLLBuildResourcesCmdName()
+        let cmdName = target.llbuildResourcesCmdName
         self.manifest.addPhonyCmd(name: cmdName, inputs: outputs, outputs: [.virtual(cmdName)])
 
         return .virtual(cmdName)
