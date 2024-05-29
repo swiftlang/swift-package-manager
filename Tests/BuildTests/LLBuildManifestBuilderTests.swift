@@ -72,8 +72,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         var basicReleaseCommandNames = [
             AbsolutePath("/path/to/build/\(buildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
-            "<exe-release.exe>",
-            "C.exe-release.exe",
+            "<exe-\(buildParameters.triple)-release.exe>",
+            "C.exe-\(buildParameters.triple)-release.exe",
         ]
 
         XCTAssertEqual(
@@ -101,11 +101,11 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.createProductCommand(buildProduct)
 
-        let entitlementsCommandName = "C.exe-debug.exe-entitlements"
+        let entitlementsCommandName = "C.exe-\(buildParameters.triple)-debug.exe-entitlements"
         var basicDebugCommandNames = [
             AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
-            "<exe-debug.exe>",
-            "C.exe-debug.exe",
+            "<exe-\(buildParameters.triple)-debug.exe>",
+            "C.exe-\(buildParameters.triple)-debug.exe",
         ]
 
         XCTAssertEqual(
@@ -131,7 +131,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         XCTAssertEqual(
             entitlementsCommand.outputs,
             [
-                .virtual("exe-debug.exe-CodeSigning"),
+                .virtual("exe-\(buildParameters.triple)-debug.exe-CodeSigning"),
             ]
         )
 
@@ -157,8 +157,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         basicReleaseCommandNames = [
             AbsolutePath("/path/to/build/\(buildParameters.triple)/release/exe.product/Objects.LinkFileList").pathString,
-            "<exe-release.exe>",
-            "C.exe-release.exe",
+            "<exe-\(buildParameters.triple)-release.exe>",
+            "C.exe-\(buildParameters.triple)-release.exe",
         ]
 
         XCTAssertEqual(
@@ -188,8 +188,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
 
         basicDebugCommandNames = [
             AbsolutePath("/path/to/build/\(buildParameters.triple)/debug/exe.product/Objects.LinkFileList").pathString,
-            "<exe-debug.exe>",
-            "C.exe-debug.exe",
+            "<exe-\(buildParameters.triple)-debug.exe>",
+            "C.exe-\(buildParameters.triple)-debug.exe",
         ]
 
         XCTAssertEqual(
@@ -215,6 +215,6 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
         let manifest = try builder.generateManifest(at: "/manifest")
 
-        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-debug-tool.module"])
+        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
     }
 }
