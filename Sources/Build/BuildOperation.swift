@@ -52,6 +52,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
 
+    /// The path to scratch space (.build) directory.
+    let scratchDirectory: AbsolutePath
+
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
 
@@ -114,6 +117,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
+        scratchDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
         dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
@@ -136,6 +140,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.packageGraphLoader = packageGraphLoader
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
+        self.scratchDirectory = scratchDirectory
         self.pkgConfigDirectories = pkgConfigDirectories
         self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
         self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
@@ -554,6 +559,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: { buildToolsGraph },
+                scratchDirectory: pluginsBuildParameters.dataPath,
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -724,7 +730,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         self.buildSystemDelegate = buildSystemDelegate
 
-        let databasePath = self.productsBuildParameters.dataPath.appending("build.db").pathString
+        let databasePath = self.scratchDirectory.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
