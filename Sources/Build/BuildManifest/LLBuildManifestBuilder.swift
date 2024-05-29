@@ -317,13 +317,13 @@ extension TargetBuildDescription {
 }
 
 extension TargetBuildDescription {
-    public func getLLBuildResourcesCmdName() -> String {
+    package var llbuildResourcesCmdName: String {
         "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
 extension ClangTargetBuildDescription {
-    public func getLLBuildTargetName() -> String {
+    package var llbuildTargetName: String {
         self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
 }

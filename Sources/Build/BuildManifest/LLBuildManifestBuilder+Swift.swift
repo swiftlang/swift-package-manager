@@ -486,7 +486,7 @@ extension LLBuildManifestBuilder {
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.getLLBuildTargetName()))
+            try inputs.append(.virtual(macro.llbuildTargetName))
         }
 
         return inputs + additionalInputs
