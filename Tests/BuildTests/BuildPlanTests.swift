@@ -6064,7 +6064,7 @@ final class BuildPlanTests: XCTestCase {
                     displayName: "ExtPkg",
                     path: "/ExtPkg",
                     version: "1.0.0",
-                    toolsVersion: .vNext,
+                    toolsVersion: .v6_0,
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
