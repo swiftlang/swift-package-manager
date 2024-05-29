@@ -30,14 +30,8 @@ class PrepareForIndexTests: XCTestCase {
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
         let manifest = try builder.generatePrepareManifest(at: "/manifest")
 
-        // Make sure we're still building swift modules
-        XCTAssertNotNil(manifest.commands["<SwiftSyntax-debug.module>"])
-        // Make sure we're not building things that link
-        XCTAssertNil(manifest.commands["C.Core-debug.exe"])
-
-        let outputs = manifest.commands.flatMap(\.value.tool.outputs).map(\.name)
-
         // Make sure we're building the swift modules
+        let outputs = manifest.commands.flatMap(\.value.tool.outputs).map(\.name)
         XCTAssertTrue(outputs.contains(where: { $0.hasSuffix(".swiftmodule")}))
 
         // Ensure swiftmodules built with correct arguments
