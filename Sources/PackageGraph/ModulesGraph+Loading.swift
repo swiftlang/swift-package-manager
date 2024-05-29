@@ -94,7 +94,7 @@ extension ModulesGraph {
                 ))
 
                 return try ModulesGraph(
-                    rootPackages: [],
+                    rootPackages: .init(),
                     rootDependencies: [],
                     packages: IdentifiableSet(),
                     dependencies: requiredDependencies,
@@ -188,7 +188,7 @@ extension ModulesGraph {
 
 private func checkAllDependenciesAreUsed(
     packages: IdentifiableSet<ResolvedPackage>,
-    _ rootPackages: [ResolvedPackage],
+    _ rootPackages: IdentifiableSet<ResolvedPackage>,
     observabilityScope: ObservabilityScope
 ) {
     for package in rootPackages {

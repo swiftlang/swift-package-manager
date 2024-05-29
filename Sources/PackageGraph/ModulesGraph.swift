@@ -232,13 +232,12 @@ public struct ModulesGraph {
 
     /// Construct a package graph directly.
     public init(
-        rootPackages: [ResolvedPackage],
+        rootPackages: IdentifiableSet<ResolvedPackage>,
         rootDependencies: [ResolvedPackage] = [],
         packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
-        let rootPackages = IdentifiableSet(rootPackages)
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts

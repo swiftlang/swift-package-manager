@@ -90,12 +90,19 @@ public protocol BuildPlan {
 
     var buildProducts: AnySequence<ProductBuildDescription> { get }
 
-    func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
 
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// a particular module.
     func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
+
+    /// Determines the arguments needed to run `swift-api-digester` for emitting
+    /// an API baseline for a particular module.
+    func apiDigesterEmitBaselineArguments(for module: ResolvedModule) throws -> [String]
+  
+    /// Determines the arguments needed to run `swift-api-digester` for
+    /// comparing to an API baseline for a particular module.
+    func apiDigesterCompareBaselineArguments(for module: ResolvedModule) throws -> [String]
 }
 
 public protocol BuildSystemFactory {
