@@ -41,13 +41,19 @@ extension SwiftPackageCommand {
             // ie "swift package show-dependencies" should output to stdout
             let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream
             Self.dumpDependenciesOf(
+                graph: graph,
                 rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
                 mode: format,
                 on: stream
             )
         }
 
-        static func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {
+        static func dumpDependenciesOf(
+            graph: ModulesGraph,
+            rootPackage: ResolvedPackage,
+            mode: ShowDependenciesMode,
+            on stream: OutputByteStream
+        ) {
             let dumper: DependenciesDumper
             switch mode {
             case .text:
@@ -59,7 +65,7 @@ extension SwiftPackageCommand {
             case .flatlist:
                 dumper = FlatListDumper()
             }
-            dumper.dump(dependenciesOf: rootPackage, on: stream)
+            dumper.dump(graph: graph, dependenciesOf: rootPackage, on: stream)
             stream.flush()
         }
 

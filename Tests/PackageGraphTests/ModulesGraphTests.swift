@@ -80,12 +80,12 @@ final class ModulesGraphTests: XCTestCase {
             result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
 
-        let fooPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Foo") })
+        let fooPackage = try XCTUnwrap(g.package(for: .plain("Foo")))
         let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
         let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
         XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
         XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
-        let barPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Bar") })
+        let barPackage = try XCTUnwrap(g.package(for: .plain("Bar")))
         let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
         XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
     }
@@ -183,15 +183,14 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", severity: .error)
+            result.check(diagnostic: "cyclic dependency declaration found: Bar -> Baz -> Bar", severity: .error)
         }
     }
 
-    func testCycle2() throws {
+    func testLocalTargetCycle() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
-            "/Bar/Sources/Bar/source.swift",
-            "/Baz/Sources/Baz/source.swift"
+            "/Foo/Sources/Bar/source.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -201,18 +200,64 @@ final class ModulesGraphTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Foo",
                     path: "/Foo",
-                    dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
-                    ],
                     targets: [
-                        TargetDescription(name: "Foo"),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Bar", dependencies: ["Foo"])
                     ]),
             ],
             observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Foo", severity: .error)
+            result.check(diagnostic: "cyclic dependency declaration found: Bar -> Foo -> Bar", severity: .error)
+        }
+    }
+
+    func testDependencyCycleWithoutTargetCycle() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/Sources/Bar/source.swift",
+            "/Bar/Sources/Baz/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    dependencies: [
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Baz", dependencies: ["Foo"]),
+                    ])
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        PackageGraphTester(graph) { result in
+            result.check(packages: "Foo", "Bar")
+            result.check(targets: "Bar", "Baz", "Foo")
         }
     }
 
