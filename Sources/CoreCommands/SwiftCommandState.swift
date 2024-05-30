@@ -725,7 +725,7 @@ public final class SwiftCommandState {
     when building on macOS.
     """
 
-    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+    private func _buildParams(toolchain: UserToolchain, buildFlags: PackageModel.BuildFlags) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
@@ -741,7 +741,7 @@ public final class SwiftCommandState {
             configuration: options.build.configuration,
             toolchain: toolchain,
             triple: triple,
-            flags: options.build.buildFlags,
+            flags: buildFlags,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
@@ -796,7 +796,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getHostToolchain())
+            try _buildParams(toolchain: self.getHostToolchain(), buildFlags: .init())
         })
     }()
 
@@ -808,7 +808,7 @@ public final class SwiftCommandState {
 
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain())
+            try _buildParams(toolchain: self.getTargetToolchain(), buildFlags: options.build.buildFlags)
         })
     }()
 

@@ -316,28 +316,28 @@ public struct BuildOptions: ParsableArguments {
     @Option(
         name: .customLong("Xcc", withSingleDash: true),
         parsing: .unconditionalSingleValue,
-        help: "Pass flag through to all C compiler invocations"
+        help: "Pass flag through to C compiler invocations for the target triple"
     )
     var cCompilerFlags: [String] = []
 
     @Option(
         name: .customLong("Xswiftc", withSingleDash: true),
         parsing: .unconditionalSingleValue,
-        help: "Pass flag through to all Swift compiler invocations"
+        help: "Pass flag through to Swift compiler invocations for the target triple"
     )
     var swiftCompilerFlags: [String] = []
 
     @Option(
         name: .customLong("Xlinker", withSingleDash: true),
         parsing: .unconditionalSingleValue,
-        help: "Pass flag through to all linker invocations"
+        help: "Pass flag through to linker invocations for the target triple"
     )
     var linkerFlags: [String] = []
 
     @Option(
         name: .customLong("Xcxx", withSingleDash: true),
         parsing: .unconditionalSingleValue,
-        help: "Pass flag through to all C++ compiler invocations"
+        help: "Pass flag through to C++ compiler invocations for the target triple"
     )
     var cxxCompilerFlags: [String] = []
 
