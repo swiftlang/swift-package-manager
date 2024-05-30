@@ -647,6 +647,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
         }
     }
+
+    public func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String] {
+        guard let description = self.targetMap[module.id] else {
+            throw InternalError("Expected description for module \(module)")
+        }
+        return try description.symbolGraphExtractArguments()
+    }
 }
 
 extension Basics.Diagnostic {

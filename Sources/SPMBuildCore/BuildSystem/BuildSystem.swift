@@ -90,6 +90,8 @@ public protocol BuildPlan {
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
+
+    func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
 }
 
 public protocol BuildSystemFactory {
