@@ -547,7 +547,8 @@ public final class SwiftTargetBuildDescription {
             args += ["-color-diagnostics"]
         }
 
-        args += try self.cxxInteroperabilityModeArguments(allowDuplicate: false)
+        args += try self.cxxInteroperabilityModeArguments(
+            propagateFromCurrentModuleOtherSwiftFlags: false)
 
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
@@ -630,62 +631,62 @@ public final class SwiftTargetBuildDescription {
     /// this module.
     public func symbolGraphExtractArguments() throws -> [String] {
         var args = [String]()
-        args += try self.cxxInteroperabilityModeArguments(allowDuplicate: true)
+        args += try self.cxxInteroperabilityModeArguments(
+            propagateFromCurrentModuleOtherSwiftFlags: true)
         return args
     }
 
+    // FIXME: this function should operation on a strongly typed buildSetting
+    // Move logic from PackageBuilder here.
     /// Determines the arguments needed for cxx interop for this module.
-    ///
-    /// If the current module or any of its linked dependencies requires cxx
-    /// interop, cxx interop will be enabled on the current module.
     func cxxInteroperabilityModeArguments(
         // FIXME: Remove argument
         // This argument is added as a stop gap to support generating arguments
-        // for tools which currently dont leverage "OTHER_SWIFT_FLAGS". In the
-        // fullness of time, this function should operate on a strongly typed
-        // "interopMode" property of SwiftTargetBuildDescription. Instead of
+        // for tools which currently don't leverage "OTHER_SWIFT_FLAGS". In the
+        // fullness of time this function should operate on a strongly typed
+        // "interopMode" property of SwiftTargetBuildDescription instead of
         // digging through "OTHER_SWIFT_FLAGS" manually.
-        allowDuplicate: Bool
+        propagateFromCurrentModuleOtherSwiftFlags: Bool
     ) throws -> [String] {
-        func _cxxInteroperabilityMode(for module: ResolvedModule) -> String? {
+        func cxxInteroperabilityModeAndStandard(
+            for module: ResolvedModule
+        ) -> [String]? {
             let scope = self.buildParameters.createScope(for: module)
             let flags = scope.evaluate(.OTHER_SWIFT_FLAGS)
-            return flags.first { $0.hasPrefix("-cxx-interoperability-mode=") }
-        }
-
-        // Look for cxx interop mode in the current module, if set exit early,
-        // the flag is already present.
-        var cxxInteroperabilityMode: String?
-        if let mode = _cxxInteroperabilityMode(for: self.target) {
-            if allowDuplicate {
-                cxxInteroperabilityMode = mode
+            let mode = flags.first { $0.hasPrefix("-cxx-interoperability-mode=") }
+            guard let mode else { return nil }
+            // FIXME: Use a stored self.cxxLanguageStandard property
+            // It definitely should _never_ reach back into the manifest
+            if let cxxStandard = self.package.manifest.cxxLanguageStandard {
+                return [mode, "-Xcc", "-std=\(cxxStandard)"]
+            } else {
+                return [mode]
             }
         }
 
+        if propagateFromCurrentModuleOtherSwiftFlags {
+            // Look for cxx interop mode in the current module, if set exit early,
+            // the flag is already present.
+            if let args = cxxInteroperabilityModeAndStandard(for: self.target) {
+                return args
+            }
+        }
+
+        // Implicitly propagate cxx interop flags for generated test targets.
         // If the current module doesn't have cxx interop mode set, search
         // through the module's dependencies looking for the a module that
         // enables cxx interop and copy it's flag.
-        if cxxInteroperabilityMode == nil {
+        switch self.testTargetRole {
+        case .discovery, .entryPoint:
             for module in try self.target.recursiveTargetDependencies() {
-                if let mode = _cxxInteroperabilityMode(for: module) {
-                    cxxInteroperabilityMode = mode
-                    break
+                if let args = cxxInteroperabilityModeAndStandard(for: module) {
+                    return args
                 }
             }
+        default: break
         }
-
-        var args = [String]()
-        if let cxxInteroperabilityMode {
-            // FIXME: this should reference a local cxxLanguageStandard property
-            // It definitely should _never_ reach back into the manifest
-            args = [cxxInteroperabilityMode]
-            if let cxxStandard = self.package.manifest.cxxLanguageStandard {
-                args += ["-Xcc", "-std=\(cxxStandard)"]
-            }
-        }
-        return args
+        return []
     }
-
 
     /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
     /// such as emitting a module or supplementary outputs.

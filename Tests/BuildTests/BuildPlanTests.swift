@@ -1951,8 +1951,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let plan = try BuildPlan(
-            buildParameters: mockBuildParameters(),
+        let plan = try mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
