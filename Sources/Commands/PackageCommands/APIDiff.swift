@@ -32,7 +32,7 @@ struct DeprecatedAPIDiff: ParsableCommand {
     }
 }
 
-struct APIDiff: SwiftCommand {
+struct APIDiff: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "diagnose-api-breaking-changes",
         abstract: "Diagnose API-breaking changes to Swift modules in a package",
@@ -74,7 +74,7 @@ struct APIDiff: SwiftCommand {
     @Flag(help: "Regenerate the API baseline, even if an existing one is available.")
     var regenerateBaseline: Bool = false
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         let apiDigesterPath = try swiftCommandState.getTargetToolchain().getSwiftAPIDigester()
         let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftCommandState.fileSystem, tool: apiDigesterPath)
 
@@ -83,7 +83,7 @@ struct APIDiff: SwiftCommand {
         let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
         // We turn build manifest caching off because we need the build plan.
-        let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+        let buildSystem = try await swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
         let packageGraph = try buildSystem.getPackageGraph()
         let modulesToDiff = try determineModulesToDiff(
@@ -104,7 +104,7 @@ struct APIDiff: SwiftCommand {
             observabilityScope: swiftCommandState.observabilityScope
         )
 
-        let baselineDir = try baselineDumper.emitAPIBaseline(
+        let baselineDir = try await baselineDumper.emitAPIBaseline(
             for: modulesToDiff,
             at: overrideBaselineDir,
             force: regenerateBaseline,

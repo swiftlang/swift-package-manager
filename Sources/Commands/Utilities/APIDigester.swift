@@ -74,7 +74,7 @@ struct APIDigesterBaselineDumper {
         force: Bool,
         logLevel: Basics.Diagnostic.Severity,
         swiftCommandState: SwiftCommandState
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = productsBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
@@ -137,7 +137,7 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildSystem = try swiftCommandState.createBuildSystem(
+        let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,

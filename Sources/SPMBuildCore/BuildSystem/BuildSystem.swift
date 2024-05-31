@@ -128,7 +128,7 @@ public struct BuildSystemProvider {
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> any BuildSystem {
+    ) async throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
         }

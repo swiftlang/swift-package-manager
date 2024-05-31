@@ -601,6 +601,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Create the build plan and return the build description.
     private func plan(subset: BuildSubset? = nil) throws -> (description: BuildDescription, manifest: LLBuildManifest) {
         // Load the package graph.
+        // FIXME: memoize
         let graph = try getPackageGraph()
         let buildToolPluginInvocationResults: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])]
         let prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]]

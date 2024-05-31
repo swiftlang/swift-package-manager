@@ -128,7 +128,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
-            let buildSystem = try swiftCommandState.createBuildSystem(
+            let buildSystem = try await swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader
@@ -149,7 +149,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 
         case .debugger:
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: options.executable)
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
@@ -191,7 +191,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             }
 
             do {
-                let buildSystem = try swiftCommandState.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: options.executable)
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)

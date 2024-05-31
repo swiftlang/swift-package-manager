@@ -695,7 +695,7 @@ public final class SwiftCommandState {
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none
-    ) throws -> BuildSystem {
+    ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
@@ -703,7 +703,7 @@ public final class SwiftCommandState {
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
 
-        let buildSystem = try buildSystemProvider.createBuildSystem(
+        let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? options.build.buildSystem,
             explicitProduct: explicitProduct,
             cacheBuildManifest: cacheBuildManifest,
