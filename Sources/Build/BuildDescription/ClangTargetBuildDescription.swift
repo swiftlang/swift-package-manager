@@ -209,15 +209,19 @@ public final class ClangTargetBuildDescription {
 
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
-    public func symbolGraphExtractArguments() throws -> [String] {
+    package func symbolGraphExtractArguments() throws -> [String] {
         var args = [String]()
-
         if self.clangTarget.isCXX {
             args += ["-cxx-interoperability-mode=default"]
         }
         if let cxxLanguageStandard = self.clangTarget.cxxLanguageStandard {
             args += ["-Xcc", "-std=\(cxxLanguageStandard)"]
         }
+        args += ["-I", self.clangTarget.includeDir.pathString]
+        args += self.additionalFlags
+        // Unconditionally use clang modules with swift tools.
+        args += try self.clangModuleArguments().asSwiftcCCompilerFlags()
+        args += try self.currentModuleMapFileArguments().asSwiftcCCompilerFlags()
         return args
     }
 
@@ -253,7 +257,6 @@ public final class ClangTargetBuildDescription {
             args += self.buildParameters.indexStoreArguments(for: target)
         }
 
-        // Enable Clang module flags, if appropriate.
         let triple = self.buildParameters.triple
         // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
         // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't
@@ -263,7 +266,7 @@ public final class ClangTargetBuildDescription {
         // clang modules aren't fully supported in C++ mode in the current Darwin SDKs.
         let enableModules = triple.isDarwin() && !isCXX
         if enableModules {
-            args += ["-fmodules", "-fmodule-name=" + target.c99name]
+            args += try self.clangModuleArguments()
         }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
@@ -273,9 +276,7 @@ public final class ClangTargetBuildDescription {
 
         args += ["-I", clangTarget.includeDir.pathString]
         args += additionalFlags
-        if enableModules {
-            args += try moduleCacheArgs
-        }
+
         args += buildParameters.sanitizers.compileCFlags()
 
         // Add arguments from declared build settings.
@@ -433,11 +434,22 @@ public final class ClangTargetBuildDescription {
         return compilationConditions
     }
 
-    /// Module cache arguments.
-    private var moduleCacheArgs: [String] {
-        get throws {
-            try ["-fmodules-cache-path=\(buildParameters.moduleCache.pathString)"]
+    /// Enable Clang module flags.
+    private func clangModuleArguments() throws -> [String] {
+        let cachePath = try self.buildParameters.moduleCache.pathString
+        return [
+            "-fmodules",
+            "-fmodule-name=\(self.target.c99name)",
+            "-fmodules-cache-path=\(cachePath)",
+        ]
+    }
+    
+    private func currentModuleMapFileArguments() throws -> [String] {
+        // Pass the path to the current module's module map if present.
+        if let moduleMap = self.moduleMap {
+            return ["-fmodule-map-file=\(moduleMap.pathString)"]
         }
+        return []
     }
 
     /// Generate the resource bundle accessor, if appropriate.

@@ -1410,13 +1410,13 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=extlib"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=extlib",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += ["-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
-
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1439,7 +1439,11 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=exe"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=exe",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += [
             "-I", Pkg.appending(components: "Sources", "exe", "include").pathString,
@@ -1448,9 +1452,6 @@ final class BuildPlanTests: XCTestCase {
             "-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString,
             "-fmodule-map-file=\(buildPath.appending(components: "extlib.build", "module.modulemap"))",
         ]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1796,12 +1797,13 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=lib"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=lib",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += ["-I", Pkg.appending(components: "Sources", "lib", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -3035,12 +3037,13 @@ final class BuildPlanTests: XCTestCase {
         expectedExeBasicArgs += ["-target", defaultTargetTriple]
         expectedExeBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        expectedExeBasicArgs += ["-fmodules", "-fmodule-name=exe"]
+        expectedExeBasicArgs += [
+            "-fmodules",
+            "-fmodule-name=exe",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"
+        ]
         #endif
         expectedExeBasicArgs += ["-I", Pkg.appending(components: "Sources", "exe", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        expectedExeBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
 
         expectedExeBasicArgs += [triple.isWindows() ? "-gdwarf" : "-g"]
 
