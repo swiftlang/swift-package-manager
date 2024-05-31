@@ -539,9 +539,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
             // It's possible to request a build of a macro or a plugin via `swift build`
             // which won't have the right destination set because it's impossible to indicate it.
+            //
+            // Same happens with `--test-product` - if one of the test targets directly references
+            // a macro then all if its targets and the product itself become `host`.
             if product == nil && destination == .target {
                 if let toolsProduct = graph.product(for: productName, destination: .tools),
-                   toolsProduct.type == .macro || toolsProduct.type == .plugin
+                   toolsProduct.type == .macro || toolsProduct.type == .plugin || toolsProduct.type == .test
                 {
                     product = toolsProduct
                     buildParameters = self.toolsBuildParameters
