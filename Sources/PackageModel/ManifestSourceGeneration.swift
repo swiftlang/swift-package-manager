@@ -525,7 +525,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .swiftLanguageVersion(let version):
+        case .swiftLanguageMode(let version):
             params.append(SourceCodeFragment(from: version))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -683,8 +683,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
-        case .swiftLanguageVersion:
-            return "swiftLanguageVersion"
+        case .swiftLanguageMode:
+            return "swiftLanguageMode"
         }
     }
 }
