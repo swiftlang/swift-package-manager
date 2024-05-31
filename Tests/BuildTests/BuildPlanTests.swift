@@ -1980,13 +1980,21 @@ final class BuildPlanTests: XCTestCase {
 
         // Swift module transitively importing cxx module
         do {
-            try XCTAssertMatch(
+            try XCTAssertNoMatch(
                 result.target(for: "swiftLib2").swiftTarget().compileArguments(),
-                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+                [.anySequence, "-cxx-interoperability-mode=default", .anySequence]
             )
-            try XCTAssertMatch(
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().compileArguments(),
+                [.anySequence, "-Xcc", "-std=c++20", .anySequence]
+            )
+            try XCTAssertNoMatch(
                 result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
-                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+                [.anySequence, "-cxx-interoperability-mode=default", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-Xcc", "-std=c++20", .anySequence]
             )
         }
     }
