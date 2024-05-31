@@ -73,9 +73,12 @@ public final class SwiftTargetBuildDescription {
         return resources.filter { $0.rule != .embedInCode }.isEmpty == false
     }
 
-    private var needsResourceEmbedding: Bool {
-        return resources.filter { $0.rule == .embedInCode }.isEmpty == false
+    var resourceFilesToEmbed: [AbsolutePath] {
+        return resources.filter { $0.rule == .embedInCode }.map { $0.path }
     }
+
+    /// The path to Swift source file embedding resource contents if needed.
+    private(set) var resourcesEmbeddingSource: AbsolutePath?
 
     /// The list of all source files in the target, including the derived ones.
     public var sources: [AbsolutePath] {
@@ -309,7 +312,10 @@ public final class SwiftTargetBuildDescription {
             }
         }
 
-        try self.generateResourceEmbeddingCode()
+        if !resourceFilesToEmbed.isEmpty {
+            resourcesEmbeddingSource = try addResourceEmbeddingSource()
+        }
+
         try self.generateTestObservation()
     }
 
@@ -337,31 +343,10 @@ public final class SwiftTargetBuildDescription {
         try self.fileSystem.writeIfChanged(path: path, string: content)
     }
 
-    // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array representation in memory and also `writeIfChanged()` will read the entire generated file again.
-    private func generateResourceEmbeddingCode() throws {
-        guard needsResourceEmbedding else { return }
-
-        var content =
-            """
-            struct PackageResources {
-
-            """
-
-        try resources.forEach {
-            guard $0.rule == .embedInCode else { return }
-
-            let variableName = $0.path.basename.spm_mangledToC99ExtendedIdentifier()
-            let fileContent = try Data(contentsOf: URL(fileURLWithPath: $0.path.pathString)).map { String($0) }.joined(separator: ",")
-
-            content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
-        }
-
-        content += "}"
-
+    private func addResourceEmbeddingSource() throws -> AbsolutePath {
         let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
-        let path = self.derivedSources.root.appending(subpath)
-        try self.fileSystem.writeIfChanged(path: path, string: content)
+        return self.derivedSources.root.appending(subpath)
     }
 
     /// Generate the resource bundle accessor, if appropriate.
