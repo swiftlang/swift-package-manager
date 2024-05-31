@@ -638,7 +638,7 @@ public struct PubGrubDependencyResolver {
 
             let priorCause = _mostRecentSatisfier.cause!
 
-            var newTerms = incompatibility.terms.filter { $0 != mostRecentTerm }
+            var newTerms = Array(incompatibility.terms.filter { $0 != mostRecentTerm })
             newTerms += priorCause.terms.filter { $0.node != _mostRecentSatisfier.term.node }
 
             if let _difference = difference {
