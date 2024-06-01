@@ -27,7 +27,8 @@ public enum WriteAuxiliary {
         LinkFileList.self,
         SourcesFileList.self,
         SwiftGetVersion.self,
-        XCTestInfoPlist.self
+        XCTestInfoPlist.self,
+        EmbeddedResources.self,
     ]
 
     public struct EntitlementPlist: AuxiliaryFileType {
@@ -159,6 +160,35 @@ public enum WriteAuxiliary {
             case undefinedPrincipalClass
         }
     }
+
+    public struct EmbeddedResources: AuxiliaryFileType {
+        public static let name = "embedded-resources"
+
+        public static func computeInputs(resources: [AbsolutePath]) -> [Node] {
+            return [.virtual(Self.name)] + resources.map { Node.file($0) }
+        }
+
+        // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array
+        // representation in memory.
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            var content =
+                """
+                struct PackageResources {
+
+                """
+
+            for input in inputs where input.kind == .file {
+                let resourcePath = try AbsolutePath(validating: input.name)
+                let variableName = resourcePath.basename.spm_mangledToC99ExtendedIdentifier()
+                let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString)).map { String($0) }.joined(separator: ",")
+
+                content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+            }
+
+            content += "}"
+            return content
+        }
+    }
 }
 
 public struct LLBuildManifest {
@@ -275,6 +305,16 @@ public struct LLBuildManifest {
 
     public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
         let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
+        commands[name] = Command(name: name, tool: tool)
+    }
+
+    public mutating func addWriteEmbeddedResourcesCommand(
+        resources: [AbsolutePath],
+        outputPath: AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(resources: resources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         commands[name] = Command(name: name, tool: tool)
