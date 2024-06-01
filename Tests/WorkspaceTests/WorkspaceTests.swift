@@ -11019,7 +11019,7 @@ final class WorkspaceTests: XCTestCase {
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ],
-                    toolsVersion: .v5
+                    toolsVersion: .v6_0
                 ),
             ],
             packages: [
@@ -11167,11 +11167,7 @@ final class WorkspaceTests: XCTestCase {
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
-                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
-                    severity: .warning
-                )
-                result.check(
-                    diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'OtherUtilityPackage'.",
+                    diagnostic: "cyclic dependency between packages Root -> FooUtilityPackage -> BarPackage -> FooUtilityPackage requires tools-version 6.0 or later",
                     severity: .error
                 )
             }
@@ -11202,7 +11198,7 @@ final class WorkspaceTests: XCTestCase {
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ],
-                    toolsVersion: .v5
+                    toolsVersion: .v6_0
                 ),
             ],
             packages: [
