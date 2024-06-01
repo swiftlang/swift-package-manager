@@ -108,8 +108,15 @@ public final class Package {
     /// The list of package dependencies.
     public var dependencies: [Dependency]
 
-    /// The list of Swift versions with which this package is compatible.
-    public var swiftLanguageVersions: [SwiftVersion]?
+    /// The list of Swift language modes with which this package is compatible.
+    public var swiftLanguageModes: [SwiftLanguageMode]?
+    
+    /// Legacy property name, accesses value of `swiftLanguageModes`
+    @available(_PackageDescription, obsoleted: 6, renamed: "swiftLanguageModes")
+    public var swiftLanguageVersions: [SwiftVersion]? {
+        get { swiftLanguageModes }
+        set { swiftLanguageModes = newValue }
+    }
 
     /// The C language standard to use for all C targets in this package.
     public var cLanguageStandard: CLanguageStandard?
@@ -151,7 +158,7 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
-        self.swiftLanguageVersions = swiftLanguageVersions.map{ $0.map{ .version("\($0)") } }
+        self.swiftLanguageModes = swiftLanguageVersions.map{ $0.map{ .version("\($0)") } }
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
@@ -190,7 +197,7 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
-        self.swiftLanguageVersions = swiftLanguageVersions
+        self.swiftLanguageModes = swiftLanguageVersions
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
@@ -232,7 +239,7 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
-        self.swiftLanguageVersions = swiftLanguageVersions
+        self.swiftLanguageModes = swiftLanguageVersions
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
@@ -296,52 +303,6 @@ public final class Package {
     ///   - traits: The set of traits of this package.
     ///   - dependencies: The list of package dependencies.
     ///   - targets: The list of targets that are part of this package.
-    ///   - swiftLanguageVersions: The list of Swift versions with which this package is compatible.
-    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
-    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @_spi(ExperimentalTraits)
-    @available(_PackageDescription, introduced: 999.0)
-    public init(
-        name: String,
-        defaultLocalization: LanguageTag? = nil,
-        platforms: [SupportedPlatform]? = nil,
-        pkgConfig: String? = nil,
-        providers: [SystemPackageProvider]? = nil,
-        products: [Product] = [],
-        traits: Set<Trait> = [],
-        dependencies: [Dependency] = [],
-        targets: [Target] = [],
-        swiftLanguageVersions: [SwiftVersion]? = nil,
-        cLanguageStandard: CLanguageStandard? = nil,
-        cxxLanguageStandard: CXXLanguageStandard? = nil
-    ) {
-        self.name = name
-        self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
-        self.pkgConfig = pkgConfig
-        self.providers = providers
-        self.products = products
-        self.traits = traits
-        self.dependencies = dependencies
-        self.targets = targets
-        self.swiftLanguageVersions = swiftLanguageVersions
-        self.cLanguageStandard = cLanguageStandard
-        self.cxxLanguageStandard = cxxLanguageStandard
-        registerExitHandler()
-    }
-    
-    /// Initializes a Swift package with configuration options you provide.
-    ///
-    /// - Parameters:
-    ///   - name: The name of the Swift package, or `nil` to use the package's Git URL to deduce the name.
-    ///   - defaultLocalization: The default localization for resources.
-    ///   - platforms: The list of supported platforms with a custom deployment target.
-    ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
-    ///   `<name>.pc` file to get the additional flags required for a system target.
-    ///   - providers: The package providers for a system target.
-    ///   - products: The list of products that this package makes available for clients to use.
-    ///   - dependencies: The list of package dependencies.
-    ///   - targets: The list of targets that are part of this package.
     ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
@@ -353,6 +314,7 @@ public final class Package {
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         products: [Product] = [],
+        traits: Set<Trait> = [],
         dependencies: [Dependency] = [],
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
@@ -365,9 +327,10 @@ public final class Package {
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
+        self.traits = traits
         self.dependencies = dependencies
         self.targets = targets
-        self.swiftLanguageVersions = swiftLanguageModes
+        self.swiftLanguageModes = swiftLanguageModes
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
