@@ -237,28 +237,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// ObservabilityScope with which to emit diagnostics
     let observabilityScope: ObservabilityScope
 
-    @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:)")
-    public convenience init(
-        buildParameters: BuildParameters,
-        graph: ModulesGraph,
-        additionalFileRules: [FileRuleDescription] = [],
-        buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedModule.ID: [PrebuildCommandResult]] = [:],
-        fileSystem: any FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws {
-        try self.init(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
-            graph: graph,
-            additionalFileRules: additionalFileRules,
-            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
-            prebuildCommandResults: prebuildCommandResults,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
-    }
-
     @available(*, deprecated, renamed: "init(destinationBuildParameters:toolsBuildParameters:graph:fileSystem:observabilityScope:)")
     public convenience init(
         productsBuildParameters: BuildParameters,
@@ -380,7 +358,15 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let requiredMacroProducts = try target.recursiveTargetDependencies()
                     .filter { $0.underlying.type == .macro }
-                    .compactMap { macroProductsByTarget[$0.id] }
+                    .compactMap {
+                        guard let product = macroProductsByTarget[$0.id],
+                              let description = productMap[product.id] else
+                        {
+                            throw InternalError("macro product not found for \($0)")
+                        }
+
+                        return description.buildDescription
+                    }
 
                 var generateTestObservation = false
                 if target.type == .test && shouldGenerateTestObservation {
@@ -394,8 +380,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         target: target,
                         toolsVersion: toolsVersion,
                         additionalFileRules: additionalFileRules,
-                        destinationBuildParameters: buildParameters,
-                        toolsBuildParameters: toolsBuildParameters,
+                        buildParameters: buildParameters,
                         buildToolPluginInvocationResults: buildToolPluginInvocationResults[target.id] ?? [],
                         prebuildCommandResults: prebuildCommandResults[target.id] ?? [],
                         requiredMacroProducts: requiredMacroProducts,
@@ -454,9 +439,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // Plan the derived test targets, if necessary.
         if destinationBuildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
             let derivedTestTargets = try Self.makeDerivedTestTargets(
+                testProducts: productMap.values.filter {
+                    $0.product.type == .test
+                },
                 destinationBuildParameters: destinationBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
-                graph,
                 shouldDisableSandbox: self.shouldDisableSandbox,
                 self.fileSystem,
                 self.observabilityScope
@@ -595,7 +582,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         arguments.append("-l" + replProductName)
 
         // The graph should have the REPL product.
-        assert(self.graph.allProducts.first(where: { $0.name == replProductName }) != nil)
+        assert(self.graph.product(for: replProductName, destination: .destination) != nil)
 
         // Add the search path to the directory containing the modulemap file.
         for target in self.targets {

@@ -166,6 +166,14 @@ public struct ModulesGraph {
         package.dependencies.compactMap { self.package(for: $0) }
     }
 
+    public func product(for name: String, destination: BuildTriple) -> ResolvedProduct? {
+        self.allProducts.first { $0.name == name && $0.buildTriple == destination }
+    }
+
+    public func target(for name: String, destination: BuildTriple) -> ResolvedModule? {
+        self.allTargets.first { $0.name == name && $0.buildTriple == destination }
+    }
+
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
@@ -212,6 +220,38 @@ public struct ModulesGraph {
                         }
                     }
                 }
+
+                // Create a new executable product if plugin depends on an executable target.
+                // This is necessary, even though PackageBuilder creates one already, because
+                // that product is going to be built for `destination`, and this one has to
+                // be built for `tools`.
+                if target.underlying is PluginTarget {
+                    for dependency in target.dependencies {
+                        switch dependency {
+                        case .product(_, conditions: _):
+                            break
+
+                        case .target(let target, conditions: _):
+                            if target.type != .executable {
+                                continue
+                            }
+
+                            var product = try ResolvedProduct(
+                                packageIdentity: target.packageIdentity,
+                                product: .init(
+                                    package: target.packageIdentity,
+                                    name: target.name,
+                                    type: .executable,
+                                    targets: [target.underlying]
+                                ),
+                                targets: IdentifiableSet([target])
+                            )
+                            product.buildTriple = .tools
+
+                            allProducts.insert(product)
+                        }
+                    }
+                }
             }
 
             if rootPackages.contains(id: package.id) {
@@ -233,30 +273,6 @@ public struct ModulesGraph {
         self.rootPackages = rootPackages
         self.allTargets = allTargets
         self.allProducts = allProducts
-    }
-
-    package mutating func updateBuildTripleRecursively(_ buildTriple: BuildTriple) throws {
-        self.reachableTargets = IdentifiableSet(self.reachableTargets.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return target
-        })
-        self.reachableProducts = IdentifiableSet(self.reachableProducts.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return product
-        })
-
-        self.allTargets = IdentifiableSet(self.allTargets.map {
-            var target = $0
-            target.buildTriple = buildTriple
-            return target
-        })
-        self.allProducts = IdentifiableSet(self.allProducts.map {
-            var product = $0
-            product.buildTriple = buildTriple
-            return product
-        })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.

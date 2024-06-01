@@ -54,20 +54,21 @@ final class BuildOperationTests: XCTestCase {
     func testDetectUnexpressedDependencies() throws {
         let scratchDirectory = AbsolutePath("/path/to/build")
         let triple = hostTriple
-        let buildParameters = mockBuildParameters(
+        let targetBuildParameters = mockBuildParameters(
+            destination: .target,
             buildPath: scratchDirectory.appending(triple.tripleString),
             shouldDisableLocalRpath: false,
             triple: triple
         )
 
         let fs = InMemoryFileSystem(files: [
-            "\(buildParameters.dataPath)/debug/Lunch.build/Lunch.d" : "/Best.framework"
+            "\(targetBuildParameters.dataPath)/debug/Lunch.build/Lunch.d" : "/Best.framework"
         ])
 
         let observability = ObservabilitySystem.makeForTesting()
         let buildOp = mockBuildOperation(
-            productsBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+            productsBuildParameters: targetBuildParameters,
+            toolsBuildParameters: mockBuildParameters(destination: .host, shouldDisableLocalRpath: false),
             scratchDirectory: scratchDirectory,
             fs: fs, observabilityScope: observability.topScope
         )
@@ -120,14 +121,15 @@ final class BuildOperationTests: XCTestCase {
 
             // Perform initial builds for each triple
             for triple in triples {
-                let buildParameters = mockBuildParameters(
+                let targetBuildParameters = mockBuildParameters(
+                    destination: .target,
                     buildPath: scratchDirectory.appending(triple.tripleString),
                     config: .debug,
                     triple: triple
                 )
                 let buildOp = mockBuildOperation(
-                    productsBuildParameters: buildParameters,
-                    toolsBuildParameters: buildParameters,
+                    productsBuildParameters: targetBuildParameters,
+                    toolsBuildParameters: mockBuildParameters(destination: .host),
                     cacheBuildManifest: false,
                     packageGraphLoader: { packageGraph },
                     scratchDirectory: scratchDirectory,
@@ -136,7 +138,7 @@ final class BuildOperationTests: XCTestCase {
                 // Generate initial llbuild manifest
                 let _ = try buildOp.getBuildDescription()
                 // Record the initial llbuild manifest as expected one
-                llbuildManifestByTriple[triple.tripleString] = try fs.readFileContents(buildParameters.llbuildManifest)
+                llbuildManifestByTriple[triple.tripleString] = try fs.readFileContents(targetBuildParameters.llbuildManifest)
             }
 
             XCTAssertTrue(fs.exists(scratchDirectory.appending("debug.yaml")))
@@ -152,14 +154,15 @@ final class BuildOperationTests: XCTestCase {
             // Perform incremental build several times and switch triple for each time
             for _ in 0..<4 {
                 for triple in triples {
-                    let buildParameters = mockBuildParameters(
+                    let targetBuildParameters = mockBuildParameters(
+                        destination: .target,
                         buildPath: scratchDirectory.appending(triple.tripleString),
                         config: .debug,
                         triple: triple
                     )
                     let buildOp = mockBuildOperation(
-                        productsBuildParameters: buildParameters,
-                        toolsBuildParameters: buildParameters,
+                        productsBuildParameters: targetBuildParameters,
+                        toolsBuildParameters: mockBuildParameters(destination: .host),
                         cacheBuildManifest: true,
                         packageGraphLoader: { packageGraph },
                         scratchDirectory: scratchDirectory,
@@ -169,7 +172,7 @@ final class BuildOperationTests: XCTestCase {
                     let _ = try buildOp.getBuildDescription()
 
                     // Ensure that llbuild manifest is updated to the expected one
-                    let actualManifest: String = try fs.readFileContents(buildParameters.llbuildManifest)
+                    let actualManifest: String = try fs.readFileContents(targetBuildParameters.llbuildManifest)
                     let expectedManifest = try XCTUnwrap(llbuildManifestByTriple[triple.tripleString])
                     XCTAssertEqual(actualManifest, expectedManifest)
                 }

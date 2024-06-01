@@ -23,8 +23,8 @@ class PrepareForIndexTests: XCTestCase {
         let (graph, fs, scope) = try macrosPackageGraph()
 
         let plan = try BuildPlan(
-            destinationBuildParameters: mockBuildParameters(prepareForIndexing: true),
-            toolsBuildParameters: mockBuildParameters(prepareForIndexing: false),
+            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: true),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: false),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope

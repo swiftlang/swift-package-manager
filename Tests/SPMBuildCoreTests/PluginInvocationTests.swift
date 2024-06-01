@@ -36,6 +36,7 @@ final class PluginInvocationTests: XCTestCase {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/Foo/Plugins/FooPlugin/source.swift",
             "/Foo/Sources/FooTool/source.swift",
+            "/Foo/Sources/FooToolLib/source.swift",
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/SomeFile.abc"
         )
@@ -67,8 +68,13 @@ final class PluginInvocationTests: XCTestCase {
                         ),
                         TargetDescription(
                             name: "FooTool",
-                            dependencies: [],
+                            dependencies: ["FooToolLib"],
                             type: .executable
+                        ),
+                        TargetDescription(
+                            name: "FooToolLib",
+                            dependencies: [],
+                            type: .regular
                         ),
                     ]
                 )
@@ -80,18 +86,24 @@ final class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            // "FooTool" duplicated as it's present for both build tools and end products triples.
-            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool")
+            // "FooTool{Lib}" duplicated as it's present for both build tools and end products triples.
+            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool", "FooToolLib", "FooToolLib")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
-            graph.checkTarget("FooPlugin") { target in
+            graph.checkTarget("FooPlugin", destination: .tools) { target in
                 target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
-            graph.checkTargets("FooTool") { targets in
-                for target in targets {
+            for destination: BuildTriple in [.tools, .destination] {
+                graph.checkTarget("FooTool", destination: destination) { target in
                     target.check(type: .executable)
+                    target.check(buildTriple: destination)
+                    target.checkDependency("FooToolLib") { dependency in
+                        dependency.checkTarget {
+                            $0.check(buildTriple: destination)
+                        }
+                    }
                 }
             }
         }
@@ -199,6 +211,7 @@ final class PluginInvocationTests: XCTestCase {
         let outputDir = AbsolutePath("/Foo/.build")
         let pluginRunner = MockPluginScriptRunner()
         let buildParameters = mockBuildParameters(
+            destination: .host,
             environment: BuildEnvironment(platform: .macOS, configuration: .debug)
         )
         let results = try graph.invokeBuildToolPlugins(
@@ -898,6 +911,7 @@ final class PluginInvocationTests: XCTestCase {
                 let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
                     buildParameters: mockBuildParameters(
+                        destination: .host,
                         environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                     ),
                     additionalFileRules: [],
@@ -1240,6 +1254,7 @@ final class PluginInvocationTests: XCTestCase {
             return try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 buildParameters: mockBuildParameters(
+                    destination: .host,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 ),
                 additionalFileRules: [],
