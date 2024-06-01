@@ -284,7 +284,7 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
-        self.swiftLanguageVersions = swiftLanguageVersions
+        self.swiftLanguageModes = swiftLanguageVersions
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
@@ -327,7 +327,7 @@ public final class Package {
         self.products = products
         self.dependencies = dependencies
         self.targets = targets
-        self.swiftLanguageVersions = swiftLanguageModes
+        self.swiftLanguageModes = swiftLanguageModes
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
