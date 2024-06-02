@@ -728,7 +728,8 @@ public final class SwiftCommandState {
 
     private func _buildParams(
         toolchain: UserToolchain,
-        destination: BuildParameters.Destination
+        destination: BuildParameters.Destination,
+        prepareForIndexing: Bool? = nil
     ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
@@ -753,6 +754,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            prepareForIndexing: prepareForIndexing ?? options.build.prepareForIndexing,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
@@ -801,7 +803,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getHostToolchain(), destination: .host)
+            try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
 

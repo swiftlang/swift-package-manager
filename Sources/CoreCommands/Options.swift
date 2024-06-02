@@ -438,6 +438,9 @@ public struct BuildOptions: ParsableArguments {
     @Flag(help: "Enable or disable indexing-while-building feature")
     public var indexStoreMode: StoreMode = .autoIndexStore
 
+    @Flag(name: .customLong("experimental-prepare-for-indexing"), help: .hidden)
+    var prepareForIndexing: Bool = false
+
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     public var shouldEnableParseableModuleInterfaces: Bool = false

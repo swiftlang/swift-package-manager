@@ -114,6 +114,9 @@ public struct BuildParameters: Encodable {
 
     public var shouldSkipBuilding: Bool
 
+    /// Do minimal build to prepare for indexing
+    public var prepareForIndexing: Bool
+
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
 
@@ -144,6 +147,7 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
+        prepareForIndexing: Bool = false,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -199,6 +203,7 @@ public struct BuildParameters: Encodable {
         self.indexStoreMode = indexStoreMode
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
+        self.prepareForIndexing = prepareForIndexing
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
