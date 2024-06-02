@@ -271,6 +271,7 @@ public struct SwiftCompilerTool: ToolProtocol {
     public var isLibrary: Bool
     public var wholeModuleOptimization: Bool
     public var outputFileMapPath: AbsolutePath
+    public var prepareForIndexing: Bool
 
     init(
         inputs: [Node],
@@ -287,7 +288,8 @@ public struct SwiftCompilerTool: ToolProtocol {
         fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
-        outputFileMapPath: AbsolutePath
+        outputFileMapPath: AbsolutePath,
+        prepareForIndexing: Bool
     ) {
         self.inputs = inputs
         self.outputs = outputs
@@ -304,6 +306,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.isLibrary = isLibrary
         self.wholeModuleOptimization = wholeModuleOptimization
         self.outputFileMapPath = outputFileMapPath
+        self.prepareForIndexing = prepareForIndexing
     }
 
     var description: String {
@@ -334,7 +337,10 @@ public struct SwiftCompilerTool: ToolProtocol {
         } else {
             arguments += ["-incremental"]
         }
-        arguments += ["-c", "@\(self.fileList.pathString)"]
+        if !prepareForIndexing {
+            arguments += ["-c"]
+        }
+        arguments += ["@\(self.fileList.pathString)"]
         arguments += ["-I", importPath.pathString]
         arguments += otherArguments
         return arguments

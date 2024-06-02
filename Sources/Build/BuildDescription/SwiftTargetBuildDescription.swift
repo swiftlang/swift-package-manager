@@ -561,6 +561,17 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-module-interface-path", self.parseableModuleInterfaceOutputPath.pathString]
         }
 
+        if self.buildParameters.prepareForIndexing {
+            args += [
+                "-Xfrontend", "-enable-library-evolution",
+                "-Xfrontend", "-experimental-skip-all-function-bodies",
+                "-Xfrontend", "-experimental-lazy-typecheck",
+                "-Xfrontend", "-experimental-skip-non-exportable-decls",
+                "-Xfrontend", "-experimental-allow-module-with-compiler-errors",
+                "-Xfrontend", "-empty-abi-descriptor"
+            ]
+        }
+
         args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.swiftCompilerFlags

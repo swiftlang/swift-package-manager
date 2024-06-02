@@ -18,3 +18,4 @@ Package.resolved
 .docc-build
 .vscode
 Utilities/InstalledSwiftPMConfiguration/config.json
+.devcontainer
