@@ -408,7 +408,8 @@ public struct LLBuildManifest {
         fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
-        outputFileMapPath: AbsolutePath
+        outputFileMapPath: AbsolutePath,
+        prepareForIndexing: Bool
     ) {
         assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = SwiftCompilerTool(
@@ -426,7 +427,8 @@ public struct LLBuildManifest {
             fileList: fileList,
             isLibrary: isLibrary,
             wholeModuleOptimization: wholeModuleOptimization,
-            outputFileMapPath: outputFileMapPath
+            outputFileMapPath: outputFileMapPath,
+            prepareForIndexing: prepareForIndexing
         )
         commands[name] = Command(name: name, tool: tool)
     }

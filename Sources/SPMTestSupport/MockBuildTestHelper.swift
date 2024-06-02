@@ -89,7 +89,8 @@ public func mockBuildParameters(
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
-    omitFramePointers: Bool? = nil
+    omitFramePointers: Bool? = nil,
+    prepareForIndexing: Bool = false
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -101,6 +102,7 @@ public func mockBuildParameters(
         pkgConfigDirectories: [],
         workers: 3,
         indexStoreMode: indexStoreMode,
+        prepareForIndexing: prepareForIndexing,
         debuggingParameters: .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: config == .debug,
