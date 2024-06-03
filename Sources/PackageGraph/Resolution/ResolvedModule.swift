@@ -12,6 +12,8 @@
 
 import PackageModel
 
+import struct OrderedCollections.OrderedSet
+
 @available(*, deprecated, renamed: "ResolvedModule")
 public typealias ResolvedTarget = ResolvedModule
 
@@ -101,6 +103,25 @@ public struct ResolvedModule {
         try topologicalSort(dependencies(satisfying: environment)) { dependency in
             dependency.dependencies.filter { $0.satisfies(environment) }
         }
+    }
+
+    /// Collect all of the plugins that the current target depends on.
+    package func pluginDependencies(satisfying environment: BuildEnvironment) -> [PluginModule] {
+        var plugins = OrderedSet<PluginModule>()
+        for dependency in self.dependencies(satisfying: environment) {
+            switch dependency {
+            case .module(let module, _):
+                if let plugin = module.underlying as? PluginModule {
+                    assert(plugin.capability == .buildTool)
+                    plugins.append(plugin)
+                }
+            case .product(let product, _):
+                for plugin in product.modules.compactMap({ $0.underlying as? PluginModule }) {
+                    plugins.append(plugin)
+                }
+            }
+        }
+        return plugins.elements
     }
 
     /// The language-level module name.

@@ -16,6 +16,8 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 
+import struct OrderedCollections.OrderedDictionary
+
 import protocol TSCBasic.DiagnosticLocation
 
 public enum PluginAction {
@@ -403,29 +405,50 @@ extension ModulesGraph {
         fileSystem: FileSystem,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
     ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
-        var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
-        for target in self.allModules.sorted(by: { $0.name < $1.name }) {
-            // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
-            var pluginTargets: [PluginModule] = []
-            var dependencyTargets: [Module] = []
-            for dependency in target.dependencies(satisfying: buildParameters.buildEnvironment) {
-                switch dependency {
-                case .module(let target, _):
-                    if let pluginTarget = target.underlying as? PluginModule {
-                        assert(pluginTarget.capability == .buildTool)
-                        pluginTargets.append(pluginTarget)
-                    }
-                    else {
-                        dependencyTargets.append(target.underlying)
-                    }
-                case .product(let product, _):
-                    pluginTargets.append(contentsOf: product.modules.compactMap{ $0.underlying as? PluginModule })
+        typealias PluginTools = [String: (path: AbsolutePath, triples: [String]?)]
+
+        var pluginsPerModule = OrderedDictionary<ResolvedModule.ID, [PluginModule]>()
+        for module in self.allModules.sorted(by: { $0.name < $1.name }) {
+            let pluginDependencies = module.pluginDependencies(
+                satisfying: buildParameters.buildEnvironment
+            )
+            if !pluginDependencies.isEmpty {
+                pluginsPerModule[module.id] = pluginDependencies
+            }
+        }
+
+        if pluginsPerModule.isEmpty {
+            return [:]
+        }
+
+        var accessibleToolsPerPlugin: [PluginModule: PluginTools] = [:]
+        for plugin in pluginsPerModule.values.flatMap({ $0 }) {
+            if accessibleToolsPerPlugin[plugin] != nil {
+                continue
+            }
+
+            // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
+            // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
+            let accessibleTools = try plugin.processAccessibleTools(
+                packageGraph: self,
+                fileSystem: fileSystem,
+                environment: buildParameters.buildEnvironment,
+                for: try pluginScriptRunner.hostTriple
+            ) { name, path in
+                if let result = try builtToolHandler(name, path) {
+                    return result
+                } else {
+                    return buildParameters.buildPath.appending(path)
                 }
             }
 
-            // Leave quickly in the common case of not using any plugins.
-            if pluginTargets.isEmpty {
-                continue
+            accessibleToolsPerPlugin[plugin] = accessibleTools
+        }
+
+        var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
+        for (targetID, pluginTargets) in pluginsPerModule {
+            guard let target = self.allModules[targetID] else {
+                throw InternalError("could not find target for \(targetID)")
             }
 
             /// Determine the package that contains the target.
@@ -438,14 +461,8 @@ extension ModulesGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                var builtToolNames: [String] = []
-                let accessibleTools = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildParameters.buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
-                    builtToolNames.append(name)
-                    if let result = try builtToolHandler(name, path) {
-                        return result
-                    } else {
-                        return buildParameters.buildPath.appending(path)
-                    }
+                guard let accessibleTools = accessibleToolsPerPlugin[pluginTarget] else {
+                    throw InternalError("No tools found for plugin \(pluginTarget.name)")
                 }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
@@ -531,7 +548,12 @@ extension ModulesGraph {
                         return true
                     }
                 }
-                let delegate = PluginDelegate(fileSystem: fileSystem, delegateQueue: delegateQueue, toolPaths: toolPaths, builtToolNames: builtToolNames)
+                let delegate = PluginDelegate(
+                    fileSystem: fileSystem,
+                    delegateQueue: delegateQueue,
+                    toolPaths: toolPaths,
+                    builtToolNames: accessibleTools.map { $0.key }
+                )
 
                 // In tools version 6.0 and newer, we vend the list of files generated by previous plugins.
                 let pluginDerivedSources: Sources
