@@ -218,7 +218,7 @@ public final class ClangTargetBuildDescription {
             args += ["-Xcc", "-std=\(cxxLanguageStandard)"]
         }
         args += ["-I", self.clangTarget.includeDir.pathString]
-        args += self.additionalFlags
+        args += self.additionalFlags.asSwiftcCCompilerFlags()
         // Unconditionally use clang modules with swift tools.
         args += try self.clangModuleArguments().asSwiftcCCompilerFlags()
         args += try self.currentModuleMapFileArguments().asSwiftcCCompilerFlags()

@@ -633,6 +633,7 @@ public final class SwiftTargetBuildDescription {
 
         // Include search paths determined during planning
         args += self.additionalFlags
+        // FIXME: only pass paths to the actual dependencies of the module
         // Include search paths for swift module dependencies.
         args += ["-I", self.modulesPath.pathString]
 

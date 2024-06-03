@@ -2001,6 +2001,110 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func test_symbolGraphExtract_arguments() throws {
+        // ModuleGraph:
+        // .
+        // ├── A (Swift)
+        // │   ├── B (Swift)
+        // │   └── C (C)
+        // └── D (C)
+        //     ├── B (Swift)
+        //     └── C (C)
+
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            // A
+            Pkg.appending(components: "Sources", "A", "A.swift").pathString,
+            // B
+            Pkg.appending(components: "Sources", "B", "B.swift").pathString,
+            // C
+            Pkg.appending(components: "Sources", "C", "C.c").pathString,
+            Pkg.appending(components: "Sources", "C", "include", "C.h").pathString,
+            // D
+            Pkg.appending(components: "Sources", "D", "D.c").pathString,
+            Pkg.appending(components: "Sources", "D", "include", "D.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(name: "A", dependencies: ["B", "C"]),
+                        TargetDescription(name: "B", dependencies: []),
+                        TargetDescription(name: "C", dependencies: []),
+                        TargetDescription(name: "D", dependencies: ["B", "C"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let triple = result.plan.destinationBuildParameters.triple
+
+        func XCTAssertMatchesSubSequences(
+            _ value: [String],
+            _ patterns: [StringPattern]...,
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            for pattern in patterns {
+                var pattern = pattern
+                pattern.insert(.anySequence, at: 0)
+                pattern.append(.anySequence)
+                XCTAssertMatch(value, pattern, file: file, line: line)
+            }
+        }
+
+        // A
+        do {
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "A").symbolGraphExtractArguments(),
+                // Swift Module dependencies
+                ["-I", "/path/to/build/\(triple)/debug/Modules"],
+                // C Module dependencies
+                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"]
+            )
+        }
+
+        // D
+        do {
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "D").symbolGraphExtractArguments(),
+                // Self Module
+                ["-I", "/Pkg/Sources/D/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/D.build/module.modulemap"],
+
+                // Swift Module dependencies
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"],
+
+                // C Module dependencies
+                ["-I", "/Pkg/Sources/D/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"],
+
+                // General Args
+                [
+                    "-Xcc", "-fmodules",
+                    "-Xcc", "-fmodule-name=D",
+                    "-Xcc", "-fmodules-cache-path=/path/to/build/\(triple)/debug/ModuleCache",
+                ]
+            )
+        }
+    }
+
     func testREPLArguments() throws {
         let Dep = AbsolutePath("/Dep")
         let fs = InMemoryFileSystem(
