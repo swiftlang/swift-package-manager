@@ -115,4 +115,13 @@ public enum TargetBuildDescription {
             return clangTargetBuildDescription.toolsVersion
         }
     }
+
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// this module.
+    public func symbolGraphExtractArguments() throws -> [String] {
+        switch self {
+        case .swift(let target): try target.symbolGraphExtractArguments()
+        case .clang(let target): try target.symbolGraphExtractArguments()
+        }
+    }
 }
