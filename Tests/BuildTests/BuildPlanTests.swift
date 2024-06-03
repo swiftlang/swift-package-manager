@@ -2092,7 +2092,7 @@ final class BuildPlanTests: XCTestCase {
                 ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"],
 
                 // C Module dependencies
-                ["-I", "/Pkg/Sources/D/include"],
+                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
                 ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"],
 
                 // General Args
