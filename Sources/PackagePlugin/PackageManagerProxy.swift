@@ -301,6 +301,17 @@ public enum PackageManagerProxyError: Error {
     case unspecified(_ message: String)
 }
 
+extension PackageManagerProxyError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unimplemented(let message):
+            "Unimplemented: \(message)"
+        case .unspecified(let message):
+            "Unspecified: \(message)"
+        }
+    }
+}
+
 fileprivate extension PluginToHostMessage.BuildSubset {
     init(_ subset: PackageManager.BuildSubset) {
         switch subset {

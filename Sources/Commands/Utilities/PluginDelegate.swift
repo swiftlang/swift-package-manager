@@ -13,6 +13,7 @@
 import Basics
 import CoreCommands
 import Foundation
+import PackageGraph
 import PackageModel
 import SPMBuildCore
 
@@ -383,14 +384,38 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try swiftCommandState.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
-        // Find the target in the build operation's package graph; it's an error if we don't find it.
+        // Find the target in the build operation's package graph
+        // 1. First look for a matching destination module
+        // 2. If not found, search for a matching tools module, only allowing
+        //    modules that should be built for the host (macro, plugin, test).
+        // 3. Error if no matching targets are found.
+        //
+        // FIXME: dynamic graph
+        // This should work by requesting a build for a target w/ destination:
+        // .destination and generating the graph needed on demand instead of
+        // looking for a preexisting matching target.
+        let target: ResolvedModule
+        let destination: BuildParameters.Destination
         let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.target(for: targetName, destination: .destination) else {
-            throw StringError("could not find a target named “\(targetName)”")
+        if let _target = packageGraph.target(for: targetName, destination: .destination) {
+            target = _target
+            destination = .target
+        } else if let _target = packageGraph.target(for: targetName, destination: .tools),
+            (_target.type == .macro || _target.type == .plugin || _target.type == .test) {
+            target = _target
+            destination = .host
+        } else {
+            throw StringError("Could not find a target named “\(targetName)”")
         }
 
         // Build the target, if needed.
-        try buildSystem.build(subset: .target(target.name))
+        try buildSystem.build(subset: .target(target.name, for: destination))
+
+        let buildParameters: BuildParameters = try if destination == .target {
+                buildSystem.buildPlan.destinationBuildParameters
+            } else {
+                buildSystem.buildPlan.toolsBuildParameters
+            }
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
@@ -419,7 +444,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         guard let package = packageGraph.package(for: target) else {
             throw StringError("could not determine the package for target “\(target.name)”")
         }
-        let outputDir = try buildSystem.buildPlan.toolsBuildParameters.dataPath.appending(
+        let outputDir = buildParameters.dataPath.appending(
             components: "extracted-symbols",
             package.identity.description,
             target.name
@@ -430,7 +455,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let result = try symbolGraphExtractor.extractSymbolGraph(
             module: target,
             buildPlan: try buildSystem.buildPlan,
-            buildParameters: buildSystem.buildPlan.destinationBuildParameters,
+            buildParameters: buildParameters,
             outputRedirection: .collect,
             outputDirectory: outputDir,
             verboseOutput: self.swiftCommandState.logLevel <= .info
