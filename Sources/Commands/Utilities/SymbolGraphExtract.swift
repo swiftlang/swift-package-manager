@@ -56,11 +56,11 @@ public struct SymbolGraphExtract {
     public func extractSymbolGraph(
         module: ResolvedModule,
         buildPlan: BuildPlan,
+        buildParameters: BuildParameters,
         outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
     ) throws -> ProcessResult {
-        let buildParameters = buildPlan.buildParameters(for: module)
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.

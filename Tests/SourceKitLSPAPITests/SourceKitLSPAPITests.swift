@@ -44,10 +44,15 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let buildParameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         let plan = try BuildPlan(
-            destinationBuildParameters: buildParameters,
-            toolsBuildParameters: buildParameters,
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                shouldLinkStaticSwiftStdlib: true
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -61,7 +66,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-module-name", "exe",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/exe.build/exe.swiftmodule"
+                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe.build/exe.swiftmodule"
             ],
             isPartOfRootPackage: true
         )
@@ -72,7 +77,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-module-name", "lib",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(buildParameters.triple)/debug/Modules/lib.swiftmodule"
+                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
             ],
             isPartOfRootPackage: true
         )
@@ -86,7 +91,7 @@ extension SourceKitLSPAPI.BuildDescription {
         partialArguments: [String],
         isPartOfRootPackage: Bool
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.allTargets.first(where: { $0.name == targetName }))
+        let target = try XCTUnwrap(graph.target(for: targetName, destination: .destination))
         let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, in: graph))
 
         guard let file = buildTarget.sources.first else {

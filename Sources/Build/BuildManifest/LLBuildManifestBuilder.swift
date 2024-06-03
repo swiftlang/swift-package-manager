@@ -127,6 +127,41 @@ public class LLBuildManifestBuilder {
         return self.manifest
     }
 
+    package func generatePrepareManifest(at path: AbsolutePath) throws -> LLBuildManifest {
+        self.swiftGetVersionFiles.removeAll()
+
+        self.manifest.createTarget(TargetKind.main.targetName)
+        self.manifest.createTarget(TargetKind.test.targetName)
+        self.manifest.defaultTarget = TargetKind.main.targetName
+
+        addPackageStructureCommand()
+
+        for (_, description) in self.plan.targetMap {
+            switch description {
+            case .swift(let desc):
+                try self.createSwiftCompileCommand(desc)
+            case .clang(let desc):
+                // Need the clang targets for tools
+                if desc.target.buildTriple == .tools {
+                    try self.createClangCompileCommand(desc)
+                }
+            }
+        }
+
+        for (_, description) in self.plan.productMap {
+            // Need to generate macro products
+            switch description.product.type {
+            case .macro, .plugin:
+                try self.createProductCommand(description)
+            default:
+                break
+            }
+        }
+
+        try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
+        return self.manifest
+    }
+
     func addNode(_ node: Node, toTarget targetKind: TargetKind) {
         self.manifest.addNode(node, toTarget: targetKind.targetName)
     }
@@ -316,51 +351,21 @@ extension TargetBuildDescription {
     }
 }
 
-extension ResolvedModule {
-    public func getCommandName(buildParameters: BuildParameters) -> String {
-        "C." + self.getLLBuildTargetName(buildParameters: buildParameters)
-    }
-
-    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
-        "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module"
-    }
-
-    public func getLLBuildResourcesCmdName(buildParameters: BuildParameters) -> String {
-        "\(self.name)-\(buildParameters.buildConfig)\(buildParameters.suffix(triple: self.buildTriple)).module-resources"
+extension TargetBuildDescription {
+    package var llbuildResourcesCmdName: String {
+        "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
-extension ResolvedProduct {
-    public func getLLBuildTargetName(buildParameters: BuildParameters) throws -> String {
-        let config = buildParameters.buildConfig
-        let suffix = buildParameters.suffix(triple: self.buildTriple)
-        let potentialExecutableTargetName = "\(name)-\(config)\(suffix).exe"
-        let potentialLibraryTargetName = "\(name)-\(config)\(suffix).dylib"
-
-        switch type {
-        case .library(.dynamic):
-            return potentialLibraryTargetName
-        case .test:
-            return "\(name)-\(config)\(suffix).test"
-        case .library(.static):
-            return "\(name)-\(config)\(suffix).a"
-        case .library(.automatic):
-            throw InternalError("automatic library not supported")
-        case .executable, .snippet:
-            return potentialExecutableTargetName
-        case .macro:
-            #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryTargetName
-            #else
-            return potentialExecutableTargetName
-            #endif
-        case .plugin:
-            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
-        }
+extension ClangTargetBuildDescription {
+    package var llbuildTargetName: String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
+}
 
-    public func getCommandName(buildParameters: BuildParameters) throws -> String {
-        try "C.\(self.getLLBuildTargetName(buildParameters: buildParameters))\(buildParameters.suffix(triple: self.buildTriple))"
+extension ResolvedModule {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix).module"
     }
 }
 

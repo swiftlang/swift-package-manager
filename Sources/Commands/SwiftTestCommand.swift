@@ -421,7 +421,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: productsBuildParameters,
-            sanitizers: globalOptions.build.sanitizers
+            sanitizers: globalOptions.build.sanitizers,
+            library: library
         )
 
         let runner = TestRunner(
@@ -702,7 +703,8 @@ extension SwiftTestCommand {
             let testEnv = try TestingSupport.constructTestEnvironment(
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
-                sanitizers: globalOptions.build.sanitizers
+                sanitizers: globalOptions.build.sanitizers,
+                library: .swiftTesting
             )
 
             let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
@@ -1014,7 +1016,8 @@ final class ParallelTestRunner {
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: self.toolchain,
             destinationBuildParameters: self.productsBuildParameters,
-            sanitizers: self.buildOptions.sanitizers
+            sanitizers: self.buildOptions.sanitizers,
+            library: .xctest // swift-testing does not use ParallelTestRunner
         )
 
         // Enqueue all the tests.
@@ -1378,7 +1381,12 @@ private func buildTestsIfNeeded(
         toolsBuildParameters: toolsBuildParameters
     )
 
-    let subset = testProduct.map(BuildSubset.product) ?? .allIncludingTests
+    let subset: BuildSubset = if let testProduct {
+        .product(testProduct)
+    } else {
+        .allIncludingTests
+    }
+
     try buildSystem.build(subset: subset)
 
     // Find the test product.

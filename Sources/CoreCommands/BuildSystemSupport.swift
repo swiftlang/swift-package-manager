@@ -49,6 +49,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
                 workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
+            scratchDirectory: self.swiftCommandState.scratchDirectory,
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
             dependenciesByRootPackageIdentity: rootPackageInfo.dependencies,

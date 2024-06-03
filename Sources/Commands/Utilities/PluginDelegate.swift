@@ -236,7 +236,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         let testEnvironment = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
-            sanitizers: swiftCommandState.options.build.sanitizers
+            sanitizers: swiftCommandState.options.build.sanitizers,
+            library: .xctest // FIXME: support both libraries
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -384,7 +385,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
         let packageGraph = try buildSystem.getPackageGraph()
-        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+        guard let target = packageGraph.target(for: targetName, destination: .destination) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
@@ -429,6 +430,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let result = try symbolGraphExtractor.extractSymbolGraph(
             module: target,
             buildPlan: try buildSystem.buildPlan,
+            buildParameters: buildSystem.buildPlan.destinationBuildParameters,
             outputRedirection: .collect,
             outputDirectory: outputDir,
             verboseOutput: self.swiftCommandState.logLevel <= .info

@@ -731,7 +731,11 @@ public final class SwiftCommandState {
     when building on macOS.
     """
 
-    private func _buildParams(toolchain: UserToolchain) throws -> BuildParameters {
+    private func _buildParams(
+        toolchain: UserToolchain,
+        destination: BuildParameters.Destination,
+        prepareForIndexing: Bool? = nil
+    ) throws -> BuildParameters {
         let triple = toolchain.targetTriple
 
         let dataPath = self.scratchDirectory.appending(
@@ -743,6 +747,7 @@ public final class SwiftCommandState {
         }
 
         return try BuildParameters(
+            destination: destination,
             dataPath: dataPath,
             configuration: options.build.configuration,
             toolchain: toolchain,
@@ -754,6 +759,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+            prepareForIndexing: prepareForIndexing ?? options.build.prepareForIndexing,
             debuggingParameters: .init(
                 debugInfoFormat: options.build.debugInfoFormat.buildParameter,
                 triple: triple,
@@ -802,7 +808,7 @@ public final class SwiftCommandState {
 
     private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getHostToolchain())
+            try _buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         })
     }()
 
@@ -814,7 +820,7 @@ public final class SwiftCommandState {
 
     private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = {
         Result(catching: {
-            try _buildParams(toolchain: self.getTargetToolchain())
+            try _buildParams(toolchain: self.getTargetToolchain(), destination: .target)
         })
     }()
 

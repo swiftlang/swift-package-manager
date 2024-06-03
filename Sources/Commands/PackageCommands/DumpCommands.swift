@@ -72,6 +72,7 @@ struct DumpSymbolGraph: SwiftCommand {
             let result = try symbolGraphExtractor.extractSymbolGraph(
                 module: target,
                 buildPlan: buildPlan,
+                buildParameters: buildPlan.destinationBuildParameters,
                 outputRedirection: .collect(redirectStderr: true),
                 outputDirectory: symbolGraphDirectory,
                 verboseOutput: swiftCommandState.logLevel <= .info

@@ -303,4 +303,10 @@ final class TestCommandTests: CommandsTestCase {
         }
     }
 #endif
+
+    func testLibraryEnvironmentVariable() throws {
+      try fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
+        XCTAssertNoThrow(try SwiftPM.Test.execute(packagePath: fixturePath))
+      }
+    }
 }

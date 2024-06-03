@@ -382,9 +382,9 @@ extension PIFBuilderParameters {
 extension BuildSubset {
     var pifTargetName: String {
         switch self {
-        case .product(let name):
+        case .product(let name, _):
             PackagePIFProjectBuilder.targetName(for: name)
-        case .target(let name):
+        case .target(let name, _):
             name
         case .allExcludingTests:
             PIFBuilder.allExcludingTestsTargetName
