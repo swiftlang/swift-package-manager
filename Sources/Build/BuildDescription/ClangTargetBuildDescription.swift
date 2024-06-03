@@ -257,6 +257,7 @@ public final class ClangTargetBuildDescription {
             args += self.buildParameters.indexStoreArguments(for: target)
         }
 
+        // Enable Clang module flags, if appropriate.
         let triple = self.buildParameters.triple
         // Swift is able to use modules on non-Darwin platforms because it injects its own module maps
         // via vfs. However, nothing does that for C based compilation, and so non-Darwin platforms can't

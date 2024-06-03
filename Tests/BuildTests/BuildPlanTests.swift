@@ -2088,9 +2088,6 @@ final class BuildPlanTests: XCTestCase {
                 ["-I", "/Pkg/Sources/D/include"],
                 ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/D.build/module.modulemap"],
 
-                // Swift Module dependencies
-                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"],
-
                 // C Module dependencies
                 ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
                 ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"],
@@ -2102,6 +2099,14 @@ final class BuildPlanTests: XCTestCase {
                     "-Xcc", "-fmodules-cache-path=/path/to/build/\(triple)/debug/ModuleCache",
                 ]
             )
+
+#if os(macOS)
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "D").symbolGraphExtractArguments(),
+                // Swift Module dependencies
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"]
+            )
+#endif
         }
     }
 
