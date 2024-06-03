@@ -207,6 +207,20 @@ public final class ClangTargetBuildDescription {
         }
     }
 
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// this module.
+    public func symbolGraphExtractArguments() throws -> [String] {
+        var args = [String]()
+
+        if self.clangTarget.isCXX {
+            args += ["-cxx-interoperability-mode=default"]
+        }
+        if let cxxLanguageStandard = self.clangTarget.cxxLanguageStandard {
+            args += ["-Xcc", "-std=\(cxxLanguageStandard)"]
+        }
+        return args
+    }
+
     /// Builds up basic compilation arguments for a source file in this target; these arguments may be different for C++
     /// vs non-C++.
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock
