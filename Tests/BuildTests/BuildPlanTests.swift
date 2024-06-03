@@ -1713,6 +1713,7 @@ final class BuildPlanTests: XCTestCase {
             )
         )
 
+        // Assert compile args for swift modules importing cxx modules
         let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
         XCTAssertMatch(
             swiftInteropLib,
@@ -1720,6 +1721,28 @@ final class BuildPlanTests: XCTestCase {
         )
         let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
         XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
+
+        // Assert symbolgraph-extract args for swift modules importing cxx modules
+        do {
+            let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
+            XCTAssertMatch(
+                swiftInteropLib,
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .anySequence]
+            )
+            let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
+            XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
+        }
+
+        // Assert symbolgraph-extract args for cxx modules
+        do {
+            let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
+            XCTAssertMatch(
+                swiftInteropLib,
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .anySequence]
+            )
+            let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
+            XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
+        }
     }
 
     func testSwiftCMixed() throws {
@@ -1890,6 +1913,88 @@ final class BuildPlanTests: XCTestCase {
             AbsolutePath("/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/lib.build/lib.S.o"),
             AbsolutePath("/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/lib.build/lib.c.o"),
         ])
+    }
+
+    func testSwiftSettings_interoperabilityMode_cxx() throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "swiftLib", "lib.swift").pathString,
+            Pkg.appending(components: "Sources", "swiftLib2", "lib2.swift").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    cxxLanguageStandard: "c++20",
+                    targets: [
+                        TargetDescription(name: "cxxLib", dependencies: []),
+                        TargetDescription(
+                            name: "swiftLib",
+                            dependencies: ["cxxLib"],
+                            settings: [.init(tool: .swift, kind: .interoperabilityMode(.Cxx))]
+                        ),
+                        TargetDescription(name: "swiftLib2", dependencies: ["swiftLib"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        // Cxx module
+        do {
+            try XCTAssertMatch(
+                result.target(for: "cxxLib").clangTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+            )
+        }
+
+        // Swift module directly importing cxx module
+        do {
+            try XCTAssertMatch(
+                result.target(for: "swiftLib").swiftTarget().compileArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+            )
+            try XCTAssertMatch(
+                result.target(for: "swiftLib").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+            )
+        }
+
+        // Swift module transitively importing cxx module
+        do {
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().compileArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().compileArguments(),
+                [.anySequence, "-Xcc", "-std=c++20", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-Xcc", "-std=c++20", .anySequence]
+            )
+        }
     }
 
     func testREPLArguments() throws {
