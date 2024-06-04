@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct OrderedCollections.OrderedDictionary
+
 /// Replacement for `Set` elements that can't be `Hashable`, but can be `Identifiable`.
 public struct IdentifiableSet<Element: Identifiable>: Collection {
     public init() {
@@ -20,7 +22,7 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
         self.storage = .init(pickLastWhenDuplicateFound: sequence)
     }
 
-    fileprivate typealias Storage = [Element.ID: Element]
+    fileprivate typealias Storage = OrderedDictionary<Element.ID, Element>
 
     public struct Index: Comparable {
         public static func < (lhs: IdentifiableSet<Element>.Index, rhs: IdentifiableSet<Element>.Index) -> Bool {
@@ -33,15 +35,15 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     private var storage: Storage
 
     public var startIndex: Index {
-        Index(storageIndex: storage.startIndex)
+        Index(storageIndex: self.storage.elements.startIndex)
     }
 
     public var endIndex: Index {
-        Index(storageIndex: storage.endIndex)
+        Index(storageIndex: self.storage.elements.endIndex)
     }
 
     public subscript(position: Index) -> Element {
-        self.storage[position.storageIndex].value
+        self.storage.elements[position.storageIndex].value
     }
 
     public subscript(id: Element.ID) -> Element? {
@@ -54,7 +56,7 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     }
 
     public func index(after i: Index) -> Index {
-        Index(storageIndex: self.storage.index(after: i.storageIndex))
+        Index(storageIndex: self.storage.elements.index(after: i.storageIndex))
     }
 
     public mutating func insert(_ element: Element) {
@@ -97,14 +99,14 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     }
 }
 
-extension Dictionary where Value: Identifiable, Key == Value.ID {
+extension OrderedDictionary where Value: Identifiable, Key == Value.ID {
     fileprivate init(pickLastWhenDuplicateFound sequence: some Sequence<Value>) {
         self.init(sequence.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
     }
 }
 
 extension IdentifiableSet: Equatable {
-    public static func ==(_ lhs: Self, _ rhs: Self) -> Bool {
+    public static func == (_ lhs: Self, _ rhs: Self) -> Bool {
         lhs.storage.keys == rhs.storage.keys
     }
 }
