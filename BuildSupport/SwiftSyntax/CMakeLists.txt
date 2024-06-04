@@ -1,5 +1,7 @@
 include(FetchContent)
 
+cmake_minimum_required(VERSION 3.24)
+
 find_package(SwiftSyntax CONFIG GLOBAL)
 if(NOT SwiftSyntax_FOUND)
   set(SWIFT_SYNTAX_INSTALL_TARGETS YES)
