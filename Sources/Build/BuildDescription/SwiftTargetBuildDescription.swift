@@ -623,10 +623,26 @@ public final class SwiftTargetBuildDescription {
     
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
-    public func symbolGraphExtractArguments() throws -> [String] {
+    package func symbolGraphExtractArguments() throws -> [String] {
         var args = [String]()
         args += try self.cxxInteroperabilityModeArguments(
             propagateFromCurrentModuleOtherSwiftFlags: true)
+
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+
+        // Include search paths determined during planning
+        args += self.additionalFlags
+        // FIXME: only pass paths to the actual dependencies of the module
+        // Include search paths for swift module dependencies.
+        args += ["-I", self.modulesPath.pathString]
+
+        // FIXME: Only include valid args
+        // This condition should instead only include args which are known to be
+        // compatible instead of filtering out specific unknown args.
+        //
+        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
+        // will silently error failing the operation.
+        args = args.filter { !$0.starts(with: "-use-ld=") }
         return args
     }
 
