@@ -225,6 +225,7 @@ def parse_build_args(args):
 
     args.swiftc_path = get_swiftc_path(args)
     args.clang_path = get_tool_path(args, "clang")
+    args.clangxx_path = get_tool_path(args, "clang++")
     if not args.skip_cmake_bootstrap:
         args.cmake_path = get_tool_path(args, "cmake")
         args.ninja_path = get_tool_path(args, "ninja")
@@ -550,7 +551,7 @@ def build_llbuild(args):
 
     flags = [
         "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
-        "-DCMAKE_CXX_COMPILER:=%s" % (args.clang_path),
+        "-DCMAKE_CXX_COMPILER:=%s" % (args.clangxx_path),
         "-DCMAKE_AR:PATH=%s" % (args.ar_path),
         "-DCMAKE_RANLIB:PATH=%s" % (args.ranlib_path),
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
