@@ -70,7 +70,6 @@ public struct SymbolGraphExtract {
         // FIXME: everything here should be in symbolGraphExtractArguments
         commandLine += ["-module-name", module.c99name]
         commandLine += try buildParameters.tripleArgs(for: module)
-        commandLine += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
         commandLine += ["-module-cache-path", try buildParameters.moduleCache.pathString]
         if verboseOutput {
             commandLine += ["-v"]

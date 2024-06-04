@@ -1410,13 +1410,13 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=extlib"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=extlib",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += ["-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
-
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1439,7 +1439,11 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=exe"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=exe",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += [
             "-I", Pkg.appending(components: "Sources", "exe", "include").pathString,
@@ -1448,9 +1452,6 @@ final class BuildPlanTests: XCTestCase {
             "-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString,
             "-fmodule-map-file=\(buildPath.appending(components: "extlib.build", "module.modulemap"))",
         ]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1796,12 +1797,13 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=lib"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=lib",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += ["-I", Pkg.appending(components: "Sources", "lib", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1996,6 +1998,115 @@ final class BuildPlanTests: XCTestCase {
                 result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
                 [.anySequence, "-Xcc", "-std=c++20", .anySequence]
             )
+        }
+    }
+
+    func test_symbolGraphExtract_arguments() throws {
+        // ModuleGraph:
+        // .
+        // ├── A (Swift)
+        // │   ├── B (Swift)
+        // │   └── C (C)
+        // └── D (C)
+        //     ├── B (Swift)
+        //     └── C (C)
+
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            // A
+            Pkg.appending(components: "Sources", "A", "A.swift").pathString,
+            // B
+            Pkg.appending(components: "Sources", "B", "B.swift").pathString,
+            // C
+            Pkg.appending(components: "Sources", "C", "C.c").pathString,
+            Pkg.appending(components: "Sources", "C", "include", "C.h").pathString,
+            // D
+            Pkg.appending(components: "Sources", "D", "D.c").pathString,
+            Pkg.appending(components: "Sources", "D", "include", "D.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(name: "A", dependencies: ["B", "C"]),
+                        TargetDescription(name: "B", dependencies: []),
+                        TargetDescription(name: "C", dependencies: []),
+                        TargetDescription(name: "D", dependencies: ["B", "C"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let triple = result.plan.destinationBuildParameters.triple
+
+        func XCTAssertMatchesSubSequences(
+            _ value: [String],
+            _ patterns: [StringPattern]...,
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            for pattern in patterns {
+                var pattern = pattern
+                pattern.insert(.anySequence, at: 0)
+                pattern.append(.anySequence)
+                XCTAssertMatch(value, pattern, file: file, line: line)
+            }
+        }
+
+        // A
+        do {
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "A").symbolGraphExtractArguments(),
+                // Swift Module dependencies
+                ["-I", "/path/to/build/\(triple)/debug/Modules"],
+                // C Module dependencies
+                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"]
+            )
+        }
+
+        // D
+        do {
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "D").symbolGraphExtractArguments(),
+                // Self Module
+                ["-I", "/Pkg/Sources/D/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/D.build/module.modulemap"],
+
+                // C Module dependencies
+                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"],
+
+                // General Args
+                [
+                    "-Xcc", "-fmodules",
+                    "-Xcc", "-fmodule-name=D",
+                    "-Xcc", "-fmodules-cache-path=/path/to/build/\(triple)/debug/ModuleCache",
+                ]
+            )
+
+#if os(macOS)
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "D").symbolGraphExtractArguments(),
+                // Swift Module dependencies
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"]
+            )
+#endif
         }
     }
 
@@ -3035,12 +3146,13 @@ final class BuildPlanTests: XCTestCase {
         expectedExeBasicArgs += ["-target", defaultTargetTriple]
         expectedExeBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        expectedExeBasicArgs += ["-fmodules", "-fmodule-name=exe"]
+        expectedExeBasicArgs += [
+            "-fmodules",
+            "-fmodule-name=exe",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"
+        ]
         #endif
         expectedExeBasicArgs += ["-I", Pkg.appending(components: "Sources", "exe", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        expectedExeBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
 
         expectedExeBasicArgs += [triple.isWindows() ? "-gdwarf" : "-g"]
 
