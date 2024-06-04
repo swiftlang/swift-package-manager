@@ -122,8 +122,23 @@ class ResourcesTests: XCTestCase {
 
     func testResourcesEmbeddedInCode() throws {
         try fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
-            let result = try executeSwiftRun(fixturePath, "EmbedInCodeSimple")
-            XCTAssertEqual(result.stdout, "hello world\n\n")
+            let execPath = fixturePath.appending(components: ".build", "debug", "EmbedInCodeSimple")
+            try executeSwiftBuild(fixturePath)
+            let result = try Process.checkNonZeroExit(args: execPath.pathString)
+            XCTAssertEqual(result, "hello world\n\n")
+            let resourcePath = fixturePath.appending(
+                components: "Sources", "EmbedInCodeSimple", "best.txt")
+
+            // Check incremental builds
+            for i in 0..<2 {
+              let content = "Hi there \(i)!"
+              // Update the resource file.
+              try localFileSystem.writeFileContents(resourcePath, string: content)
+              try executeSwiftBuild(fixturePath)
+              // Run the executable again.
+              let result2 = try Process.checkNonZeroExit(args: execPath.pathString)
+              XCTAssertEqual(result2, "\(content)\n")
+            }
         }
     }
 

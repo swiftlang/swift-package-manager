@@ -415,6 +415,11 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
+        if let resourcesEmbeddingSource = target.resourcesEmbeddingSource {
+            let resourceFilesToEmbed = target.resourceFilesToEmbed
+            self.manifest.addWriteEmbeddedResourcesCommand(resources: resourceFilesToEmbed, outputPath: resourcesEmbeddingSource)
+        }
+
         func addStaticTargetInputs(_ target: ResolvedModule) throws {
             // Ignore C Modules.
             if target.underlying is SystemLibraryTarget { return }
