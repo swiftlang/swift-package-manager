@@ -545,7 +545,6 @@ public final class SwiftTargetBuildDescription {
 
         if self.buildParameters.prepareForIndexing {
             args += [
-                "-Xfrontend", "-enable-library-evolution",
                 "-Xfrontend", "-experimental-skip-all-function-bodies",
                 "-Xfrontend", "-experimental-lazy-typecheck",
                 "-Xfrontend", "-experimental-skip-non-exportable-decls",
