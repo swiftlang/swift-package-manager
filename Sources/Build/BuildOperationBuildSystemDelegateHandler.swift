@@ -266,15 +266,18 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                 @main
                 @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
                 struct Runner {
+                    #if os(WASI)
+                    /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                     static func main() async {
                         \#(testObservabilitySetup)
-                #if os(WASI)
-                        /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
                         await XCTMain(__allDiscoveredTests()) as Never
-                #else
-                        XCTMain(__allDiscoveredTests()) as Never
-                #endif
                     }
+                    #else
+                    static func main() {
+                        \#(testObservabilitySetup)
+                        XCTMain(__allDiscoveredTests()) as Never
+                    }
+                    #endif
                 }
                 """#
             )

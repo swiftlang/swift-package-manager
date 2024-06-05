@@ -776,6 +776,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Build",
                 "Commands",
                 "PackageModel",
+                "PackageModelSyntax",
                 "PackageRegistryCommand",
                 "SourceControl",
                 "SPMTestSupport",

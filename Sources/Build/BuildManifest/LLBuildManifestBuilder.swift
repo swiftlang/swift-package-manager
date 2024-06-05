@@ -141,9 +141,12 @@ public class LLBuildManifestBuilder {
             case .swift(let desc):
                 try self.createSwiftCompileCommand(desc)
             case .clang(let desc):
-                // Need the clang targets for tools
                 if desc.target.buildTriple == .tools {
+                    // Need the clang targets for tools
                     try self.createClangCompileCommand(desc)
+                } else {
+                    // Hook up the clang module target
+                    try self.createClangPrepareCommand(desc)
                 }
             }
         }

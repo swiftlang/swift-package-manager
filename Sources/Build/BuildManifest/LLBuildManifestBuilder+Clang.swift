@@ -110,4 +110,15 @@ extension LLBuildManifestBuilder {
             self.addNode(output, toTarget: .test)
         }
     }
+
+    /// Create a llbuild target for a Clang target preparation
+    func createClangPrepareCommand(
+        _ target: ClangTargetBuildDescription
+    ) throws {
+        // Create the node for the target so you can --target it.
+        // It is a no-op for index preparation.
+        let targetName = target.llbuildTargetName
+        let output: Node = .virtual(targetName)
+        self.manifest.addNode(output, toTarget: targetName)
+    }
 }

@@ -852,6 +852,38 @@ final class PackageCommandTests: CommandsTestCase {
         }
     }
 
+    func testPackageAddTargetDependency() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    targets: [ .target(name: "library") ]
+                )
+                """
+            )
+            try localFileSystem.writeFileContents(path.appending(components: "Sources", "library", "library.swift"), string:
+                """
+                public func Foo() { }
+                """
+            )
+
+            _ = try execute(["add-target-dependency", "--package", "other-package", "other-product", "library"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#".product(name: "other-product", package: "other-package"#))
+        }
+    }
+
     func testPackageAddProduct() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem

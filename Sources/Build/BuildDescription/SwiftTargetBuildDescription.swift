@@ -531,26 +531,8 @@ public final class SwiftTargetBuildDescription {
             args += ["-color-diagnostics"]
         }
 
-        // If this is a generated test discovery target or a test entry point, it might import a test
-        // target that is built with C++ interop enabled. In that case, the test
-        // discovery target must enable C++ interop as well
-        switch testTargetRole {
-        case .discovery, .entryPoint:
-            for dependency in try self.target.recursiveTargetDependencies() {
-                let dependencyScope = self.buildParameters.createScope(for: dependency)
-                let dependencySwiftFlags = dependencyScope.evaluate(.OTHER_SWIFT_FLAGS)
-                if let interopModeFlag = dependencySwiftFlags.first(where: { $0.hasPrefix("-cxx-interoperability-mode=") }) {
-                    args += [interopModeFlag]
-                    if interopModeFlag != "-cxx-interoperability-mode=off" {
-                        if let cxxStandard = self.package.manifest.cxxLanguageStandard {
-                            args += ["-Xcc", "-std=\(cxxStandard)"]
-                        }
-                    }
-                    break
-                }
-            }
-        default: break
-        }
+        args += try self.cxxInteroperabilityModeArguments(
+            propagateFromCurrentModuleOtherSwiftFlags: false)
 
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
@@ -563,7 +545,6 @@ public final class SwiftTargetBuildDescription {
 
         if self.buildParameters.prepareForIndexing {
             args += [
-                "-Xfrontend", "-enable-library-evolution",
                 "-Xfrontend", "-experimental-skip-all-function-bodies",
                 "-Xfrontend", "-experimental-lazy-typecheck",
                 "-Xfrontend", "-experimental-skip-non-exportable-decls",
@@ -638,6 +619,83 @@ public final class SwiftTargetBuildDescription {
         }
 
         return args
+    }
+    
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// this module.
+    package func symbolGraphExtractArguments() throws -> [String] {
+        var args = [String]()
+        args += try self.cxxInteroperabilityModeArguments(
+            propagateFromCurrentModuleOtherSwiftFlags: true)
+
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+
+        // Include search paths determined during planning
+        args += self.additionalFlags
+        // FIXME: only pass paths to the actual dependencies of the module
+        // Include search paths for swift module dependencies.
+        args += ["-I", self.modulesPath.pathString]
+
+        // FIXME: Only include valid args
+        // This condition should instead only include args which are known to be
+        // compatible instead of filtering out specific unknown args.
+        //
+        // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
+        // will silently error failing the operation.
+        args = args.filter { !$0.starts(with: "-use-ld=") }
+        return args
+    }
+
+    // FIXME: this function should operation on a strongly typed buildSetting
+    // Move logic from PackageBuilder here.
+    /// Determines the arguments needed for cxx interop for this module.
+    func cxxInteroperabilityModeArguments(
+        // FIXME: Remove argument
+        // This argument is added as a stop gap to support generating arguments
+        // for tools which currently don't leverage "OTHER_SWIFT_FLAGS". In the
+        // fullness of time this function should operate on a strongly typed
+        // "interopMode" property of SwiftTargetBuildDescription instead of
+        // digging through "OTHER_SWIFT_FLAGS" manually.
+        propagateFromCurrentModuleOtherSwiftFlags: Bool
+    ) throws -> [String] {
+        func cxxInteroperabilityModeAndStandard(
+            for module: ResolvedModule
+        ) -> [String]? {
+            let scope = self.buildParameters.createScope(for: module)
+            let flags = scope.evaluate(.OTHER_SWIFT_FLAGS)
+            let mode = flags.first { $0.hasPrefix("-cxx-interoperability-mode=") }
+            guard let mode else { return nil }
+            // FIXME: Use a stored self.cxxLanguageStandard property
+            // It definitely should _never_ reach back into the manifest
+            if let cxxStandard = self.package.manifest.cxxLanguageStandard {
+                return [mode, "-Xcc", "-std=\(cxxStandard)"]
+            } else {
+                return [mode]
+            }
+        }
+
+        if propagateFromCurrentModuleOtherSwiftFlags {
+            // Look for cxx interop mode in the current module, if set exit early,
+            // the flag is already present.
+            if let args = cxxInteroperabilityModeAndStandard(for: self.target) {
+                return args
+            }
+        }
+
+        // Implicitly propagate cxx interop flags for generated test targets.
+        // If the current module doesn't have cxx interop mode set, search
+        // through the module's dependencies looking for the a module that
+        // enables cxx interop and copy it's flag.
+        switch self.testTargetRole {
+        case .discovery, .entryPoint:
+            for module in try self.target.recursiveTargetDependencies() {
+                if let args = cxxInteroperabilityModeAndStandard(for: module) {
+                    return args
+                }
+            }
+        default: break
+        }
+        return []
     }
 
     /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments

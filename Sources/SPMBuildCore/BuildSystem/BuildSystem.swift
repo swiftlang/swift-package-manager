@@ -90,6 +90,10 @@ public protocol BuildPlan {
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
+
+    /// Determines the arguments needed to run `swift-symbolgraph-extract` for
+    /// a particular module.
+    func symbolGraphExtractArguments(for module: ResolvedModule) throws -> [String]
 }
 
 public protocol BuildSystemFactory {

@@ -63,4 +63,23 @@ class PrepareForIndexTests: XCTestCase {
             "outputs:\n\t\(outputs.filter { $0.hasSuffix(".o") }.joined(separator: "\n\t"))"
         )
     }
+
+    func testCModuleTarget() throws {
+        let (graph, fs, scope) = try trivialPackageGraph()
+
+        let plan = try BuildPlan(
+            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: true),
+            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: false),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+        let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
+        let manifest = try builder.generatePrepareManifest(at: "/manifest")
+
+        // Ensure our C module is here.
+        let lib = try XCTUnwrap(graph.target(for: "lib", destination: .destination))
+        let name = lib.getLLBuildTargetName(buildParameters: plan.destinationBuildParameters)
+        XCTAssertTrue(manifest.targets.keys.contains(name))
+    }
 }

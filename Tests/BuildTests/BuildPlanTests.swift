@@ -1409,13 +1409,13 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=extlib"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=extlib",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += ["-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
-
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1438,7 +1438,11 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=exe"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=exe",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += [
             "-I", Pkg.appending(components: "Sources", "exe", "include").pathString,
@@ -1447,9 +1451,6 @@ final class BuildPlanTests: XCTestCase {
             "-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString,
             "-fmodule-map-file=\(buildPath.appending(components: "extlib.build", "module.modulemap"))",
         ]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1714,6 +1715,7 @@ final class BuildPlanTests: XCTestCase {
             )
         )
 
+        // Assert compile args for swift modules importing cxx modules
         let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
         XCTAssertMatch(
             swiftInteropLib,
@@ -1721,6 +1723,28 @@ final class BuildPlanTests: XCTestCase {
         )
         let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
         XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
+
+        // Assert symbolgraph-extract args for swift modules importing cxx modules
+        do {
+            let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
+            XCTAssertMatch(
+                swiftInteropLib,
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .anySequence]
+            )
+            let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
+            XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
+        }
+
+        // Assert symbolgraph-extract args for cxx modules
+        do {
+            let swiftInteropLib = try result.target(for: "swiftInteropLib").swiftTarget().compileArguments()
+            XCTAssertMatch(
+                swiftInteropLib,
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++1z", .anySequence]
+            )
+            let swiftLib = try result.target(for: "swiftLib").swiftTarget().compileArguments()
+            XCTAssertNoMatch(swiftLib, [.anySequence, "-Xcc", "-std=c++1z", .anySequence])
+        }
     }
 
     func testSwiftCMixed() throws {
@@ -1772,12 +1796,13 @@ final class BuildPlanTests: XCTestCase {
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules", "-fmodule-name=lib"]
+        args += [
+            "-fmodules",
+            "-fmodule-name=lib",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))",
+        ]
         #endif
         args += ["-I", Pkg.appending(components: "Sources", "lib", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        args += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
         args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
 
         if hostTriple.isLinux() {
@@ -1891,6 +1916,197 @@ final class BuildPlanTests: XCTestCase {
             AbsolutePath("/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/lib.build/lib.S.o"),
             AbsolutePath("/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/lib.build/lib.c.o"),
         ])
+    }
+
+    func testSwiftSettings_interoperabilityMode_cxx() throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "swiftLib", "lib.swift").pathString,
+            Pkg.appending(components: "Sources", "swiftLib2", "lib2.swift").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    cxxLanguageStandard: "c++20",
+                    targets: [
+                        TargetDescription(name: "cxxLib", dependencies: []),
+                        TargetDescription(
+                            name: "swiftLib",
+                            dependencies: ["cxxLib"],
+                            settings: [.init(tool: .swift, kind: .interoperabilityMode(.Cxx))]
+                        ),
+                        TargetDescription(name: "swiftLib2", dependencies: ["swiftLib"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        // Cxx module
+        do {
+            try XCTAssertMatch(
+                result.target(for: "cxxLib").clangTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+            )
+        }
+
+        // Swift module directly importing cxx module
+        do {
+            try XCTAssertMatch(
+                result.target(for: "swiftLib").swiftTarget().compileArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+            )
+            try XCTAssertMatch(
+                result.target(for: "swiftLib").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", "-Xcc", "-std=c++20", .anySequence]
+            )
+        }
+
+        // Swift module transitively importing cxx module
+        do {
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().compileArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().compileArguments(),
+                [.anySequence, "-Xcc", "-std=c++20", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-cxx-interoperability-mode=default", .anySequence]
+            )
+            try XCTAssertNoMatch(
+                result.target(for: "swiftLib2").swiftTarget().symbolGraphExtractArguments(),
+                [.anySequence, "-Xcc", "-std=c++20", .anySequence]
+            )
+        }
+    }
+
+    func test_symbolGraphExtract_arguments() throws {
+        // ModuleGraph:
+        // .
+        // ├── A (Swift)
+        // │   ├── B (Swift)
+        // │   └── C (C)
+        // └── D (C)
+        //     ├── B (Swift)
+        //     └── C (C)
+
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            // A
+            Pkg.appending(components: "Sources", "A", "A.swift").pathString,
+            // B
+            Pkg.appending(components: "Sources", "B", "B.swift").pathString,
+            // C
+            Pkg.appending(components: "Sources", "C", "C.c").pathString,
+            Pkg.appending(components: "Sources", "C", "include", "C.h").pathString,
+            // D
+            Pkg.appending(components: "Sources", "D", "D.c").pathString,
+            Pkg.appending(components: "Sources", "D", "include", "D.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(name: "A", dependencies: ["B", "C"]),
+                        TargetDescription(name: "B", dependencies: []),
+                        TargetDescription(name: "C", dependencies: []),
+                        TargetDescription(name: "D", dependencies: ["B", "C"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let triple = result.plan.destinationBuildParameters.triple
+
+        func XCTAssertMatchesSubSequences(
+            _ value: [String],
+            _ patterns: [StringPattern]...,
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            for pattern in patterns {
+                var pattern = pattern
+                pattern.insert(.anySequence, at: 0)
+                pattern.append(.anySequence)
+                XCTAssertMatch(value, pattern, file: file, line: line)
+            }
+        }
+
+        // A
+        do {
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "A").symbolGraphExtractArguments(),
+                // Swift Module dependencies
+                ["-I", "/path/to/build/\(triple)/debug/Modules"],
+                // C Module dependencies
+                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"]
+            )
+        }
+
+        // D
+        do {
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "D").symbolGraphExtractArguments(),
+                // Self Module
+                ["-I", "/Pkg/Sources/D/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/D.build/module.modulemap"],
+
+                // C Module dependencies
+                ["-Xcc", "-I", "-Xcc", "/Pkg/Sources/C/include"],
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/C.build/module.modulemap"],
+
+                // General Args
+                [
+                    "-Xcc", "-fmodules",
+                    "-Xcc", "-fmodule-name=D",
+                    "-Xcc", "-fmodules-cache-path=/path/to/build/\(triple)/debug/ModuleCache",
+                ]
+            )
+
+#if os(macOS)
+            try XCTAssertMatchesSubSequences(
+                result.target(for: "D").symbolGraphExtractArguments(),
+                // Swift Module dependencies
+                ["-Xcc", "-fmodule-map-file=/path/to/build/\(triple)/debug/B.build/module.modulemap"]
+            )
+#endif
+        }
     }
 
     func testREPLArguments() throws {
@@ -2929,12 +3145,13 @@ final class BuildPlanTests: XCTestCase {
         expectedExeBasicArgs += ["-target", defaultTargetTriple]
         expectedExeBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        expectedExeBasicArgs += ["-fmodules", "-fmodule-name=exe"]
+        expectedExeBasicArgs += [
+            "-fmodules",
+            "-fmodule-name=exe",
+            "-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"
+        ]
         #endif
         expectedExeBasicArgs += ["-I", Pkg.appending(components: "Sources", "exe", "include").pathString]
-        #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
-        expectedExeBasicArgs += ["-fmodules-cache-path=\(buildPath.appending(components: "ModuleCache"))"]
-        #endif
 
         expectedExeBasicArgs += [triple.isWindows() ? "-gdwarf" : "-g"]
 
