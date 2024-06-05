@@ -289,7 +289,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     public var delegate: Delegate?
 
     private let databaseCacheDir: AbsolutePath?
-    private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
     private let useInMemoryCache: Bool
     private let memoryCache = ThreadSafeKeyValueStore<CacheKey, ManifestJSONParser.Result>()
@@ -1114,35 +1113,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    /// Returns path to the sdk, if possible.
-    private func sdkRoot() -> AbsolutePath? {
-        if let sdkRoot = self.sdkRootCache.get() {
-            return sdkRoot
-        }
-
-        var sdkRootPath: AbsolutePath? = nil
-        // Find SDKROOT on macOS using xcrun.
-        #if os(macOS)
-        let foundPath = try? AsyncProcess.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
-        guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
-            return nil
-        }
-        if let path = try? AbsolutePath(validating: sdkRoot) {
-            sdkRootPath = path
-            self.sdkRootCache.put(path)
-        }
-        #endif
-
-        return sdkRootPath
-    }
-
-    /// Returns the interpreter flags for a manifest.
-    public func interpreterFlags(
-        for toolsVersion: ToolsVersion
+    package static func interpreterFlags(
+        for toolsVersion: ToolsVersion,
+        toolchain: some Toolchain
     ) -> [String] {
         var cmd = [String]()
-        let modulesPath = self.toolchain.swiftPMLibrariesLocation.manifestModulesPath
+        let modulesPath = toolchain.swiftPMLibrariesLocation.manifestModulesPath
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
@@ -1152,12 +1128,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-I", modulesPath.pathString]
         }
       #if os(macOS)
-        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
+        if let sdkRoot = toolchain.sdkRootPath {
             cmd += ["-sdk", sdkRoot.pathString]
         }
       #endif
         cmd += ["-package-description-version", toolsVersion.description]
         return cmd
+    }
+
+    /// Returns the interpreter flags for a manifest.
+    public func interpreterFlags(
+        for toolsVersion: ToolsVersion
+    ) -> [String] {
+        return Self.interpreterFlags(for: toolsVersion, toolchain: toolchain)
     }
 
     /// Returns path to the manifest database inside the given cache directory.
