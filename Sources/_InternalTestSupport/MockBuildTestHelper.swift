@@ -40,6 +40,9 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let extraFlags = PackageModel.BuildFlags()
     public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
     public let providedLibraries = [ProvidedLibrary]()
+    public let swiftPMLibrariesLocation = ToolchainConfiguration.SwiftPMLibrariesLocation(
+        manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
+    )
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"

@@ -18,18 +18,20 @@ import struct PackageGraph.ResolvedModule
 
 private import class PackageLoading.ManifestLoader
 internal import struct PackageModel.ToolsVersion
-internal import class PackageModel.UserToolchain
+internal import protocol PackageModel.Toolchain
 import enum PackageGraph.BuildTriple
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule
     private let toolsVersion: ToolsVersion
+    private let toolchain: any Toolchain
     let isPartOfRootPackage: Bool
 
-    init(target: ResolvedModule, toolsVersion: ToolsVersion, isPartOfRootPackage: Bool) {
+    init(target: ResolvedModule, toolsVersion: ToolsVersion, toolchain: any Toolchain, isPartOfRootPackage: Bool) {
         assert(target.type == .plugin)
         self.target = target
         self.toolsVersion = toolsVersion
+        self.toolchain = toolchain
         self.isPartOfRootPackage = isPartOfRootPackage
     }
 
@@ -47,16 +49,7 @@ struct PluginTargetBuildDescription: BuildTarget {
 
     func compileArguments(for fileURL: URL) throws -> [String] {
         // FIXME: This is very odd and we should clean this up by merging `ManifestLoader` and `DefaultPluginScriptRunner` again.
-        let environment = Environment.current
-        let loader = ManifestLoader(
-            toolchain: try UserToolchain(
-                swiftSDK: .hostSwiftSDK(
-                    environment: environment
-                ),
-                environment: environment
-            )
-        )
-        var args = loader.interpreterFlags(for: self.toolsVersion)
+        var args = ManifestLoader.interpreterFlags(for: self.toolsVersion, toolchain: toolchain)
         // Note: we ignore the `fileURL` here as the expectation is that we get a commandline for the entire target in case of Swift. Plugins are always assumed to only consist of Swift files.
         args += sources.map { $0.path }
         return args
