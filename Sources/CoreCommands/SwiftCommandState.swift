@@ -267,6 +267,8 @@ public final class SwiftCommandState {
 
     private let environment: EnvironmentVariables
 
+    private let hostTriple: Basics.Triple?
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
@@ -297,9 +299,11 @@ public final class SwiftCommandState {
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
+        hostTriple: Basics.Triple? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: EnvironmentVariables = ProcessEnv.vars
     ) throws {
+        self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
@@ -872,11 +876,14 @@ public final class SwiftCommandState {
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
-            try UserToolchain(
-                swiftSDK: SwiftSDK.hostSwiftSDK(
-                    environment: self.environment,
-                    observabilityScope: self.observabilityScope
-                ),
+            var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(
+                environment: self.environment,
+                observabilityScope: self.observabilityScope
+            )
+            hostSwiftSDK.targetTriple = self.hostTriple
+
+            return try UserToolchain(
+                swiftSDK: hostSwiftSDK,
                 environment: self.environment,
                 fileSystem: self.fileSystem
             )

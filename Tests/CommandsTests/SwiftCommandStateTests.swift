@@ -411,6 +411,7 @@ extension SwiftCommandState {
                     observabilityScope: $1
                 )
             },
+            hostTriple: .arm64Linux,
             fileSystem: fileSystem,
             environment: environment
         )
