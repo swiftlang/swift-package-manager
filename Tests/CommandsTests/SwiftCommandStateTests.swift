@@ -246,7 +246,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
         ])
 
         let observer = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(fileSystem: fs, manifests: [
+        let graph = try loadModulesGraph(fileSystem: fs, manifests: [
                 Manifest.createRootManifest(displayName: "Pkg",
                                             path: "/Pkg",
                                             targets: [TargetDescription(name: "exe")])
@@ -322,17 +322,22 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
     func testToolchainArgument() throws {
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
+        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+        let hostArPath = AbsolutePath("/usr/bin/ar")
         let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin" , "swiftc"])
         let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
 
         let fs = InMemoryFileSystem(emptyFiles: [
             "/Pkg/Sources/exe/main.swift",
+            hostSwiftcPath.pathString,
+            hostArPath.pathString,
             targetSwiftcPath.pathString,
             targetArPath.pathString
         ])
 
-        try fs.updatePermissions(targetSwiftcPath, isExecutable: true)
-        try fs.updatePermissions(targetArPath, isExecutable: true)
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+            try fs.updatePermissions(path, isExecutable: true)
+        }
 
         let observer = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -355,7 +360,8 @@ final class SwiftCommandStateTests: CommandsTestCase {
         )
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
-            fileSystem: fs
+            fileSystem: fs,
+            environment: ["PATH": "/usr/bin"]
         )
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
         XCTAssertEqual(

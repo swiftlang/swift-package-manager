@@ -874,11 +874,11 @@ public final class SwiftCommandState {
         return Result(catching: {
             try UserToolchain(
                 swiftSDK: SwiftSDK.hostSwiftSDK(
-                    environment: .process(),
+                    environment: self.environment,
                     observabilityScope: self.observabilityScope
                 ),
-                environment: .process(),
-                fileSystem: localFileSystem
+                environment: self.environment,
+                fileSystem: self.fileSystem
             )
         })
     }()
