@@ -12,7 +12,7 @@
 
 import PackageModel
 
-import struct OrderedCollections.OrderedSet
+import struct Basics.IdentifiableSet
 
 @available(*, deprecated, renamed: "ResolvedModule")
 public typealias ResolvedTarget = ResolvedModule
@@ -106,22 +106,22 @@ public struct ResolvedModule {
     }
 
     /// Collect all of the plugins that the current target depends on.
-    package func pluginDependencies(satisfying environment: BuildEnvironment) -> [PluginModule] {
-        var plugins = OrderedSet<PluginModule>()
+    package func pluginDependencies(satisfying environment: BuildEnvironment) -> [ResolvedModule] {
+        var plugins = IdentifiableSet<ResolvedModule>()
         for dependency in self.dependencies(satisfying: environment) {
             switch dependency {
             case .module(let module, _):
                 if let plugin = module.underlying as? PluginModule {
                     assert(plugin.capability == .buildTool)
-                    plugins.append(plugin)
+                    plugins.insert(module)
                 }
             case .product(let product, _):
-                for plugin in product.modules.compactMap({ $0.underlying as? PluginModule }) {
-                    plugins.append(plugin)
+                for plugin in product.modules.filter({ $0.underlying is PluginModule }) {
+                    plugins.insert(plugin)
                 }
             }
         }
-        return plugins.elements
+        return Array(plugins)
     }
 
     /// The language-level module name.
