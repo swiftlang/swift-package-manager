@@ -30,7 +30,6 @@ import class TSCBasic.InMemoryFileSystem
 import struct TSCUtility.SerializedDiagnostics
 
 final class PluginInvocationTests: XCTestCase {
-
     func testBasics() throws {
         // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
@@ -1053,10 +1052,17 @@ final class PluginInvocationTests: XCTestCase {
             /////////
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
+            let environment = EnvironmentVariables.process()
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customHostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK(), customLibrariesLocation: .init(manifestLibraryPath: fakeExtraModulesDir, pluginLibraryPath: fakeExtraModulesDir)),
+                customHostToolchain: UserToolchain(
+                    swiftSDK: .hostSwiftSDK(
+                        environment: environment
+                    ),
+                    environment: environment,
+                    customLibrariesLocation: .init(manifestLibraryPath: fakeExtraModulesDir, pluginLibraryPath: fakeExtraModulesDir)
+                ),
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
@@ -1238,7 +1244,8 @@ final class PluginInvocationTests: XCTestCase {
                     targetTriple: hostTriple,
                     toolset: swiftSDK.toolset,
                     pathsConfiguration: swiftSDK.pathsConfiguration
-                )
+                ),
+                environment: .process()
             )
 
             // Create a plugin script runner for the duration of the test.

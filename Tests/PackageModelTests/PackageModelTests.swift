@@ -20,7 +20,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-class PackageModelTests: XCTestCase {
+final class PackageModelTests: XCTestCase {
     func testProductTypeCodable() throws {
         struct Foo: Codable, Equatable {
             var type: ProductType
@@ -61,8 +61,11 @@ class PackageModelTests: XCTestCase {
 
     func testAndroidCompilerFlags() throws {
         let triple = try Triple("x86_64-unknown-linux-android")
+        let fileSystem = InMemoryFileSystem()
         let sdkDir = AbsolutePath("/some/path/to/an/SDK.sdk")
+        try fileSystem.createDirectory(sdkDir, recursive: true)
         let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
+        try fileSystem.createDirectory(toolchainPath, recursive: true)
 
         let swiftSDK = SwiftSDK(
             targetTriple: triple,
@@ -71,10 +74,16 @@ class PackageModelTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            try UserToolchain.deriveSwiftCFlags(triple: triple, swiftSDK: swiftSDK, environment: .process()),
+            try UserToolchain.deriveSwiftCFlags(
+                triple: triple,
+                swiftSDK: swiftSDK,
+                environment: .process(),
+                fileSystem: fileSystem
+            ),
             [
                 // Needed when cross‐compiling for Android. 2020‐03‐01
-                "-sdk", sdkDir.pathString,
+                "-sdk",
+                sdkDir.pathString,
             ]
         )
     }
@@ -123,7 +132,8 @@ class PackageModelTests: XCTestCase {
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
                         triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
-                        extraSwiftFlags: ["-Xswiftc", "-use-ld=lld"]
+                        extraSwiftFlags: ["-Xswiftc", "-use-ld=lld"],
+                        fileSystem: fs
                     ),
                     lld
                 )
@@ -131,7 +141,8 @@ class PackageModelTests: XCTestCase {
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
                         triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
-                        extraSwiftFlags: ["-Xswiftc", "-use-ld=not-link"]
+                        extraSwiftFlags: ["-Xswiftc", "-use-ld=not-link"],
+                        fileSystem: fs
                     ),
                     not
                 )
@@ -139,7 +150,8 @@ class PackageModelTests: XCTestCase {
                 try XCTAssertThrowsError(
                     UserToolchain.determineLibrarian(
                         triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
-                        extraSwiftFlags: []
+                        extraSwiftFlags: [],
+                        fileSystem: fs
                     )
                 )
             }
@@ -173,7 +185,8 @@ class PackageModelTests: XCTestCase {
                     binDirectories: [toolchainBinDir],
                     useXcrun: false,
                     environment: [:],
-                    searchPaths: binDirs
+                    searchPaths: binDirs,
+                    fileSystem: fs
                 )
 
                 // The first swiftc in the search paths should be chosen.

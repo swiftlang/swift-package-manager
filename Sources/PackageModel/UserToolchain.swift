@@ -58,6 +58,8 @@ public final class UserToolchain: Toolchain {
         self.swiftCompilerPath.parentDirectory.appending("swift" + hostExecutableSuffix)
     }
 
+    private let fileSystem: any FileSystem
+
     /// The compilation destination object.
     @available(*, deprecated, renamed: "swiftSDK")
     public var destination: SwiftSDK { swiftSDK }
@@ -101,7 +103,7 @@ public final class UserToolchain: Toolchain {
         )
 
         // Ensure that the runtime is present.
-        guard localFileSystem.exists(runtime) else {
+        guard fileSystem.exists(runtime) else {
             throw InvalidToolchainDiagnostic("Missing runtime for \(sanitizer) sanitizer")
         }
 
@@ -118,13 +120,17 @@ public final class UserToolchain: Toolchain {
         lookupExecutablePath(filename: environment[variable], searchPaths: searchPaths)
     }
 
-    private static func getTool(_ name: String, binDirectories: [AbsolutePath]) throws -> AbsolutePath {
+    private static func getTool(
+        _ name: String,
+        binDirectories: [AbsolutePath],
+        fileSystem: any FileSystem
+    ) throws -> AbsolutePath {
         let executableName = "\(name)\(hostExecutableSuffix)"
         var toolPath: AbsolutePath?
 
         for dir in binDirectories {
             let path = dir.appending(component: executableName)
-            guard localFileSystem.isExecutableFile(path) else {
+            guard fileSystem.isExecutableFile(path) else {
                 continue
             }
             toolPath = path
@@ -140,7 +146,8 @@ public final class UserToolchain: Toolchain {
     private static func findTool(
         _ name: String,
         envSearchPaths: [AbsolutePath],
-        useXcrun: Bool
+        useXcrun: Bool,
+        fileSystem: any FileSystem
     ) throws -> AbsolutePath {
         if useXcrun {
             #if os(macOS)
@@ -150,7 +157,7 @@ public final class UserToolchain: Toolchain {
             #endif
         }
 
-        return try getTool(name, binDirectories: envSearchPaths)
+        return try getTool(name, binDirectories: envSearchPaths, fileSystem: fileSystem)
     }
 
     // MARK: - public API
@@ -161,10 +168,9 @@ public final class UserToolchain: Toolchain {
         useXcrun: Bool,
         environment: EnvironmentVariables,
         searchPaths: [AbsolutePath],
-        extraSwiftFlags: [String]
-    ) throws
-        -> AbsolutePath
-    {
+        extraSwiftFlags: [String],
+        fileSystem: any FileSystem
+    ) throws -> AbsolutePath {
         let variable: String = triple.isApple() ? "LIBTOOL" : "AR"
         let tool: String = {
             if triple.isApple() { return "libtool" }
@@ -194,25 +200,25 @@ public final class UserToolchain: Toolchain {
             searchPaths: searchPaths,
             environment: environment
         ) {
-            if localFileSystem.isExecutableFile(librarian) {
+            if fileSystem.isExecutableFile(librarian) {
                 return librarian
             }
         }
 
-        if let librarian = try? UserToolchain.getTool(tool, binDirectories: binDirectories) {
+        if let librarian = try? UserToolchain.getTool(tool, binDirectories: binDirectories, fileSystem: fileSystem) {
             return librarian
         }
         if triple.isApple() || triple.isWindows() {
-            return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+            return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun, fileSystem: fileSystem)
         } else {
-            if let librarian = try? UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: false) {
+            if let librarian = try? UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: false, fileSystem: fileSystem) {
                 return librarian
             }
             // Fall back to looking for binutils `ar` if `llvm-ar` can't be found.
-            if let librarian = try? UserToolchain.getTool("ar", binDirectories: binDirectories) {
+            if let librarian = try? UserToolchain.getTool("ar", binDirectories: binDirectories, fileSystem: fileSystem) {
                 return librarian
             }
-            return try UserToolchain.findTool("ar", envSearchPaths: searchPaths, useXcrun: false)
+            return try UserToolchain.findTool("ar", envSearchPaths: searchPaths, useXcrun: false, fileSystem: fileSystem)
         }
     }
 
@@ -221,11 +227,12 @@ public final class UserToolchain: Toolchain {
         binDirectories: [AbsolutePath],
         useXcrun: Bool,
         environment: EnvironmentVariables,
-        searchPaths: [AbsolutePath]
+        searchPaths: [AbsolutePath],
+        fileSystem: any FileSystem
     ) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path else { return }
-            guard localFileSystem.isExecutableFile(path) else {
+            guard fileSystem.isExecutableFile(path) else {
                 throw InvalidToolchainDiagnostic(
                     "could not find the `swiftc\(hostExecutableSuffix)` at expected path \(path)"
                 )
@@ -246,7 +253,7 @@ public final class UserToolchain: Toolchain {
         let resolvedBinDirCompiler: AbsolutePath
         if let SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
-        } else if let binDirCompiler = try? UserToolchain.getTool("swiftc", binDirectories: binDirectories) {
+        } else if let binDirCompiler = try? UserToolchain.getTool("swiftc", binDirectories: binDirectories, fileSystem: fileSystem) {
             resolvedBinDirCompiler = binDirCompiler
         } else {
             // Try to lookup swift compiler on the system which is possible when
@@ -254,13 +261,14 @@ public final class UserToolchain: Toolchain {
             resolvedBinDirCompiler = try UserToolchain.findTool(
                 "swiftc",
                 envSearchPaths: searchPaths,
-                useXcrun: useXcrun
+                useXcrun: useXcrun,
+                fileSystem: fileSystem
             )
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
         // The compiler for manifest is either SWIFT_EXEC_MANIFEST or the bin dir compiler.
-        return (SWIFT_EXEC ?? resolvedBinDirCompiler, SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
+        return (compile: SWIFT_EXEC ?? resolvedBinDirCompiler, manifest: SWIFT_EXEC_MANIFEST ?? resolvedBinDirCompiler)
     }
 
     /// Returns the path to clang compiler tool.
@@ -281,15 +289,22 @@ public final class UserToolchain: Toolchain {
         }
 
         // Then, check the toolchain.
-        do {
-            if let toolPath = try? UserToolchain.getTool("clang", binDirectories: self.swiftSDK.toolset.rootPaths) {
-                self._clangCompiler = toolPath
-                return toolPath
-            }
+        if let toolPath = try? UserToolchain.getTool(
+            "clang",
+            binDirectories: self.swiftSDK.toolset.rootPaths,
+            fileSystem: self.fileSystem
+        ) {
+            self._clangCompiler = toolPath
+            return toolPath
         }
 
         // Otherwise, lookup it up on the system.
-        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
+        let toolPath = try UserToolchain.findTool(
+            "clang",
+            envSearchPaths: self.envSearchPaths,
+            useXcrun: useXcrun,
+            fileSystem: self.fileSystem
+        )
         self._clangCompiler = toolPath
         return toolPath
     }
@@ -307,21 +322,38 @@ public final class UserToolchain: Toolchain {
     /// Returns the path to lldb.
     public func getLLDB() throws -> AbsolutePath {
         // Look for LLDB next to the compiler first.
-        if let lldbPath = try? UserToolchain.getTool("lldb", binDirectories: [self.swiftCompilerPath.parentDirectory]) {
+        if let lldbPath = try? UserToolchain.getTool(
+            "lldb",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        ) {
             return lldbPath
         }
         // If that fails, fall back to xcrun, PATH, etc.
-        return try UserToolchain.findTool("lldb", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
+        return try UserToolchain.findTool(
+            "lldb",
+            envSearchPaths: self.envSearchPaths,
+            useXcrun: useXcrun,
+            fileSystem: self.fileSystem
+        )
     }
 
     /// Returns the path to llvm-cov tool.
     public func getLLVMCov() throws -> AbsolutePath {
-        try UserToolchain.getTool("llvm-cov", binDirectories: [self.swiftCompilerPath.parentDirectory])
+        try UserToolchain.getTool(
+            "llvm-cov",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        )
     }
 
     /// Returns the path to llvm-prof tool.
     public func getLLVMProf() throws -> AbsolutePath {
-        try UserToolchain.getTool("llvm-profdata", binDirectories: [self.swiftCompilerPath.parentDirectory])
+        try UserToolchain.getTool(
+            "llvm-profdata",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        )
     }
 
     public func getSwiftAPIDigester() throws -> AbsolutePath {
@@ -332,7 +364,12 @@ public final class UserToolchain: Toolchain {
         ) {
             return envValue
         }
-        return try UserToolchain.getTool("swift-api-digester", binDirectories: [self.swiftCompilerPath.parentDirectory])
+        return try UserToolchain.getTool(
+            "swift-api-digester",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+
+        )
     }
 
     public func getSymbolGraphExtract() throws -> AbsolutePath {
@@ -343,13 +380,18 @@ public final class UserToolchain: Toolchain {
         ) {
             return envValue
         }
-        return try UserToolchain.getTool("swift-symbolgraph-extract", binDirectories: [self.swiftCompilerPath.parentDirectory])
+        return try UserToolchain.getTool(
+            "swift-symbolgraph-extract",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        )
     }
 
     internal static func deriveSwiftCFlags(
         triple: Triple,
         swiftSDK: SwiftSDK,
-        environment: EnvironmentVariables
+        environment: EnvironmentVariables,
+        fileSystem: any FileSystem
     ) throws -> [String] {
         var swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
 
@@ -370,7 +412,7 @@ public final class UserToolchain: Toolchain {
                     if let settings = WindowsSDKSettings(
                         reading: sdkroot.appending("SDKSettings.plist"),
                         observabilityScope: nil,
-                        filesystem: localFileSystem
+                        filesystem: fileSystem
                     ) {
                         switch settings.defaults.runtime {
                         case .multithreadedDebugDLL:
@@ -395,7 +437,7 @@ public final class UserToolchain: Toolchain {
                     if let info = WindowsPlatformInfo(
                         reading: platform.appending("Info.plist"),
                         observabilityScope: nil,
-                        filesystem: localFileSystem
+                        filesystem: fileSystem
                     ) {
                         let installation: AbsolutePath =
                             platform.appending("Developer")
@@ -436,7 +478,7 @@ public final class UserToolchain: Toolchain {
                             validating: "usr/lib/swift/windows/XCTest.lib",
                             relativeTo: installation
                         )
-                        if localFileSystem.exists(implib) {
+                        if fileSystem.exists(implib) {
                             xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
 
@@ -475,7 +517,8 @@ public final class UserToolchain: Toolchain {
             swiftSDK: destination,
             environment: environment,
             searchStrategy: searchStrategy,
-            customLibrariesLocation: customLibrariesLocation
+            customLibrariesLocation: customLibrariesLocation,
+            fileSystem: localFileSystem
         )
     }
 
@@ -485,7 +528,8 @@ public final class UserToolchain: Toolchain {
         searchStrategy: SearchStrategy = .default,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
-        customProvidedLibraries: [ProvidedLibrary]? = nil
+        customProvidedLibraries: [ProvidedLibrary]? = nil,
+        fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
@@ -495,7 +539,7 @@ public final class UserToolchain: Toolchain {
             // Get the search paths from PATH.
             self.envSearchPaths = getEnvSearchPaths(
                 pathString: environment.path,
-                currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+                currentWorkingDirectory: fileSystem.currentWorkingDirectory
             )
             self.useXcrun = true
         case .custom(let searchPaths, let useXcrun):
@@ -505,9 +549,10 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(
             binDirectories: swiftSDK.toolset.rootPaths,
-            useXcrun: useXcrun,
+            useXcrun: self.useXcrun,
             environment: environment,
-            searchPaths: envSearchPaths
+            searchPaths: self.envSearchPaths,
+            fileSystem: fileSystem
         )
         self.swiftCompilerPath = swiftCompilers.compile
         self.architectures = swiftSDK.architectures
@@ -562,7 +607,9 @@ public final class UserToolchain: Toolchain {
             swiftCompilerFlags: try Self.deriveSwiftCFlags(
                 triple: triple,
                 swiftSDK: swiftSDK,
-                environment: environment),
+                environment: environment,
+                fileSystem: fileSystem
+            ),
             linkerFlags: swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? [],
             xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
@@ -575,7 +622,8 @@ public final class UserToolchain: Toolchain {
             useXcrun: useXcrun,
             environment: environment,
             searchPaths: envSearchPaths,
-            extraSwiftFlags: self.extraFlags.swiftCompilerFlags
+            extraSwiftFlags: self.extraFlags.swiftCompilerFlags,
+            fileSystem: fileSystem
         )
 
         if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
@@ -588,7 +636,7 @@ public final class UserToolchain: Toolchain {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
                     observabilityScope: nil,
-                    filesystem: localFileSystem
+                    filesystem: fileSystem
                 ) {
                     switch settings.defaults.runtime {
                     case .multithreadedDebugDLL:
@@ -624,7 +672,8 @@ public final class UserToolchain: Toolchain {
         let swiftPMLibrariesLocation = try customLibrariesLocation ?? Self.deriveSwiftPMLibrariesLocation(
             swiftCompilerPath: swiftCompilerPath,
             swiftSDK: swiftSDK,
-            environment: environment
+            environment: environment,
+            fileSystem: fileSystem
         )
 
         let xctestPath: AbsolutePath?
@@ -634,7 +683,8 @@ public final class UserToolchain: Toolchain {
             xctestPath = try Self.deriveXCTestPath(
                 swiftSDK: self.swiftSDK,
                 triple: triple,
-                environment: environment
+                environment: environment,
+                fileSystem: fileSystem
             )
         }
 
@@ -647,12 +697,15 @@ public final class UserToolchain: Toolchain {
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
             xctestPath: xctestPath
         )
+
+        self.fileSystem = fileSystem
     }
 
     private static func deriveSwiftPMLibrariesLocation(
         swiftCompilerPath: AbsolutePath,
         swiftSDK: SwiftSDK,
-        environment: EnvironmentVariables
+        environment: EnvironmentVariables,
+        fileSystem: any FileSystem
     ) throws -> ToolchainConfiguration.SwiftPMLibrariesLocation? {
         // Look for an override in the env.
         if let pathEnvVariable = environment["SWIFTPM_CUSTOM_LIBS_DIR"] ?? environment["SWIFTPM_PD_LIBS"] {
@@ -668,7 +721,7 @@ public final class UserToolchain: Toolchain {
             #endif
             let paths = pathEnvVariable.split(separator: separator).map(String.init)
             for pathString in paths {
-                if let path = try? AbsolutePath(validating: pathString), localFileSystem.exists(path) {
+                if let path = try? AbsolutePath(validating: pathString), fileSystem.exists(path) {
                     // we found the custom one
                     return .init(root: path)
                 }
@@ -687,7 +740,7 @@ public final class UserToolchain: Toolchain {
         for applicationPath in swiftSDK.toolset.rootPaths {
             // this is the normal case when using the toolchain
             let librariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
-            if localFileSystem.exists(librariesPath) {
+            if fileSystem.exists(librariesPath) {
                 return .init(root: librariesPath)
             }
 
@@ -697,7 +750,7 @@ public final class UserToolchain: Toolchain {
                 "PackageDescription.framework"
             )
             let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
-            if localFileSystem.exists(manifestFrameworksPath), localFileSystem.exists(pluginFrameworksPath) {
+            if fileSystem.exists(manifestFrameworksPath), fileSystem.exists(pluginFrameworksPath) {
                 return .init(
                     manifestLibraryPath: manifestFrameworksPath,
                     pluginLibraryPath: pluginFrameworksPath
@@ -742,7 +795,8 @@ public final class UserToolchain: Toolchain {
     private static func deriveXCTestPath(
         swiftSDK: SwiftSDK,
         triple: Triple,
-        environment: EnvironmentVariables
+        environment: EnvironmentVariables,
+        fileSystem: any FileSystem
     ) throws -> AbsolutePath? {
         if triple.isDarwin() {
             // XCTest is optional on macOS, for example when Xcode is not installed
@@ -774,7 +828,7 @@ public final class UserToolchain: Toolchain {
             if let info = WindowsPlatformInfo(
                 reading: platform.appending("Info.plist"),
                 observabilityScope: nil,
-                filesystem: localFileSystem
+                filesystem: fileSystem
             ) {
                 let xctest: AbsolutePath =
                     platform.appending("Developer")
@@ -794,7 +848,7 @@ public final class UserToolchain: Toolchain {
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin64")
-                    if localFileSystem.exists(path) {
+                    if fileSystem.exists(path) {
                         return path
                     }
 
@@ -802,7 +856,7 @@ public final class UserToolchain: Toolchain {
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin32")
-                    if localFileSystem.exists(path) {
+                    if fileSystem.exists(path) {
                         return path
                     }
 
@@ -810,7 +864,7 @@ public final class UserToolchain: Toolchain {
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin32a")
-                    if localFileSystem.exists(path) {
+                    if fileSystem.exists(path) {
                         return path
                     }
 
@@ -818,7 +872,7 @@ public final class UserToolchain: Toolchain {
                     let path: AbsolutePath =
                         xctest.appending("usr")
                             .appending("bin64a")
-                    if localFileSystem.exists(path) {
+                    if fileSystem.exists(path) {
                         return path
                     }
 

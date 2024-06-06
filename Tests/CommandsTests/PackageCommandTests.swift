@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -1842,7 +1842,11 @@ final class PackageCommandTests: CommandsTestCase {
                 </dict>
                 """
             )
-            let hostTriple = try UserToolchain(swiftSDK: .hostSwiftSDK()).targetTriple
+            let environment = EnvironmentVariables.process()
+            let hostTriple = try UserToolchain(
+                swiftSDK: .hostSwiftSDK(environment: environment),
+                environment: environment
+            ).targetTriple
             let hostTripleString = if hostTriple.isDarwin() {
                 hostTriple.tripleString(forPlatformVersion: "")
             } else {

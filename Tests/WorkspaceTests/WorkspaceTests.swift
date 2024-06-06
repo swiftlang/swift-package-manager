@@ -24,7 +24,6 @@ import SPMTestSupport
 import XCTest
 
 import struct TSCBasic.ByteString
-import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -7833,6 +7832,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testArtifactChecksum() throws {
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
         let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
 
@@ -7840,7 +7840,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain(swiftSDK: .hostSwiftSDK()),
+            hostToolchain: UserToolchain.mockHostToolchain(fs),
             checksumAlgorithm: checksumAlgorithm,
             cachePath: .none,
             customHTTPClient: .none,
@@ -9079,8 +9079,9 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ariFiles = [
             """
@@ -9369,7 +9370,8 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9488,7 +9490,8 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9598,7 +9601,8 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFileArchiveNotFound() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9673,8 +9677,9 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexTripleNotFound() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
 
-        let hostToolchain = try UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
         let androidTriple = try Triple("x86_64-unknown-linux-android")
         let macTriple = try Triple("arm64-apple-macosx")
         let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
@@ -12278,6 +12283,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
         let observability = ObservabilitySystem.makeForTesting()
 
         // write a manifest
@@ -12288,12 +12294,16 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
+        let customHostToolchain = try UserToolchain.mockHostToolchain(fs)
+
         do {
             // no error
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
+                environment: .mockEnvironment,
                 forRootPackage: .root,
+                customHostToolchain: customHostToolchain,
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
             )
@@ -12309,7 +12319,9 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
+                environment: .mockEnvironment,
                 forRootPackage: .root,
+                customHostToolchain: customHostToolchain,
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate
             )
