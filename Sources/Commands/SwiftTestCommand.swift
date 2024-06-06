@@ -295,7 +295,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
 
-            // process code Coverage if request
+            // Process code coverage if requested
             if self.options.enableCodeCoverage, runner.ranSuccessfully {
                 try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, library: .xctest)
             }
