@@ -30,7 +30,6 @@ import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
-import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 
@@ -4301,6 +4300,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.c",
             "/Pkg/Sources/lib/include/lib.h"
         )
+        try fs.createMockToolchain()
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4323,12 +4323,14 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let userSwiftSDK = try SwiftSDK(
+            hostTriple: .arm64Linux,
+            targetTriple: .wasi,
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"]),
                     .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld", "-swift-flag-from-json"]),
                 ],
-                rootPaths: UserToolchain.default.swiftSDK.toolset.rootPaths
+                rootPaths: UserToolchain.mockHostToolchain(fs).swiftSDK.toolset.rootPaths
             ),
             pathsConfiguration: .init(
                 sdkRootPath: "/fake/sdk",
@@ -4336,7 +4338,7 @@ final class BuildPlanTests: XCTestCase {
                 swiftStaticResourcesPath: "/fake/lib/swift_static"
             )
         )
-        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK)
+        let mockToolchain = try UserToolchain(swiftSDK: userSwiftSDK, environment: .mockEnvironment, fileSystem: fs)
         let commonFlags = BuildFlags(
             cCompilerFlags: ["-clang-command-line-flag"],
             swiftCompilerFlags: ["-swift-command-line-flag"]
@@ -4356,11 +4358,7 @@ final class BuildPlanTests: XCTestCase {
 
         let lib = try result.target(for: "lib").clangTarget()
         var args: [StringPattern] = [.anySequence]
-        #if os(macOS)
-        args += ["-isysroot"]
-        #else
         args += ["--sysroot"]
-        #endif
         args += [
             "\(userSwiftSDK.pathsConfiguration.sdkRootPath!)",
             "-I/fake/sdk/sysroot",
@@ -4432,6 +4430,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/cxxLib/cxxLib.c",
             "/Pkg/Sources/cxxLib/include/cxxLib.h"
         )
+        try fileSystem.createMockToolchain()
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4464,18 +4463,19 @@ final class BuildPlanTests: XCTestCase {
                 .librarian: .init(path: "/fake/toolchain/usr/bin/librarian"),
                 .linker: .init(path: "/fake/toolchain/usr/bin/linker", extraCLIOptions: [jsonFlag(tool: .linker)]),
             ],
-            rootPaths: UserToolchain.default.swiftSDK.toolset.rootPaths
+            rootPaths: UserToolchain.mockHostToolchain(fileSystem).swiftSDK.toolset.rootPaths
         )
         let targetTriple = try Triple("armv7em-unknown-none-macho")
-        let swiftSDK = try SwiftSDK(
+        let swiftSDK = SwiftSDK(
+            hostTriple: .arm64Linux,
             targetTriple: targetTriple,
-            properties: .init(
+            toolset: toolset,
+            pathsConfiguration: .init(
                 sdkRootPath: "/fake/sdk",
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"
-            ),
-            toolset: toolset
+            )
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
         let result = try BuildPlanResult(plan: mockBuildPlan(
             triple: targetTriple,
             toolchain: toolchain,
@@ -4596,6 +4596,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/cLib/cLib.c",
             "/Pkg/Sources/cLib/include/cLib.h"
         )
+        try fileSystem.createMockToolchain()
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -4628,7 +4629,7 @@ final class BuildPlanTests: XCTestCase {
                 .swiftCompiler: .init(extraCLIOptions: ["-use-ld=lld"]),
             ])
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK)
+        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
         let result = try BuildPlanResult(plan: mockBuildPlan(
             toolchain: toolchain,
             graph: graph,
