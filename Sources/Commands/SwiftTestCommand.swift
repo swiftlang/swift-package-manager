@@ -421,7 +421,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         let toolchain = try swiftCommandState.getTargetToolchain()
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
-            destinationBuildParameters: productsBuildParameters,
+            buildParameters: productsBuildParameters,
             sanitizers: globalOptions.build.sanitizers,
             library: library
         )
@@ -703,7 +703,7 @@ extension SwiftTestCommand {
             let toolchain = try swiftCommandState.getTargetToolchain()
             let testEnv = try TestingSupport.constructTestEnvironment(
                 toolchain: toolchain,
-                destinationBuildParameters: productsBuildParameters,
+                buildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
                 library: .swiftTesting
             )
@@ -1016,7 +1016,7 @@ final class ParallelTestRunner {
 
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: self.toolchain,
-            destinationBuildParameters: self.productsBuildParameters,
+            buildParameters: self.productsBuildParameters,
             sanitizers: self.buildOptions.sanitizers,
             library: .xctest // swift-testing does not use ParallelTestRunner
         )
