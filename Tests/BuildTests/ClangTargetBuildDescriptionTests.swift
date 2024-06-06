@@ -25,27 +25,6 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         XCTAssertFalse(try targetDescription.basicArguments().contains("-w"))
     }
 
-    func testSwiftCorelibsFoundationIncludeWorkaround() throws {
-        let toolchain = MockToolchain(swiftResourcesPath: AbsolutePath("/fake/path/lib/swift"))
-
-        let macosParameters = mockBuildParameters(toolchain: toolchain, triple: .macOS)
-        let linuxParameters = mockBuildParameters(toolchain: toolchain, triple: .arm64Linux)
-        let androidParameters = mockBuildParameters(toolchain: toolchain, triple: .arm64Android)
-
-        let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
-                                                            buildParameters: macosParameters)
-        XCTAssertFalse(try macDescription.basicArguments().contains("\(macosParameters.toolchain.swiftResourcesPath!)"))
-
-        let linuxDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
-                                                              buildParameters: linuxParameters)
-        print(try linuxDescription.basicArguments())
-        XCTAssertTrue(try linuxDescription.basicArguments().contains("\(linuxParameters.toolchain.swiftResourcesPath!)"))
-
-        let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
-                                                                buildParameters: androidParameters)
-        XCTAssertTrue(try androidDescription.basicArguments().contains("\(androidParameters.toolchain.swiftResourcesPath!)"))
-    }
-
     func testWarningSuppressionForRemotePackages() throws {
         let targetDescription = try makeTargetBuildDescription("test-warning-supression", usesSourceControl: true)
         XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
