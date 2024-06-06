@@ -132,7 +132,7 @@ enum TestingSupport {
         #else
         let env = try Self.constructTestEnvironment(
             toolchain: try swiftCommandState.getTargetToolchain(),
-            destinationBuildParameters: swiftCommandState.buildParametersForTest(
+            buildParameters: swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding,
                 library: .xctest
