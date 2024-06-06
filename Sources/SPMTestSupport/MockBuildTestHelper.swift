@@ -20,7 +20,7 @@ import SPMBuildCore
 import TSCUtility
 import XCTest
 
-public struct MockToolchain: PackageModel.Toolchain {
+package struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
@@ -72,7 +72,7 @@ public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVers
 public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-public func mockBuildParameters(
+package func mockBuildParameters(
     buildPath: AbsolutePath = "/path/to/build",
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
