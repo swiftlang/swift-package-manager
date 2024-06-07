@@ -335,7 +335,7 @@ def build(args):
         ]
         build_dependency(args, "tsc", tsc_cmake_flags)
         build_dependency(args, "swift-argument-parser", ["-DBUILD_TESTING=NO", "-DBUILD_EXAMPLES=NO"])
-        build_dependency(args, "yams", [], [get_foundation_cmake_arg(args)] if args.foundation_build_dir else [])
+        build_dependency(args, "yams", [], [])
 
         swift_driver_cmake_flags = [
             get_llbuild_cmake_arg(args),
