@@ -1043,11 +1043,14 @@ final class PluginInvocationTests: XCTestCase {
                   }
                   """)
             
-            // Create something that looks like another module that can be detected via `canImport()`.
+            // Create a valid swift interface file that can be detected via `canImport()`.
             let fakeExtraModulesDir = tmpPath.appending("ExtraModules")
             try localFileSystem.createDirectory(fakeExtraModulesDir, recursive: true)
-            let fakeExtraModuleFile = fakeExtraModulesDir.appending("ModuleFoundViaExtraSearchPaths.swiftmodule")
-            try localFileSystem.writeFileContents(fakeExtraModuleFile, string: "")
+            let fakeExtraModuleFile = fakeExtraModulesDir.appending("ModuleFoundViaExtraSearchPaths.swiftinterface")
+            try localFileSystem.writeFileContents(fakeExtraModuleFile, string: """
+                  // swift-interface-format-version: 1.0
+                  // swift-module-flags: -module-name ModuleFoundViaExtraSearchPaths
+                  """)
             
             /////////
             // Load a workspace from the package.
