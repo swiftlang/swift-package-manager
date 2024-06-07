@@ -57,11 +57,8 @@ public final class ClangTargetBuildDescription {
             return .none
         }
 
-        if let bundleName = target.underlying.potentialBundleName {
-            return self.buildParameters.bundlePath(named: bundleName)
-        } else {
-            return .none
-        }
+        let bundleName = target.underlying.c99name
+        return self.buildParameters.bundlePath(named: bundleName)
     }
 
     /// The modulemap file for this target, if any.
