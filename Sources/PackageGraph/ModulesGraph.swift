@@ -139,11 +139,57 @@ public struct ModulesGraph {
     }
 
     public func product(for name: String, destination: BuildTriple) -> ResolvedProduct? {
-        self.allProducts.first { $0.name == name && $0.buildTriple == destination }
+        func findProduct(name: String, destination: BuildTriple) -> ResolvedProduct? {
+            self.allProducts.first { $0.name == name && $0.buildTriple == destination }
+        }
+
+        if let product = findProduct(name: name, destination: destination) {
+            return product
+        }
+
+        // FIXME: This is a temporary workaround and needs to be handled by the callers.
+
+        // It's possible to request a build of a macro, a plugin, or a test via `swift build`
+        // which won't have the right destination set because it's impossible to indicate it.
+        //
+        // Same happens with `--test-product` - if one of the test targets directly references
+        // a macro then all if its targets and the product itself become `host`.
+        if destination == .destination {
+            if let toolsProduct = findProduct(name: name, destination: .tools),
+                toolsProduct.type == .macro || toolsProduct.type == .plugin || toolsProduct.type == .test
+            {
+                return toolsProduct
+            }
+        }
+
+        return nil
     }
 
     public func target(for name: String, destination: BuildTriple) -> ResolvedModule? {
-        self.allTargets.first { $0.name == name && $0.buildTriple == destination }
+        func findModule(name: String, destination: BuildTriple) -> ResolvedModule? {
+            self.allTargets.first { $0.name == name && $0.buildTriple == destination }
+        }
+
+        if let module = findModule(name: name, destination: destination) {
+            return module
+        }
+
+        // FIXME: This is a temporary workaround and needs to be handled by the callers.
+
+        // It's possible to request a build of a macro, a plugin or a test via `swift build`
+        // which won't have the right destination set because it's impossible to indicate it.
+        //
+        // Same happens with `--test-product` - if one of the test targets directly references
+        // a macro then all if its targets and the product itself become `host`.
+        if destination == .destination {
+            if let toolsModule = findModule(name: name, destination: .tools),
+                toolsModule.type == .macro || toolsModule.type == .plugin || toolsModule.type == .test
+            {
+                return toolsModule
+            }
+        }
+
+        return nil
     }
 
     /// All root and root dependency packages provided as input to the graph.
