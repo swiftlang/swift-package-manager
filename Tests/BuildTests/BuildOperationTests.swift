@@ -18,6 +18,7 @@ import LLBuildManifest
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
 import SPMBuildCore
+@_spi(SwiftPMInternal)
 import SPMTestSupport
 import XCTest
 
@@ -174,6 +175,43 @@ final class BuildOperationTests: XCTestCase {
                     XCTAssertEqual(actualManifest, expectedManifest)
                 }
             }
+        }
+    }
+
+    func testHostProductsAndTargetsWithoutExplicitDestination() throws {
+        let mock  = try macrosTestsPackageGraph()
+
+        let op = mockBuildOperation(
+            productsBuildParameters: mockBuildParameters(destination: .target),
+            toolsBuildParameters: mockBuildParameters(destination: .host),
+            packageGraphLoader: { mock.graph },
+            scratchDirectory: AbsolutePath("/.build/\(hostTriple)"),
+            fs: mock.fileSystem,
+            observabilityScope: mock.observabilityScope
+        )
+
+        XCTAssertEqual(
+            "MMIOMacros-\(hostTriple)-debug-tool.exe",
+            try op.computeLLBuildTargetName(for: .product("MMIOMacros"))
+        )
+
+        for target in ["MMIOMacros", "MMIOPlugin", "MMIOMacrosTests", "MMIOMacro+PluginTests"] {
+            XCTAssertEqual(
+                "\(target)-\(hostTriple)-debug-tool.module",
+                try op.computeLLBuildTargetName(for: .target(target))
+            )
+        }
+
+        let dependencies = try BuildSubset.target("MMIOMacro+PluginTests").recursiveDependencies(
+            for: mock.graph,
+            observabilityScope: mock.observabilityScope
+        )
+
+        XCTAssertNotNil(dependencies)
+        XCTAssertTrue(dependencies!.count > 0)
+
+        for dependency in dependencies! {
+            XCTAssertEqual(dependency.buildTriple, .tools)
         }
     }
 }
