@@ -81,12 +81,12 @@ final class ModulesGraphTests: XCTestCase {
         }
 
         let fooPackage = try XCTUnwrap(g.package(for: .plain("Foo")))
-        let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
-        let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
+        let fooTarget = try XCTUnwrap(g.target(for: "Foo", destination: .destination))
+        let fooDepTarget = try XCTUnwrap(g.target(for: "FooDep", destination: .destination))
         XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
         XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
         let barPackage = try XCTUnwrap(g.package(for: .plain("Bar")))
-        let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
+        let barTarget = try XCTUnwrap(g.target(for: "Bar", destination: .destination))
         XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
     }
 

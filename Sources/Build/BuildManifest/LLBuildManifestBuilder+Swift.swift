@@ -191,9 +191,8 @@ extension LLBuildManifestBuilder {
     public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedModule.Dependency] = try self.plan.targetMap.keys.compactMap {
-            guard let target = self.plan.graph.allTargets[$0] else { throw InternalError("unknown target \($0)") }
-            return ResolvedModule.Dependency.target(target, conditions: [])
+        let nodes = self.plan.targets.compactMap {
+            ResolvedModule.Dependency.target($0.target, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
         // Instantiate the inter-module dependency oracle which will cache commonly-scanned
@@ -376,7 +375,7 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(config: target.buildParameters.buildConfig)
+        let cmdName = target.getCommandName()
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         self.manifest.addSwiftCmd(
@@ -431,14 +430,10 @@ extension LLBuildManifestBuilder {
             // Depend on the binary for executable targets.
             if target.type == .executable {
                 // FIXME: Optimize.
-                let product = try plan.graph.allProducts.first {
-                    try $0.type == .executable && $0.executableTarget.id == target.id
-                }
-                if let product {
-                    guard let planProduct = plan.productMap[product.id] else {
-                        throw InternalError("unknown product \(product)")
-                    }
-                    try inputs.append(file: planProduct.binaryPath)
+                if let productDescription = try plan.productMap.values.first(where: {
+                    try $0.product.type == .executable && $0.product.executableTarget.id == target.id
+                }) {
+                    try inputs.append(file: productDescription.binaryPath)
                 }
                 return
             }
@@ -494,7 +489,7 @@ extension LLBuildManifestBuilder {
 
         // Depend on any required macro product's output.
         try target.requiredMacroProducts.forEach { macro in
-            try inputs.append(.virtual(macro.getLLBuildTargetName(config: target.buildParameters.buildConfig)))
+            try inputs.append(.virtual(macro.llbuildTargetName))
         }
 
         return inputs + additionalInputs
@@ -503,7 +498,7 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
+        let targetName = target.getLLBuildTargetName()
         let targetOutput: Node = .virtual(targetName)
 
         self.manifest.addNode(targetOutput, toTarget: targetName)
@@ -528,7 +523,7 @@ extension LLBuildManifestBuilder {
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString,
         ]
-        moduleWrapArgs += try target.buildParameters.targetTripleArgs(for: target.target)
+        moduleWrapArgs += try target.buildParameters.tripleArgs(for: target.target)
         self.manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",
@@ -607,5 +602,15 @@ extension Driver {
            !self.supportedFrontendFeatures.contains("ld-path-driver-option") {
             throw LLBuildManifestBuilder.Error.ldPathDriverOptionUnavailable(option: option)
         }
+    }
+}
+
+extension SwiftTargetBuildDescription {
+    public func getCommandName() -> String {
+        "C." + self.getLLBuildTargetName()
+    }
+
+    public func getLLBuildTargetName() -> String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
 }

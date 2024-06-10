@@ -52,6 +52,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// the plugin configuration for build plugins
     let pluginConfiguration: PluginConfiguration?
 
+    /// The path to scratch space (.build) directory.
+    let scratchDirectory: AbsolutePath
+
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
 
@@ -114,6 +117,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> ModulesGraph,
         pluginConfiguration: PluginConfiguration? = .none,
+        scratchDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
         dependenciesByRootPackageIdentity: [PackageIdentity: [PackageIdentity]],
@@ -136,6 +140,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.packageGraphLoader = packageGraphLoader
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
+        self.scratchDirectory = scratchDirectory
         self.pkgConfigDirectories = pkgConfigDirectories
         self.dependenciesByRootPackageIdentity = dependenciesByRootPackageIdentity
         self.rootPackageIdentityByTargetName = (try? Dictionary<String, PackageIdentity>(throwingUniqueKeysWithValues: targetsByRootPackageIdentity.lazy.flatMap { e in e.value.map { ($0, e.key) } })) ?? [:]
@@ -269,7 +274,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     // TODO: Currently this function will only match frameworks.
-    internal func detectUnexpressedDependencies(
+    func detectUnexpressedDependencies(
         availableLibraries: [LibraryMetadata],
         targetDependencyMap: [String: [String]]?
     ) {
@@ -295,7 +300,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             let usedSDKDependencies: [String] = Set(possibleTempsPaths).flatMap { possibleTempsPath in
-                guard let contents = try? self.fileSystem.readFileContents(possibleTempsPath.appending(component: "\(c99name).d")) else {
+                guard let contents = try? self.fileSystem.readFileContents(
+                    possibleTempsPath.appending(component: "\(c99name).d")
+                ) else {
                     return [String]()
                 }
 
@@ -371,9 +378,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let subsetDescriptor: String?
         switch subset {
-        case .product(let productName):
+        case .product(let productName, _):
             subsetDescriptor = "product '\(productName)'"
-        case .target(let targetName):
+        case .target(let targetName, _):
             subsetDescriptor = "target: '\(targetName)'"
         case .allExcludingTests, .allIncludingTests:
             subsetDescriptor = nil
@@ -426,10 +433,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         case .allExcludingTests, .allIncludingTests:
             pluginsToCompile = allPlugins
             continueBuilding = true
-        case .product(let productName):
+        case .product(let productName, _):
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
-        case .target(let targetName):
+        case .target(let targetName, _):
             pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
@@ -515,17 +522,57 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return LLBuildManifestBuilder.TargetKind.main.targetName
         case .allIncludingTests:
             return LLBuildManifestBuilder.TargetKind.test.targetName
-        default:
+        case .product(let productName, let destination):
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try getPackageGraph()
-            if let result = subset.llbuildTargetName(
-                for: graph,
-                config: self.productsBuildParameters.configuration.dirname,
-                observabilityScope: self.observabilityScope
-            ) {
-                return result
+
+            let product = graph.product(
+                for: productName,
+                destination: destination == .host ? .tools : .destination
+            )
+
+            guard let product else {
+                observabilityScope.emit(error: "no product named '\(productName)'")
+                throw Diagnostics.fatalError
             }
-            throw Diagnostics.fatalError
+
+            let buildParameters = if product.buildTriple == .tools {
+                self.toolsBuildParameters
+            } else {
+                self.productsBuildParameters
+            }
+
+            // If the product is automatic, we build the main target because automatic products
+            // do not produce a binary right now.
+            if product.type == .library(.automatic) {
+                observabilityScope.emit(
+                    warning:
+                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
+                )
+                return LLBuildManifestBuilder.TargetKind.main.targetName
+            }
+            return try product.getLLBuildTargetName(buildParameters: buildParameters)
+        case .target(let targetName, let destination):
+            // FIXME: This is super unfortunate that we might need to load the package graph.
+            let graph = try getPackageGraph()
+
+            let target = graph.target(
+                for: targetName,
+                destination: destination == .host ? .tools : .destination
+            )
+
+            guard let target else {
+                observabilityScope.emit(error: "no target named '\(targetName)'")
+                throw Diagnostics.fatalError
+            }
+
+            let buildParameters = if target.buildTriple == .tools {
+                self.toolsBuildParameters
+            } else {
+                self.productsBuildParameters
+            }
+
+            return target.getLLBuildTargetName(buildParameters: buildParameters)
         }
     }
 
@@ -538,17 +585,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration, !self.productsBuildParameters.shouldSkipBuilding {
             // Hacky workaround for rdar://120560817, but it replicates precisely enough the original behavior before
-            // products/tools build parameters were split. Ideally we want to have specify the correct path at the time
+            // products/tools build parameters were split. Ideally we want to specify the correct path at the time
             // when `toolsBuildParameters` is initialized, but we have too many places in the codebase where that's
             // done, which makes it hard to realign them all at once.
             var pluginsBuildParameters = self.toolsBuildParameters
             pluginsBuildParameters.dataPath = pluginsBuildParameters.dataPath.parentDirectory.appending(components: ["plugins", "tools"])
+
+            var targetBuildParameters = pluginsBuildParameters
+            targetBuildParameters.destination = .target
+
             let buildOperationForPluginDependencies = BuildOperation(
-                // FIXME: this doesn't maintain the products/tools split cleanly
-                productsBuildParameters: pluginsBuildParameters,
+                productsBuildParameters: targetBuildParameters,
                 toolsBuildParameters: pluginsBuildParameters,
                 cacheBuildManifest: false,
-                packageGraphLoader: { return graph },
+                packageGraphLoader: { graph },
+                scratchDirectory: pluginsBuildParameters.dataPath,
                 additionalFileRules: self.additionalFileRules,
                 pkgConfigDirectories: self.pkgConfigDirectories,
                 dependenciesByRootPackageIdentity: [:],
@@ -558,6 +609,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
+
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 buildParameters: pluginsBuildParameters,
@@ -568,14 +620,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
             ) { name, path in
-                try buildOperationForPluginDependencies.build(subset: .product(name))
-                if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
+                try buildOperationForPluginDependencies.build(subset: .product(name, for: .host))
+                if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: {
+                    $0.product.name == name && $0.buildParameters.destination == .host
+                }) {
                     return try builtTool.binaryPath
                 } else {
                     return nil
                 }
             }
-
 
             // Surface any diagnostics from build tool plugins.
             var succeeded = true
@@ -615,7 +668,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
-        let targetsToConsider: [ResolvedTarget]
+        let targetsToConsider: [ResolvedModule]
         if let subset = subset, let recursiveDependencies = try 
             subset.recursiveDependencies(for: graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
@@ -656,7 +709,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
-            productsBuildParameters: self.productsBuildParameters,
+            destinationBuildParameters: self.productsBuildParameters,
             toolsBuildParameters: self.toolsBuildParameters,
             graph: graph,
             additionalFileRules: additionalFileRules,
@@ -720,7 +773,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         self.buildSystemDelegate = buildSystemDelegate
 
-        let databasePath = self.productsBuildParameters.dataPath.appending("build.db").pathString
+        let databasePath = self.scratchDirectory.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
@@ -883,53 +936,24 @@ extension BuildSubset {
             return Array(graph.reachableTargets)
         case .allExcludingTests:
             return graph.reachableTargets.filter { $0.type != .test }
-        case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
+        case .product(let productName, let destination):
+            guard let product = graph.product(
+                for: productName,
+                destination: destination == .host ? .tools : .destination
+            ) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveTargetDependencies()
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
+        case .target(let targetName, let destination):
+            guard let target = graph.target(
+                for: targetName,
+                destination: destination == .host ? .tools : .destination
+            ) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
             return try target.recursiveTargetDependencies()
-        }
-    }
-
-    /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: ModulesGraph, config: String, observabilityScope: ObservabilityScope)
-        -> String?
-    {
-        switch self {
-        case .allExcludingTests:
-            return LLBuildManifestBuilder.TargetKind.main.targetName
-        case .allIncludingTests:
-            return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                observabilityScope.emit(error: "no product named '\(productName)'")
-                return nil
-            }
-            // If the product is automatic, we build the main target because automatic products
-            // do not produce a binary right now.
-            if product.type == .library(.automatic) {
-                observabilityScope.emit(
-                    warning:
-                        "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
-                )
-                return LLBuildManifestBuilder.TargetKind.main.targetName
-            }
-            return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
-            }
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                observabilityScope.emit(error: "no target named '\(targetName)'")
-                return nil
-            }
-            return target.getLLBuildTargetName(config: config)
         }
     }
 }

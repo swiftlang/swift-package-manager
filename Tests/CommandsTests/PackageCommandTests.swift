@@ -1840,9 +1840,15 @@ final class PackageCommandTests: CommandsTestCase {
                 """
             )
             let hostTriple = try UserToolchain(swiftSDK: .hostSwiftSDK()).targetTriple
-            let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"), string:
-                """
+            let hostTripleString = if hostTriple.isDarwin() {
+                hostTriple.tripleString(forPlatformVersion: "")
+            } else {
+                hostTriple.tripleString
+            }
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json"),
+                string: """
                 {   "schemaVersion": "1.0",
                     "artifacts": {
                         "LocalBinaryTool": {
@@ -1858,11 +1864,13 @@ final class PackageCommandTests: CommandsTestCase {
                 }
                 """
             )
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"), string:
-                #"print("Hello")"#
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"),
+                string: #"print("Hello")"#
             )
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"), string:
-                """
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                string: """
                 import PackagePlugin
                 import Foundation
                 @main
@@ -1923,8 +1931,9 @@ final class PackageCommandTests: CommandsTestCase {
             )
 
             // Create the sample vendored dependency package.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift"), string:
-                """
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift"),
+                string: """
                 // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
@@ -1950,9 +1959,25 @@ final class PackageCommandTests: CommandsTestCase {
                 )
                 """
             )
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift"), string: "public func Bar() { }"
+            try localFileSystem.writeFileContents(
+                packageDir.appending(
+                    components: "VendoredDependencies",
+                    "HelperPackage",
+                    "Sources",
+                    "HelperLibrary",
+                    "library.swift"
+                ),
+                string: "public func Bar() { }"
             )
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "RemoteBuiltTool", "main.swift"), string: #"print("Hello")"#
+            try localFileSystem.writeFileContents(
+                packageDir.appending(
+                    components: "VendoredDependencies",
+                    "HelperPackage",
+                    "Sources",
+                    "RemoteBuiltTool",
+                    "main.swift"
+                ),
+                string: #"print("Hello")"#
             )
 
             // Check that we can invoke the plugin with the "plugin" subcommand.
@@ -3070,9 +3095,9 @@ final class PackageCommandTests: CommandsTestCase {
                         let execProducts = context.package.products(ofType: ExecutableProduct.self)
                         print("execProducts: \\(execProducts.map{ $0.name })")
                         let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
-                        print("swiftTargets: \\(swiftTargets.map{ $0.name })")
+                        print("swiftTargets: \\(swiftTargets.map{ $0.name }.sorted())")
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
-                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
+                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent }.sorted())")
 
                         if let target = target.sourceModule {
                             print("Module kind of '\\(target.name)': \\(target.kind)")
@@ -3136,8 +3161,8 @@ final class PackageCommandTests: CommandsTestCase {
             do {
                 let (stdout, _) = try SwiftPM.Package.execute(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("execProducts: [\"FifthTarget\"]"))
-                XCTAssertMatch(stdout, .contains("swiftTargets: [\"ThirdTarget\", \"TestTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
-                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"tests.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
+                XCTAssertMatch(stdout, .contains("swiftTargets: [\"FifthTarget\", \"FirstTarget\", \"FourthTarget\", \"SecondTarget\", \"TestTarget\", \"ThirdTarget\"]"))
+                XCTAssertMatch(stdout, .contains("swiftSources: [\"library.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\", \"tests.swift\"]"))
                 XCTAssertMatch(stdout, .contains("Module kind of 'FifthTarget': executable"))
             }
 

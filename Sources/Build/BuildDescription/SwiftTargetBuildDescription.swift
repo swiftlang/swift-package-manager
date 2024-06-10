@@ -43,7 +43,7 @@ public final class SwiftTargetBuildDescription {
     /// a target is built.
     public let toolsVersion: ToolsVersion
 
-    /// The build parameters.
+    /// The build parameters for this target.
     let buildParameters: BuildParameters
 
     /// Path to the temporary directory for this target.
@@ -63,9 +63,10 @@ public final class SwiftTargetBuildDescription {
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         if let bundleName = target.underlying.potentialBundleName, needsResourceBundle {
-            return self.buildParameters.bundlePath(named: bundleName)
+            let suffix = self.buildParameters.suffix
+            return self.buildParameters.bundlePath(named: bundleName + suffix)
         } else {
-            return .none
+            return nil
         }
     }
 
@@ -112,7 +113,8 @@ public final class SwiftTargetBuildDescription {
     }
 
     var modulesPath: AbsolutePath {
-        return self.buildParameters.buildPath.appending(component: "Modules")
+        let suffix = self.buildParameters.suffix
+        return self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -121,7 +123,7 @@ public final class SwiftTargetBuildDescription {
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = (triple.isDarwin() || triple.isLinux() || triple.isWindows()) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
-        return dirPath.appending(component: self.target.c99name + ".swiftmodule")
+        return dirPath.appending(component: "\(self.target.c99name).swiftmodule")
     }
 
     /// The path to the wrapped swift module which is created using the modulewrap tool. This is required
@@ -131,7 +133,7 @@ public final class SwiftTargetBuildDescription {
         self.tempsPath.appending(component: self.target.c99name + ".swiftmodule.o")
     }
 
-    /// The path to the swifinterface file after compilation.
+    /// The path to the swiftinterface file after compilation.
     var parseableModuleInterfaceOutputPath: AbsolutePath {
         self.modulesPath.appending(component: self.target.c99name + ".swiftinterface")
     }
@@ -233,7 +235,7 @@ public final class SwiftTargetBuildDescription {
     public let prebuildCommandResults: [PrebuildCommandResult]
 
     /// Any macro products that this target requires to build.
-    public let requiredMacroProducts: [ResolvedProduct]
+    public let requiredMacroProducts: [ProductBuildDescription]
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
@@ -242,7 +244,7 @@ public final class SwiftTargetBuildDescription {
     private let shouldGenerateTestObservation: Bool
 
     /// Whether to disable sandboxing (e.g. for macros).
-    private let disableSandbox: Bool
+    private let shouldDisableSandbox: Bool
 
     /// Create a new target description with target and build parameters.
     init(
@@ -253,10 +255,10 @@ public final class SwiftTargetBuildDescription {
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
-        requiredMacroProducts: [ResolvedProduct] = [],
+        requiredMacroProducts: [ProductBuildDescription] = [],
         testTargetRole: TestTargetRole? = nil,
         shouldGenerateTestObservation: Bool = false,
-        disableSandbox: Bool,
+        shouldDisableSandbox: Bool,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -269,6 +271,7 @@ public final class SwiftTargetBuildDescription {
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
+
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         if let testTargetRole {
             self.testTargetRole = testTargetRole
@@ -278,13 +281,13 @@ public final class SwiftTargetBuildDescription {
             self.testTargetRole = nil
         }
 
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.tempsPath = target.tempsPath(self.buildParameters)
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.shouldGenerateTestObservation = shouldGenerateTestObservation
-        self.disableSandbox = disableSandbox
+        self.shouldDisableSandbox = shouldDisableSandbox
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
 
@@ -292,7 +295,7 @@ public final class SwiftTargetBuildDescription {
             target: target,
             toolsVersion: toolsVersion,
             additionalFileRules: additionalFileRules,
-            buildParameters: buildParameters,
+            buildParameters: self.buildParameters,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             observabilityScope: observabilityScope
@@ -332,7 +335,10 @@ public final class SwiftTargetBuildDescription {
             return
         }
 
-        guard self.buildParameters.triple.isDarwin(), self.buildParameters.testingParameters.experimentalTestOutput else {
+        guard 
+            self.buildParameters.triple.isDarwin() &&
+            self.buildParameters.testingParameters.experimentalTestOutput
+        else {
             return
         }
 
@@ -412,21 +418,25 @@ public final class SwiftTargetBuildDescription {
 
         #if BUILD_MACROS_AS_DYLIBS
         self.requiredMacroProducts.forEach { macro in
-            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", self.buildParameters.binaryPath(for: macro).pathString]
+            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", macro.binaryPath.pathString]
         }
         #else
         try self.requiredMacroProducts.forEach { macro in
-            if let macroTarget = macro.targets.first {
-                let executablePath = try self.buildParameters.binaryPath(for: macro).pathString
+            if let macroTarget = macro.product.targets.first {
+                let executablePath = try macro.binaryPath.pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
-                throw InternalError("macro product \(macro.name) has no targets") // earlier validation should normally catch this
+                throw InternalError("macro product \(macro.product.name) has no targets") // earlier validation should normally catch this
             }
         }
         #endif
 
-        if self.disableSandbox {
-            let toolchainSupportsDisablingSandbox = DriverSupport.checkSupportedFrontendFlags(flags: ["-disable-sandbox"], toolchain: self.buildParameters.toolchain, fileSystem: fileSystem)
+        if self.shouldDisableSandbox {
+            let toolchainSupportsDisablingSandbox = DriverSupport.checkSupportedFrontendFlags(
+                flags: ["-disable-sandbox"],
+                toolchain: self.buildParameters.toolchain,
+                fileSystem: fileSystem
+            )
             if toolchainSupportsDisablingSandbox {
                 args += ["-disable-sandbox"]
             } else {
@@ -443,7 +453,7 @@ public final class SwiftTargetBuildDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() throws -> [String] {
         var args = [String]()
-        args += try self.buildParameters.targetTripleArgs(for: self.target)
+        args += try self.buildParameters.tripleArgs(for: self.target)
 
         // pass `-v` during verbose builds.
         if self.buildParameters.outputParameters.isVerbose {
@@ -818,7 +828,7 @@ public final class SwiftTargetBuildDescription {
         // Include path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if target.type == .macro {
-            flags += try ["-I", self.buildParameters.toolchain.hostLibDir.pathString]
+            flags += try ["-I", self.defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 

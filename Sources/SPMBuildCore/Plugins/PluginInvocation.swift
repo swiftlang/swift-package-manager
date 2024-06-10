@@ -402,8 +402,8 @@ extension ModulesGraph {
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem,
         builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
-    ) throws -> [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] {
-        var pluginResultsByTarget: [ResolvedTarget.ID: (target: ResolvedTarget, results: [BuildToolPluginInvocationResult])] = [:]
+    ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
+        var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
         for target in self.allTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
@@ -452,7 +452,7 @@ extension ModulesGraph {
                 let toolPaths = accessibleTools.values.map { $0.path }.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
-                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
+                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, target.buildTriple.rawValue, pluginTarget.name)
 
                 // Determine the set of directories under which plugins are allowed to write. We always include just the output directory, and for now there is no possibility of opting into others.
                 let writableDirectories = [outputDir]
@@ -603,7 +603,7 @@ extension ModulesGraph {
     }
 
     public static func computePluginGeneratedFiles(
-        target: ResolvedTarget,
+        target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription],
         buildParameters: BuildParameters,
@@ -675,7 +675,7 @@ public extension PluginTarget {
                 executableOrBinaryTarget = target
             case .product(let productRef, _):
                 guard
-                    let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }),
+                    let product = packageGraph.product(for: productRef.name, destination: .tools),
                     let executableTarget = product.targets.map({ $0.underlying }).executables.spm_only
                 else {
                     throw StringError("no product named \(productRef.name)")
@@ -749,7 +749,7 @@ public struct BuildToolPluginInvocationResult {
     public var package: ResolvedPackage
 
     /// The target in that package to which the plugin was applied.
-    public var target: ResolvedTarget
+    public var target: ResolvedModule
 
     /// If the plugin finished successfully.
     public var succeeded: Bool

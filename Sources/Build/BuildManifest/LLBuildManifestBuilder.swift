@@ -316,49 +316,21 @@ extension TargetBuildDescription {
     }
 }
 
-extension ResolvedModule {
-    public func getCommandName(config: String) -> String {
-        "C." + self.getLLBuildTargetName(config: config)
-    }
-
-    public func getLLBuildTargetName(config: String) -> String {
-        "\(name)-\(config).module"
-    }
-
-    public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(name)-\(config).module-resources"
+extension TargetBuildDescription {
+    package var llbuildResourcesCmdName: String {
+        "\(self.target.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
-extension ResolvedProduct {
-    public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config).exe"
-        let potentialLibraryTargetName = "\(name)-\(config).dylib"
-
-        switch type {
-        case .library(.dynamic):
-            return potentialLibraryTargetName
-        case .test:
-            return "\(name)-\(config).test"
-        case .library(.static):
-            return "\(name)-\(config).a"
-        case .library(.automatic):
-            throw InternalError("automatic library not supported")
-        case .executable, .snippet:
-            return potentialExecutableTargetName
-        case .macro:
-            #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryTargetName
-            #else
-            return potentialExecutableTargetName
-            #endif
-        case .plugin:
-            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
-        }
+extension ClangTargetBuildDescription {
+    package var llbuildTargetName: String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
+}
 
-    public func getCommandName(config: String) throws -> String {
-        try "C." + self.getLLBuildTargetName(config: config)
+extension ResolvedModule {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix).module"
     }
 }
 

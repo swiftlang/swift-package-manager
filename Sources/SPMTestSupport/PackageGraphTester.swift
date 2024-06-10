@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,8 +17,8 @@ import struct Basics.IdentifiableSet
 import PackageModel
 import PackageGraph
 
-public func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) -> Void) {
-    result(PackageGraphResult(graph))
+package func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) throws -> Void) rethrows {
+    try result(PackageGraphResult(graph))
 }
 
 public final class PackageGraphResult {
@@ -49,8 +49,8 @@ public final class PackageGraphResult {
     public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.allTargets
-                .filter{ $0.type != .test }
-                .map{ $0.name }
+                .filter { $0.type != .test }
+                .map { $0.name }
                 .sorted(), targets.sorted(), file: file, line: line)
     }
 
@@ -86,28 +86,45 @@ public final class PackageGraphResult {
         XCTAssertEqual(products, Set(reachableBuildProducts), file: file, line: line)
     }
 
-    public func checkTarget(
+    package func checkTarget(
         _ name: String,
+        destination: BuildTriple = .destination,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
     ) {
-        guard let target = find(target: name) else {
+        let target = graph.target(for: name, destination: destination)
+
+        guard let target else {
             return XCTFail("Target \(name) not found", file: file, line: line)
         }
+
         body(ResolvedTargetResult(target))
+    }
+
+    package func checkTargets(
+        _ name: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: ([ResolvedTargetResult]) throws -> Void
+    ) rethrows {
+        try body(graph.allTargets.filter { $0.name == name }.map(ResolvedTargetResult.init))
     }
 
     public func checkProduct(
         _ name: String,
+        destination: BuildTriple = .destination,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedProductResult) -> Void
     ) {
-        guard let target = find(product: name) else {
+        let product = graph.product(for: name, destination: destination)
+
+        guard let product else {
             return XCTFail("Product \(name) not found", file: file, line: line)
         }
-        body(ResolvedProductResult(target))
+
+        body(ResolvedProductResult(product))
     }
 
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
@@ -118,19 +135,11 @@ public final class PackageGraphResult {
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
-    public func find(target: String) -> ResolvedTarget? {
-        return graph.allTargets.first(where: { $0.name == target })
-    }
-
-    public func find(product: String) -> ResolvedProduct? {
-        return graph.allProducts.first(where: { $0.name == product })
-    }
-
     public func find(package: PackageIdentity) -> ResolvedPackage? {
         return graph.packages.first(where: { $0.identity == package })
     }
 
-    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedTarget> {
+    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
         let recursiveBuildTargetDependencies = try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
@@ -148,10 +157,10 @@ public final class PackageGraphResult {
     }
 }
 
-public final class ResolvedTargetResult {
-    private let target: ResolvedTarget
+package final class ResolvedTargetResult {
+    let target: ResolvedModule
 
-    init(_ target: ResolvedTarget) {
+    init(_ target: ResolvedModule) {
         self.target = target
     }
 
@@ -159,7 +168,11 @@ public final class ResolvedTargetResult {
         XCTAssertEqual(Set(dependencies), Set(target.dependencies.map({ $0.name })), file: file, line: line)
     }
 
-    public func checkDependency(
+    package func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(Set(dependencies), Set(target.dependencies.map({ $0.name })), file: file, line: line)
+    }
+
+    package func checkDependency(
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
@@ -175,8 +188,10 @@ public final class ResolvedTargetResult {
         XCTAssertEqual(type, target.type, file: file, line: line)
     }
 
-    public func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
-        let targetPlatforms = Dictionary(uniqueKeysWithValues: target.supportedPlatforms.map({ ($0.platform.name, $0.version.versionString) }))
+    package func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+        let targetPlatforms = Dictionary(
+            uniqueKeysWithValues: target.supportedPlatforms.map { ($0.platform.name, $0.version.versionString) }
+        )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
@@ -187,22 +202,30 @@ public final class ResolvedTargetResult {
             return self.target.getSupportedPlatform(for: platform, usingXCTest: self.target.type == .test)
         }
         let targetPlatforms = Dictionary(
-            uniqueKeysWithValues: derived
-                .map { ($0.platform.name, $0.version.versionString) }
+            uniqueKeysWithValues: derived.map { ($0.platform.name, $0.version.versionString) }
         )
         XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
     }
 
-    public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
-        let platform = target.getSupportedPlatform(for: platform, usingXCTest: target.type == .test)
+    package func checkDerivedPlatformOptions(
+        _ platform: PackageModel.Platform,
+        options: [String],
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        let platform = self.target.getSupportedPlatform(for: platform, usingXCTest: target.type == .test)
         XCTAssertEqual(platform.options, options, file: file, line: line)
+    }
+
+    public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(self.target.buildTriple, buildTriple, file: file, line: line)
     }
 }
 
-public final class ResolvedTargetDependencyResult {
-    private let dependency: ResolvedTarget.Dependency
+package final class ResolvedTargetDependencyResult {
+    private let dependency: ResolvedModule.Dependency
 
-    init(_ dependency: ResolvedTarget.Dependency) {
+    init(_ dependency: ResolvedModule.Dependency) {
         self.dependency = dependency
     }
 
@@ -216,6 +239,28 @@ public final class ResolvedTargetDependencyResult {
         line: UInt = #line
     ) {
         XCTAssert(!dependency.conditions.allSatisfy({ $0.satisfies(environment) }), file: file, line: line)
+    }
+
+    public func checkTarget(
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedTargetResult) -> Void
+    ) {
+        guard case let .target(target, _) = self.dependency else {
+            return XCTFail("Dependency \(dependency) is not a target", file: file, line: line)
+        }
+        body(ResolvedTargetResult(target))
+    }
+
+    public func checkProduct(
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedProductResult) -> Void
+    ) {
+        guard case let .product(product, _) = self.dependency else {
+            return XCTFail("Dependency \(dependency) is not a product", file: file, line: line)
+        }
+        body(ResolvedProductResult(product))
     }
 }
 
@@ -252,10 +297,26 @@ public final class ResolvedProductResult {
         let platform = product.getSupportedPlatform(for: platform, usingXCTest: product.isLinkingXCTest)
         XCTAssertEqual(platform.options, options, file: file, line: line)
     }
+
+    public func check(buildTriple: BuildTriple, file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(self.product.buildTriple, buildTriple, file: file, line: line)
+    }
+
+    package func checkTarget(
+        _ name: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedTargetResult) -> Void
+    ) {
+        guard let target = product.targets.first(where: { $0.name == name }) else {
+            return XCTFail("Target \(name) not found", file: file, line: line)
+        }
+        body(ResolvedTargetResult(target))
+    }
 }
 
-extension ResolvedTarget.Dependency {
-    public var name: String {
+extension ResolvedModule.Dependency {
+    package var name: String {
         switch self {
         case .target(let target, _):
             return target.name

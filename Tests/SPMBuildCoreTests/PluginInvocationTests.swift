@@ -33,11 +33,12 @@ final class PluginInvocationTests: XCTestCase {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/Foo/Plugins/FooPlugin/source.swift",
             "/Foo/Sources/FooTool/source.swift",
+            "/Foo/Sources/FooToolLib/source.swift",
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/SomeFile.abc"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
+        let graph = try loadModulesGraph(
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
@@ -64,8 +65,13 @@ final class PluginInvocationTests: XCTestCase {
                         ),
                         TargetDescription(
                             name: "FooTool",
-                            dependencies: [],
+                            dependencies: ["FooToolLib"],
                             type: .executable
+                        ),
+                        TargetDescription(
+                            name: "FooToolLib",
+                            dependencies: [],
+                            type: .regular
                         ),
                     ]
                 )
@@ -77,16 +83,25 @@ final class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            graph.check(targets: "Foo", "FooPlugin", "FooTool")
+            // "FooTool{Lib}" duplicated as it's present for both build tools and end products triples.
+            graph.check(targets: "Foo", "FooPlugin", "FooTool", "FooTool", "FooToolLib", "FooToolLib")
             graph.checkTarget("Foo") { target in
                 target.check(dependencies: "FooPlugin")
             }
-            graph.checkTarget("FooPlugin") { target in
+            graph.checkTarget("FooPlugin", destination: .tools) { target in
                 target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
-            graph.checkTarget("FooTool") { target in
-                target.check(type: .executable)
+            for destination: BuildTriple in [.tools, .destination] {
+                graph.checkTarget("FooTool", destination: destination) { target in
+                    target.check(type: .executable)
+                    target.check(buildTriple: destination)
+                    target.checkDependency("FooToolLib") { dependency in
+                        dependency.checkTarget {
+                            $0.check(buildTriple: destination)
+                        }
+                    }
+                }
             }
         }
 
@@ -191,13 +206,14 @@ final class PluginInvocationTests: XCTestCase {
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
-        let builtToolsDir = AbsolutePath("/path/to/build/debug")
         let pluginRunner = MockPluginScriptRunner()
+        let buildParameters = mockBuildParameters(
+            destination: .host,
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+        )
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
-            buildParameters: mockBuildParameters(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-            ),
+            buildParameters: buildParameters,
             additionalFileRules: [],
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
             pkgConfigDirectories: [],
@@ -205,11 +221,12 @@ final class PluginInvocationTests: XCTestCase {
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
         )
+        let builtToolsDir = AbsolutePath("/path/to/build/\(buildParameters.triple)/debug")
 
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
-        let (evalTargetID, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
+        let (_, (evalTarget, evalResults)) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
 
         XCTAssertEqual(evalResults.count, 1)
@@ -895,6 +912,7 @@ final class PluginInvocationTests: XCTestCase {
                 let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
                     buildParameters: mockBuildParameters(
+                        destination: .host,
                         environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                     ),
                     additionalFileRules: [],
@@ -1084,7 +1102,6 @@ final class PluginInvocationTests: XCTestCase {
                 }
             }
 
-
             XCTAssertEqual(count, 2)
         }
     }
@@ -1092,7 +1109,7 @@ final class PluginInvocationTests: XCTestCase {
     func checkParseArtifactsPlatformCompatibility(
         artifactSupportedTriples: [Triple],
         hostTriple: Triple
-    ) async throws -> [ResolvedTarget.ID: [BuildToolPluginInvocationResult]]  {
+    ) async throws -> [ResolvedModule.ID: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1240,6 +1257,7 @@ final class PluginInvocationTests: XCTestCase {
             return try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 buildParameters: mockBuildParameters(
+                    destination: .host,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 ),
                 additionalFileRules: [],

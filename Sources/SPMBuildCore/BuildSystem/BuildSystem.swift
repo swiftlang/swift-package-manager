@@ -25,10 +25,10 @@ public enum BuildSubset {
     case allIncludingTests
 
     /// Represents a specific product.
-    case product(String)
+    case product(String, for: BuildParameters.Destination = .target)
 
     /// Represents a specific target.
-    case target(String)
+    case target(String, for: BuildParameters.Destination = .target)
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -74,7 +74,7 @@ extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            return try self.buildParameters.binaryPath(for: product)
+            try self.buildParameters.binaryPath(for: product)
         }
     }
 }
@@ -90,28 +90,6 @@ public protocol BuildPlan {
 
     func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
     func createREPLArguments() throws -> [String]
-}
-
-extension BuildPlan {
-    /// Parameters used for building a given target.
-    public func buildParameters(for target: ResolvedModule) -> BuildParameters {
-        switch target.buildTriple {
-        case .tools:
-            return self.toolsBuildParameters
-        case .destination:
-            return self.destinationBuildParameters
-        }
-    }
-
-    /// Parameters used for building a given product.
-    public func buildParameters(for product: ResolvedProduct) -> BuildParameters {
-        switch product.buildTriple {
-        case .tools:
-            return self.toolsBuildParameters
-        case .destination:
-            return self.destinationBuildParameters
-        }
-    }
 }
 
 public protocol BuildSystemFactory {

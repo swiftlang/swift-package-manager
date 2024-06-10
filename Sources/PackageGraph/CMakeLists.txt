@@ -35,7 +35,7 @@ add_library(PackageGraph
   Resolution/PlatformVersionProvider.swift
   Resolution/ResolvedPackage.swift
   Resolution/ResolvedProduct.swift
-  Resolution/ResolvedTarget.swift
+  Resolution/ResolvedModule.swift
   Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
