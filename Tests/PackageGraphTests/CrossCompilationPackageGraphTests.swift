@@ -83,7 +83,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 }
             }
 
-            result.checkProduct("MMIOMacros", destination: .destination) { result in
+            result.checkProduct("MMIOMacros") { result in
                 result.check(buildTriple: .tools)
             }
 
@@ -152,11 +152,11 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 }
             }
 
-            result.checkTarget("MMIOMacros", destination: .destination) { result in
+            result.checkTarget("MMIOMacros") { result in
                 result.check(buildTriple: .tools)
             }
 
-            result.checkTarget("MMIOMacrosTests", destination: .destination) { result in
+            result.checkTarget("MMIOMacrosTests") { result in
                 result.check(buildTriple: .tools)
             }
 
@@ -190,7 +190,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.check(buildTriple: .tools)
             }
 
-            result.checkProduct("MMIOPlugin", destination: .destination) { result in
+            result.checkProduct("MMIOPlugin") { result in
                 result.check(buildTriple: .tools)
             }
 
@@ -198,7 +198,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.check(buildTriple: .tools)
             }
 
-            result.checkTarget("MMIOPlugin", destination: .destination) { result in
+            result.checkTarget("MMIOPlugin") { result in
                 result.check(buildTriple: .tools)
             }
 
@@ -207,7 +207,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
                 result.check(dependencies: "MMIOPlugin", "MMIOMacros")
             }
 
-            result.checkTarget("MMIOMacro+PluginTests", destination: .destination) { result in
+            result.checkTarget("MMIOMacro+PluginTests") { result in
                 result.check(buildTriple: .tools)
                 result.check(dependencies: "MMIOPlugin", "MMIOMacros")
             }
