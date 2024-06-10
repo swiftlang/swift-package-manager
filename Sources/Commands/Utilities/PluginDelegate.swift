@@ -389,8 +389,19 @@ final class PluginDelegate: PluginInvocationDelegate {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
+        // FIXME: This is currently necessary because `target(for:destination:)` can
+        // produce a module that is targeting host when `targetName`` corresponds to
+        // a macro, plugin, or a test. Ideally we'd ask a build system for a`BuildSubset`
+        // and get the destination from there but there are other places that need
+        // refactoring in that way as well.
+        let buildParameters = if target.buildTriple == .tools {
+                try swiftCommandState.toolsBuildParameters
+            } else {
+                try swiftCommandState.productsBuildParameters
+            }
+
         // Build the target, if needed.
-        try buildSystem.build(subset: .target(target.name))
+        try buildSystem.build(subset: .target(target.name, for: buildParameters.destination))
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
@@ -419,7 +430,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         guard let package = packageGraph.package(for: target) else {
             throw StringError("could not determine the package for target “\(target.name)”")
         }
-        let outputDir = try buildSystem.buildPlan.toolsBuildParameters.dataPath.appending(
+        let outputDir = try buildParameters.dataPath.appending(
             components: "extracted-symbols",
             package.identity.description,
             target.name
@@ -430,7 +441,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let result = try symbolGraphExtractor.extractSymbolGraph(
             module: target,
             buildPlan: try buildSystem.buildPlan,
-            buildParameters: buildSystem.buildPlan.destinationBuildParameters,
+            buildParameters: buildParameters,
             outputRedirection: .collect,
             outputDirectory: outputDir,
             verboseOutput: self.swiftCommandState.logLevel <= .info
