@@ -88,7 +88,7 @@ public final class PackageGraphResult {
 
     public func checkTarget(
         _ name: String,
-        destination: BuildTriple = .destination,
+        destination: BuildTriple? = .none,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedTargetResult) -> Void
@@ -113,7 +113,7 @@ public final class PackageGraphResult {
 
     public func checkProduct(
         _ name: String,
-        destination: BuildTriple = .destination,
+        destination: BuildTriple? = .none,
         file: StaticString = #file,
         line: UInt = #line,
         body: (ResolvedProductResult) -> Void
