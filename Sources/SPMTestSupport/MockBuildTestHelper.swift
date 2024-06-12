@@ -254,6 +254,29 @@ public func mockBuildPlan(
         observabilityScope: observabilityScope
     )
 }
+
+package func mockPluginTools(
+    plugins: IdentifiableSet<ResolvedModule>,
+    fileSystem: any FileSystem,
+    buildParameters: BuildParameters,
+    hostTriple: Basics.Triple
+) throws -> [ResolvedModule.ID: [String: (path: AbsolutePath, triples: [String]?)]] {
+    var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: (path: AbsolutePath, triples: [String]?)]] = [:]
+    for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
+        let accessibleTools = try plugin.preparePluginTools(
+            fileSystem: fileSystem,
+            environment: buildParameters.buildEnvironment,
+            for: hostTriple
+        ) { name, path in
+            buildParameters.buildPath.appending(path)
+        }
+
+        accessibleToolsPerPlugin[plugin.id] = accessibleTools
+    }
+
+    return accessibleToolsPerPlugin
+}
+
 enum BuildError: Swift.Error {
     case error(String)
 }

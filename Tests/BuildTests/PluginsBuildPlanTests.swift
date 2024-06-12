@@ -21,7 +21,9 @@ final class PluginsBuildPlanTests: XCTestCase {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)
             XCTAssertMatch(stdout, .contains("Build complete!"))
-            XCTAssertTrue(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugins/tools/build.db"))))
+            // FIXME: This is temporary until build of plugin tools is extracted into its own command.
+            XCTAssertTrue(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugin-tools.db"))))
+            XCTAssertTrue(localFileSystem.exists(fixturePath.appending(RelativePath(".build/build.db"))))
         }
     }
 

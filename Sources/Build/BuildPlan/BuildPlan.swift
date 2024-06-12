@@ -184,6 +184,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Build parameters used for tools.
     public let toolsBuildParameters: BuildParameters
 
+    package let llbuildManifestPath: AbsolutePath
+    package let buildDescriptionPath: AbsolutePath
+
     /// The package graph.
     public let graph: ModulesGraph
 
@@ -257,6 +260,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     public init(
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
+        customLLBuildManifestPath: AbsolutePath? = nil,
+        customBuildDescriptionPath: AbsolutePath? = nil,
         graph: ModulesGraph,
         additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:],
@@ -267,6 +272,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     ) throws {
         self.destinationBuildParameters = destinationBuildParameters
         self.toolsBuildParameters = toolsBuildParameters
+        self.llbuildManifestPath = customLLBuildManifestPath ?? destinationBuildParameters.llbuildManifest
+        self.buildDescriptionPath = customBuildDescriptionPath ?? destinationBuildParameters.buildDescriptionPath
         self.graph = graph
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
