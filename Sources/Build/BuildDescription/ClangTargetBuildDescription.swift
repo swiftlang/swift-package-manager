@@ -57,8 +57,11 @@ public final class ClangTargetBuildDescription {
             return .none
         }
 
-        let bundleName = target.underlying.c99name
-        return self.buildParameters.bundlePath(named: bundleName)
+        if let bundleName = target.underlying.potentialBundleName?.spm_mangledToC99ExtendedIdentifier() {
+           return self.buildParameters.bundlePath(named: bundleName)
+       } else {
+           return .none
+       }
     }
 
     /// The modulemap file for this target, if any.
