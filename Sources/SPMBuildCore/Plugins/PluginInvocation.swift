@@ -373,8 +373,22 @@ fileprivate extension PluginToHostMessage {
 }
 
 extension ModulesGraph {
+    public func pluginsPerModule(
+        satisfying buildEnvironment: BuildEnvironment
+    ) -> [ResolvedModule.ID: [ResolvedModule]] {
+        var pluginsPerModule = [ResolvedModule.ID: [ResolvedModule]]()
+        for module in self.allModules.sorted(by: { $0.name < $1.name }) {
+            let pluginDependencies = module.pluginDependencies(
+                satisfying: buildEnvironment
+            )
+            if !pluginDependencies.isEmpty {
+                pluginsPerModule[module.id] = pluginDependencies
+            }
+        }
+        return pluginsPerModule
+    }
 
-    /// Traverses the graph of reachable targets in a package graph, and applies plugins to targets as needed. Each
+    /// Traverses the given set of targets with their plugin dependencies and applies plugins as needed. Each
     /// plugin is passed an input context that provides information about the target to which it is being applied
     /// (along with some information about that target's dependency closure). The plugin is expected to generate an
     /// output in the form of commands that will later be run before or during the build, and can also emit debug
@@ -395,6 +409,8 @@ extension ModulesGraph {
     ///
     // TODO: Convert this function to be asynchronous, taking a completion closure. This may require changes to the package graph APIs to make them accessible concurrently.
     public func invokeBuildToolPlugins(
+        pluginsPerTarget: [ResolvedModule.ID: [ResolvedModule]],
+        pluginTools: [ResolvedModule.ID: [String: (path: AbsolutePath, triples: [String]?)]],
         outputDir: AbsolutePath,
         buildParameters: BuildParameters,
         additionalFileRules: [FileRuleDescription],
@@ -402,50 +418,11 @@ extension ModulesGraph {
         pkgConfigDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem,
-        builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
+        fileSystem: FileSystem
     ) throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
         typealias PluginTools = [String: (path: AbsolutePath, triples: [String]?)]
-
-        var pluginsPerModule = OrderedDictionary<ResolvedModule.ID, [ResolvedModule]>()
-        for module in self.allModules.sorted(by: { $0.name < $1.name }) {
-            let pluginDependencies = module.pluginDependencies(
-                satisfying: buildParameters.buildEnvironment
-            )
-            if !pluginDependencies.isEmpty {
-                pluginsPerModule[module.id] = pluginDependencies
-            }
-        }
-
-        if pluginsPerModule.isEmpty {
-            return [:]
-        }
-
-        var accessibleToolsPerPlugin: [ResolvedModule.ID: PluginTools] = [:]
-        for plugin in pluginsPerModule.values.flatMap({ $0 }) {
-            if accessibleToolsPerPlugin[plugin.id] != nil {
-                continue
-            }
-
-            // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
-            // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-            let accessibleTools = try plugin.preparePluginTools(
-                fileSystem: fileSystem,
-                environment: buildParameters.buildEnvironment,
-                for: try pluginScriptRunner.hostTriple
-            ) { name, path in
-                if let result = try builtToolHandler(name, path) {
-                    return result
-                } else {
-                    return buildParameters.buildPath.appending(path)
-                }
-            }
-
-            accessibleToolsPerPlugin[plugin.id] = accessibleTools
-        }
-
         var pluginResultsByTarget: [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] = [:]
-        for (moduleID, plugins) in pluginsPerModule {
+        for (moduleID, plugins) in pluginsPerTarget {
             guard let module = self.allModules[moduleID] else {
                 throw InternalError("could not find target for \(moduleID)")
             }
@@ -461,7 +438,7 @@ extension ModulesGraph {
                 let pluginTarget = plugin.underlying as! PluginModule
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                guard let accessibleTools = accessibleToolsPerPlugin[plugin.id] else {
+                guard let accessibleTools = pluginTools[plugin.id] else {
                     throw InternalError("No tools found for plugin \(pluginTarget.name)")
                 }
                 
