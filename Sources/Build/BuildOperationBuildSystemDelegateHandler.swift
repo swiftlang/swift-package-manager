@@ -644,7 +644,7 @@ final class CopyCommand: CustomLLBuildCommand {
 }
 
 /// Convenient llbuild build system delegate implementation
-final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
+final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let outputStream: ThreadSafeOutputByteStream
     private let progressAnimation: ProgressAnimationProtocol
     var commandFailureHandler: (() -> Void)?

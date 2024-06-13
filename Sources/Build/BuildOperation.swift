@@ -56,7 +56,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let scratchDirectory: AbsolutePath
 
     /// The llbuild build delegate reference.
-    private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
+    private var progressTracker: LLBuildProgressTracker?
 
     /// The llbuild build system reference.
     private var buildSystem: SPMLLBuild.BuildSystem?
@@ -366,7 +366,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         // delegate is only available after createBuildSystem is called
-        self.buildSystemDelegate?.buildStart(configuration: self.productsBuildParameters.configuration)
+        self.progressTracker?.buildStart(configuration: self.productsBuildParameters.configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
@@ -386,7 +386,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subsetDescriptor = nil
         }
 
-        self.buildSystemDelegate?.buildComplete(
+        self.progressTracker?.buildComplete(
             success: success,
             duration: duration,
             subsetDescriptor: subsetDescriptor
@@ -461,43 +461,43 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Compile the plugin, getting back a PluginCompilationResult.
         class Delegate: PluginScriptCompilerDelegate {
             let preparationStepName: String
-            let buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
-            init(preparationStepName: String, buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?) {
+            let progressTracker: LLBuildProgressTracker?
+            init(preparationStepName: String, progressTracker: LLBuildProgressTracker?) {
                 self.preparationStepName = preparationStepName
-                self.buildSystemDelegate = buildSystemDelegate
+                self.progressTracker = progressTracker
             }
             func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
-                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+                self.progressTracker?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {
-                self.buildSystemDelegate?.preparationStepHadOutput(
+                self.progressTracker?.preparationStepHadOutput(
                     preparationStepName,
                     output: result.commandLine.joined(separator: " "),
                     verboseOnly: true
                 )
                 if !result.compilerOutput.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(
+                    self.progressTracker?.preparationStepHadOutput(
                         preparationStepName,
                         output: result.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
                 // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
-                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+                self.progressTracker?.preparationStepStarted(preparationStepName)
                 if !cachedResult.compilerOutput.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(
+                    self.progressTracker?.preparationStepHadOutput(
                         preparationStepName,
                         output: cachedResult.compilerOutput,
                         verboseOnly: false
                     )
                 }
-                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
+                self.progressTracker?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }
         }
-        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
+        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", progressTracker: self.progressTracker)
         let result = try temp_await {
             pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
@@ -774,7 +774,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Create the build delegate.
-        let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
+        let progressTracker = LLBuildProgressTracker(
             buildSystem: self,
             buildExecutionContext: buildExecutionContext,
             outputStream: self.outputStream,
@@ -783,18 +783,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope,
             delegate: self.delegate
         )
-        self.buildSystemDelegate = buildSystemDelegate
+        self.progressTracker = progressTracker
 
         let databasePath = self.scratchDirectory.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
-            delegate: buildSystemDelegate,
+            delegate: progressTracker,
             schedulerLanes: self.productsBuildParameters.workers
         )
 
         // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
-        buildSystemDelegate.commandFailureHandler = {
+        progressTracker.commandFailureHandler = {
             buildSystem.cancel()
             self.delegate?.buildSystemDidCancel(self)
         }
