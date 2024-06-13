@@ -18,7 +18,6 @@ import SourceControl
 import struct TSCBasic.ByteString
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
-import class TSCBasic.InMemoryFileSystem
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {

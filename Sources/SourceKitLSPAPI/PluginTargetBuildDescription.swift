@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+private import Basics
+
 import struct Foundation.URL
 
 import struct PackageGraph.ResolvedModule
@@ -18,6 +20,8 @@ private import class PackageLoading.ManifestLoader
 internal import struct PackageModel.ToolsVersion
 private import class PackageModel.UserToolchain
 import enum PackageGraph.BuildTriple
+
+private import enum TSCBasic.ProcessEnv
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule
@@ -45,7 +49,15 @@ struct PluginTargetBuildDescription: BuildTarget {
 
     func compileArguments(for fileURL: URL) throws -> [String] {
         // FIXME: This is very odd and we should clean this up by merging `ManifestLoader` and `DefaultPluginScriptRunner` again.
-        let loader = ManifestLoader(toolchain: try UserToolchain(swiftSDK: .hostSwiftSDK()))
+        let environment = EnvironmentVariables.process()
+        let loader = ManifestLoader(
+            toolchain: try UserToolchain(
+                swiftSDK: .hostSwiftSDK(
+                    environment: environment
+                ),
+                environment: environment
+            )
+        )
         var args = loader.interpreterFlags(for: self.toolsVersion)
         // Note: we ignore the `fileURL` here as the expectation is that we get a commandline for the entire target in case of Swift. Plugins are always assumed to only consist of Swift files.
         args += sources.map { $0.path }

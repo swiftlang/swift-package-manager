@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -173,6 +173,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: any FileSystem,
+        environment: EnvironmentVariables = .process(),
         location: Location,
         authorizationProvider: (any AuthorizationProvider)? = .none,
         registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
@@ -189,6 +190,7 @@ public class Workspace {
     ) throws {
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -236,6 +238,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: FileSystem? = .none,
+        environment: EnvironmentVariables = .process(),
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -243,6 +246,7 @@ public class Workspace {
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
@@ -253,12 +257,14 @@ public class Workspace {
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
@@ -331,6 +337,7 @@ public class Workspace {
     public static func _init(
         // core
         fileSystem: FileSystem,
+        environment: EnvironmentVariables,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -359,6 +366,7 @@ public class Workspace {
     ) throws -> Workspace {
         try .init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -388,6 +396,7 @@ public class Workspace {
     private init(
         // core
         fileSystem: FileSystem,
+        environment: EnvironmentVariables,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         registryAuthorizationProvider: AuthorizationProvider?,
@@ -426,7 +435,13 @@ public class Workspace {
         )
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try customHostToolchain ?? UserToolchain(
+            swiftSDK: .hostSwiftSDK(
+                environment: environment
+            ),
+            environment: environment,
+            fileSystem: fileSystem
+        )
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,

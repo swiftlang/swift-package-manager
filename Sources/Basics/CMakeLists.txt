@@ -29,6 +29,7 @@ add_library(Basics
   Errors.swift
   FileSystem/AbsolutePath.swift
   FileSystem/FileSystem+Extensions.swift
+  FileSystem/InMemoryFileSystem.swift
   FileSystem/NativePathExtensions.swift
   FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
