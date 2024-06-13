@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2018-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2018-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -647,7 +647,6 @@ final class CopyCommand: CustomLLBuildCommand {
 final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let outputStream: ThreadSafeOutputByteStream
     private let progressAnimation: ProgressAnimationProtocol
-    var commandFailureHandler: (() -> Void)?
     private let logLevel: Basics.Diagnostic.Severity
     private weak var delegate: SPMBuildCore.BuildSystemDelegate?
     private let buildSystem: SPMBuildCore.BuildSystem
@@ -721,7 +720,12 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func hadCommandFailure() {
-        self.commandFailureHandler?()
+        do {
+            try self.buildSystem.cancel(deadline: .now())
+        } catch {
+            self.observabilityScope.emit(error: "failed to cancel the build: \(error)")
+        }
+        self.delegate?.buildSystemDidCancel(self.buildSystem)
     }
 
     func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
@@ -958,7 +962,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
-        self.commandFailureHandler?()
+        self.hadCommandFailure()
     }
 
     func buildStart(configuration: BuildConfiguration) {

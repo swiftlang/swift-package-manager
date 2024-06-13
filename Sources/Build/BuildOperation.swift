@@ -786,20 +786,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.progressTracker = progressTracker
 
         let databasePath = self.scratchDirectory.appending("build.db").pathString
-        let buildSystem = SPMLLBuild.BuildSystem(
+
+        return SPMLLBuild.BuildSystem(
             buildFile: self.productsBuildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
             delegate: progressTracker,
             schedulerLanes: self.productsBuildParameters.workers
         )
-
-        // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
-        progressTracker.commandFailureHandler = {
-            buildSystem.cancel()
-            self.delegate?.buildSystemDidCancel(self)
-        }
-
-        return buildSystem
     }
 
     /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
